@@ -4,7 +4,7 @@ import AppAvax from '@obsidiansystems/hw-app-avalanche'
 //@ts-ignore
 import Eth from '@ledgerhq/hw-app-eth'
 
-import EthereumjsCommon from '@ethereumjs/common'
+import Common from '@ethereumjs/common'
 import { Transaction } from '@ethereumjs/tx'
 
 import Transport from '@ledgerhq/hw-transport'
@@ -16,7 +16,7 @@ import { ava, bintools } from '@/AVA'
 import bippath from 'bip32-path'
 import createHash from 'create-hash'
 import store from '@/store'
-import { importPublic, publicToAddress, bnToRlp, rlp } from 'ethereumjs-util'
+import { importPublic, publicToAddress, bnToRlp, rlp, BN as EthereumBN } from 'ethereumjs-util'
 import { UTXO as AVMUTXO } from 'avalanche/dist/apis/avm/utxos'
 import { AvaWalletCore } from '@/js/wallets/types'
 import { ITransaction } from '@/components/wallet/transfer/types'
@@ -106,7 +106,8 @@ class LedgerWallet extends AbstractHdWallet implements AvaWalletCore {
     }
 
     getTransport() {
-        return this.ethApp.transport
+        const trsprt = this.ethApp.transport
+        return trsprt as Transport
     }
 
     static async fromTransport(t: Transport) {
@@ -118,7 +119,7 @@ class LedgerWallet extends AbstractHdWallet implements AvaWalletCore {
         hd.publicKey = xpub.pubKey
         hd.chainCode = xpub.chainCode
 
-        const eth = new Eth(t, 'w0w')
+        const eth = new Eth(t as any, 'w0w')
         const ethRes = await eth.getAddress(LEDGER_ETH_ACCOUNT_PATH, false, true)
         const hdEth = new HDKey()
         // @ts-ignore
@@ -155,7 +156,11 @@ class LedgerWallet extends AbstractHdWallet implements AvaWalletCore {
             (txType === AVMConstants.IMPORTTX && chainId === 'X') ||
             (txType === PlatformVMConstants.IMPORTTX && chainId === 'P')
         ) {
-            items = ((tx as AVMImportTx) || PlatformImportTx).getImportInputs()
+            if (txType === AVMConstants.IMPORTTX && chainId === 'X') {
+                items = (tx as AVMImportTx).getImportInputs()
+            } else if (txType === PlatformVMConstants.IMPORTTX && chainId === 'P') {
+                items = (tx as PlatformImportTx).getImportInputs()
+            }
         }
 
         const hrp = getPreferredHRP(ava.getNetworkID())
@@ -302,7 +307,13 @@ class LedgerWallet extends AbstractHdWallet implements AvaWalletCore {
             (txType === PlatformVMConstants.IMPORTTX && chainId === 'P') ||
             (txType === EVMConstants.IMPORTTX && chainId === 'C')
         ) {
-            items = ((tx as AVMImportTx) || PlatformImportTx || EVMImportTx).getImportInputs()
+            if (txType === AVMConstants.IMPORTTX && chainId === 'X') {
+                items = (tx as AVMImportTx).getImportInputs()
+            } else if (txType === PlatformVMConstants.IMPORTTX && chainId === 'P') {
+                items = (tx as PlatformImportTx).getImportInputs()
+            } else if (txType === EVMConstants.IMPORTTX && chainId === 'C') {
+                items = (tx as EVMImportTx).getImportInputs()
+            }
         }
 
         // Try to get operations, it will fail if there are none, ignore and continue
@@ -586,10 +597,7 @@ class LedgerWallet extends AbstractHdWallet implements AvaWalletCore {
         unsignedTx: UnsignedTx,
         chainId: ChainIdType
     ): ILedgerBlockMessage[] {
-        const tx =
-            ((unsignedTx as
-                | AVMUnsignedTx
-                | PlatformUnsignedTx).getTransaction() as AddValidatorTx) || AddDelegatorTx
+        const tx = unsignedTx.getTransaction()
         const txType = tx.getTxType()
         const messages: ILedgerBlockMessage[] = []
 
@@ -597,20 +605,21 @@ class LedgerWallet extends AbstractHdWallet implements AvaWalletCore {
             (txType === PlatformVMConstants.ADDDELEGATORTX && chainId === 'P') ||
             (txType === PlatformVMConstants.ADDVALIDATORTX && chainId === 'P')
         ) {
+            const validatorTx = tx as AddValidatorTx | AddDelegatorTx
             const format = 'YYYY-MM-DD H:mm:ss UTC'
 
-            const nodeID = bintools.cb58Encode(tx.getNodeID())
-            const startTime = moment(tx.getStartTime().toNumber() * 1000)
+            const nodeID = bintools.cb58Encode(validatorTx.getNodeID())
+            const startTime = moment(validatorTx.getStartTime().toNumber() * 1000)
                 .utc()
                 .format(format)
 
-            const endTime = moment(tx.getEndTime().toNumber() * 1000)
+            const endTime = moment(validatorTx.getEndTime().toNumber() * 1000)
                 .utc()
                 .format(format)
 
-            const stakeAmt = bnToBig(tx.getStakeAmount(), 9)
+            const stakeAmt = bnToBig(validatorTx.getStakeAmount(), 9)
 
-            const rewardOwners = tx.getRewardOwners()
+            const rewardOwners = validatorTx.getRewardOwners()
             const hrp = ava.getHRP()
             const rewardAddrs = rewardOwners
                 .getOutput()
@@ -632,9 +641,9 @@ class LedgerWallet extends AbstractHdWallet implements AvaWalletCore {
                 value: `${rewardAddrs.join('\n')}`,
             })
             // @ts-ignore
-            if (tx.delegationFee) {
+            if (validatorTx.delegationFee) {
                 // @ts-ignore
-                messages.push({ title: 'Delegation Fee', value: `${tx.delegationFee}%` })
+                messages.push({ title: 'Delegation Fee', value: `${validatorTx.delegationFee}%` })
             }
             messages.push({ title: 'Fee', value: '0' })
         }
@@ -697,7 +706,7 @@ class LedgerWallet extends AbstractHdWallet implements AvaWalletCore {
         let msgs: ILedgerBlockMessage[] = []
         try {
             const txData = '0x' + tx.data.toString('hex')
-            const data: AbiParsed = decodeTxData(txData, tx.value)
+            const data: AbiParsed = decodeTxData(txData, new EthereumBN(tx.value.toString()))
 
             const contractAddr: ILedgerBlockMessage = {
                 title: 'Contract',
@@ -809,13 +818,13 @@ class LedgerWallet extends AbstractHdWallet implements AvaWalletCore {
 
     async signEvm(tx: Transaction) {
         const rawUnsignedTx = rlp.encode([
-            bnToRlp(tx.nonce),
-            bnToRlp(tx.gasPrice),
-            bnToRlp(tx.gasLimit),
+            bnToRlp(new EthereumBN(tx.nonce.toString())),
+            bnToRlp(new EthereumBN(tx.gasPrice.toString())),
+            bnToRlp(new EthereumBN(tx.gasLimit.toString())),
             tx.to !== undefined ? tx.to.buf : Buffer.from([]),
-            bnToRlp(tx.value),
+            bnToRlp(new EthereumBN(tx.value.toString())),
             tx.data,
-            bnToRlp(new BN(tx.getChainId())),
+            bnToRlp(new EthereumBN(tx.getChainId())),
             Buffer.from([]),
             Buffer.from([]),
         ])
@@ -835,33 +844,28 @@ class LedgerWallet extends AbstractHdWallet implements AvaWalletCore {
             )
             store.commit('Ledger/closeModal')
 
-            const signatureBN = {
-                v: new BN(signature.v, 16),
-                r: new BN(signature.r, 16),
-                s: new BN(signature.s, 16),
-            }
-
             const chainId = await web3.eth.getChainId()
             const networkId = await web3.eth.net.getId()
-            const chainParams = {
-                common: EthereumjsCommon.forCustomChain(
-                    'mainnet',
-                    { networkId, chainId },
-                    'istanbul'
-                ),
-            }
+            
+            const common = Common.forCustomChain(
+                'mainnet',
+                { networkId, chainId },
+                'istanbul'
+            )
 
             const signedTx = Transaction.fromTxData(
                 {
-                    nonce: tx.nonce,
-                    gasPrice: tx.gasPrice,
-                    gasLimit: tx.gasLimit,
+                    nonce: tx.nonce.toString(),
+                    gasPrice: tx.gasPrice.toString(),
+                    gasLimit: tx.gasLimit.toString(),
                     to: tx.to,
-                    value: tx.value,
+                    value: tx.value.toString(),
                     data: tx.data,
-                    ...signatureBN,
+                    v: signature.v,
+                    r: signature.r,
+                    s: signature.s,
                 },
-                chainParams
+                { common: common as any }
             )
             return signedTx
         } catch (e) {

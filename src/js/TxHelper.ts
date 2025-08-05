@@ -24,7 +24,7 @@ import { UnsignedTx as EVMUnsignedTx, EVMConstants } from 'avalanche/dist/apis/e
 import { web3 } from '@/evm'
 import ERC721Token from '@/js/ERC721Token'
 import { Transaction } from '@ethereumjs/tx'
-import EthereumjsCommon from '@ethereumjs/common'
+import Common from '@ethereumjs/common'
 import Erc20Token from '@/js/Erc20Token'
 
 export async function buildUnsignedTransaction(
@@ -225,7 +225,7 @@ export async function buildEvmTransferNativeTx(
     const chainId = await web3.eth.getChainId()
     const networkId = await web3.eth.net.getId()
     const chainParams = {
-        common: EthereumjsCommon.forCustomChain('mainnet', { networkId, chainId }, 'istanbul'),
+        common: Common.forCustomChain('mainnet', { networkId, chainId }, 'istanbul') as any,
     }
 
     const tx = new Transaction(
@@ -254,7 +254,7 @@ export async function buildEvmTransferErc20Tx(
     const chainId = await web3.eth.getChainId()
     const networkId = await web3.eth.net.getId()
     const chainParams = {
-        common: EthereumjsCommon.forCustomChain('mainnet', { networkId, chainId }, 'istanbul'),
+        common: Common.forCustomChain('mainnet', { networkId, chainId }, 'istanbul') as any,
     }
 
     const tokenTx = token.createTransferTx(to, amount)
@@ -285,7 +285,7 @@ export async function buildEvmTransferErc721Tx(
     const chainId = await web3.eth.getChainId()
     const networkId = await web3.eth.net.getId()
     const chainParams = {
-        common: EthereumjsCommon.forCustomChain('mainnet', { networkId, chainId }, 'istanbul'),
+        common: Common.forCustomChain('mainnet', { networkId, chainId }, 'istanbul') as any,
     }
 
     const tokenTx = token.createTransferTx(from, to, tokenId)

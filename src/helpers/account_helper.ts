@@ -54,11 +54,10 @@ export const saveLocalStorageJSONItem = (key: string, data: any) => {
 export const getIndexByWallets = (wallets: WalletType[]): number | null => {
     const ethAddressArray: string[] = wallets.map((x: WalletType) => x.getEvmAddress())
     const savedAccounts: iUserAccountEncrypted[] = getLocalStorageAccounts()
-    const index = 0
     for (let i = 0; i < savedAccounts.length; i++) {
         const acct = savedAccounts[i]
         if (isEqual(acct.baseAddresses, ethAddressArray)) {
-            return index
+            return i
         }
     }
     return null
@@ -67,10 +66,9 @@ export const getIndexByWallets = (wallets: WalletType[]): number | null => {
 export const getNonVolatileWallets = (
     allWallets: WalletType[],
     volatileWallets: WalletType[]
-): WalletType[] | [] => {
-    const diff = differenceBy(allWallets, volatileWallets, 'ethAddress')
-    diff === undefined ? [] : diff
-    return diff
+): WalletType[] => {
+    const diff = differenceBy(allWallets, volatileWallets, 'ethAddress') as WalletType[]
+    return diff === undefined ? [] : diff
 }
 
 export function addAccountToStorage(account: iUserAccountEncrypted) {
