@@ -2,9 +2,8 @@
     <div id="nav">
         <ConfirmLogout ref="logout"></ConfirmLogout>
         <router-link to="/" class="logo">
-            <img v-if="$root.theme === 'day'" src="@/assets/wallet_logo.png" />
-            <img v-else src="@/assets/wallet_logo_dark.png" />
-            <!--            <span class="slogan">by Avalanche</span>-->
+            <img v-if="$root.theme === 'day'" src="@/assets/avaxtowallet_logo.png" />
+            <img v-else src="@/assets/avaxtowallet_logo_dark.png" />            
         </router-link>
         <v-spacer></v-spacer>
 
@@ -23,15 +22,7 @@
             </template>
             <network-menu></network-menu>
             <LanguageSelect class="lang_web"></LanguageSelect>
-
-            <button @click="togglePopup">
-                <fa icon="ellipsis-h"></fa>
-            </button>
-            <div class="popup-wrapper">
-                <div class="popup" v-if="popupOpen">
-                    <AnalyticsCheckbox></AnalyticsCheckbox>
-                </div>
-            </div>
+            
         </div>
 
         <div class="mobile_right">
@@ -92,7 +83,7 @@
 import 'reflect-metadata'
 import { Vue, Component, Prop } from 'vue-property-decorator'
 import LanguageSelect from './misc/LanguageSelect/LanguageSelect.vue'
-import AnalyticsCheckbox from '@/components/wallet/sidebar/AnalyticsCheckbox.vue'
+
 import DayNightToggle from '@/components/misc/DayNightToggle.vue'
 import NetworkMenu from './NetworkSettings/NetworkMenu.vue'
 import ConfirmLogout from '@/components/modals/ConfirmLogout.vue'
@@ -102,8 +93,7 @@ import AccountMenu from '@/components/wallet/sidebar/AccountMenu.vue'
         AccountMenu,
         NetworkMenu,
         DayNightToggle,
-        ConfirmLogout,
-        AnalyticsCheckbox,
+        ConfirmLogout,        
         LanguageSelect,
     },
 })

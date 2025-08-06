@@ -2,7 +2,7 @@
     <div class="wallet_sidebar">
         <div class="stick">
             <div class="brand">
-                <img v-if="$root.theme === 'day'" src="@/assets/wallet_logo.png" />
+                <img v-if="$root.theme === 'day'" src="@/assets/avaxtowallet_logo.png" />
                 <img v-else src="@/assets/wallet_logo_dark.png" />
             </div>
             <div class="links">
@@ -52,8 +52,7 @@
             </div>
             <div class="bottom">
                 <AccountMenu class="wallet_link"></AccountMenu>
-                <LanguageSelect></LanguageSelect>
-                <AnalyticsCheckbox></AnalyticsCheckbox>
+                <LanguageSelect></LanguageSelect>                
             </div>
         </div>
     </div>
@@ -61,12 +60,11 @@
 <script>
 import LanguageSelect from '@/components/misc/LanguageSelect/LanguageSelect'
 import AccountMenu from '@/components/wallet/sidebar/AccountMenu'
-import AnalyticsCheckbox from '@/components/wallet/sidebar/AnalyticsCheckbox'
+
 export default {
     components: {
         AccountMenu,
         LanguageSelect,
-        AnalyticsCheckbox,
     },
 }
 </script>

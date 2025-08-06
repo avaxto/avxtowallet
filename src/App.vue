@@ -1,8 +1,7 @@
 <template>
     <v-app>
         <v-main>
-            <template>
-                <UrlBanner></UrlBanner>
+            <template>                
                 <navbar v-show="isNavbar"></navbar>
                 <div class="main_cols" :wallet_view="!isNavbar">
                     <UpgradeToAccountModal></UpgradeToAccountModal>
@@ -16,13 +15,11 @@
         <LedgerUpgrade></LedgerUpgrade>
         <LedgerWalletLoading></LedgerWalletLoading>
         <NetworkLoadingBlock></NetworkLoadingBlock>
-        <notifications></notifications>
-        <analytics></analytics>
+        <notifications></notifications>        
         <TestNetBanner></TestNetBanner>
     </v-app>
 </template>
 <script>
-import Analytics from '@/components/Analytics/Analytics'
 import Notifications from '@/components/Notifications'
 import Navbar from './components/Navbar'
 import SaveAccountModal from '@/components/modals/SaveAccount/SaveAccountModal'
@@ -32,11 +29,9 @@ import TestNetBanner from '@/components/TestNetBanner'
 import NetworkLoadingBlock from '@/components/misc/NetworkLoadingBlock'
 import UpgradeToAccountModal from '@/components/modals/SaveAccount/UpgradeToAccountModal'
 import LedgerWalletLoading from '@/components/modals/LedgerWalletLoading'
-import UrlBanner from '@/components/misc/UrlBanner'
 
 export default {
     components: {
-        UrlBanner,
         LedgerWalletLoading,
         UpgradeToAccountModal,
         NetworkLoadingBlock,
@@ -45,7 +40,6 @@ export default {
         SaveAccountModal,
         Navbar,
         Notifications,
-        Analytics,
         TestNetBanner,
     },
     async created() {
@@ -93,11 +87,11 @@ export default {
             {
                 vmid: 'og:title',
                 name: 'og:title',
-                content: 'Fastest Performing and Secure DeFi Wallet | Avalanche Wallet',
+                content: 'AVXTO Avalanche Wallet',
             },
         ],
-        title: 'Fastest Performing and Secure DeFi Wallet',
-        titleTemplate: '%s | Avalanche Wallet',
+        title: 'AVXTO Avalanche Wallet',
+        titleTemplate: '%s',
     },
 }
 </script>
