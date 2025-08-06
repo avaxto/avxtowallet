@@ -36,7 +36,7 @@ export default class AddMnemonic extends Vue {
         // not a valid key phrase
         if (words.length !== 24) {
             this.err =
-                'Invalid key phrase. Your phrase must be 24 words separated by a single space.'
+                'Invalid key phrase length. Your phrase must be 24 words separated by a single space.'
             return false
         }
 
