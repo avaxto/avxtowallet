@@ -2,7 +2,14 @@ process.env.VUE_APP_VERSION = process.env.npm_package_version
 
 module.exports = {
     productionSourceMap: false,
-    transpileDependencies: ['vuetify'],
+    transpileDependencies: [
+        'vuetify', 
+        '@ledgerhq/errors', 
+        '@ledgerhq/hw-app-eth', 
+        '@ledgerhq/logs',
+        '@avalabs/hw-app-avalanche',
+        '@ledgerhq/evm-tools'
+    ],
     devServer: {
         /**
          * For e2e testing we turn this off using vue cli --mode e2e
@@ -21,6 +28,15 @@ module.exports = {
         },
         resolve: {
             symlinks: false,
+            alias: {
+                '@ledgerhq/cryptoassets-evm-signatures/data/evm': '@ledgerhq/cryptoassets-evm-signatures/lib-es/data/evm',
+                '@ledgerhq/cryptoassets-evm-signatures/data/eip712': '@ledgerhq/cryptoassets-evm-signatures/lib-es/data/eip712',
+                '@ledgerhq/cryptoassets-evm-signatures/data/eip712_v2': '@ledgerhq/cryptoassets-evm-signatures/lib-es/data/eip712_v2',
+                '@ledgerhq/domain-service/signers': '@ledgerhq/domain-service/lib-es/signers',
+                '@ledgerhq/evm-tools/message/EIP712': '@ledgerhq/evm-tools/lib-es/message/EIP712',
+                '@ledgerhq/evm-tools/message': '@ledgerhq/evm-tools/lib-es/message',
+                '@ledgerhq/evm-tools/selectors': '@ledgerhq/evm-tools/lib-es/selectors',
+            },
         },
     },
     pwa: {

@@ -5,3 +5,6 @@
 
 # remove ignore engines when all dep issues solved
 yarn install --ignore-engines
+
+# Build the project
+yarn build
