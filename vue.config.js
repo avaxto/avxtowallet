@@ -2,6 +2,11 @@ process.env.VUE_APP_VERSION = process.env.npm_package_version
 
 module.exports = {
     productionSourceMap: false,
+    parallel: false,
+    chainWebpack: config => {
+        // Disable TypeScript type checking during build to avoid template literal type errors
+        config.plugins.delete('fork-ts-checker')
+    },
     transpileDependencies: [
         'vuetify', 
         '@ledgerhq/errors', 

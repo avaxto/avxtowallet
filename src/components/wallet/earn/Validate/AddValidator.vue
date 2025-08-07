@@ -288,6 +288,7 @@ import { WalletType } from '@/js/wallets/types'
 import { sortUTxoSetP } from '@/helpers/sortUTXOs'
 import { selectMaxUtxoForStaking } from '@/helpers/utxoSelection/selectMaxUtxoForStaking'
 import { bnToAvaxP } from '@avalabs/avalanche-wallet-sdk'
+import { generateBlsKeyPair, signBlsMessage, generateProofOfPossessionMessage } from '@/helpers/bls_utils'
 
 const MIN_MS = 60000
 const HOUR_MS = MIN_MS * 60
@@ -414,9 +415,6 @@ export default class AddValidator extends Vue {
 
     async generateBlsKeys() {
         try {
-            // Import BLS utilities
-            const { generateBlsKeyPair, signBlsMessage, generateProofOfPossessionMessage } = await import('@/helpers/bls_utils')
-            
             // Generate keys deterministically from wallet
             const wallet: WalletType = this.$store.state.activeWallet
             const seed = wallet.getCurrentAddressPlatform() + this.nodeId

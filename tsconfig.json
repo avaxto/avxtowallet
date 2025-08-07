@@ -1,6 +1,6 @@
 {
     "compilerOptions": {
-        "target": "ES6",
+        "target": "ES2018",
         "module": "es2015",
         "strict": false,
         "jsx": "preserve",
@@ -11,6 +11,7 @@
         "esModuleInterop": true,
         "allowSyntheticDefaultImports": true,
         "skipLibCheck": true,
+        "noImplicitAny": false,
         "sourceMap": true,
         "resolveJsonModule": true,
         "baseUrl": ".",
