@@ -314,8 +314,11 @@ export enum AvmTxNameEnum {
 
 export enum PlatfromTxNameEnum {
     'Transaction' = PlatformVMConstants.BASETX,
-    'Add Validator' = PlatformVMConstants.ADDVALIDATORTX,
-    'Add Delegator' = PlatformVMConstants.ADDDELEGATORTX,
+    'Add Validator (Legacy)' = PlatformVMConstants.ADDVALIDATORTX, // Deprecated in ACP-62
+    'Add Delegator (Legacy)' = PlatformVMConstants.ADDDELEGATORTX, // Deprecated in ACP-62
+    // Note: Add these constants when AvalancheJS is updated for ACP-62
+    // 'Add Permissionless Validator' = PlatformVMConstants.ADDPERMISSIONLESSVALIDATORTX,
+    // 'Add Permissionless Delegator' = PlatformVMConstants.ADDPERMISSIONLESSDELEGATORTX,
     'Import' = PlatformVMConstants.IMPORTTX,
     'Export' = PlatformVMConstants.EXPORTTX,
     'Add Subnet Validator' = PlatformVMConstants.ADDSUBNETVALIDATORTX,

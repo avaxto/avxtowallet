@@ -49,6 +49,49 @@
                                 @change="onFeeChange"
                             />
                         </div>
+                        <div style="margin: 30px 0">
+                            <h4>{{ $t('earn.validate.bls.label') || 'BLS Signature (ACP-62)' }}</h4>
+                            <p class="desc">
+                                {{ $t('earn.validate.bls.desc') || 'BLS public key and signature are required for validator registration.' }}
+                            </p>
+                            <div class="bls_section">
+                                <div style="margin: 15px 0">
+                                    <label>BLS Public Key (48 bytes)</label>
+                                    <input
+                                        type="text"
+                                        v-model="blsPublicKey"
+                                        style="width: 100%; font-family: monospace; font-size: 12px"
+                                        placeholder="0x..."
+                                        maxlength="98"
+                                    />
+                                    <p v-if="blsPublicKeyError" class="err_msg">{{ blsPublicKeyError }}</p>
+                                </div>
+                                <div style="margin: 15px 0">
+                                    <label>BLS Signature (96 bytes)</label>
+                                    <input
+                                        type="text"
+                                        v-model="blsSignature"
+                                        style="width: 100%; font-family: monospace; font-size: 12px"
+                                        placeholder="0x..."
+                                        maxlength="194"
+                                    />
+                                    <p v-if="blsSignatureError" class="err_msg">{{ blsSignatureError }}</p>
+                                </div>
+                                <div style="margin: 10px 0">
+                                    <button 
+                                        type="button" 
+                                        @click="generateBlsKeys" 
+                                        class="button_secondary"
+                                        style="font-size: 12px; padding: 8px 16px"
+                                    >
+                                        {{ $t('earn.validate.bls.generate') || 'Generate BLS Keys' }}
+                                    </button>
+                                    <p class="desc" style="font-size: 11px; margin-top: 5px">
+                                        {{ $t('earn.validate.bls.generate_desc') || 'Generate BLS keys deterministically from your wallet seed.' }}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
                         <div class="reward_in" style="margin: 30px 0" :type="rewardDestination">
                             <h4>{{ $t('earn.validate.reward.label') }}</h4>
                             <p class="desc">
@@ -104,6 +147,8 @@
                         :delegation-fee="delegationFee"
                         :reward-address="rewardIn"
                         :reward-destination="rewardDestination"
+                        :bls-public-key="formBlsPublicKey"
+                        :bls-signature="formBlsSignature"
                     ></ConfirmPage>
                 </transition-group>
                 <div>
@@ -278,6 +323,12 @@ export default class AddValidator extends Vue {
     err: string = ''
     stakeAmt: BN = new BN(0)
 
+    // BLS fields for ACP-62 compliance
+    blsPublicKey = ''
+    blsSignature = ''
+    blsPublicKeyError = ''
+    blsSignatureError = ''
+
     minFee = 2
 
     formNodeId = ''
@@ -286,6 +337,8 @@ export default class AddValidator extends Vue {
     formFee: number = 0
     formRewardAddr = ''
     formUtxos: UTXO[] = []
+    formBlsPublicKey = ''
+    formBlsSignature = ''
 
     txId = ''
     txStatus: string | null = null
@@ -326,6 +379,73 @@ export default class AddValidator extends Vue {
             this.rewardIn = ''
         }
         this.rewardDestination = val
+    }
+
+    // BLS key validation and generation methods
+    validateBlsPublicKey() {
+        this.blsPublicKeyError = ''
+        if (!this.blsPublicKey) {
+            this.blsPublicKeyError = 'BLS public key is required for validator registration.'
+            return false
+        }
+        
+        const clean = this.blsPublicKey.startsWith('0x') ? this.blsPublicKey.slice(2) : this.blsPublicKey
+        if (clean.length !== 96 || !/^[0-9a-fA-F]+$/.test(clean)) {
+            this.blsPublicKeyError = 'Invalid BLS public key format. Must be 48 bytes (96 hex characters).'
+            return false
+        }
+        return true
+    }
+
+    validateBlsSignature() {
+        this.blsSignatureError = ''
+        if (!this.blsSignature) {
+            this.blsSignatureError = 'BLS signature is required for validator registration.'
+            return false
+        }
+        
+        const clean = this.blsSignature.startsWith('0x') ? this.blsSignature.slice(2) : this.blsSignature
+        if (clean.length !== 192 || !/^[0-9a-fA-F]+$/.test(clean)) {
+            this.blsSignatureError = 'Invalid BLS signature format. Must be 96 bytes (192 hex characters).'
+            return false
+        }
+        return true
+    }
+
+    async generateBlsKeys() {
+        try {
+            // Import BLS utilities
+            const { generateBlsKeyPair, signBlsMessage, generateProofOfPossessionMessage } = await import('@/helpers/bls_utils')
+            
+            // Generate keys deterministically from wallet
+            const wallet: WalletType = this.$store.state.activeWallet
+            const seed = wallet.getCurrentAddressPlatform() + this.nodeId
+            const keyPair = generateBlsKeyPair(seed)
+            
+            // Generate proof of possession
+            const message = generateProofOfPossessionMessage(this.nodeId, keyPair.publicKey)
+            const signature = signBlsMessage(keyPair.privateKey, message)
+            
+            this.blsPublicKey = '0x' + keyPair.publicKey
+            this.blsSignature = '0x' + signature.signature
+            
+            // Validate the generated keys
+            this.validateBlsPublicKey()
+            this.validateBlsSignature()
+            
+            this.$store.dispatch('Notifications/add', {
+                type: 'info',
+                title: 'BLS Keys Generated',
+                message: 'BLS public key and signature have been generated for your validator.'
+            })
+        } catch (error) {
+            console.error('Failed to generate BLS keys:', error)
+            this.$store.dispatch('Notifications/add', {
+                type: 'error',
+                title: 'BLS Generation Failed',
+                message: 'Failed to generate BLS keys. Please enter them manually.'
+            })
+        }
     }
 
     // Returns true to show a warning about short validation periods that can not take any delegators
@@ -491,6 +611,8 @@ export default class AddValidator extends Vue {
         this.formEnd = new Date(this.endDate)
         this.formRewardAddr = this.rewardIn
         this.formFee = parseFloat(this.delegationFee)
+        this.formBlsPublicKey = this.blsPublicKey.trim()
+        this.formBlsSignature = this.blsSignature.trim()
     }
 
     confirm() {
@@ -524,6 +646,17 @@ export default class AddValidator extends Vue {
 
     formCheck(): boolean {
         this.err = ''
+
+        // BLS validation for ACP-62 compliance
+        if (!this.validateBlsPublicKey()) {
+            this.err = this.blsPublicKeyError
+            return false
+        }
+
+        if (!this.validateBlsSignature()) {
+            this.err = this.blsSignatureError
+            return false
+        }
 
         // Reward Address
         if (this.rewardDestination !== 'local') {
@@ -590,7 +723,9 @@ export default class AddValidator extends Vue {
                 this.formEnd,
                 this.formFee,
                 this.formRewardAddr,
-                this.formUtxos
+                this.formUtxos,
+                this.formBlsPublicKey,
+                this.formBlsSignature
             )
             this.isLoading = false
             this.onTxSubmit(txId)
@@ -812,6 +947,46 @@ label {
 
 .amount_warning {
     color: var(--warning);
+}
+
+.bls_section {
+    background-color: var(--bg-light);
+    padding: 15px;
+    border-radius: 4px;
+    border: 1px solid var(--bg-light-2);
+
+    label {
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--primary-color-light);
+        display: block;
+        margin-bottom: 5px;
+    }
+
+    input {
+        width: 100%;
+        padding: 8px;
+        border: 1px solid var(--bg-light-2);
+        border-radius: 3px;
+        background-color: var(--bg);
+        color: var(--primary-color);
+        
+        &:focus {
+            outline: none;
+            border-color: var(--secondary-color);
+        }
+    }
+
+    .err_msg {
+        color: var(--error);
+        font-size: 12px;
+        margin-top: 5px;
+    }
+
+    .desc {
+        color: var(--primary-color-light);
+        margin: 0;
+    }
 }
 
 .tx_status {

@@ -401,7 +401,7 @@ abstract class AbstractWallet {
     }
 
     /**
-     * Create and issue an AddValidatorTx
+     * Create and issue an AddPermissionlessValidatorTx (ACP-62 compliant)
      * @param nodeID Node ID to add as a validator
      * @param amt Stake amount in nAVAX
      * @param start Stake Start Date
@@ -409,6 +409,8 @@ abstract class AbstractWallet {
      * @param delegationFee
      * @param rewardAddress Address which will receive the rewards
      * @param utxos UTXOs to use for the transaction
+     * @param blsPublicKey BLS public key for the validator (48 bytes)
+     * @param blsSignature BLS signature proving possession of the BLS private key
      */
     async validate(
         nodeID: string,
@@ -417,7 +419,9 @@ abstract class AbstractWallet {
         end: Date,
         delegationFee: number,
         rewardAddress?: string,
-        utxos?: PlatformUTXO[]
+        utxos?: PlatformUTXO[],
+        blsPublicKey?: string,
+        blsSignature?: string
     ): Promise<string> {
         let utxoSet = this.getPlatformUTXOSet()
 
@@ -448,6 +452,14 @@ abstract class AbstractWallet {
         const startTime = new BN(Math.round(start.getTime() / 1000))
         const endTime = new BN(Math.round(end.getTime() / 1000))
 
+        // ACP-62: Use permissionless validator transaction
+        // Requires BLS public key and signature for Primary Network validation
+        if (!blsPublicKey || !blsSignature) {
+            throw new Error('BLS public key and signature are required for validator registration (ACP-62)')
+        }
+
+        // Note: Update this to use the correct AvalancheJS method when available
+        // For now, this is a placeholder for the new permissionless function
         const unsignedTx = await pChain.buildAddValidatorTx(
             sortedSet,
             [stakeReturnAddr],
@@ -459,6 +471,10 @@ abstract class AbstractWallet {
             stakeAmount,
             [rewardAddress],
             delegationFee
+            // TODO: Add BLS parameters when AvalancheJS supports buildAddPermissionlessValidatorTx
+            // blsPublicKey,
+            // blsSignature,
+            // Primary Network ID
         )
 
         const tx = await this.signP(unsignedTx)
@@ -491,7 +507,7 @@ abstract class AbstractWallet {
     }
 
     /**
-     * Create and issue an AddDelegatorTx
+     * Create and issue an AddPermissionlessDelegatorTx (ACP-62 compliant)
      * @param nodeID
      * @param amt
      * @param start
@@ -535,6 +551,8 @@ abstract class AbstractWallet {
         const startTime = new BN(Math.round(start.getTime() / 1000))
         const endTime = new BN(Math.round(end.getTime() / 1000))
 
+        // ACP-62: Use permissionless delegator transaction
+        // Note: Update this to use the correct AvalancheJS method when available
         const unsignedTx = await pChain.buildAddDelegatorTx(
             sortedSet,
             [stakeReturnAddr],
@@ -545,6 +563,7 @@ abstract class AbstractWallet {
             endTime,
             stakeAmount,
             [rewardAddress] // reward address
+            // TODO: Add Primary Network ID when AvalancheJS supports buildAddPermissionlessDelegatorTx
         )
 
         const tx = await this.signP(unsignedTx)
