@@ -3,9 +3,18 @@
         <div class="stick">
             <div class="brand">
                 <img v-if="$root.theme === 'day'" src="@/assets/avaxtowallet_logo.png" />
-                <img v-else src="@/assets/wallet_logo_dark.png" />
+                <img v-else src="@/assets/avaxtowallet_logo_dark.png" />
             </div>
             <div class="links">
+                <a 
+                    href="https://telegram.me/collablandbot?start=VFBDI1RFTCNDT01NIy0xMDAxNzI5NTYxMjQw" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    class="wallet_link"
+                    style="color: #e03030; font-size: 1.1rem;"
+                >                    
+                    <strong>$AVXTO Support</strong>
+                </a>
                 <router-link to="/wallet" class="wallet_link">
                     <img v-if="$root.theme === 'day'" src="@/assets/sidebar/portfolio_nav.png" />
                     <img v-else src="@/assets/sidebar/portfolio_nav_night.png" />
