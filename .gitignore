@@ -25,6 +25,7 @@ yarn-error.log*
 *.sw?
 /cypress/videos
 /cypress/screenshots
+dist.sh 
 
 # Snyk
 .dccache
