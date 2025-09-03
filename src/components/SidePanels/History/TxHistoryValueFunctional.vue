@@ -1,15 +1,15 @@
-<template functional>
-    <div class="utxo" :income="props.amount > 0">
+<template>
+    <div class="utxo" :income="amount > 0">
         <p class="action">
-            {{ $options.getActionText(props.type, props.amount, props.operationDirection) }}
+            {{ getActionText(type, amount, operationDirection) }}
         </p>
         <p
             class="amount"
             :style="{
-                color: $options.getColor(props.type, props.amount),
+                color: getColor(type, amount),
             }"
         >
-            {{ props.amount }}
+            {{ amount }}
             <!--            {{ amountText }} {{ symbolText }}-->
         </p>
     </div>
@@ -23,39 +23,41 @@ export default {
         operationDirection: String,
     },
 
-    getColor(type, amount) {
-        // if (this.type === 'operation') return this.operationColor
-        if (type === 'add_validator') return '#008dc5'
-        if (type === 'add_delegator') return '#008dc5'
+    methods: {
+        getColor(type, amount) {
+            // if (this.type === 'operation') return this.operationColor
+            if (type === 'add_validator') return '#008dc5'
+            if (type === 'add_delegator') return '#008dc5'
 
-        if (amount > 0) {
-            return '#6BC688'
-        } else if (amount === 0) {
-            return '#999'
-        } else {
-            return '#d04c4c'
-        }
-    },
+            if (amount > 0) {
+                return '#6BC688'
+            } else if (amount === 0) {
+                return '#999'
+            } else {
+                return '#d04c4c'
+            }
+        },
 
-    getActionText(type, amount, operationDirection) {
-        let isIncome = amount > 0
+        getActionText(type, amount, operationDirection) {
+            let isIncome = amount > 0
 
-        switch (type) {
-            case 'base':
-                if (isIncome) {
-                    return 'Received'
-                }
-                return 'Sent'
-            case 'operation':
-                return operationDirection
-            default:
-                // Capitalize first letter
-                return type
-                    .split('_')
-                    .map((value) => value[0].toUpperCase() + value.substring(1))
-                    .join(' ')
-        }
-    },
+            switch (type) {
+                case 'base':
+                    if (isIncome) {
+                        return 'Received'
+                    }
+                    return 'Sent'
+                case 'operation':
+                    return operationDirection
+                default:
+                    // Capitalize first letter
+                    return type
+                        .split('_')
+                        .map((value) => value[0].toUpperCase() + value.substring(1))
+                        .join(' ')
+            }
+        },
+    }
 }
 </script>
 <style scoped lang="scss">

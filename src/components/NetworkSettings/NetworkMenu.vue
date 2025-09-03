@@ -60,13 +60,15 @@
                 </div>
 
                 <transition name="fade" mode="out-in">
-                    <ListPage v-if="page === 'list'" @edit="onedit"></ListPage>
-                    <CustomPage v-if="page === 'custom'" @add="addCustomNetwork"></CustomPage>
-                    <EditPage
-                        v-if="page === 'edit'"
-                        :net="editNetwork"
-                        @success="networkUpdated"
-                    ></EditPage>
+                    <div>
+                        <ListPage v-if="page === 'list'" @edit="onedit"></ListPage>
+                        <CustomPage v-if="page === 'custom'" @add="addCustomNetwork"></CustomPage>
+                        <EditPage
+                            v-if="page === 'edit'"
+                            :net="editNetwork"
+                            @success="networkUpdated"
+                        ></EditPage>
+                    </div>
                 </transition>
             </div>
         </transition>

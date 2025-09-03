@@ -1,5 +1,4 @@
-import Vue from 'vue'
-import VueRouter, { Route } from 'vue-router'
+import { createRouter, createWebHistory, RouteLocationNormalized, NavigationGuardNext } from 'vue-router'
 import Home from '../views/Home.vue'
 
 import Transfer from '@/views/wallet/Transfer.vue'
@@ -18,8 +17,6 @@ import Activity from '@/views/wallet/Activity.vue' // your vuex store
 import Account from '@/views/access/Account.vue' // your vuex store
 import Legal from '@/views/Legal.vue'
 
-Vue.use(VueRouter)
-
 import store from '../store/index'
 import Studio from '@/views/wallet/Studio.vue'
 import Export from '@/views/wallet/CrossChain.vue'
@@ -27,7 +24,7 @@ import Xpub from '@/views/access/Xpub.vue'
 import WalletReadonly from '@/views/WalletReadonly.vue'
 import { PublicMnemonicWallet } from '@avalabs/avalanche-wallet-sdk'
 
-const ifNotAuthenticated = (to: Route, from: Route, next: Function) => {
+const ifNotAuthenticated = (to: RouteLocationNormalized, from: RouteLocationNormalized, next: NavigationGuardNext) => {
     if (!store.state.isAuth) {
         next()
         return
@@ -35,7 +32,7 @@ const ifNotAuthenticated = (to: Route, from: Route, next: Function) => {
     next('/wallet')
 }
 
-const ifAuthenticated = (to: Route, from: Route, next: Function) => {
+const ifAuthenticated = (to: RouteLocationNormalized, from: RouteLocationNormalized, next: NavigationGuardNext) => {
     if (store.state.isAuth) {
         next()
         return
@@ -141,9 +138,8 @@ const routes = [
     },
 ]
 
-const router = new VueRouter({
-    mode: 'history',
-    base: process.env.BASE_URL,
+const router = createRouter({
+    history: createWebHistory(process.env.BASE_URL),
     routes,
 })
 

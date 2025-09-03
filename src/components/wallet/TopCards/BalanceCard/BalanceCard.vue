@@ -69,25 +69,25 @@
                 <div class="alt_breakdown" v-else>
                     <div>
                         <label>{{ $t('top.balance.available') }} (X)</label>
-                        <p>{{ avmUnlocked | cleanAvaxBN }} AVAX</p>
+                        <p>{{ cleanAvaxBN(avmUnlocked) }} AVAX</p>
                         <label>{{ $t('top.balance.available') }} (P)</label>
-                        <p>{{ platformUnlocked | cleanAvaxBN }} AVAX</p>
+                        <p>{{ cleanAvaxBN(platformUnlocked) }} AVAX</p>
                         <label>{{ $t('top.balance.available') }} (C)</label>
-                        <p>{{ evmUnlocked | cleanAvaxBN }} AVAX</p>
+                        <p>{{ cleanAvaxBN(evmUnlocked) }} AVAX</p>
                     </div>
                     <div v-if="hasLocked">
                         <label>{{ $t('top.balance.locked') }} (X)</label>
-                        <p>{{ avmLocked | cleanAvaxBN }} AVAX</p>
+                        <p>{{ cleanAvaxBN(avmLocked) }} AVAX</p>
                         <label>{{ $t('top.balance.locked') }} (P)</label>
-                        <p>{{ platformLocked | cleanAvaxBN }} AVAX</p>
+                        <p>{{ cleanAvaxBN(platformLocked) }} AVAX</p>
                         <label>{{ $t('top.balance.locked_stake') }} (P)</label>
-                        <p>{{ platformLockedStakeable | cleanAvaxBN }} AVAX</p>
+                        <p>{{ cleanAvaxBN(platformLockedStakeable) }} AVAX</p>
                     </div>
                     <div v-if="hasMultisig">
                         <label>Multisig (X)</label>
-                        <p>{{ avmMultisig | cleanAvaxBN }} AVAX</p>
+                        <p>{{ cleanAvaxBN(avmMultisig) }} AVAX</p>
                         <label>Multisig (P)</label>
-                        <p>{{ platformMultisig | cleanAvaxBN }} AVAX</p>
+                        <p>{{ cleanAvaxBN(platformMultisig) }} AVAX</p>
                     </div>
                     <div>
                         <label>{{ $t('top.balance.stake') }}</label>
@@ -123,18 +123,17 @@ import UtxosBreakdownModal from '@/components/modals/UtxosBreakdown/UtxosBreakdo
         NftCol,
         Tooltip,
     },
-    filters: {
-        cleanAvaxBN(val: BN) {
-            let big = Big(val.toString()).div(Big(ONEAVAX.toString()))
-            return big.toLocaleString()
-        },
-    },
 })
 export default class BalanceCard extends Vue {
     isBreakdown = true
 
     $refs!: {
         utxos_modal: UtxosBreakdownModal
+    }
+
+    cleanAvaxBN(val: BN) {
+        let big = Big(val.toString()).div(Big(ONEAVAX.toString()))
+        return big.toLocaleString()
     }
 
     updateBalance(): void {

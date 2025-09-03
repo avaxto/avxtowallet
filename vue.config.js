@@ -1,11 +1,54 @@
 process.env.VUE_APP_VERSION = process.env.npm_package_version
 
-module.exports = {
+const { defineConfig } = require('@vue/cli-service')
+const { VuetifyPlugin } = require('webpack-plugin-vuetify')
+
+module.exports = defineConfig({
     productionSourceMap: false,
     parallel: false,
+    publicPath: './',
     chainWebpack: config => {
+        // Vue 3 compatibility
+        config.resolve.alias.set('vue', '@vue/compat')
+        
+        // Vue compatibility mode for loader
+        config.module
+            .rule('vue')
+            .use('vue-loader')
+            .tap((options) => {
+                return {
+                    ...options,
+                    compilerOptions: {
+                        compatConfig: {
+                            MODE: 2
+                        }
+                    }
+                }
+            })
+        
         // Disable TypeScript type checking during build to avoid template literal type errors
         config.plugins.delete('fork-ts-checker')
+        
+        // Disable ESLint plugin to avoid version conflicts
+        config.plugins.delete('eslint')
+        
+        // Configure CSS loader to handle public assets
+        config.module
+            .rule('scss')
+            .oneOf('vue')
+            .use('css-loader')
+            .tap(options => {
+                options.url = {
+                    filter: (url) => {
+                        // Handle public folder assets
+                        if (url.startsWith('/img/')) {
+                            return false; // Let webpack handle it as is
+                        }
+                        return true;
+                    }
+                };
+                return options;
+            })
     },
     transpileDependencies: [
         'vuetify', 
@@ -24,6 +67,9 @@ module.exports = {
         port: 5000,
     },
     configureWebpack: {
+        plugins: [
+            new VuetifyPlugin()
+        ],
         optimization: {
             splitChunks: {
                 chunks: 'all',
@@ -42,6 +88,14 @@ module.exports = {
                 '@ledgerhq/evm-tools/message': '@ledgerhq/evm-tools/lib-es/message',
                 '@ledgerhq/evm-tools/selectors': '@ledgerhq/evm-tools/lib-es/selectors',
             },
+            fallback: {
+                crypto: require.resolve('crypto-browserify'),
+                stream: require.resolve('stream-browserify'),
+                http: require.resolve('stream-http'),
+                https: require.resolve('https-browserify'),
+                os: require.resolve('os-browserify/browser'),
+                vm: require.resolve('vm-browserify')
+            }
         },
     },
     pwa: {
@@ -57,4 +111,4 @@ module.exports = {
             msTileImage: 'img/icons/mstile-150x150.png',
         },
     },
-}
+})

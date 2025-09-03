@@ -16,7 +16,7 @@
                     v-for="asset in assets"
                     :key="asset.id"
                     :zero="asset.amount.isZero()"
-                    @click.native="select(asset)"
+                    @click="select(asset)"
                     :disabled="isDisabled(asset)"
                     :asset="asset"
                 ></BalanceRow>

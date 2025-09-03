@@ -20,14 +20,14 @@
                     <button @click="toggleRaw" :active="isRaw" class="raw_toggle">SOURCE</button>
                     <Tooltip
                         :text="$t('portfolio.collectibles.send')"
-                        @click.native="transfer"
+                        @click="transfer"
                         class="nft_button"
                     >
                         <fa icon="share"></fa>
                     </Tooltip>
                     <Tooltip
                         :text="$t('portfolio.collectibles.expand')"
-                        @click.native="expand"
+                        @click="expand"
                         class="nft_button"
                     >
                         <fa icon="expand"></fa>

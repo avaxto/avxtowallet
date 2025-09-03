@@ -14,7 +14,7 @@
                         <p>{{ asset.name }}</p>
                     </div>
                     <div class="col_balance">
-                        <p>{{ asset | bal }}</p>
+                        <p>{{ bal(asset) }}</p>
                     </div>
                 </div>
             </div>
@@ -33,15 +33,14 @@ import { bnToBig } from '@/helpers/helper'
     components: {
         Modal,
     },
-    filters: {
-        bal(asset: AvaAsset) {
-            return bnToBig(asset.amount, asset.denomination).toLocaleString()
-        },
-    },
 })
 export default class PrivateKey extends Vue {
     @Prop() assets!: AvaAsset[]
     @Prop({ default: () => [] }) disabledIds!: string[] // asset id | if nft the utxo id
+
+    bal(asset: AvaAsset) {
+        return bnToBig(asset.amount, asset.denomination).toLocaleString()
+    }
 
     open(): void {
         let modal = this.$refs.modal as Modal

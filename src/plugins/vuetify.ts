@@ -1,5 +1,7 @@
-import Vue from 'vue'
-import Vuetify from 'vuetify/lib'
+// Vue 3 + Vuetify 3 migration in progress
+// Temporarily using compatibility mode
+import { createVuetify } from 'vuetify'
+import 'vuetify/styles'
 import '@fortawesome/fontawesome-free/css/all.css' // Ensure you are using css-loader
 
 import { library } from '@fortawesome/fontawesome-svg-core'
@@ -130,25 +132,25 @@ library.add(
     faGlasses
 )
 
-Vue.component('fa', FontAwesomeIcon)
-
-Vue.use(Vuetify)
-
-export default new Vuetify({
+// For now, create a simple Vuetify 3 instance
+// Full FontAwesome integration will be updated in next phase
+export default createVuetify({
     theme: {
         themes: {
             light: {
-                primary: '#42b983',
-                secondary: '#06f',
-                accent: '#82B1FF',
-                error: '#ff9090',
-                info: '#2196F3',
-                success: '#4CAF50',
-                warning: '#ecce73',
+                colors: {
+                    primary: '#42b983',
+                    secondary: '#06f',
+                    accent: '#82B1FF',
+                    error: '#ff9090',
+                    info: '#2196F3',
+                    success: '#4CAF50',
+                    warning: '#ecce73',
+                }
             },
         },
     },
-    icons: {
-        iconfont: 'fa',
-    },
+    // icons: {
+    //     defaultSet: 'fa',
+    // },
 })

@@ -55,7 +55,7 @@
                         <Tooltip
                             :text="$t('keys.remove_key')"
                             class="row_but circle"
-                            @click.native="remove"
+                            @click="remove"
                             v-if="!is_default"
                         >
                             <img src="@/assets/trash_can_dark.svg" style="height: 16px" />
@@ -64,7 +64,7 @@
                             v-if="walletType !== 'singleton'"
                             :text="$t('keys.hd_addresses')"
                             class="row_but circle"
-                            @click.native="showPastAddresses"
+                            @click="showPastAddresses"
                         >
                             <fa icon="list-ol"></fa>
                         </Tooltip>
@@ -72,7 +72,7 @@
                             v-if="walletType === 'mnemonic'"
                             :text="$t('keys.export_key')"
                             class="row_but circle"
-                            @click.native="showExportModal"
+                            @click="showExportModal"
                         >
                             <fa icon="upload"></fa>
                         </Tooltip>

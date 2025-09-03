@@ -16,7 +16,7 @@
                 <div>
                     <Tooltip
                         :text="$t('portfolio.collectibles.send')"
-                        @click.native="transfer"
+                        @click="transfer"
                         v-if="utxo"
                         class="nft_button"
                     >
@@ -24,7 +24,7 @@
                     </Tooltip>
                     <Tooltip
                         :text="$t('portfolio.collectibles.expand')"
-                        @click.native="expand"
+                        @click="expand"
                         class="nft_button"
                     >
                         <fa icon="expand"></fa>

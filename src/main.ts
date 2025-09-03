@@ -1,38 +1,61 @@
-import Vue from 'vue'
+import { createApp } from 'vue'
 import VueMeta from 'vue-meta'
 import App from './App.vue'
 import router from './router'
 import store from './store'
-import VueI18n from 'vue-i18n'
+import { createI18n } from 'vue-i18n'
 //@ts-ignore
 import { Datetime } from 'vue-datetime'
 import 'vue-datetime/dist/vue-datetime.css'
 
-import { BootstrapVue } from 'bootstrap-vue'
+import { createBootstrap } from 'bootstrap-vue-next'
 import vuetify from './plugins/vuetify'
 // @ts-ignore
-import i18n from './plugins/i18n.js'
+import i18nMessages from './plugins/i18n.js'
 // @ts-ignore
 import posthogPlugin from './plugins/posthog.js'
 
-// Install Posthog
-Vue.use(posthogPlugin)
+// Import Bootstrap CSS
+import 'bootstrap/dist/css/bootstrap.css'
+import 'bootstrap-vue-next/dist/bootstrap-vue-next.css'
 
-// Install BootstrapVue
-Vue.use(BootstrapVue)
+// Create the Vue app
+const app = createApp(App)
 
-Vue.use(VueMeta)
+// Create i18n instance
+const i18n = createI18n({
+    legacy: false,
+    locale: 'en',
+    fallbackLocale: 'en',
+    messages: i18nMessages
+})
 
-Vue.component('datetime', Datetime)
+// Install plugins
+app.use(router)
+app.use(store)
+app.use(vuetify)
+app.use(i18n)
+app.use(posthogPlugin)
+app.use(createBootstrap())
 
-Vue.config.productionTip = false
+// Register global components
+app.component('datetime', Datetime)
 
-const app = new Vue({
-    router,
-    store,
-    vuetify,
-    i18n,
-    render: (h) => h(App),
+// Configure app
+app.config.globalProperties.$productionTip = false
+
+// Mount the app
+const mountedApp = app.mount('#app')
+
+// @ts-ignore
+if (window.Cypress) {
+    // only available during E2E tests
+    // @ts-ignore
+    window.app = mountedApp
+}
+
+// App lifecycle - equivalent to mounted hook
+app.mixin({
     mounted() {
         // Reveal app version
         console.log(`App Version: ${process.env.VUE_APP_VERSION}`)
@@ -41,18 +64,8 @@ const app = new Vue({
         if (loader) {
             loader.style.display = 'none'
         }
-    },
-    data: {
-        theme: 'day',
-    },
-}).$mount('#app')
-
-// @ts-ignore
-if (window.Cypress) {
-    // only available during E2E tests
-    // @ts-ignore
-    window.app = app
-}
+    }
+})
 
 // Extending Big.js with a helper function
 import Big from 'big.js'

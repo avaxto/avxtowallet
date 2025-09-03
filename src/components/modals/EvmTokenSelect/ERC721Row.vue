@@ -12,7 +12,7 @@
                 class="item"
                 :token="token"
                 :index="tokenIndex"
-                @click.native="selectToken(tokenIndex)"
+                @click="selectToken(tokenIndex)"
             ></ERC721View>
         </div>
     </div>

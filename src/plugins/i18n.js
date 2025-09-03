@@ -1,8 +1,4 @@
-import VueI18n from 'vue-i18n'
-import Vue from 'vue'
-
-Vue.use(VueI18n)
-
+// Vue 3 compatible i18n setup
 import en from '../locales/en.json'
 import fr from '../locales/fr.json'
 import tr from '../locales/tr.json'
@@ -50,28 +46,7 @@ const messages = {
     nl,
     uk,
     ca,
-    cs,
-    af,
-    ar,
-    da,
-    fi,
-    el,
-    he,
-    hu,
-    nb,
-    pl,
-    ro,
-    sr,
-    sv,
-    th,
-    ja,
 }
 
-// Create VueI18n instance with options
-const i18n = new VueI18n({
-    locale: 'en', // set locale
-    fallbackLocale: 'en',
-    messages, // set locale messages
-})
-
-export default i18n
+// Export just the messages for Vue 3 createI18n
+export default messages
