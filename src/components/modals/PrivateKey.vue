@@ -1,5 +1,5 @@
 <template>
-    <modal ref="modal" :title="$t('modal.priv_key.title')" class="modal_main">
+    <modal ref="modalRef" :title="$t('modal.priv_key.title')" class="modal_main">
         <div class="singleton_modal_body">
             <p class="key_raw">{{ privateKey }}</p>
             <p class="warning_text">
@@ -11,23 +11,38 @@
 </template>
 <script lang="ts">
 import 'reflect-metadata'
-import { Vue, Component, Prop } from 'vue-property-decorator'
+import { defineComponent, ref } from 'vue'
 
 import Modal from '@/components/modals/Modal.vue'
 
-@Component({
+interface Props {
+    privateKey: string
+}
+
+export default defineComponent({
+    name: 'PrivateKey',
     components: {
         Modal,
     },
-})
-export default class PrivateKey extends Vue {
-    @Prop({ default: '' }) privateKey!: string
+    props: {
+        privateKey: {
+            type: String,
+            default: ''
+        }
+    },
+    setup() {
+        const modalRef = ref<InstanceType<typeof Modal>>()
 
-    open(): void {
-        let modal = this.$refs.modal as Modal
-        modal.open()
+        const open = (): void => {
+            modalRef.value?.open()
+        }
+
+        return {
+            modalRef,
+            open
+        }
     }
-}
+})
 </script>
 <style scoped lang="scss">
 .singleton_modal_body {

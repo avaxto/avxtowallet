@@ -29,7 +29,8 @@
 </template>
 <script lang="ts">
 import 'reflect-metadata'
-import { Vue, Component, Prop } from 'vue-property-decorator'
+import { defineComponent, computed } from 'vue'
+import { useStore } from 'vuex'
 
 import AvaAsset from '../../../js/AvaAsset'
 import Hexagon from '@/components/misc/Hexagon.vue'
@@ -40,99 +41,125 @@ import { WalletType } from '@/js/wallets/types'
 
 import Big from 'big.js'
 
-@Component({
+interface Props {
+    asset: AvaAsset
+}
+
+export default defineComponent({
+    name: 'FungibleRow',
     components: {
         Hexagon,
     },
-})
-export default class FungibleRow extends Vue {
-    @Prop() asset!: AvaAsset
-
-    get iconUrl(): string | null {
-        if (!this.asset) return null
-
-        if (this.isAvaxToken) {
-            return '/img/avax_icon_circle.png'
+    props: {
+        asset: {
+            type: Object as () => AvaAsset,
+            required: true
         }
+    },
+    setup(props: Props) {
+        const store = useStore()
 
-        return null
-    }
+        const avaxToken = computed((): AvaAsset => {
+            return store.getters['Assets/AssetAVA']
+        })
 
-    get isBalance(): boolean {
-        if (!this.asset) return false
-        if (!this.amount.isZero()) {
-            return true
-        }
-        return false
-    }
+        const isAvaxToken = computed(() => {
+            if (!props.asset) return false
 
-    get totalUSD(): Big {
-        if (!this.isAvaxToken) return Big(0)
-        let usdPrice = this.priceDict.usd
-        let bigAmt = bnToBig(this.amount, this.asset.denomination)
-        let usdBig = bigAmt.times(usdPrice)
-        return usdBig
-    }
+            if (avaxToken.value.id === props.asset.id) {
+                return true
+            } else {
+                return false
+            }
+        })
 
-    get priceDict(): priceDict {
-        return this.$store.state.prices
-    }
+        const iconUrl = computed((): string | null => {
+            if (!props.asset) return null
 
-    get sendLink(): string {
-        if (!this.asset) return `/wallet/transfer`
-        return `/wallet/transfer?asset=${this.asset.id}&chain=X`
-    }
+            if (isAvaxToken.value) {
+                return '/img/avax_icon_circle.png'
+            }
 
-    get avaxToken(): AvaAsset {
-        return this.$store.getters['Assets/AssetAVA']
-    }
+            return null
+        })
 
-    get isAvaxToken(): boolean {
-        if (!this.asset) return false
+        const evmAvaxBalance = computed((): BN => {
+            let wallet: WalletType | null = store.state.activeWallet
 
-        if (this.avaxToken.id === this.asset.id) {
-            return true
-        } else {
+            if (!isAvaxToken.value || !wallet) {
+                return new BN(0)
+            }
+            // Convert to 9 decimal places
+            let bal = wallet.ethBalance
+            let balRnd = bal.divRound(new BN(Math.pow(10, 9).toString()))
+            return balRnd
+        })
+
+        const amount = computed(() => {
+            let amt = props.asset.getTotalAmount()
+            return amt.add(evmAvaxBalance.value)
+        })
+
+        const isBalance = computed((): boolean => {
+            if (!props.asset) return false
+            if (!amount.value.isZero()) {
+                return true
+            }
             return false
+        })
+
+        const priceDict = computed((): priceDict => {
+            return store.state.prices
+        })
+
+        const totalUSD = computed((): Big => {
+            if (!isAvaxToken.value) return Big(0)
+            let usdPrice = priceDict.value.usd
+            let bigAmt = bnToBig(amount.value, props.asset.denomination)
+            let usdBig = bigAmt.times(usdPrice)
+            return usdBig
+        })
+
+        const sendLink = computed((): string => {
+            if (!props.asset) return `/wallet/transfer`
+            return `/wallet/transfer?asset=${props.asset.id}&chain=X`
+        })
+
+        const name = computed((): string => {
+            let name = props.asset.name
+            // TODO: Remove this hack after network change
+            if (name === 'AVA') return 'AVAX'
+            return name
+        })
+
+        const symbol = computed((): string => {
+            let sym = props.asset.symbol
+
+            // TODO: Remove this hack after network change
+            if (sym === 'AVA') return 'AVAX'
+            return sym
+        })
+
+        const amtBig = computed(() => {
+            return bnToBig(amount.value, props.asset.denomination)
+        })
+
+        return {
+            iconUrl,
+            isBalance,
+            totalUSD,
+            priceDict,
+            sendLink,
+            avaxToken,
+            isAvaxToken,
+            name,
+            symbol,
+            amount,
+            amtBig,
+            evmAvaxBalance
         }
     }
-
-    get name(): string {
-        let name = this.asset.name
-        // TODO: Remove this hack after network change
-        if (name === 'AVA') return 'AVAX'
-        return name
-    }
-
-    get symbol(): string {
-        let sym = this.asset.symbol
-
-        // TODO: Remove this hack after network change
-        if (sym === 'AVA') return 'AVAX'
-        return sym
-    }
-
-    get amount() {
-        let amt = this.asset.getTotalAmount()
-        return amt.add(this.evmAvaxBalance)
-    }
-
-    get amtBig() {
-        return bnToBig(this.amount, this.asset.denomination)
-    }
-
-    get evmAvaxBalance(): BN {
-        let wallet: WalletType | null = this.$store.state.activeWallet
-
-        if (!this.isAvaxToken || !wallet) {
-            return new BN(0)
-        }
-        // Convert to 9 decimal places
-        let bal = wallet.ethBalance
-        let balRnd = bal.divRound(new BN(Math.pow(10, 9).toString()))
-        return balRnd
-    }
-}
+})
 </script>
 <style scoped lang="scss">
 @use '../../../main';

@@ -35,7 +35,8 @@
     </modal>
 </template>
 <script lang="ts">
-import { Vue, Component } from 'vue-property-decorator'
+import { defineComponent, ref, computed } from 'vue'
+import { useStore } from 'vuex'
 
 import Modal from '@/components/modals/Modal.vue'
 import Identicon from '@/components/misc/Identicon.vue'
@@ -43,51 +44,66 @@ import { iUserAccountEncrypted } from '@/store/types'
 import ChangePassword from '@/components/modals/AccountSettings/ChangePassword.vue'
 import DeleteAccount from '@/components/modals/AccountSettings/DeleteAccount.vue'
 import SaveKeys from '@/components/modals/AccountSettings/SaveKeys.vue'
-@Component({
+
+export default defineComponent({
+    name: 'AccountSettingsModal',
     components: {
         ChangePassword,
         Identicon,
         Modal,
     },
+    setup() {
+        const store = useStore()
+        
+        const modal = ref<InstanceType<typeof Modal> | null>(null)
+        const subComponent = ref<any>(null)
+
+        const account = computed((): iUserAccountEncrypted => {
+            return store.getters['Accounts/account']
+        })
+
+        const hasVolatile = computed(() => {
+            return store.state.volatileWallets.length > 0
+        })
+
+        const open = () => {
+            modal.value?.open()
+        }
+
+        const close = () => {
+            modal.value?.close()
+        }
+
+        const clear = () => {
+            subComponent.value = null
+        }
+
+        const changePassword = () => {
+            subComponent.value = ChangePassword
+        }
+
+        const deleteAccount = () => {
+            subComponent.value = DeleteAccount
+        }
+
+        const saveKeys = () => {
+            subComponent.value = SaveKeys
+        }
+
+        return {
+            modal,
+            subComponent,
+            account,
+            hasVolatile,
+            open,
+            close,
+            clear,
+            changePassword,
+            deleteAccount,
+            saveKeys
+        }
+    }
 })
-export default class AccountSettingsModal extends Vue {
-    $refs!: {
-        modal: Modal
-    }
-
-    subComponent: any = null
-
-    get account(): iUserAccountEncrypted {
-        return this.$store.getters['Accounts/account']
-    }
-    open() {
-        this.$refs.modal.open()
-    }
-
-    close() {
-        this.$refs.modal.close()
-    }
-
-    clear() {
-        this.subComponent = null
-    }
-
-    changePassword() {
-        this.subComponent = ChangePassword
-    }
-
-    deleteAccount() {
-        this.subComponent = DeleteAccount
-    }
-
-    saveKeys() {
-        this.subComponent = SaveKeys
-    }
-
-    get hasVolatile() {
-        return this.$store.state.volatileWallets.length > 0
-    }
-}
 </script>
 <style scoped lang="scss">
 .modal_body {

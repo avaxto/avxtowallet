@@ -1,7 +1,7 @@
 <template>
     <div class="fungibles_view">
-        <AddERC20TokenModal ref="add_token_modal"></AddERC20TokenModal>
-        <TokenListModal ref="tokenlist_modal"></TokenListModal>
+        <AddERC20TokenModal ref="addTokenModal"></AddERC20TokenModal>
+        <TokenListModal ref="tokenlistModal"></TokenListModal>
         <div class="headers">
             <p class="name_col">{{ $t('portfolio.name') }}</p>
             <p></p>
@@ -41,7 +41,8 @@
 </template>
 <script lang="ts">
 import 'reflect-metadata'
-import { Vue, Component, Prop } from 'vue-property-decorator'
+import { defineComponent, ref, computed } from 'vue'
+import { useStore } from 'vuex'
 
 import FaucetLink from '@/components/misc/FaucetLink.vue'
 import FungibleRow from '@/components/wallet/portfolio/FungibleRow.vue'
@@ -52,7 +53,12 @@ import AddERC20TokenModal from '@/components/modals/AddERC20TokenModal.vue'
 import TokenListModal from '@/components/modals/TokenList/TokenListModal.vue'
 import { WalletType } from '@/js/wallets/types'
 
-@Component({
+interface Props {
+    search: string
+}
+
+export default defineComponent({
+    name: 'Fungibles',
     components: {
         TokenListModal,
         AddERC20TokenModal,
@@ -60,99 +66,114 @@ import { WalletType } from '@/js/wallets/types'
         FaucetLink,
         FungibleRow,
     },
-})
-export default class Fungibles extends Vue {
-    @Prop() search!: string
+    props: {
+        search: {
+            type: String,
+            required: true
+        }
+    },
+    setup(props: Props) {
+        const store = useStore()
+        const addTokenModal = ref<InstanceType<typeof AddERC20TokenModal>>()
+        const tokenlistModal = ref<InstanceType<typeof TokenListModal>>()
 
-    $refs!: {
-        add_token_modal: AddERC20TokenModal
-        tokenlist_modal: TokenListModal
-    }
-
-    get networkStatus(): string {
-        let stat = this.$store.state.Network.status
-        return stat
-    }
-
-    addToken() {
-        this.$refs.add_token_modal.open()
-    }
-
-    addTokenList() {
-        this.$refs.tokenlist_modal.open()
-    }
-
-    get walletBalancesSorted(): AvaAsset[] {
-        // let balance: AvaAsset[] = this.$store.getters['walletAssetsArray']
-        let balance: AvaAsset[] = this.$store.getters['Assets/walletAssetsArray']
-
-        // Sort by balance, then name
-        balance.sort((a, b) => {
-            let symbolA = a.symbol.toUpperCase()
-            let symbolB = b.symbol.toUpperCase()
-            let amtA = a.getAmount()
-            let amtB = b.getAmount()
-            let idA = a.id
-            let idB = b.id
-
-            // AVA always on top
-            if (idA === this.avaxToken.id) {
-                return -1
-            } else if (idB === this.avaxToken.id) {
-                return 1
-            }
-
-            if (amtA.gt(amtB)) {
-                return -1
-            } else if (amtA.lt(amtB)) {
-                return 1
-            }
-
-            if (symbolA < symbolB) {
-                return -1
-            } else if (symbolA > symbolB) {
-                return 1
-            }
-            return 0
+        const networkStatus = computed((): string => {
+            let stat = store.state.Network.status
+            return stat
         })
 
-        return balance
-    }
-
-    get avaxToken(): AvaAsset {
-        return this.$store.getters['Assets/AssetAVA']
-    }
-
-    get erc20Balances(): Erc20Token[] {
-        let tokens: Erc20Token[] = this.$store.getters['Assets/networkErc20Tokens']
-        let filt = tokens.filter((token) => {
-            if (token.balanceBN.isZero()) return false
-            return true
+        const avaxToken = computed((): AvaAsset => {
+            return store.getters['Assets/AssetAVA']
         })
-        return filt
-    }
 
-    get walletBalances(): AvaAsset[] {
-        let balance = this.walletBalancesSorted
-
-        if (this.search) {
-            balance = balance.filter((val) => {
-                let query = this.search.toUpperCase()
-
-                let nameUp = val.name.toUpperCase()
-                let symbolUp = val.symbol.toUpperCase()
-
-                if (nameUp.includes(query) || symbolUp.includes(query)) {
-                    return true
-                } else {
-                    return false
-                }
+        const erc20Balances = computed((): Erc20Token[] => {
+            let tokens: Erc20Token[] = store.getters['Assets/networkErc20Tokens']
+            let filt = tokens.filter((token) => {
+                if (token.balanceBN.isZero()) return false
+                return true
             })
+            return filt
+        })
+
+        const walletBalancesSorted = computed((): AvaAsset[] => {
+            // let balance: AvaAsset[] = store.getters['walletAssetsArray']
+            let balance: AvaAsset[] = store.getters['Assets/walletAssetsArray']
+
+            // Sort by balance, then name
+            balance.sort((a, b) => {
+                let symbolA = a.symbol.toUpperCase()
+                let symbolB = b.symbol.toUpperCase()
+                let amtA = a.getAmount()
+                let amtB = b.getAmount()
+                let idA = a.id
+                let idB = b.id
+
+                // AVA always on top
+                if (idA === avaxToken.value.id) {
+                    return -1
+                } else if (idB === avaxToken.value.id) {
+                    return 1
+                }
+
+                if (amtA.gt(amtB)) {
+                    return -1
+                } else if (amtA.lt(amtB)) {
+                    return 1
+                }
+
+                if (symbolA < symbolB) {
+                    return -1
+                } else if (symbolA > symbolB) {
+                    return 1
+                }
+                return 0
+            })
+
+            return balance
+        })
+
+        const walletBalances = computed((): AvaAsset[] => {
+            let balance = walletBalancesSorted.value
+
+            if (props.search) {
+                balance = balance.filter((val) => {
+                    let query = props.search.toUpperCase()
+
+                    let nameUp = val.name.toUpperCase()
+                    let symbolUp = val.symbol.toUpperCase()
+
+                    if (nameUp.includes(query) || symbolUp.includes(query)) {
+                        return true
+                    } else {
+                        return false
+                    }
+                })
+            }
+
+            return balance
+        })
+
+        const addToken = () => {
+            addTokenModal.value?.open()
         }
 
-        return balance
+        const addTokenList = () => {
+            tokenlistModal.value?.open()
+        }
+
+        return {
+            addTokenModal,
+            tokenlistModal,
+            networkStatus,
+            walletBalancesSorted,
+            avaxToken,
+            erc20Balances,
+            walletBalances,
+            addToken,
+            addTokenList
+        }
     }
-}
+})
 </script>
 <style scoped lang="scss">
 @use '../../../main';

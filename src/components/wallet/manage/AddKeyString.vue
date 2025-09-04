@@ -19,63 +19,78 @@
 </template>
 <script lang="ts">
 import 'reflect-metadata'
-import { Vue, Component } from 'vue-property-decorator'
+import { defineComponent, ref } from 'vue'
+import { useStore } from 'vuex'
+import { useI18n } from 'vue-i18n'
 // @ts-ignore
 import { QrInput } from '@avalabs/vue_components'
 import Spinner from '@/components/misc/Spinner.vue'
 
-@Component({
+export default defineComponent({
+    name: 'AddKeyString',
     components: {
         QrInput,
         Spinner,
     },
-})
-export default class AddKeyString extends Vue {
-    privateKeyInput: string = ''
-    canAdd: boolean = false
-    error: string = ''
-    isLoading: boolean = false
+    emits: ['success'],
+    setup(_, { emit }) {
+        const store = useStore()
+        const { t } = useI18n()
+        const privateKeyInput = ref('')
+        const canAdd = ref(false)
+        const error = ref('')
+        const isLoading = ref(false)
 
-    validateQR(val: string) {
-        if (this.privateKeyInput.length > 10) {
-            this.canAdd = true
-        } else if (this.privateKeyInput.length === 0) {
-            this.error = ''
-            this.canAdd = false
-        } else {
-            this.canAdd = false
+        const validateQR = (val: string) => {
+            if (privateKeyInput.value.length > 10) {
+                canAdd.value = true
+            } else if (privateKeyInput.value.length === 0) {
+                error.value = ''
+                canAdd.value = false
+            } else {
+                canAdd.value = false
+            }
+        }
+
+        const clear = () => {
+            isLoading.value = false
+            privateKeyInput.value = ''
+            canAdd.value = false
+            error.value = ''
+        }
+
+        const addKey = () => {
+            isLoading.value = true
+            error.value = ''
+
+            setTimeout(async () => {
+                try {
+                    await store.dispatch('addWalletSingleton', privateKeyInput.value)
+                    emit('success')
+                    clear()
+                } catch (e) {
+                    isLoading.value = false
+
+                    if (e.message.includes('already')) {
+                        error.value = t('keys.import_key_duplicate_err') as string
+                    } else {
+                        error.value = t('keys.import_key_err') as string
+                    }
+                }
+            }, 200)
+        }
+
+        return {
+            privateKeyInput,
+            canAdd,
+            error,
+            isLoading,
+            validateQR,
+            clear,
+            addKey
         }
     }
-
-    addKey() {
-        this.isLoading = true
-        this.error = ''
-
-        setTimeout(async () => {
-            try {
-                await this.$store.dispatch('addWalletSingleton', this.privateKeyInput)
-                // @ts-ignore
-                this.$emit('success')
-                this.clear()
-            } catch (e) {
-                this.isLoading = false
-
-                if (e.message.includes('already')) {
-                    this.error = this.$t('keys.import_key_duplicate_err') as string
-                } else {
-                    this.error = this.$t('keys.import_key_err') as string
-                }
-            }
-        }, 200)
-    }
-
-    clear() {
-        this.isLoading = false
-        this.privateKeyInput = ''
-        this.canAdd = false
-        this.error = ''
-    }
-}
+})
 </script>
 <style scoped lang="scss">
 @use '../../../main';

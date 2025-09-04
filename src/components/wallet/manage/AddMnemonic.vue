@@ -20,82 +20,101 @@
     </div>
 </template>
 <script lang="ts">
-import { Vue, Component, Prop } from 'vue-property-decorator'
+import { defineComponent, ref, computed } from 'vue'
+import { useStore } from 'vuex'
+import { useI18n } from 'vue-i18n'
 import * as bip39 from 'bip39'
 
-@Component
-export default class AddMnemonic extends Vue {
-    phrase: string = ''
-    err: string = ''
-    isLoading: boolean = false
+export default defineComponent({
+    name: 'AddMnemonic',
+    emits: ['success'],
+    setup(_, { emit }) {
+        const store = useStore()
+        const { t } = useI18n()
+        const phrase = ref('')
+        const err = ref('')
+        const isLoading = ref(false)
 
-    errCheck() {
-        let phrase = this.phrase.trim()
-        let words = phrase.split(' ')
+        const wordCount = computed((): number => {
+            return phrase.value.trim().split(' ').length
+        })
 
-        // not a valid key phrase
-        if (words.length !== 24) {
-            this.err =
-                'Invalid key phrase length. Your phrase must be 24 words separated by a single space.'
-            return false
-        }
-
-        if (!bip39.validateMnemonic(phrase)) {
-            this.err = 'Not a valid mnemonic phrase.'
-            return false
-        }
-
-        return true
-    }
-
-    clear() {
-        this.phrase = ''
-        this.err = ''
-        this.isLoading = false
-    }
-
-    async access() {
-        let phrase = this.phrase.trim()
-        this.err = ''
-        this.isLoading = true
-
-        if (!this.errCheck()) {
-            this.isLoading = false
-            return
-        }
-
-        setTimeout(async () => {
-            try {
-                await this.$store.dispatch('addWalletMnemonic', phrase)
-                this.isLoading = false
-                this.handleImportSuccess()
-            } catch (e) {
-                this.isLoading = false
-                if (e.message.includes('already')) {
-                    this.err = this.$t('keys.import_mnemonic_duplicate_err') as string
-                } else {
-                    this.err = this.$t('keys.import_mnemonic_err') as string
-                }
+        const canSubmit = computed(() => {
+            if (wordCount.value < 24) {
+                return false
             }
-        }, 500)
-    }
+            return true
+        })
 
-    handleImportSuccess() {
-        this.phrase = ''
-        this.$emit('success')
-    }
+        const errCheck = () => {
+            let phraseValue = phrase.value.trim()
+            let words = phraseValue.split(' ')
 
-    get wordCount(): number {
-        return this.phrase.trim().split(' ').length
-    }
+            // not a valid key phrase
+            if (words.length !== 24) {
+                err.value =
+                    'Invalid key phrase length. Your phrase must be 24 words separated by a single space.'
+                return false
+            }
 
-    get canSubmit() {
-        if (this.wordCount < 24) {
-            return false
+            if (!bip39.validateMnemonic(phraseValue)) {
+                err.value = 'Not a valid mnemonic phrase.'
+                return false
+            }
+
+            return true
         }
-        return true
+
+        const clear = () => {
+            phrase.value = ''
+            err.value = ''
+            isLoading.value = false
+        }
+
+        const handleImportSuccess = () => {
+            phrase.value = ''
+            emit('success')
+        }
+
+        const access = async () => {
+            let phraseValue = phrase.value.trim()
+            err.value = ''
+            isLoading.value = true
+
+            if (!errCheck()) {
+                isLoading.value = false
+                return
+            }
+
+            setTimeout(async () => {
+                try {
+                    await store.dispatch('addWalletMnemonic', phraseValue)
+                    isLoading.value = false
+                    handleImportSuccess()
+                } catch (e) {
+                    isLoading.value = false
+                    if (e.message.includes('already')) {
+                        err.value = t('keys.import_mnemonic_duplicate_err') as string
+                    } else {
+                        err.value = t('keys.import_mnemonic_err') as string
+                    }
+                }
+            }, 500)
+        }
+
+        return {
+            phrase,
+            err,
+            isLoading,
+            wordCount,
+            canSubmit,
+            errCheck,
+            clear,
+            handleImportSuccess,
+            access
+        }
     }
-}
+})
 </script>
 <style scoped lang="scss">
 .add_mnemonic {

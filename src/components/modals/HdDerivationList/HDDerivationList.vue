@@ -35,8 +35,8 @@
     </div>
 </template>
 <script lang="ts">
-import 'reflect-metadata'
-import { Vue, Component, Prop, Watch } from 'vue-property-decorator'
+import { defineComponent, ref, computed, watch } from 'vue'
+import { useStore } from 'vuex'
 
 import MnemonicWallet from '@/js/wallets/MnemonicWallet'
 import { KeyPair as AVMKeyPair, UTXOSet as AVMUTXOSet } from 'avalanche/dist/apis/avm'
@@ -50,97 +50,116 @@ import { bnToBig } from '@/helpers/helper'
 import { BN } from 'avalanche'
 import HdChainTable from '@/components/modals/HdDerivationList/HdChainTable.vue'
 
-@Component({
+export default defineComponent({
+    name: 'HDDerivationList',
     components: {
         HdChainTable,
     },
-})
-export default class HDDerivationList extends Vue {
-    @Prop() wallet!: MnemonicWallet | LedgerWallet
-
-    addrsExternal: string[] = []
-    addrsInternal: string[] = []
-    addrsPlatform: string[] = []
-
-    @Watch('wallet.internalHelper.utxoSet', { immediate: true })
-    onInternalUtxoChange() {
-        this.addrsInternal = this.wallet.internalHelper.getAllDerivedAddresses()
-    }
-
-    @Watch('wallet.externalHelper.utxoSet', { immediate: true })
-    onExternalUtxoChange() {
-        this.addrsExternal = this.wallet.externalHelper.getAllDerivedAddresses()
-    }
-
-    @Watch('wallet.platformHelper.utxoSet', { immediate: true })
-    onPlatformUtxoChange() {
-        this.addrsPlatform = this.wallet.platformHelper.getAllDerivedAddresses()
-    }
-
-    get internalHelper() {
-        return this.wallet.internalHelper
-    }
-    get externalHelper() {
-        return this.wallet.externalHelper
-    }
-    get platformHelper() {
-        return this.wallet.platformHelper
-    }
-
-    get assetsDict() {
-        return this.$store.state.Assets.assetsDict
-    }
-
-    utxoSetToBalanceDict(
-        set: AVMUTXOSet | PlatformUTXOSet,
-        addrs: string[]
-    ): DerivationListBalanceDict[] {
-        let assets: AvaAsset[] = this.$store.state.Assets.assets
-
-        let denoms: number[] = assets.map((asset) => {
-            return asset.denomination
-        })
-        let assetIds: string[] = this.$store.getters['Assets/assetIds']
-
-        let res = []
-        for (var i = 0; i < addrs.length; i++) {
-            let balDict: DerivationListBalanceDict = {}
-            let addrBuff = bintools.stringToAddress(addrs[i])
-            assetIds.forEach((assetId, index) => {
-                let bal: BN = set.getBalance([addrBuff], assetId)
-
-                if (!bal.isZero()) {
-                    let balBig = bnToBig(bal, denoms[index])
-                    balDict[assetId] = balBig
-                }
-            })
-            res.push(balDict)
+    props: {
+        wallet: {
+            type: Object as () => MnemonicWallet | LedgerWallet,
+            required: true
         }
-        return res
-    }
+    },
+    setup(props) {
+        const store = useStore()
+        
+        const addrsExternal = ref<string[]>([])
+        const addrsInternal = ref<string[]>([])
+        const addrsPlatform = ref<string[]>([])
 
-    get keyBalancesExternal(): DerivationListBalanceDict[] {
-        let wallet = this.wallet
-        let utxoSet = wallet.externalHelper.utxoSet as AVMUTXOSet
-        let addrs = this.addrsExternal
+        watch(() => props.wallet.internalHelper.utxoSet, () => {
+            addrsInternal.value = props.wallet.internalHelper.getAllDerivedAddresses()
+        }, { immediate: true })
 
-        return this.utxoSetToBalanceDict(utxoSet, addrs)
-    }
+        watch(() => props.wallet.externalHelper.utxoSet, () => {
+            addrsExternal.value = props.wallet.externalHelper.getAllDerivedAddresses()
+        }, { immediate: true })
 
-    get keyBalancesInternal(): DerivationListBalanceDict[] {
-        let wallet = this.wallet
-        let utxoSet = wallet.internalHelper.utxoSet
-        let addrs = this.addrsInternal
-        return this.utxoSetToBalanceDict(utxoSet, addrs)
-    }
+        watch(() => props.wallet.platformHelper.utxoSet, () => {
+            addrsPlatform.value = props.wallet.platformHelper.getAllDerivedAddresses()
+        }, { immediate: true })
 
-    get keyBalancesPlatform(): DerivationListBalanceDict[] {
-        let wallet = this.wallet
-        let utxoSet = wallet.platformHelper.utxoSet
-        let addrs = this.addrsPlatform
-        return this.utxoSetToBalanceDict(utxoSet, addrs)
+        const internalHelper = computed(() => {
+            return props.wallet.internalHelper
+        })
+
+        const externalHelper = computed(() => {
+            return props.wallet.externalHelper
+        })
+
+        const platformHelper = computed(() => {
+            return props.wallet.platformHelper
+        })
+
+        const assetsDict = computed(() => {
+            return store.state.Assets.assetsDict
+        })
+
+        const utxoSetToBalanceDict = (
+            set: AVMUTXOSet | PlatformUTXOSet,
+            addrs: string[]
+        ): DerivationListBalanceDict[] => {
+            let assets: AvaAsset[] = store.state.Assets.assets
+
+            let denoms: number[] = assets.map((asset) => {
+                return asset.denomination
+            })
+            let assetIds: string[] = store.getters['Assets/assetIds']
+
+            let res = []
+            for (var i = 0; i < addrs.length; i++) {
+                let balDict: DerivationListBalanceDict = {}
+                let addrBuff = bintools.stringToAddress(addrs[i])
+                assetIds.forEach((assetId, index) => {
+                    let bal: BN = set.getBalance([addrBuff], assetId)
+
+                    if (!bal.isZero()) {
+                        let balBig = bnToBig(bal, denoms[index])
+                        balDict[assetId] = balBig
+                    }
+                })
+                res.push(balDict)
+            }
+            return res
+        }
+
+        const keyBalancesExternal = computed((): DerivationListBalanceDict[] => {
+            let wallet = props.wallet
+            let utxoSet = wallet.externalHelper.utxoSet as AVMUTXOSet
+            let addrs = addrsExternal.value
+
+            return utxoSetToBalanceDict(utxoSet, addrs)
+        })
+
+        const keyBalancesInternal = computed((): DerivationListBalanceDict[] => {
+            let wallet = props.wallet
+            let utxoSet = wallet.internalHelper.utxoSet
+            let addrs = addrsInternal.value
+            return utxoSetToBalanceDict(utxoSet, addrs)
+        })
+
+        const keyBalancesPlatform = computed((): DerivationListBalanceDict[] => {
+            let wallet = props.wallet
+            let utxoSet = wallet.platformHelper.utxoSet
+            let addrs = addrsPlatform.value
+            return utxoSetToBalanceDict(utxoSet, addrs)
+        })
+
+        return {
+            addrsExternal,
+            addrsInternal,
+            addrsPlatform,
+            internalHelper,
+            externalHelper,
+            platformHelper,
+            assetsDict,
+            keyBalancesExternal,
+            keyBalancesInternal,
+            keyBalancesPlatform
+        }
     }
-}
+})
 </script>
 
 <style scoped lang="scss">

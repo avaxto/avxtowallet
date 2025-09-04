@@ -44,7 +44,10 @@
     </div>
 </template>
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator'
+import { defineComponent, ref, computed, onActivated, onDeactivated } from 'vue'
+import { useStore } from 'vuex'
+import { useRoute, useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import NewCollectibleFamily from '@/components/wallet/studio/NewCollectibleFamily.vue'
 import MintNft from '@/components/wallet/studio/mint/MintNft.vue'
 import { IWalletNftMintDict } from '@/store/types'
@@ -52,69 +55,85 @@ import Big from 'big.js'
 import { bnToBig } from '@/helpers/helper'
 import { avm } from '@/AVA'
 import { BN } from 'avalanche'
-@Component({
+
+export default defineComponent({
     name: 'studio',
     components: {
         NewCollectibleFamily,
     },
+    setup() {
+        const store = useStore()
+        const route = useRoute()
+        const router = useRouter()
+        const { t } = useI18n()
+
+        const pageNow = ref<any>(null)
+        const subtitle = ref('')
+
+        const goNewNftFamily = () => {
+            pageNow.value = NewCollectibleFamily
+            subtitle.value = 'New Collectible Family'
+        }
+
+        const goMint = () => {
+            pageNow.value = MintNft
+            subtitle.value = 'Mint Collectible'
+        }
+
+        const nftMintDict = computed((): IWalletNftMintDict => {
+            return store.getters['Assets/nftMintDict']
+        })
+
+        const canMint = computed((): boolean => {
+            const keys = Object.keys(nftMintDict.value)
+            if (keys.length > 0) return true
+            return false
+        })
+
+        // If url has a utxo id, clears it
+        const clearUrl = () => {
+            let utxoId = route.query.utxo
+
+            if (utxoId) {
+                router.replace({ query: null as any })
+            }
+        }
+
+        const clearPage = () => {
+            pageNow.value = null
+            subtitle.value = ''
+        }
+
+        const cancel = () => {
+            clearUrl()
+            clearPage()
+        }
+
+        onDeactivated(() => {
+            clearPage()
+        })
+
+        onActivated(() => {
+            let utxoId = route.query.utxo
+
+            if (utxoId) {
+                goMint()
+            }
+        })
+
+        return {
+            pageNow,
+            subtitle,
+            goNewNftFamily,
+            goMint,
+            nftMintDict,
+            canMint,
+            clearUrl,
+            clearPage,
+            cancel
+        }
+    }
 })
-export default class Studio extends Vue {
-    pageNow: any = null
-    subtitle: string = ''
-
-    goNewNftFamily() {
-        this.pageNow = NewCollectibleFamily
-        this.subtitle = 'New Collectible Family'
-    }
-
-    goMint() {
-        this.pageNow = MintNft
-        this.subtitle = 'Mint Collectible'
-    }
-
-    get nftMintDict(): IWalletNftMintDict {
-        // return this.$store.getters.walletNftMintDict
-        return this.$store.getters['Assets/nftMintDict']
-    }
-
-    get canMint(): boolean {
-        const keys = Object.keys(this.nftMintDict)
-        if (keys.length > 0) return true
-        return false
-    }
-
-    deactivated() {
-        this.clearPage()
-    }
-
-    activated() {
-        let utxoId = this.$route.query.utxo
-
-        if (utxoId) {
-            this.goMint()
-        }
-    }
-
-    // If url has a utxo id, clears it
-    clearUrl() {
-        let utxoId = this.$route.query.utxo
-
-        if (utxoId) {
-            //@ts-ignore
-            this.$router.replace({ query: null })
-        }
-    }
-
-    clearPage() {
-        this.pageNow = null
-        this.subtitle = ''
-    }
-
-    cancel() {
-        this.clearUrl()
-        this.clearPage()
-    }
-}
 </script>
 <style scoped lang="scss">
 .header {

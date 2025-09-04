@@ -26,86 +26,110 @@
     </div>
 </template>
 <script lang="ts">
-import { Component, Vue, Prop } from 'vue-property-decorator'
+import { defineComponent, computed, type PropType } from 'vue'
+import { useStore } from 'vuex'
 import { AvaNetwork } from '@/js/AvaNetwork'
 
-@Component
-export default class NetworkRow extends Vue {
-    @Prop() network!: AvaNetwork
+export default defineComponent({
+    name: 'NetworkRow',
+    props: {
+        network: {
+            type: Object as PropType<AvaNetwork>,
+            required: true
+        }
+    },
+    emits: ['edit'],
+    setup(props, { emit }) {
+        const store = useStore()
 
-    get endpoint() {
-        let net = this.network
-        let portText = ''
-        if (net.port) {
-            portText = ':' + net.port
+        const endpoint = computed(() => {
+            let net = props.network
+            let portText = ''
+            if (net.port) {
+                portText = ':' + net.port
+            }
+
+            return `${net.protocol}://${net.ip}${portText}`
+        })
+
+        const networkStatus = computed(() => {
+            return store.state.Network.status
+        })
+
+        const isConnected = computed(() => {
+            let state = store.state.Network
+            if (props.network === state.selectedNetwork && networkStatus.value === 'connected') {
+                return true
+            }
+            return false
+        })
+
+        const isSelected = computed(() => {
+            let state = store.state.Network
+            if (props.network === state.selectedNetwork) {
+                return true
+            }
+            return false
+        })
+
+        const edit = () => {
+            emit('edit')
         }
 
-        return `${net.protocol}://${net.ip}${portText}`
-    }
-    get networkStatus() {
-        return this.$store.state.Network.status
-    }
-    get isConnected() {
-        let state = this.$store.state.Network
-        if (this.network === state.selectedNetwork && this.networkStatus === 'connected') {
-            return true
-        }
-        return false
-    }
-    get isSelected() {
-        let state = this.$store.state.Network
-        if (this.network === state.selectedNetwork) {
-            return true
-        }
-        return false
-    }
-
-    edit() {
-        this.$emit('edit')
-    }
-
-    deleteNet() {
-        this.$store.dispatch('Network/removeCustomNetwork', this.network)
-        this.$store.dispatch(
-            'Notifications/add',
-            {
-                title: 'Network Removed',
-                message: 'Removed custom network.',
-            },
-            { root: true }
-        )
-    }
-    async select() {
-        let net = this.network
-        try {
-            let isSel = await this.$store.dispatch('Network/setNetwork', net)
-
-            this.$store.dispatch(
+        const deleteNet = () => {
+            store.dispatch('Network/removeCustomNetwork', props.network)
+            store.dispatch(
                 'Notifications/add',
                 {
-                    title: 'Network Connected',
-                    message: 'Connected to ' + net.name,
-                    type: 'success',
-                },
-                { root: true }
-            )
-            // @ts-ignore
-            this.$parent.$parent.isActive = false
-        } catch (e) {
-            this.$store.state.Network.selectedNetwork = null
-            this.$store.state.Network.status = 'disconnected'
-            this.$store.dispatch(
-                'Notifications/add',
-                {
-                    title: 'Connection Failed',
-                    message: `Failed to connect ${net.name}`,
-                    type: 'error',
+                    title: 'Network Removed',
+                    message: 'Removed custom network.',
                 },
                 { root: true }
             )
         }
+
+        const select = async () => {
+            let net = props.network
+            try {
+                let isSel = await store.dispatch('Network/setNetwork', net)
+
+                store.dispatch(
+                    'Notifications/add',
+                    {
+                        title: 'Network Connected',
+                        message: 'Connected to ' + net.name,
+                        type: 'success',
+                    },
+                    { root: true }
+                )
+                // Note: Removed parent access as it's not Vue 3 compatible
+                // Instead, consider emitting an event or using proper component communication
+            } catch (e) {
+                store.state.Network.selectedNetwork = null
+                store.state.Network.status = 'disconnected'
+                store.dispatch(
+                    'Notifications/add',
+                    {
+                        title: 'Connection Failed',
+                        message: `Failed to connect ${net.name}`,
+                        type: 'error',
+                    },
+                    { root: true }
+                )
+            }
+        }
+
+        return {
+            endpoint,
+            networkStatus,
+            isConnected,
+            isSelected,
+            edit,
+            deleteNet,
+            select
+        }
     }
-}
+})
 </script>
 <style scoped lang="scss">
 @use '../../main';

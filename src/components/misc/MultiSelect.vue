@@ -13,31 +13,58 @@
     </div>
 </template>
 <script lang="ts">
-import { Vue, Component, Prop, Model } from 'vue-property-decorator'
+import { defineComponent, computed } from 'vue'
 import RadioButtons from './RadioButtons.vue'
 
-@Component
-export default class MultiSelect extends Vue {
-    @Prop() labels!: string[]
-    @Prop() keys!: string[]
-    @Prop({ default: false }) disabled!: boolean
-
-    @Model('change', { type: Array }) readonly selection!: string[]
-
-    get selectionSet() {
-        return new Set(this.selection)
-    }
-
-    select(val: string) {
-        const now: Set<string> = new Set(this.selection)
-        if (now.has(val)) {
-            now.delete(val)
-        } else {
-            now.add(val)
-        }
-        this.$emit('change', Array.from(now))
-    }
+interface Props {
+    labels: string[]
+    keys: string[]
+    disabled: boolean
+    selection: string[]
 }
+
+export default defineComponent({
+    name: 'MultiSelect',
+    props: {
+        labels: {
+            type: Array as () => string[],
+            required: true
+        },
+        keys: {
+            type: Array as () => string[],
+            required: true
+        },
+        disabled: {
+            type: Boolean,
+            default: false
+        },
+        selection: {
+            type: Array as () => string[],
+            required: true
+        }
+    },
+    emits: ['change'],
+    setup(props: Props, { emit }) {
+        const selectionSet = computed(() => {
+            return new Set(props.selection)
+        })
+
+        const select = (val: string) => {
+            const now: Set<string> = new Set(props.selection)
+            if (now.has(val)) {
+                now.delete(val)
+            } else {
+                now.add(val)
+            }
+            emit('change', Array.from(now))
+        }
+
+        return {
+            selectionSet,
+            select
+        }
+    }
+})
 </script>
 <style scoped lang="scss">
 @use '../../main';

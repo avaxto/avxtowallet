@@ -2,9 +2,10 @@
     <div>Addresses</div>
 </template>
 <script lang="ts">
-import { Vue, Component } from 'vue-property-decorator'
+import { defineComponent } from 'vue'
 
-@Component
-export default class Addresses extends Vue {}
+export default defineComponent({
+    name: 'Addresses'
+})
 </script>
 <style scoped lang="scss"></style>

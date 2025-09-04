@@ -12,64 +12,83 @@
     </tr>
 </template>
 <script lang="ts">
-import 'reflect-metadata'
-import { Vue, Component, Prop } from 'vue-property-decorator'
+import { defineComponent, computed } from 'vue'
 import moment from 'moment'
 import { BN } from 'avalanche'
 import { bnToBig } from '@/helpers/helper'
 import { ValidatorListItem } from '@/store/modules/platform/types'
 
-@Component
-export default class ValidatorsList extends Vue {
-    @Prop() validator!: ValidatorListItem
+export default defineComponent({
+    name: 'ValidatorRow',
+    props: {
+        validator: {
+            type: Object as () => ValidatorListItem,
+            required: true
+        }
+    },
+    emits: ['select'],
+    setup(props, { emit }) {
+        const remainingMs = computed((): number => {
+            let end = props.validator.endTime
+            let remain = end.getTime() - Date.now()
+            return remain
+        })
 
-    get remainingMs(): number {
-        let end = this.validator.endTime
-        let remain = end.getTime() - Date.now()
-        return remain
-    }
+        const remainingTimeText = computed(() => {
+            let ms = remainingMs.value
+            let duration = moment.duration(ms, 'milliseconds')
+            return duration.humanize(true)
+        })
 
-    get remainingTimeText() {
-        let ms = this.remainingMs
-        let duration = moment.duration(ms, 'milliseconds')
-        return duration.humanize(true)
-    }
+        const stakeAmt = computed((): BN => {
+            return props.validator.validatorStake
+        })
 
-    get stakeAmt(): BN {
-        return this.validator.validatorStake
-    }
+        const amtText = computed(() => {
+            let amt = stakeAmt.value
+            let big = bnToBig(amt, 9)
+            return big.toLocaleString(0)
+        })
 
-    get amtText() {
-        let amt = this.stakeAmt
-        let big = bnToBig(amt, 9)
-        return big.toLocaleString(0)
-    }
+        const feeText = computed(() => {
+            return props.validator.fee
+        })
 
-    get feeText() {
-        return this.validator.fee
-    }
+        const numDelegators = computed(() => {
+            return props.validator.numDelegators
+        })
 
-    get numDelegators() {
-        return this.validator.numDelegators
-    }
+        const totalDelegated = computed((): BN => {
+            return props.validator.delegatedStake
+        })
 
-    get totalDelegated(): BN {
-        return this.validator.delegatedStake
-    }
+        const remainingStake = computed((): BN => {
+            return props.validator.remainingStake
+        })
 
-    get remainingStake(): BN {
-        return this.validator.remainingStake
-    }
+        const remainingAmtText = computed((): string => {
+            let big = bnToBig(remainingStake.value, 9)
+            return big.toLocaleString(0)
+        })
 
-    get remainingAmtText(): string {
-        let big = bnToBig(this.remainingStake, 9)
-        return big.toLocaleString(0)
-    }
+        const select = () => {
+            emit('select', props.validator)
+        }
 
-    select() {
-        this.$emit('select', this.validator)
+        return {
+            remainingMs,
+            remainingTimeText,
+            stakeAmt,
+            amtText,
+            feeText,
+            numDelegators,
+            totalDelegated,
+            remainingStake,
+            remainingAmtText,
+            select
+        }
     }
-}
+})
 </script>
 <style scoped lang="scss">
 @use '../../../main';

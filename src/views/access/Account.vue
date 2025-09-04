@@ -29,85 +29,111 @@
     </div>
 </template>
 <script lang="ts">
-import { Vue, Component } from 'vue-property-decorator'
+import { defineComponent, ref, computed, onMounted } from 'vue'
+import { useStore } from 'vuex'
+import { useRoute, useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { ImportKeyfileInput, iUserAccountEncrypted } from '@/store/types'
 import Identicon from '@/components/misc/Identicon.vue'
 
-@Component({
+export default defineComponent({
+    name: 'Account',
     components: { Identicon },
+    setup() {
+        const store = useStore()
+        const route = useRoute()
+        const router = useRouter()
+        const { t } = useI18n()
+
+        const password = ref('')
+        const isLoading = ref(false)
+        const error = ref('')
+
+        const index = computed(() => {
+            return route.params.index
+        })
+
+        const accounts = computed(() => {
+            return store.state.Accounts.accounts
+        })
+
+        const account = computed(() => {
+            return accounts.value[index.value as any]
+        })
+
+        const access = async () => {
+            const accountVal = account.value
+            if (!canSubmit.value || isLoading.value) return
+            if (accountVal == null) return
+
+            error.value = ''
+            isLoading.value = true
+            let data: ImportKeyfileInput = {
+                password: password.value,
+                data: accountVal.wallet,
+            }
+
+            setTimeout(() => {
+                store
+                    .dispatch('Accounts/accessAccount', {
+                        index: index.value,
+                        pass: password.value,
+                    })
+                    .then((res) => {
+                        isLoading.value = false
+                    })
+                    .catch((err) => {
+                        if (err === 'INVALID_PASS') {
+                            error.value = t('access.password_error').toString()
+                        } else if (err === 'INVALID_VERSION') {
+                            error.value = t('access.keystore_error').toString()
+                        } else {
+                            error.value = err.message
+                        }
+                        isLoading.value = false
+                    })
+            }, 200)
+        }
+
+        const onsuccess = () => {
+            isLoading.value = false
+            password.value = ''
+        }
+
+        const onerror = (e: any) => {
+            error.value = e
+            password.value = ''
+            isLoading.value = false
+        }
+
+        const canSubmit = computed((): boolean => {
+            if (!password.value) {
+                return false
+            }
+            return true
+        })
+
+        onMounted(() => {
+            if (!account.value) {
+                router.replace('/access')
+                return
+            }
+        })
+
+        return {
+            password,
+            isLoading,
+            error,
+            index,
+            accounts,
+            account,
+            access,
+            onsuccess,
+            onerror,
+            canSubmit
+        }
+    }
 })
-export default class Account extends Vue {
-    password: string = ''
-    isLoading: boolean = false
-    error: string = ''
-
-    get index() {
-        return this.$route.params.index
-    }
-    get accounts() {
-        return this.$store.state.Accounts.accounts
-    }
-
-    get account() {
-        return this.accounts[this.index]
-    }
-
-    created() {
-        if (!this.account) {
-            this.$router.replace('/access')
-            return
-        }
-    }
-
-    async access() {
-        const { account } = this
-        if (!this.canSubmit || this.isLoading) return
-        if (account == null) return
-        let parent = this
-        this.error = ''
-        this.isLoading = true
-        let data: ImportKeyfileInput = {
-            password: this.password,
-            data: account.wallet,
-        }
-
-        setTimeout(() => {
-            this.$store
-                .dispatch('Accounts/accessAccount', {
-                    index: this.index,
-                    pass: this.password,
-                })
-                .then((res) => {
-                    parent.isLoading = false
-                })
-                .catch((err) => {
-                    if (err === 'INVALID_PASS') {
-                        parent.error = this.$t('access.password_error').toString()
-                    } else if (err === 'INVALID_VERSION') {
-                        parent.error = this.$t('access.keystore_error').toString()
-                    } else {
-                        parent.error = err.message
-                    }
-                    parent.isLoading = false
-                })
-        }, 200)
-    }
-    onsuccess() {
-        this.isLoading = false
-        this.password = ''
-    }
-    onerror(e: any) {
-        this.error = e
-        this.password = ''
-        this.isLoading = false
-    }
-    get canSubmit(): boolean {
-        if (!this.password) {
-            return false
-        }
-        return true
-    }
-}
 </script>
 <style scoped lang="scss">
 @use '../../main';

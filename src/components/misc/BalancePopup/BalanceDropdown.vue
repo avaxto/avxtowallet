@@ -21,71 +21,80 @@
     </div>
 </template>
 <script lang="ts">
-import 'reflect-metadata'
-import { Vue, Component, Prop, Ref, Model } from 'vue-property-decorator'
+import { defineComponent, ref, computed } from 'vue'
+import { useStore } from 'vuex'
 
 import BalancePopup from '@/components/misc/BalancePopup/BalancePopup.vue'
 import AvaAsset from '@/js/AvaAsset'
 import AvmTokenSelect from '@/components/modals/AvmTokenSelect.vue'
 
-@Component({
+export default defineComponent({
+    name: 'BalanceDropdown',
     components: {
         AvmTokenSelect,
         BalancePopup,
     },
+    props: {
+        disabled_assets: {
+            type: Array as () => AvaAsset[],
+            default: () => []
+        },
+        disabled: {
+            type: Boolean,
+            default: false
+        },
+        modelValue: {
+            type: Object as () => AvaAsset,
+            required: true
+        }
+    },
+    emits: ['update:modelValue', 'change'],
+    setup(props, { emit }) {
+        const store = useStore()
+        const isPopup = ref(false)
+        const token_modal = ref<InstanceType<typeof AvmTokenSelect>>()
+
+        const assetArray = computed((): AvaAsset[] => {
+            return store.getters['Assets/walletAssetsArray']
+        })
+
+        const disabledIds = computed((): string[] => {
+            let disabledIds = props.disabled_assets.map((a) => a.id)
+            return disabledIds
+        })
+
+        const symbol = computed(() => {
+            let sym = props.modelValue.symbol
+            return sym
+        })
+
+        const showPopup = () => {
+            if (token_modal.value) {
+                token_modal.value.open()
+            }
+        }
+
+        const onclose = () => {
+            // this.isPopup = false
+        }
+
+        const onselect = (asset: AvaAsset) => {
+            emit('update:modelValue', asset)
+            emit('change', asset)
+        }
+
+        return {
+            isPopup,
+            token_modal,
+            assetArray,
+            disabledIds,
+            symbol,
+            showPopup,
+            onclose,
+            onselect
+        }
+    }
 })
-export default class BalanceDropdown extends Vue {
-    isPopup: boolean = false
-
-    @Prop({ default: () => [] }) disabled_assets!: AvaAsset[]
-    @Prop({ default: false }) disabled!: boolean
-    @Model('change', { type: AvaAsset }) readonly asset!: AvaAsset
-
-    get assetArray(): AvaAsset[] {
-        // return this.$store.getters.walletAssetsArray
-        return this.$store.getters['Assets/walletAssetsArray']
-    }
-
-    $refs!: {
-        popup: BalancePopup
-        token_modal: AvmTokenSelect
-    }
-
-    get disabledIds(): string[] {
-        let disabledIds = this.disabled_assets.map((a) => a.id)
-        return disabledIds
-    }
-
-    get symbol() {
-        let sym = this.asset.symbol
-        return sym
-    }
-
-    // get isPopup(){
-    //     if(this.balancePopup){
-    //         return this.balancePopup.isActive;
-    //     }
-    //     return false;
-    // }
-
-    showPopup() {
-        this.$refs.token_modal.open()
-        // this.balancePopup.isActive = true
-        // this.isPopup = true
-    }
-
-    onclose() {
-        // this.isPopup = false
-    }
-
-    onselect(asset: AvaAsset) {
-        // this.selected = asset;
-        // this.balancePopup.isActive = false
-        // this.isPopup = false
-
-        this.$emit('change', asset)
-    }
-}
 </script>
 <style scoped lang="scss">
 @use '../../../main';

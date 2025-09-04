@@ -7,68 +7,79 @@
     </div>
 </template>
 <script lang="ts">
-import { Vue, Component, Prop } from 'vue-property-decorator'
-import { NFTTransferOutput } from 'avalanche/dist/apis/avm'
+import { defineComponent, computed, onMounted, type PropType } from 'vue'
+import { useStore } from 'vuex'
+
 import NftPayloadView from '@/components/misc/NftPayloadView/NftPayloadView.vue'
 import { PayloadBase } from 'avalanche/dist/utils'
 import { Buffer } from 'avalanche'
 import { PayloadTypes } from 'avalanche/dist/utils'
-import { NftGroupDict } from '../wallet/portfolio/types'
-import { AvaNftFamily } from '../../js/AvaNftFamily'
 import { UTXO } from '@/store/modules/history/types'
 
-let payloadtypes = PayloadTypes.getInstance()
+const payloadtypes = PayloadTypes.getInstance()
 
-@Component({
-    components: { NftPayloadView },
+export default defineComponent({
+    name: 'TxHistoryNftFamilyGroup',
+    components: { 
+        NftPayloadView 
+    },
+    props: {
+        utxos: {
+            type: Array as PropType<UTXO[]>,
+            required: true
+        },
+        assetID: {
+            type: String,
+            required: true
+        }
+    },
+    setup(props) {
+        const store = useStore()
+
+        onMounted(() => {
+            if (!nftFamsDict.value[props.assetID]) {
+                store.dispatch('Assets/addUnknownNftFamily', props.assetID)
+            }
+        })
+
+        const nftFamsDict = computed(() => {
+            return store.state.Assets.nftFamsDict
+        })
+
+        const quantity = computed(() => {
+            return props.utxos.length
+        })
+
+        const parsePayload = (rawPayload: string): PayloadBase => {
+            let payload = Buffer.from(rawPayload, 'base64')
+            payload = Buffer.concat([new Buffer(4).fill(payload.length), payload])
+
+            let typeId = payloadtypes.getTypeID(payload)
+            let pl: Buffer = payloadtypes.getContent(payload)
+            let payloadbase: PayloadBase = payloadtypes.select(typeId, pl)
+            return payloadbase
+        }
+
+        const payload = computed((): PayloadBase | null => {
+            let payloadData = props.utxos[0].payload
+            if (!payloadData) return null
+
+            try {
+                let parsed = parsePayload(payloadData)
+                return parsed
+            } catch (e) {
+                console.error('Unable to parse payload.')
+            }
+            return null
+        })
+
+        return {
+            nftFamsDict,
+            quantity,
+            payload
+        }
+    }
 })
-export default class TxHistoryNftFamilyGroup extends Vue {
-    // @Prop() payloads!: PayloadBase[]
-    @Prop() utxos!: UTXO[]
-    @Prop() assetID!: string
-
-    created() {
-        if (!this.nftFamsDict[this.assetID]) {
-            this.$store.dispatch('Assets/addUnknownNftFamily', this.assetID)
-        }
-    }
-
-    get nftFamsDict() {
-        return this.$store.state.Assets.nftFamsDict
-    }
-
-    get quantity() {
-        return this.utxos.length
-    }
-
-    parsePayload(rawPayload: string): PayloadBase {
-        let payload = Buffer.from(rawPayload, 'base64')
-        payload = Buffer.concat([new Buffer(4).fill(payload.length), payload])
-
-        // try {
-        let typeId = payloadtypes.getTypeID(payload)
-        let pl: Buffer = payloadtypes.getContent(payload)
-        let payloadbase: PayloadBase = payloadtypes.select(typeId, pl)
-        return payloadbase
-        // } catch (e) {
-        //     console.error('Unable to parse payload.')
-        // console.error(e)
-        // }
-    }
-
-    get payload(): PayloadBase | null {
-        let payload = this.utxos[0].payload
-        if (!payload) return null
-
-        try {
-            let parsed = this.parsePayload(payload)
-            return parsed
-        } catch (e) {
-            console.error('Unable to parse payload.')
-        }
-        return null
-    }
-}
 </script>
 <style scoped lang="scss">
 @use '../../main';
@@ -102,9 +113,6 @@ $countW: 18px;
     border-radius: 4px;
     overflow: hidden;
     pointer-events: none;
-}
-
-.payload_view {
 }
 
 @include main.mobile-device {

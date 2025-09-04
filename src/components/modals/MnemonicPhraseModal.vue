@@ -10,29 +10,43 @@
     </modal>
 </template>
 <script lang="ts">
-import 'reflect-metadata'
-import { Vue, Component, Prop } from 'vue-property-decorator'
+import { defineComponent, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 import Modal from '@/components/modals/Modal.vue'
 import MnemonicDisplay from '@/components/misc/MnemonicDisplay.vue'
 import CopyText from '@/components/misc/CopyText.vue'
 import MnemonicPhrase from '@/js/wallets/MnemonicPhrase'
 
-@Component({
+export default defineComponent({
+    name: 'MnemonicPhraseModal',
     components: {
         Modal,
         MnemonicDisplay,
         CopyText,
     },
-})
-export default class MnemonicPhraseModal extends Vue {
-    @Prop({ default: '' }) phrase!: MnemonicPhrase
+    props: {
+        phrase: {
+            type: Object as () => MnemonicPhrase,
+            default: ''
+        }
+    },
+    setup() {
+        const { t } = useI18n()
+        const modal = ref<InstanceType<typeof Modal>>()
 
-    open(): void {
-        let modal = this.$refs.modal as Modal
-        modal.open()
+        const open = (): void => {
+            if (modal.value) {
+                modal.value.open()
+            }
+        }
+
+        return {
+            modal,
+            open
+        }
     }
-}
+})
 </script>
 <style scoped lang="scss">
 @use '../../main';

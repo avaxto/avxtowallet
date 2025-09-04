@@ -36,8 +36,8 @@
     </div>
 </template>
 <script lang="ts">
-import 'reflect-metadata'
-import { Vue, Component, Prop } from 'vue-property-decorator'
+import { defineComponent, ref, computed } from 'vue'
+import { useStore } from 'vuex'
 import MyKeys from '@/components/wallet/manage/MyKeys.vue'
 import ImportKeys from '@/components/modals/ImportKeys.vue'
 import ExportKeys from '@/components/modals/ExportKeys.vue'
@@ -48,7 +48,7 @@ import { WalletNameType } from '@/js/wallets/types'
 import { iUserAccountEncrypted } from '@/store/types'
 import AccountSettingsModal from '@/components/modals/AccountSettings/AccountSettingsModal.vue'
 
-@Component({
+export default defineComponent({
     name: 'manage',
     components: {
         AccountSettingsModal,
@@ -57,55 +57,72 @@ import AccountSettingsModal from '@/components/modals/AccountSettings/AccountSet
         ExportKeys,
         SaveAccountModal,
     },
+    setup() {
+        const store = useStore()
+
+        const importRef = ref<InstanceType<typeof ImportKeys>>()
+        const exportRef = ref<InstanceType<typeof ExportKeys>>()
+        const account_modal = ref<InstanceType<typeof SaveAccountModal>>()
+        const account_settings = ref<InstanceType<typeof AccountSettingsModal>>()
+
+        const account = computed(() => {
+            return store.getters['Accounts/account']
+        })
+
+        const importKeys = () => {
+            importRef.value?.open()
+        }
+
+        const exportKeys = () => {
+            exportRef.value?.open()
+        }
+
+        const openSaveAccount = () => {
+            account_modal.value?.open()
+        }
+
+        const openAccountSettings = () => {
+            account_settings.value?.open()
+        }
+
+        const canEncryptWallet = computed(() => {
+            return ['mnemonic', 'singleton'].includes(walletType.value)
+        })
+
+        const walletType = computed((): WalletNameType => {
+            return store.state.activeWallet.type
+        })
+
+        const hasVolatile = computed(() => {
+            return store.state.volatileWallets.length > 0
+        })
+
+        const allWallets = computed((): MnemonicWallet[] => {
+            return store.state.wallets
+        })
+
+        const warnUpdateKeyfile = computed(() => {
+            return store.state.warnUpdateKeyfile
+        })
+
+        return {
+            import: importRef,
+            export: exportRef,
+            account_modal,
+            account_settings,
+            account,
+            importKeys,
+            exportKeys,
+            openSaveAccount,
+            openAccountSettings,
+            canEncryptWallet,
+            walletType,
+            hasVolatile,
+            allWallets,
+            warnUpdateKeyfile
+        }
+    }
 })
-export default class ManageKeys extends Vue {
-    $refs!: {
-        import: ImportKeys
-        export: ExportKeys
-        account_modal: SaveAccountModal
-        account_settings: AccountSettingsModal
-    }
-
-    get account() {
-        return this.$store.getters['Accounts/account']
-    }
-
-    importKeys() {
-        this.$refs.import.open()
-    }
-
-    exportKeys() {
-        this.$refs.export.open()
-    }
-
-    openSaveAccount() {
-        this.$refs.account_modal.open()
-    }
-
-    openAccountSettings() {
-        this.$refs.account_settings.open()
-    }
-
-    get canEncryptWallet() {
-        return ['mnemonic', 'singleton'].includes(this.walletType)
-    }
-
-    get walletType(): WalletNameType {
-        return this.$store.state.activeWallet.type
-    }
-
-    get hasVolatile() {
-        return this.$store.state.volatileWallets.length > 0
-    }
-
-    get allWallets(): MnemonicWallet[] {
-        return this.$store.state.wallets
-    }
-
-    get warnUpdateKeyfile() {
-        return this.$store.state.warnUpdateKeyfile
-    }
-}
 </script>
 <style scoped lang="scss">
 @use '../../main';

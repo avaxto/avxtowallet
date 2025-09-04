@@ -20,35 +20,65 @@
 </template>
 <script lang="ts">
 import 'reflect-metadata'
-import { Vue, Prop, Component } from 'vue-property-decorator'
+import { defineComponent, ref } from 'vue'
+import { useRouter } from 'vue-router'
 
-@Component
-export default class BaseNftCard extends Vue {
-    @Prop({ default: false }) mini!: boolean
-    @Prop({ default: false }) rawCard!: boolean
-    @Prop() utxoId!: string
-    flipped: boolean = false
-
-    flipCard() {
-        this.flipped = !this.flipped
-    }
-    mousenter() {
-        if (this.rawCard) return
-        this.flipped = true
-    }
-
-    mouseleave() {
-        this.flipped = false
-    }
-
-    transfer(ev: MouseEvent) {
-        ev.stopPropagation()
-        this.$router.push({
-            path: '/wallet/transfer',
-            query: { nft: this.utxoId },
-        })
-    }
+interface Props {
+    mini: boolean
+    rawCard: boolean
+    utxoId: string
 }
+
+export default defineComponent({
+    name: 'BaseNftCard',
+    props: {
+        mini: {
+            type: Boolean,
+            default: false
+        },
+        rawCard: {
+            type: Boolean,
+            default: false
+        },
+        utxoId: {
+            type: String,
+            required: true
+        }
+    },
+    setup(props: Props) {
+        const router = useRouter()
+        const flipped = ref(false)
+
+        const flipCard = () => {
+            flipped.value = !flipped.value
+        }
+
+        const mousenter = () => {
+            if (props.rawCard) return
+            flipped.value = true
+        }
+
+        const mouseleave = () => {
+            flipped.value = false
+        }
+
+        const transfer = (ev: MouseEvent) => {
+            ev.stopPropagation()
+            router.push({
+                path: '/wallet/transfer',
+                query: { nft: props.utxoId },
+            })
+        }
+
+        return {
+            flipped,
+            flipCard,
+            mousenter,
+            mouseleave,
+            transfer
+        }
+    }
+})
 </script>
 <style scoped lang="scss">
 .card_container {

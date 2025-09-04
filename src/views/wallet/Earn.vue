@@ -97,8 +97,10 @@
     </div>
 </template>
 <script lang="ts">
-import 'reflect-metadata'
-import { Vue, Component, Prop } from 'vue-property-decorator'
+import { defineComponent, ref, computed, onDeactivated, onUnmounted } from 'vue'
+import { useStore } from 'vuex'
+import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 
 import AddValidator from '@/components/wallet/earn/Validate/AddValidator.vue'
 import AddDelegator from '@/components/wallet/earn/Delegate/AddDelegator.vue'
@@ -107,91 +109,116 @@ import UserRewards from '@/components/wallet/earn/UserRewards.vue'
 import { bnToBig } from '@/helpers/helper'
 import Big from 'big.js'
 
-@Component({
+export default defineComponent({
     name: 'earn',
     components: {
         UserRewards,
         AddValidator,
         AddDelegator,
     },
+    setup() {
+        const store = useStore()
+        const router = useRouter()
+        const { t } = useI18n()
+
+        const pageNow = ref<any>(null)
+        const subtitle = ref('')
+        const intervalID = ref<any>(null)
+
+        const addValidator = () => {
+            pageNow.value = AddValidator
+            subtitle.value = t('earn.subtitle1') as string
+        }
+
+        const addDelegator = () => {
+            pageNow.value = AddDelegator
+            subtitle.value = t('earn.subtitle2') as string
+        }
+
+        const transfer = () => {
+            router.replace('/wallet/cross_chain')
+        }
+
+        const viewRewards = () => {
+            pageNow.value = UserRewards
+            subtitle.value = t('earn.subtitle4') as string
+        }
+
+        const cancel = () => {
+            pageNow.value = null
+            subtitle.value = ''
+        }
+
+        const platformUnlocked = computed((): BN => {
+            return store.getters['Assets/walletPlatformBalance'].available
+        })
+
+        const platformLockedStakeable = computed((): BN => {
+            return store.getters['Assets/walletPlatformBalanceLockedStakeable']
+        })
+
+        const totBal = computed((): BN => {
+            return platformUnlocked.value.add(platformLockedStakeable.value)
+        })
+
+        const pNoBalance = computed(() => {
+            return platformUnlocked.value.add(platformLockedStakeable.value).isZero()
+        })
+
+        const canDelegate = computed((): boolean => {
+            let bn = store.state.Platform.minStakeDelegation
+            if (totBal.value.lt(bn)) {
+                return false
+            }
+            return true
+        })
+
+        const canValidate = computed((): boolean => {
+            let bn = store.state.Platform.minStake
+            if (totBal.value.lt(bn)) {
+                return false
+            }
+            return true
+        })
+
+        const minStakeAmt = computed((): Big => {
+            let bn = store.state.Platform.minStake
+            return bnToBig(bn, 9)
+        })
+
+        const minDelegationAmt = computed((): Big => {
+            let bn = store.state.Platform.minStakeDelegation
+            return bnToBig(bn, 9)
+        })
+
+        onDeactivated(() => {
+            cancel()
+        })
+
+        onUnmounted(() => {
+            clearInterval(intervalID.value)
+        })
+
+        return {
+            pageNow,
+            subtitle,
+            intervalID,
+            addValidator,
+            addDelegator,
+            transfer,
+            viewRewards,
+            cancel,
+            platformUnlocked,
+            platformLockedStakeable,
+            totBal,
+            pNoBalance,
+            canDelegate,
+            canValidate,
+            minStakeAmt,
+            minDelegationAmt,
+        }
+    }
 })
-export default class Earn extends Vue {
-    pageNow: any = null
-    subtitle: string = ''
-    intervalID: any = null
-
-    addValidator() {
-        this.pageNow = AddValidator
-        this.subtitle = this.$t('earn.subtitle1') as string
-    }
-    addDelegator() {
-        this.pageNow = AddDelegator
-        this.subtitle = this.$t('earn.subtitle2') as string
-    }
-    transfer() {
-        this.$router.replace('/wallet/cross_chain')
-    }
-
-    viewRewards() {
-        this.pageNow = UserRewards
-        this.subtitle = this.$t('earn.subtitle4') as string
-    }
-    cancel() {
-        this.pageNow = null
-        this.subtitle = ''
-    }
-
-    deactivated() {
-        this.cancel()
-    }
-
-    destroyed() {
-        clearInterval(this.intervalID)
-    }
-
-    get platformUnlocked(): BN {
-        return this.$store.getters['Assets/walletPlatformBalance'].available
-    }
-
-    get platformLockedStakeable(): BN {
-        // return this.$store.getters.walletPlatformBalanceLockedStakeable
-        return this.$store.getters['Assets/walletPlatformBalanceLockedStakeable']
-    }
-
-    get totBal(): BN {
-        return this.platformUnlocked.add(this.platformLockedStakeable)
-    }
-
-    get pNoBalance() {
-        return this.platformUnlocked.add(this.platformLockedStakeable).isZero()
-    }
-
-    get canDelegate(): boolean {
-        let bn = this.$store.state.Platform.minStakeDelegation
-        if (this.totBal.lt(bn)) {
-            return false
-        }
-        return true
-    }
-
-    get canValidate(): boolean {
-        let bn = this.$store.state.Platform.minStake
-        if (this.totBal.lt(bn)) {
-            return false
-        }
-        return true
-    }
-
-    get minStakeAmt(): Big {
-        let bn = this.$store.state.Platform.minStake
-        return bnToBig(bn, 9)
-    }
-
-    get minDelegationAmt(): Big {
-        let bn = this.$store.state.Platform.minStakeDelegation
-        return bnToBig(bn, 9)
-    }
-}
 </script>
 <style scoped lang="scss">
 @use '../../main';

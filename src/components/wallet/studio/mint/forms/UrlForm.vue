@@ -5,47 +5,56 @@
     </div>
 </template>
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator'
+import { defineComponent, ref, computed } from 'vue'
 import { UrlFormType } from '@/components/wallet/studio/mint/types'
 
-@Component
-export default class UrlForm extends Vue {
-    urlIn = ''
+export default defineComponent({
+    name: 'UrlForm',
+    emits: ['onInput'],
+    setup(props, { emit }) {
+        const urlIn = ref('')
 
-    isValidUrl(url: string) {
-        try {
-            new URL(url)
-        } catch (_) {
-            return false
-        }
-        return true
-    }
-
-    get isValid(): boolean {
-        if (this.urlIn.length === 0) {
-            return false
-        }
-
-        if (!this.isValidUrl(this.urlIn)) {
-            return false
-        }
-
-        return true
-    }
-
-    onInput() {
-        let msg: null | UrlFormType = null
-
-        if (this.isValid) {
-            msg = {
-                url: this.urlIn,
+        const isValidUrl = (url: string) => {
+            try {
+                new URL(url)
+            } catch (_) {
+                return false
             }
+            return true
         }
 
-        if (this.urlIn === '') msg = null
-        this.$emit('onInput', msg)
+        const isValid = computed((): boolean => {
+            if (urlIn.value.length === 0) {
+                return false
+            }
+
+            if (!isValidUrl(urlIn.value)) {
+                return false
+            }
+
+            return true
+        })
+
+        const onInput = () => {
+            let msg: null | UrlFormType = null
+
+            if (isValid.value) {
+                msg = {
+                    url: urlIn.value,
+                }
+            }
+
+            if (urlIn.value === '') msg = null
+            emit('onInput', msg)
+        }
+
+        return {
+            urlIn,
+            isValid,
+            onInput
+        }
     }
-}
+})
 </script>
 <style scoped lang="scss">
 input {

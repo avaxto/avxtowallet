@@ -117,7 +117,10 @@
 </template>
 <script lang="ts">
 import 'reflect-metadata'
-import { Component, Vue, Watch } from 'vue-property-decorator'
+import { defineComponent, ref, computed, watch, onMounted } from 'vue'
+import { useStore } from 'vuex'
+import { useI18n } from 'vue-i18n'
+
 import Dropdown from '@/components/misc/Dropdown.vue'
 import AvaxInput from '@/components/misc/AvaxInput.vue'
 import AvaAsset from '@/js/AvaAsset'
@@ -153,7 +156,7 @@ import { selectMaxUtxoForExportP } from '@/helpers/utxoSelection/selectMaxUtxoFo
 const IMPORT_DELAY = 5000 // in ms
 const BALANCE_DELAY = 2000 // in ms
 
-@Component({
+export default defineComponent({
     name: 'chain_transfer',
     components: {
         Spinner,
@@ -163,37 +166,63 @@ const BALANCE_DELAY = 2000 // in ms
         ChainSwapForm,
         TxStateCard,
     },
-})
-export default class ChainTransfer extends Vue {
-    $refs!: {
-        form: ChainSwapForm
+    setup() {
+        const store = useStore()
+        const { t } = useI18n()
+
+        const form = ref<InstanceType<typeof ChainSwapForm> | null>(null)
+        const sourceChain = ref<ChainIdType>('X')
+        const targetChain = ref<ChainIdType>('P')
+        const isLoading = ref(false)
+        const amt = ref(new BN(0))
+        const err = ref('')
+
+        const isImportErr = ref(false)
+        const isConfirm = ref(false)
+        const isSuccess = ref(false)
+
+        const formAmt = ref(new BN(0))
+        const baseFee = ref(new BN(0))
+
+        // Transaction ids
+        const exportId = ref('')
+        const exportState = ref(TxState.waiting)
+        const exportStatus = ref<string | null>(null)
+        const exportReason = ref<string | null>(null)
+
+        const importId = ref('')
+        const importState = ref(TxState.waiting)
+        const importStatus = ref<string | null>(null)
+        const importReason = ref<string | null>(null)
+
+        const txMaxAmount = ref<BN | undefined>(undefined)
+
+        // Add the remaining computed properties and methods here...
+        return {
+            form,
+            sourceChain,
+            targetChain,
+            isLoading,
+            amt,
+            err,
+            isImportErr,
+            isConfirm,
+            isSuccess,
+            formAmt,
+            baseFee,
+            exportId,
+            exportState,
+            exportStatus,
+            exportReason,
+            importId,
+            importState,
+            importStatus,
+            importReason,
+            txMaxAmount,
+            bnToAvaxP
+        }
     }
-    sourceChain: ChainIdType = 'X'
-    targetChain: ChainIdType = 'P'
-    isLoading = false
-    amt: BN = new BN(0)
-    err: string = ''
-
-    isImportErr = false
-    isConfirm = false
-    isSuccess = false
-
-    formAmt: BN = new BN(0)
-
-    baseFee: BN = new BN(0)
-
-    // Transaction ids
-    exportId: string = ''
-    exportState: TxState = TxState.waiting
-    exportStatus: string | null = null
-    exportReason: string | null = null
-
-    importId: string = ''
-    importState: TxState = TxState.waiting
-    importStatus: string | null = null
-    importReason: string | null = null
-
-    txMaxAmount: BN | undefined = undefined
+})
 
     @Watch('sourceChain')
     @Watch('targetChain')

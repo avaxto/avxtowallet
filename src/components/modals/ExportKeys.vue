@@ -7,54 +7,74 @@
             <export-wallet
                 @success="handleExportSuccess"
                 :wallets="wallets"
-                ref="export"
+                ref="exportRef"
             ></export-wallet>
         </div>
     </modal>
 </template>
 
 <script lang="ts">
-import 'reflect-metadata'
-import { Vue, Component, Prop } from 'vue-property-decorator'
+import { defineComponent, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import Modal from '@/components/modals/Modal.vue'
 import ExportWallet from '@/components/wallet/manage/ExportWallet.vue'
 import MnemonicWallet from '@/js/wallets/MnemonicWallet'
 
-@Component({
+export default defineComponent({
+    name: 'ExportKeys',
     components: {
         Modal,
         ExportWallet,
     },
+    props: {
+        wallets: {
+            type: Array as () => MnemonicWallet[],
+            required: true
+        }
+    },
+    setup(props) {
+        const { t } = useI18n()
+        
+        const modal = ref<InstanceType<typeof Modal>>()
+        const exportRef = ref<InstanceType<typeof ExportWallet>>()
+        const isActive = ref(false)
+        const title = ref('Export Keys')
+
+        const beforeClose = () => {
+            if (exportRef.value) {
+                exportRef.value.clear()
+            }
+        }
+
+        const open = () => {
+            if (modal.value) {
+                modal.value.open()
+            }
+        }
+
+        const close = () => {
+            isActive.value = false
+        }
+
+        const handleExportSuccess = () => {
+            if (modal.value) {
+                modal.value.close()
+            }
+            close()
+        }
+
+        return {
+            modal,
+            exportRef,
+            isActive,
+            title,
+            beforeClose,
+            open,
+            close,
+            handleExportSuccess
+        }
+    }
 })
-export default class ExportKeys extends Vue {
-    isActive: boolean = false
-    title: string = 'Export Keys'
-
-    $refs!: {
-        modal: Modal
-        export: ExportWallet
-    }
-
-    @Prop() wallets!: MnemonicWallet[]
-
-    beforeClose() {
-        this.$refs.export.clear()
-    }
-
-    open() {
-        this.$refs.modal.open()
-    }
-
-    close() {
-        this.isActive = false
-    }
-
-    handleExportSuccess() {
-        // @ts-ignore
-        this.$refs.modal.close()
-        this.close()
-    }
-}
 </script>
 
 <style scoped lang="scss">

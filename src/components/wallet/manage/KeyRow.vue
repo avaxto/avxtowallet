@@ -113,8 +113,8 @@
     </div>
 </template>
 <script lang="ts">
-import 'reflect-metadata'
-import { Vue, Component, Prop } from 'vue-property-decorator'
+import { defineComponent, computed, ref } from 'vue'
+import { useStore } from 'vuex'
 
 import { bintools, keyChain } from '@/AVA'
 import AvaAsset from '@/js/AvaAsset'
@@ -138,7 +138,8 @@ interface IKeyBalanceDict {
     [key: string]: AvaAsset
 }
 
-@Component({
+export default defineComponent({
+    name: 'KeyRow',
     components: {
         MnemonicPhraseModal,
         HdDerivationListModal,
@@ -147,156 +148,192 @@ interface IKeyBalanceDict {
         PrivateKey,
         XpubModal,
     },
+    props: {
+        wallet: {
+            type: Object as () => WalletType,
+            required: true
+        },
+        is_default: {
+            type: Boolean,
+            default: false
+        }
+    },
+    emits: ['remove', 'select'],
+    setup(props, { emit }) {
+        const store = useStore()
+        
+        const export_wallet = ref<InstanceType<typeof ExportKeys>>()
+        const modal = ref<InstanceType<typeof MnemonicPhraseModal>>()
+        const modal_hd = ref<InstanceType<typeof HdDerivationListModal>>()
+        const modal_priv_key = ref<InstanceType<typeof PrivateKey>>()
+        const modal_priv_key_c = ref<InstanceType<typeof PrivateKey>>()
+        const modal_xpub = ref<InstanceType<typeof XpubModal>>()
+
+        const isVolatile = computed(() => {
+            return store.state.volatileWallets.includes(props.wallet)
+        })
+
+        const walletTitle = computed(() => {
+            return props.wallet.getBaseAddress()
+        })
+
+        const assetsDict = computed((): AssetsDict => {
+            return store.state.Assets.assetsDict
+        })
+
+        const balances = computed((): IKeyBalanceDict => {
+            if (!props.wallet.getUTXOSet()) return {}
+
+            let res: IKeyBalanceDict = {}
+
+            let addrUtxos = props.wallet.getUTXOSet().getAllUTXOs()
+            for (var n = 0; n < addrUtxos.length; n++) {
+                let utxo = addrUtxos[n]
+
+                // ignore NFTS and mint outputs
+                //TODO: support nfts
+                let outId = utxo.getOutput().getOutputID()
+                if (outId === 11 || outId === 6 || outId === 10) continue
+
+                let utxoOut = utxo.getOutput() as AmountOutput
+
+                let amount = utxoOut.getAmount()
+                let assetIdBuff = utxo.getAssetID()
+                let assetId = bintools.cb58Encode(assetIdBuff)
+
+                let assetObj: AvaAsset | undefined = assetsDict.value[assetId]
+
+                if (!assetObj) {
+                    let name = '?'
+                    let symbol = '?'
+                    let denomination = 0
+
+                    let newAsset = new AvaAsset(assetId, name, symbol, denomination)
+                    newAsset.addBalance(amount)
+
+                    res[assetId] = newAsset
+                    continue
+                }
+
+                let asset = res[assetId]
+                if (!asset) {
+                    let name = assetObj.name
+                    let symbol = assetObj.symbol
+                    let denomination = assetObj.denomination
+
+                    let newAsset = new AvaAsset(assetId, name, symbol, denomination)
+                    newAsset.addBalance(amount)
+
+                    res[assetId] = newAsset
+                } else {
+                    asset.addBalance(amount)
+                }
+            }
+
+            return res
+        })
+
+        const walletType = computed((): WalletNameType => {
+            return props.wallet.type
+        })
+
+        const isHDWallet = computed(() => {
+            return ['mnemonic', 'ledger'].includes(walletType.value)
+        })
+
+        const mnemonicPhrase = computed((): MnemonicPhrase | null => {
+            if (walletType.value !== 'mnemonic') return null
+            let wallet = props.wallet as MnemonicWallet
+            return wallet.getMnemonicEncrypted()
+        })
+
+        const privateKey = computed((): string | null => {
+            if (walletType.value !== 'singleton') return null
+            let wallet = props.wallet as SingletonWallet
+            return wallet.key
+        })
+
+        const privateKeyC = computed((): string | null => {
+            if (walletType.value === 'ledger') return null
+            let wallet = props.wallet as SingletonWallet | MnemonicWallet
+            return wallet.ethKey
+        })
+
+        /**
+         * Extended public key of m/44'/9000'/0' used for X and P chain addresses
+         */
+        const xpubXP = computed(() => {
+            if (isHDWallet.value) {
+                return (props.wallet as AbstractHdWallet).getXpubXP()
+            }
+            return null
+        })
+
+        const remove = () => {
+            emit('remove', props.wallet)
+        }
+        
+        const select = () => {
+            emit('select', props.wallet)
+        }
+
+        const showModal = () => {
+            //@ts-ignore
+            modal.value?.open()
+        }
+
+        const showXpub = () => {
+            modal_xpub.value?.open()
+        }
+
+        const showPastAddresses = () => {
+            //@ts-ignore
+            modal_hd.value?.open()
+        }
+
+        const showExportModal = () => {
+            //@ts-ignore
+            export_wallet.value?.open()
+        }
+
+        const showPrivateKeyModal = () => {
+            //@ts-ignore
+            modal_priv_key.value?.open()
+        }
+
+        const showPrivateKeyCModal = () => {
+            //@ts-ignore
+            modal_priv_key_c.value?.open()
+        }
+
+        return {
+            export_wallet,
+            modal,
+            modal_hd,
+            modal_priv_key,
+            modal_priv_key_c,
+            modal_xpub,
+            isVolatile,
+            walletTitle,
+            assetsDict,
+            balances,
+            walletType,
+            isHDWallet,
+            mnemonicPhrase,
+            privateKey,
+            privateKeyC,
+            xpubXP,
+            remove,
+            select,
+            showModal,
+            showXpub,
+            showPastAddresses,
+            showExportModal,
+            showPrivateKeyModal,
+            showPrivateKeyCModal
+        }
+    }
 })
-export default class KeyRow extends Vue {
-    @Prop() wallet!: WalletType
-    @Prop({ default: false }) is_default?: boolean
-
-    $refs!: {
-        export_wallet: ExportKeys
-        modal: MnemonicPhraseModal
-        modal_hd: HdDerivationListModal
-        modal_priv_key: PrivateKey
-        modal_xpub: XpubModal
-    }
-
-    get isVolatile() {
-        return this.$store.state.volatileWallets.includes(this.wallet)
-    }
-
-    get walletTitle() {
-        return this.wallet.getBaseAddress()
-    }
-
-    get assetsDict(): AssetsDict {
-        return this.$store.state.Assets.assetsDict
-    }
-
-    get balances(): IKeyBalanceDict {
-        if (!this.wallet.getUTXOSet()) return {}
-
-        let res: IKeyBalanceDict = {}
-
-        let addrUtxos = this.wallet.getUTXOSet().getAllUTXOs()
-        for (var n = 0; n < addrUtxos.length; n++) {
-            let utxo = addrUtxos[n]
-
-            // ignore NFTS and mint outputs
-            //TODO: support nfts
-            let outId = utxo.getOutput().getOutputID()
-            if (outId === 11 || outId === 6 || outId === 10) continue
-
-            let utxoOut = utxo.getOutput() as AmountOutput
-
-            let amount = utxoOut.getAmount()
-            let assetIdBuff = utxo.getAssetID()
-            let assetId = bintools.cb58Encode(assetIdBuff)
-
-            let assetObj: AvaAsset | undefined = this.assetsDict[assetId]
-
-            if (!assetObj) {
-                let name = '?'
-                let symbol = '?'
-                let denomination = 0
-
-                let newAsset = new AvaAsset(assetId, name, symbol, denomination)
-                newAsset.addBalance(amount)
-
-                res[assetId] = newAsset
-                continue
-            }
-
-            let asset = res[assetId]
-            if (!asset) {
-                let name = assetObj.name
-                let symbol = assetObj.symbol
-                let denomination = assetObj.denomination
-
-                let newAsset = new AvaAsset(assetId, name, symbol, denomination)
-                newAsset.addBalance(amount)
-
-                res[assetId] = newAsset
-            } else {
-                asset.addBalance(amount)
-            }
-        }
-
-        return res
-    }
-
-    get walletType(): WalletNameType {
-        return this.wallet.type
-    }
-
-    get isHDWallet() {
-        return ['mnemonic', 'ledger'].includes(this.walletType)
-    }
-    get mnemonicPhrase(): MnemonicPhrase | null {
-        if (this.walletType !== 'mnemonic') return null
-        let wallet = this.wallet as MnemonicWallet
-        return wallet.getMnemonicEncrypted()
-    }
-
-    get privateKey(): string | null {
-        if (this.walletType !== 'singleton') return null
-        let wallet = this.wallet as SingletonWallet
-        return wallet.key
-    }
-
-    get privateKeyC(): string | null {
-        if (this.walletType === 'ledger') return null
-        let wallet = this.wallet as SingletonWallet | MnemonicWallet
-        return wallet.ethKey
-    }
-
-    /**
-     * Extended public key of m/44'/9000'/0' used for X and P chain addresses
-     */
-    get xpubXP() {
-        if (this.isHDWallet) {
-            return (this.wallet as AbstractHdWallet).getXpubXP()
-        }
-        return null
-    }
-
-    remove() {
-        this.$emit('remove', this.wallet)
-    }
-    select() {
-        this.$emit('select', this.wallet)
-    }
-
-    showModal() {
-        let modal = this.$refs.modal
-        //@ts-ignore
-        modal.open()
-    }
-
-    showXpub() {
-        this.$refs.modal_xpub.open()
-    }
-
-    showPastAddresses() {
-        let modal = this.$refs.modal_hd
-        //@ts-ignore
-        modal.open()
-    }
-
-    showExportModal() {
-        //@ts-ignore
-        this.$refs.export_wallet.open()
-    }
-
-    showPrivateKeyModal() {
-        //@ts-ignore
-        this.$refs.modal_priv_key.open()
-    }
-
-    showPrivateKeyCModal() {
-        //@ts-ignore
-        this.$refs.modal_priv_key_c.open()
-    }
-}
 </script>
 <style scoped lang="scss">
 @use '../../../main';
@@ -382,11 +419,6 @@ export default class KeyRow extends Vue {
     span {
         font-size: 12px;
         line-height: normal;
-    }
-}
-
-.addressItem {
-    .selBut {
     }
 }
 

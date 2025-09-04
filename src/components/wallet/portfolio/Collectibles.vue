@@ -1,6 +1,6 @@
 <template>
     <div class="collectibles_view no_scroll_bar" @scroll="onScroll" :scroll="isScroll">
-        <AddERC721TokenModal ref="add_token_modal"></AddERC721TokenModal>
+        <AddERC721TokenModal ref="addTokenModalRef"></AddERC721TokenModal>
         <div v-if="!isEmpty" class="list">
             <CollectibleFamilyRow
                 v-for="fam in nftFamsArray"
@@ -30,7 +30,8 @@
 import NFTCard from './NftCard.vue'
 import CollectibleFamilyRow from '@/components/wallet/portfolio/CollectibleFamilyRow.vue'
 import 'reflect-metadata'
-import { Vue, Component, Prop } from 'vue-property-decorator'
+import { defineComponent, ref, computed } from 'vue'
+import { useStore } from 'vuex'
 import { IWalletNftDict, IWalletNftMintDict } from '@/store/types'
 import { AvaNftFamily } from '@/js/AvaNftFamily'
 import { NftFamilyDict } from '@/store/modules/assets/types'
@@ -39,100 +40,116 @@ import ERC721Token from '@/js/ERC721Token'
 import ERC721FamilyRow from '@/components/wallet/portfolio/ERC721FamilyRow.vue'
 import { WalletType } from '@/js/wallets/types'
 
-// const payloadTypes = PayloadTypes.getInstance();
-@Component({
+interface Props {
+    search: string
+}
+
+export default defineComponent({
+    name: 'Collectibles',
     components: {
         ERC721FamilyRow,
         AddERC721TokenModal,
         NFTCard,
         CollectibleFamilyRow,
     },
-})
-export default class Collectibles extends Vue {
-    @Prop() search!: string
-    isScroll = false
-
-    $refs!: {
-        add_token_modal: AddERC721TokenModal
-    }
-
-    get isEmpty(): boolean {
-        // let nftUtxos = this.$store.getters.walletNftUTXOs.length
-        // let mintUTxos = this.$store.getters.walletNftMintUTXOs.length
-        let nftUtxos = this.$store.state.Assets.nftUTXOs.length
-        let mintUTxos = this.$store.state.Assets.nftMintUTXOs.length
-        let erc721Bal = this.$store.getters['Assets/ERC721/totalOwned']
-        return nftUtxos + mintUTxos + erc721Bal === 0
-    }
-
-    get nftDict(): IWalletNftDict {
-        // return this.$store.getters.walletNftDict
-        let dict = this.$store.getters['Assets/walletNftDict']
-        return dict
-    }
-
-    get nftMintDict(): IWalletNftMintDict {
-        // let dict = this.$store.getters.walletNftMintDict
-        let dict = this.$store.getters['Assets/nftMintDict']
-        return dict
-    }
-
-    get nftFamsArray() {
-        let fams: AvaNftFamily[] = this.$store.state.Assets.nftFams
-
-        // If search query
-        if (this.search) {
-            let query = this.search
-            fams = fams.filter((fam) => {
-                if (
-                    fam.name.includes(query) ||
-                    fam.id.includes(query) ||
-                    fam.symbol.includes(query)
-                ) {
-                    return true
-                }
-                return false
-            })
+    props: {
+        search: {
+            type: String,
+            required: true
         }
+    },
+    setup(props: Props) {
+        const store = useStore()
+        const addTokenModalRef = ref<AddERC721TokenModal>()
+        const isScroll = ref(false)
 
-        fams.sort((a, b) => {
-            let symbolA = a.symbol
-            let symbolB = b.symbol
-
-            if (symbolA < symbolB) {
-                return -1
-            } else if (symbolA > symbolB) {
-                return 1
-            }
-            return 0
+        const isEmpty = computed((): boolean => {
+            const nftUtxos = store.state.Assets.nftUTXOs.length
+            const mintUTxos = store.state.Assets.nftMintUTXOs.length
+            const erc721Bal = store.getters['Assets/ERC721/totalOwned']
+            return nftUtxos + mintUTxos + erc721Bal === 0
         })
 
-        return fams
-    }
+        const nftDict = computed((): IWalletNftDict => {
+            const dict = store.getters['Assets/walletNftDict']
+            return dict
+        })
 
-    get nftFamsDict(): NftFamilyDict {
-        let dict = this.$store.state.Assets.nftFamsDict
-        return dict
-    }
+        const nftMintDict = computed((): IWalletNftMintDict => {
+            const dict = store.getters['Assets/nftMintDict']
+            return dict
+        })
 
-    get erc721s(): ERC721Token[] {
-        let w: WalletType = this.$store.state.activeWallet
-        return this.$store.getters['Assets/ERC721/networkContracts']
-    }
+        const nftFamsArray = computed(() => {
+            let fams: AvaNftFamily[] = store.state.Assets.nftFams
 
-    onScroll(ev: any) {
-        let val = ev.target.scrollTop
-        if (val > 0) {
-            this.isScroll = true
-        } else {
-            this.isScroll = false
+            // If search query
+            if (props.search) {
+                const query = props.search
+                fams = fams.filter((fam) => {
+                    if (
+                        fam.name.includes(query) ||
+                        fam.id.includes(query) ||
+                        fam.symbol.includes(query)
+                    ) {
+                        return true
+                    }
+                    return false
+                })
+            }
+
+            fams.sort((a, b) => {
+                const symbolA = a.symbol
+                const symbolB = b.symbol
+
+                if (symbolA < symbolB) {
+                    return -1
+                } else if (symbolA > symbolB) {
+                    return 1
+                }
+                return 0
+            })
+
+            return fams
+        })
+
+        const nftFamsDict = computed((): NftFamilyDict => {
+            const dict = store.state.Assets.nftFamsDict
+            return dict
+        })
+
+        const erc721s = computed((): ERC721Token[] => {
+            const w: WalletType = store.state.activeWallet
+            return store.getters['Assets/ERC721/networkContracts']
+        })
+
+        const onScroll = (ev: any) => {
+            const val = ev.target.scrollTop
+            if (val > 0) {
+                isScroll.value = true
+            } else {
+                isScroll.value = false
+            }
+        }
+
+        const showModal = () => {
+            addTokenModalRef.value?.open()
+        }
+
+        return {
+            addTokenModalRef,
+            isScroll,
+            isEmpty,
+            nftDict,
+            nftMintDict,
+            nftFamsArray,
+            nftFamsDict,
+            erc721s,
+            onScroll,
+            showModal
         }
     }
-
-    showModal() {
-        this.$refs.add_token_modal.open()
-    }
-}
+})
 </script>
 <style lang="scss" scoped>
 @use '../../../main';

@@ -27,63 +27,83 @@
     </div>
 </template>
 <script lang="ts">
-import { Component, Prop, Vue, Watch } from 'vue-property-decorator'
+import { defineComponent, ref, computed, watch, onMounted } from 'vue'
 import { JSONPayload } from 'avalanche/dist/utils'
 import { IGenericNft } from '@/components/wallet/studio/mint/types'
 
-@Component
-export default class UtfPayloadView extends Vue {
-    $refs!: {
-        image: HTMLImageElement
-        video: HTMLVideoElement
-    }
-    @Prop() payload!: JSONPayload
+export default defineComponent({
+    name: 'GenericPayloadView',
+    props: {
+        payload: {
+            type: Object as () => JSONPayload,
+            required: true
+        }
+    },
+    setup(props) {
+        const image = ref<HTMLImageElement>()
+        const video = ref<HTMLVideoElement>()
+        
+        const isVideo = ref(false)
+        const isImage = ref(false)
+        const isAudio = ref(false)
+        const isError = ref(false)
+        const jsonData = ref<IGenericNft | null>(null)
+        const isHover = ref(false)
 
-    isVideo = false
-    isImage = false
-    isAudio = false
+        const content = computed((): string => {
+            return props.payload.getContent().toString()
+        })
 
-    isError = false
-    jsonData: IGenericNft | null = null
-    isHover = false
+        const desc = computed(() => {
+            return jsonData.value?.desc
+        })
 
-    get content(): string {
-        return this.payload.getContent().toString()
-    }
+        const img = computed(() => {
+            return jsonData.value?.img
+        })
 
-    get desc() {
-        return this.jsonData?.desc
-    }
+        const title = computed(() => {
+            return jsonData.value?.title
+        })
 
-    get img() {
-        return this.jsonData?.img
-    }
+        const onVideoMeta = (ev: any) => {
+            isVideo.value = true
+        }
 
-    get title() {
-        return this.jsonData?.title
-    }
+        const parsePayload = () => {
+            try {
+                jsonData.value = JSON.parse(content.value).avalanche
+                isError.value = false
+            } catch (e) {
+                isError.value = true
+            }
+        }
 
-    onVideoMeta(ev: any) {
-        this.isVideo = true
-    }
+        onMounted(() => {
+            parsePayload()
+        })
 
-    mounted() {
-        try {
-            this.jsonData = JSON.parse(this.content).avalanche
-        } catch (e) {
-            this.isError = true
+        watch(() => props.payload, () => {
+            parsePayload()
+        })
+
+        return {
+            image,
+            video,
+            isVideo,
+            isImage,
+            isAudio,
+            isError,
+            jsonData,
+            isHover,
+            content,
+            desc,
+            img,
+            title,
+            onVideoMeta
         }
     }
-
-    @Watch('payload')
-    onPayloadChange(val: JSONPayload) {
-        try {
-            this.jsonData = JSON.parse(this.content).avalanche
-        } catch (e) {
-            this.isError = true
-        }
-    }
-}
+})
 </script>
 <style scoped lang="scss">
 @use '../../../../main';

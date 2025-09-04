@@ -31,7 +31,8 @@
     </div>
 </template>
 <script lang="ts">
-import { Vue, Component, Prop } from 'vue-property-decorator'
+import { defineComponent, computed } from 'vue'
+import { useStore } from 'vuex'
 import { BN } from 'avalanche'
 import { bnToBig } from '@/helpers/helper'
 import { UnixNow } from 'avalanche/dist/utils'
@@ -42,96 +43,117 @@ import Big from 'big.js'
 import { PChainTransaction, PChainUtxo, RewardType } from '@avalabs/glacier-sdk'
 import { filterOwnedAddresses } from './filterOwnedAddresses'
 
-@Component
-export default class StakingTx extends Vue {
-    @Prop() transaction!: PChainTransaction
-    isStarted = false
+export default defineComponent({
+    name: 'StakingTx',
+    props: {
+        transaction: {
+            type: Object as () => PChainTransaction,
+            required: true
+        }
+    },
+    setup(props) {
+        const store = useStore()
+        
+        const isValidator = computed(() => {
+            return props.transaction.txType === 'AddValidatorTx'
+        })
 
-    get isValidator() {
-        return this.transaction.txType === 'AddValidatorTx'
-    }
+        const actionText = computed(() => {
+            if (isValidator.value) {
+                return 'Add Validator'
+            } else {
+                return 'Add Delegator'
+            }
+        })
 
-    get actionText() {
-        if (this.isValidator) {
-            return 'Add Validator'
-        } else {
-            return 'Add Delegator'
+        const stakeAmt = computed((): BN => {
+            let tot = (props.transaction.emittedUtxos ?? []).reduce((acc, out) => {
+                return out.staked ? acc.add(new BN(out.amount)) : acc
+            }, new BN(0))
+            return tot
+        })
+
+        const wallet = computed((): WalletType => {
+            return store.state.activeWallet
+        })
+
+        const pAddrsClean = computed((): string[] => {
+            let pAddrs = wallet.value.getAllAddressesP()
+            return pAddrs.map((addr) => addr.split('-')[1])
+        })
+
+        const formatRewardAmount = (amount: BN) => {
+            return bnToBig(amount, 9)
+        }
+
+        const amtText = computed(() => {
+            let big = bnToBig(stakeAmt.value, 9)
+            return big.toLocaleString()
+        })
+
+        /**
+         * The validator reward UTXO of this tx
+         */
+        const validatorReward = computed((): PChainUtxo | undefined => {
+            return (props.transaction.emittedUtxos || []).filter((utxo) => {
+                return utxo.rewardType === RewardType.VALIDATOR
+            })[0]
+        })
+
+        /**
+         * The delegator reward UTXO of this tx
+         */
+        const delegatorReward = computed((): PChainUtxo | undefined => {
+            return (props.transaction.emittedUtxos || []).filter((utxo) => {
+                return utxo.rewardType === RewardType.DELEGATOR
+            })[0]
+        })
+
+        const validatorRewardAmount = computed(() => {
+            return validatorReward.value?.amount
+        })
+
+        const delegatorRewardAmount = computed(() => {
+            return validatorReward.value?.amount
+        })
+
+        /**
+         * Returns true if this wallet received delegator reward
+         */
+        const receivedDelegatorReward = computed(() => {
+            if (isValidator.value || !delegatorReward.value) return false
+
+            const addrs = filterOwnedAddresses(pAddrsClean.value, delegatorReward.value.addresses)
+            return addrs.length
+        })
+
+        /**
+         * Returns true if this wallet received validator reward
+         */
+        const receivedValidatorReward = computed(() => {
+            if (isValidator.value || !validatorReward.value) return false
+
+            const addrs = filterOwnedAddresses(pAddrsClean.value, validatorReward.value.addresses)
+            return addrs.length
+        })
+
+        return {
+            isValidator,
+            actionText,
+            stakeAmt,
+            wallet,
+            pAddrsClean,
+            formatRewardAmount,
+            amtText,
+            validatorReward,
+            delegatorReward,
+            validatorRewardAmount,
+            delegatorRewardAmount,
+            receivedDelegatorReward,
+            receivedValidatorReward
         }
     }
-
-    get stakeAmt(): BN {
-        let tot = (this.transaction.emittedUtxos ?? []).reduce((acc, out) => {
-            return out.staked ? acc.add(new BN(out.amount)) : acc
-        }, new BN(0))
-        return tot
-    }
-
-    get wallet(): WalletType {
-        return this.$store.state.activeWallet
-    }
-
-    get pAddrsClean(): string[] {
-        let pAddrs = this.wallet.getAllAddressesP()
-        return pAddrs.map((addr) => addr.split('-')[1])
-    }
-
-    formatRewardAmount(amount: BN) {
-        return bnToBig(amount, 9)
-    }
-
-    get amtText() {
-        let big = bnToBig(this.stakeAmt, 9)
-        return big.toLocaleString()
-    }
-
-    /**
-     * The validator reward UTXO of this tx
-     */
-    get validatorReward(): PChainUtxo | undefined {
-        return (this.transaction.emittedUtxos || []).filter((utxo) => {
-            return utxo.rewardType === RewardType.VALIDATOR
-        })[0]
-    }
-
-    /**
-     * The delegator reward UTXO of this tx
-     */
-    get delegatorReward(): PChainUtxo | undefined {
-        return (this.transaction.emittedUtxos || []).filter((utxo) => {
-            return utxo.rewardType === RewardType.DELEGATOR
-        })[0]
-    }
-
-    get validatorRewardAmount() {
-        return this.validatorReward?.amount
-    }
-
-    get delegatorRewardAmount() {
-        return this.validatorReward?.amount
-    }
-
-    /**
-     * Returns true if this wallet received delegator reward
-     */
-    get receivedDelegatorReward() {
-        if (this.isValidator || !this.delegatorReward) return false
-
-        const addrs = filterOwnedAddresses(this.pAddrsClean, this.delegatorReward.addresses)
-        return addrs.length
-    }
-
-    /**
-     * Returns true if this wallet received validator reward
-     */
-    get receivedValidatorReward() {
-        if (this.isValidator || !this.validatorReward) return false
-
-        const addrs = filterOwnedAddresses(this.pAddrsClean, this.validatorReward.addresses)
-        return addrs.length
-    }
-
-    // TODO: Add missing stake info for staking transactions, start/end date, potential reward, reward date, reward USD price
-}
+})
 </script>
 <style scoped lang="scss">
 .data_row {

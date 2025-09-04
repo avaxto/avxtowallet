@@ -18,7 +18,8 @@
     </div>
 </template>
 <script lang="ts">
-import { Component, Model, Prop, Vue, Watch } from 'vue-property-decorator'
+import { defineComponent, computed, onMounted } from 'vue'
+import { useStore } from 'vuex'
 import { UTXO } from 'avalanche/dist/apis/platformvm'
 import { ChainIdType } from '@/constants'
 import { BN } from 'avalanche'
@@ -36,69 +37,90 @@ const chainNames = {
     P: 'Platform Chain',
 }
 
-@Component({
+export default defineComponent({
+    name: 'ChainCard',
     components: {
         NumberCounter,
     },
-})
-export default class ChainCard extends Vue {
-    // @Model('change', { type: String }) readonly chain!: ChainIdType
-    @Prop() chain!: ChainIdType
-    // @Prop() exclude!: ChainIdType
-    @Prop({ default: true }) isSource?: boolean
+    props: {
+        chain: {
+            type: String as () => ChainIdType,
+            required: true
+        },
+        isSource: {
+            type: Boolean,
+            default: true
+        }
+    },
+    emits: ['change'],
+    setup(props, { emit }) {
+        const store = useStore()
 
-    onChange(ev: any) {
-        let val: ChainIdType = ev.target.value
-        this.$emit('change', val)
-    }
+        const onChange = (ev: any) => {
+            let val: ChainIdType = ev.target.value
+            emit('change', val)
+        }
 
-    get chainNames() {
-        return chainNames
-    }
+        const ava_asset = computed((): AvaAsset | null => {
+            let ava = store.getters['Assets/AssetAVA']
+            return ava
+        })
 
-    get ava_asset(): AvaAsset | null {
-        let ava = this.$store.getters['Assets/AssetAVA']
-        return ava
-    }
+        const wallet = computed((): WalletType => {
+            let wallet: MnemonicWallet = store.state.activeWallet
+            return wallet
+        })
 
-    get wallet(): WalletType {
-        let wallet: MnemonicWallet = this.$store.state.activeWallet
-        return wallet
-    }
+        const platformUnlocked = computed((): BN => {
+            return store.getters['Assets/walletPlatformBalance'].available
+        })
 
-    get platformUnlocked(): BN {
-        return this.$store.getters['Assets/walletPlatformBalance'].available
-    }
+        const avmUnlocked = computed((): BN => {
+            if (!ava_asset.value) return new BN(0)
+            return ava_asset.value.amount
+        })
 
-    get avmUnlocked(): BN {
-        if (!this.ava_asset) return new BN(0)
-        return this.ava_asset.amount
-    }
+        const evmUnlocked = computed((): BN => {
+            let balRaw = wallet.value.ethBalance
+            return balRaw.div(new BN(Math.pow(10, 9)))
+        })
 
-    get evmUnlocked(): BN {
-        let balRaw = this.wallet.ethBalance
-        return balRaw.div(new BN(Math.pow(10, 9)))
-    }
+        const balance = computed(() => {
+            if (props.chain === 'X') {
+                return avmUnlocked.value
+            } else if (props.chain === 'P') {
+                return platformUnlocked.value
+            } else {
+                return evmUnlocked.value
+            }
+        })
 
-    get balance() {
-        if (this.chain === 'X') {
-            return this.avmUnlocked
-        } else if (this.chain === 'P') {
-            return this.platformUnlocked
-        } else {
-            return this.evmUnlocked
+        const balanceBig = computed(() => {
+            return bnToBig(balance.value, 9)
+        })
+
+        const balanceText = computed(() => {
+            return balanceBig.value.toLocaleString()
+        })
+
+        onMounted(() => {
+            // mounted logic
+        })
+
+        return {
+            chainNames,
+            onChange,
+            ava_asset,
+            wallet,
+            platformUnlocked,
+            avmUnlocked,
+            evmUnlocked,
+            balance,
+            balanceBig,
+            balanceText
         }
     }
-
-    get balanceBig() {
-        return bnToBig(this.balance, 9)
-    }
-    get balanceText() {
-        return this.balanceBig.toLocaleString()
-    }
-
-    mounted() {}
-}
+})
 </script>
 <style scoped lang="scss">
 @use '../../../../main';

@@ -27,29 +27,37 @@
     </div>
 </template>
 <script lang="ts">
-import 'reflect-metadata'
-import { Vue, Component, Prop } from 'vue-property-decorator'
+import { defineComponent, ref } from 'vue'
 
 import ValidatorsList from '@/components/misc/ValidatorList/ValidatorsList.vue'
 import { ValidatorListItem } from '@/store/modules/platform/types'
 
-@Component({
+export default defineComponent({
+    name: 'NodeSelection',
     components: {
         ValidatorsList,
     },
+    emits: ['select'],
+    setup(props, { emit }) {
+        const search = ref('')
+        const val_list = ref<InstanceType<typeof ValidatorsList> | null>(null)
+
+        const openFilters = () => {
+            val_list.value?.openFilters()
+        }
+
+        const onselect = (val: ValidatorListItem) => {
+            emit('select', val)
+        }
+
+        return {
+            search,
+            val_list,
+            openFilters,
+            onselect
+        }
+    }
 })
-export default class NodeSelection extends Vue {
-    search: string = ''
-
-    openFilters() {
-        //@ts-ignore
-        this.$refs.val_list.openFilters()
-    }
-
-    onselect(val: ValidatorListItem) {
-        this.$emit('select', val)
-    }
-}
 </script>
 <style scoped lang="scss">
 .node_selection {

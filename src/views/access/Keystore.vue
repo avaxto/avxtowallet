@@ -33,100 +33,106 @@
     </div>
 </template>
 <script lang="ts">
-import { Vue, Component } from 'vue-property-decorator'
+import { defineComponent, ref, computed } from 'vue'
+import { useStore } from 'vuex'
+import { useI18n } from 'vue-i18n'
 
 import FileInput from '../../components/misc/FileInput.vue'
 // import RememberKey from "../../components/misc/RememberKey.vue";
 import { ImportKeyfileInput } from '@/store/types'
 import { AllKeyFileTypes } from '@/js/IKeystore'
 
-@Component({
+export default defineComponent({
+    name: 'Keystore',
     components: {
         // RememberKey,
         FileInput,
     },
-})
-export default class Keystore extends Vue {
-    pass: string = ''
-    file: File | null = null
-    fileText: string | null = null
-    // rememberPass: string|null = null;
-    // rememberValid: boolean = true;
-    isLoading: boolean = false
-    error: string = ''
+    setup() {
+        const store = useStore()
+        const { t } = useI18n()
+        
+        const pass = ref<string>('')
+        const file = ref<File | null>(null)
+        const fileText = ref<string | null>(null)
+        const isLoading = ref<boolean>(false)
+        const error = ref<string>('')
 
-    onfile(val: File) {
-        this.file = val
-        let parent = this
-
-        let reader = new FileReader()
-        reader.addEventListener('load', async () => {
-            let res = reader.result as string
-            parent.fileText = res
+        const canSubmit = computed((): boolean => {
+            if (!file.value || !pass.value || !fileText.value) {
+                return false
+            }
+            return true
         })
-        reader.readAsText(val)
-    }
 
-    // isRememberValid(val: boolean){
-    //     this.rememberValid = val;
-    // }
-    access() {
-        if (!this.canSubmit || this.isLoading) return
+        const onfile = (val: File) => {
+            file.value = val
 
-        let parent = this
-        this.error = ''
-
-        let fileData: AllKeyFileTypes
-        try {
-            fileData = JSON.parse(this.fileText as string)
-        } catch (e) {
-            this.error = `${this.$t('access.json_error')}`
-            return
+            let reader = new FileReader()
+            reader.addEventListener('load', async () => {
+                let res = reader.result as string
+                fileText.value = res
+            })
+            reader.readAsText(val)
         }
 
-        // console.log(this.fileText);
-        // return;
+        const access = () => {
+            if (!canSubmit.value || isLoading.value) return
 
-        // let rememberPass = this.rememberPass;
-        let data: ImportKeyfileInput = {
-            password: this.pass,
-            data: fileData,
+            error.value = ''
+
+            let fileData: AllKeyFileTypes
+            try {
+                fileData = JSON.parse(fileText.value as string)
+            } catch (e) {
+                error.value = `${t('access.json_error')}`
+                return
+            }
+
+            // let rememberPass = this.rememberPass;
+            let data: ImportKeyfileInput = {
+                password: pass.value,
+                data: fileData,
+            }
+
+            isLoading.value = true
+
+            setTimeout(() => {
+                store
+                    .dispatch('importKeyfile', data)
+                    .then((res) => {
+                        isLoading.value = false
+
+                        // if(rememberPass){
+                        //     parent.$store.dispatch('rememberWallets', rememberPass)
+                        // }
+                    })
+                    .catch((err) => {
+                        console.log(err)
+                        if (err === 'INVALID_PASS') {
+                            error.value = t('access.password_error').toString()
+                        } else if (err === 'INVALID_VERSION') {
+                            error.value = t('access.keystore_error').toString()
+                        } else {
+                            error.value = err.message
+                        }
+                        isLoading.value = false
+                    })
+            }, 200)
         }
 
-        this.isLoading = true
-
-        setTimeout(() => {
-            this.$store
-                .dispatch('importKeyfile', data)
-                .then((res) => {
-                    parent.isLoading = false
-
-                    // if(rememberPass){
-                    //     parent.$store.dispatch('rememberWallets', rememberPass)
-                    // }
-                })
-                .catch((err) => {
-                    console.log(err)
-                    if (err === 'INVALID_PASS') {
-                        parent.error = this.$t('access.password_error').toString()
-                    } else if (err === 'INVALID_VERSION') {
-                        parent.error = this.$t('access.keystore_error').toString()
-                    } else {
-                        parent.error = err.message
-                    }
-                    parent.isLoading = false
-                })
-        }, 200)
-    }
-
-    get canSubmit(): boolean {
-        if (!this.file || !this.pass || !this.fileText) {
-            return false
+        return {
+            pass,
+            file,
+            fileText,
+            isLoading,
+            error,
+            canSubmit,
+            onfile,
+            access
         }
-
-        return true
     }
-}
+})
 </script>
 <style scoped lang="scss">
 @use '../../main';

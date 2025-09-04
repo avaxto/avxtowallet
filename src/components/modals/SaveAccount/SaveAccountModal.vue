@@ -45,95 +45,119 @@
     </div>
 </template>
 <script lang="ts">
-import 'reflect-metadata'
-import { Vue, Component, Prop } from 'vue-property-decorator'
+import { defineComponent, ref, computed } from 'vue'
+import { useStore } from 'vuex'
+import { useI18n } from 'vue-i18n'
 
 import Modal from '../Modal.vue'
 import { SaveAccountInput } from '@/store/types'
 import { iUserAccountEncrypted } from '@/store/types'
 import Identicon from '@/components/misc/Identicon.vue'
 
-@Component({
+export default defineComponent({
+    name: 'SaveAccountModal',
     components: {
         Identicon,
         Modal,
     },
-})
-export default class SaveAccountModal extends Vue {
-    password: string = ''
-    password_confirm: string = ''
-    isLoading: boolean = false
-    err: any = ''
-    accountName = ''
-    existsInLocalStorage: boolean = false
-    index: number = 0
-    foundAccount: iUserAccountEncrypted | null = null
-    $refs!: {
-        modal: Modal
-    }
+    setup() {
+        const store = useStore()
+        const { t } = useI18n()
+        const modal = ref<InstanceType<typeof Modal> | null>(null)
+        const password = ref('')
+        const password_confirm = ref('')
+        const isLoading = ref(false)
+        const err = ref<any>('')
+        const accountName = ref('')
+        const existsInLocalStorage = ref(false)
+        const index = ref(0)
+        const foundAccount = ref<iUserAccountEncrypted | null>(null)
 
-    get walletType() {
-        return this.$store.state.activeWallet.type
-    }
-
-    get canSubmit() {
-        if (this.error !== null) return false
-        return true
-    }
-
-    get error() {
-        if (!this.password) return this.$t('keys.password_validation')
-        if (!this.password_confirm) return this.$t('keys.password_validation2')
-        if (this.accountName.length < 1) return this.$t('keys.account_name_required')
-        if (this.password.length < 9) return this.$t('keys.password_validation')
-        if (this.password !== this.password_confirm) return this.$t('keys.password_validation2')
-
-        return null
-    }
-
-    async submit(): Promise<void> {
-        this.isLoading = true
-        let pass = this.password
-        let accountName = this.accountName
-
-        let input: SaveAccountInput = {
-            accountName: accountName,
-            password: pass,
-        }
-        await this.$store.dispatch('Accounts/saveAccount', input)
-
-        this.isLoading = false
-        this.onsuccess()
-    }
-
-    onsuccess() {
-        this.$store.dispatch('Notifications/add', {
-            title: 'Account Saved',
-            message: 'Your keys are now stored under a new local account.',
-            type: 'info',
+        const walletType = computed(() => {
+            return store.state.activeWallet.type
         })
-        this.close()
-    }
 
-    clear() {
-        this.password = ''
-        this.password_confirm = ''
-        this.accountName = ''
-        this.err = ''
-    }
-    close() {
-        this.clear()
-        this.$refs.modal.close()
-    }
+        const error = computed(() => {
+            if (!password.value) return t('keys.password_validation')
+            if (!password_confirm.value) return t('keys.password_validation2')
+            if (accountName.value.length < 1) return t('keys.account_name_required')
+            if (password.value.length < 9) return t('keys.password_validation')
+            if (password.value !== password_confirm.value) return t('keys.password_validation2')
 
-    open() {
-        this.$refs.modal.open()
-    }
+            return null
+        })
 
-    get baseAddresses(): string[] {
-        return this.$store.getters['Accounts/baseAddresses']
+        const canSubmit = computed(() => {
+            if (error.value !== null) return false
+            return true
+        })
+
+        const submit = async (): Promise<void> => {
+            isLoading.value = true
+            const pass = password.value
+            const accountNameVal = accountName.value
+
+            const input: SaveAccountInput = {
+                accountName: accountNameVal,
+                password: pass,
+            }
+            await store.dispatch('Accounts/saveAccount', input)
+
+            isLoading.value = false
+            onsuccess()
+        }
+
+        const onsuccess = () => {
+            store.dispatch('Notifications/add', {
+                title: 'Account Saved',
+                message: 'Your keys are now stored under a new local account.',
+                type: 'info',
+            })
+            close()
+        }
+
+        const clear = () => {
+            password.value = ''
+            password_confirm.value = ''
+            accountName.value = ''
+            err.value = ''
+        }
+
+        const close = () => {
+            clear()
+            modal.value?.close()
+        }
+
+        const open = () => {
+            modal.value?.open()
+        }
+
+        const baseAddresses = computed((): string[] => {
+            return store.getters['Accounts/baseAddresses']
+        })
+
+        return {
+            modal,
+            password,
+            password_confirm,
+            isLoading,
+            err,
+            accountName,
+            existsInLocalStorage,
+            index,
+            foundAccount,
+            walletType,
+            canSubmit,
+            error,
+            submit,
+            onsuccess,
+            clear,
+            close,
+            open,
+            baseAddresses
+        }
     }
-}
+})
 </script>
 <style scoped lang="scss">
 @use '../../../main';

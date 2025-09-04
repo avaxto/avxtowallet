@@ -12,7 +12,7 @@
     </tr>
 </template>
 <script lang="ts">
-import { Vue, Component, Prop } from 'vue-property-decorator'
+import { defineComponent, ref, computed } from 'vue'
 import {
     UTXO,
     PlatformVMConstants,
@@ -24,69 +24,93 @@ import Big from 'big.js'
 import { UnixNow } from 'avalanche/dist/utils'
 import { BN } from 'avalanche'
 
-@Component
-export default class UtxoRow extends Vue {
-    @Prop() utxo!: UTXO
-    isSelect = false
-
-    onSelect() {
-        if (this.isSelect) {
-            this.$emit('add')
-        } else {
-            this.$emit('remove')
-        }
-    }
-    get out() {
-        return this.utxo.getOutput()
-    }
-
-    get amount(): Big {
-        let outId = this.out.getOutputID()
-        if (outId === PlatformVMConstants.SECPXFEROUTPUTID) {
-            let out = this.out as AmountOutput
-            let amtBig = bnToBig(out.getAmount(), 9)
-            return amtBig
-        } else if (outId === PlatformVMConstants.STAKEABLELOCKOUTID) {
-            let out = this.out as StakeableLockOut
-            let amtBig = bnToBig(out.getAmount(), 9)
-            return amtBig
-        }
-
-        return Big(0)
-    }
-    get lockTime(): BN {
-        let outId = this.out.getOutputID()
-
-        if (outId === PlatformVMConstants.SECPXFEROUTPUTID) {
-            let out = this.out as AmountOutput
-            return out.getLocktime()
-        } else if (outId === PlatformVMConstants.STAKEABLELOCKOUTID) {
-            let out = this.out as StakeableLockOut
-            return out.getStakeableLocktime()
-        }
-
-        return new BN(0)
-    }
-
-    get lockDateText(): string {
-        if (this.lockTime.eq(new BN(0))) {
-            return '-'
-        }
-        let date = new Date(this.lockTime.toNumber() * 1000)
-
-        return date.toLocaleString()
-    }
-
-    get isLocked(): boolean {
-        let now = UnixNow()
-
-        if (now.lt(this.lockTime)) {
-            return true
-        }
-
-        return false
-    }
+interface Props {
+    utxo: UTXO
 }
+
+export default defineComponent({
+    name: 'UtxoRow',
+    props: {
+        utxo: {
+            type: Object as () => UTXO,
+            required: true
+        }
+    },
+    emits: ['add', 'remove'],
+    setup(props: Props, { emit }) {
+        const isSelect = ref(false)
+
+        const out = computed(() => {
+            return props.utxo.getOutput()
+        })
+
+        const amount = computed((): Big => {
+            let outId = out.value.getOutputID()
+            if (outId === PlatformVMConstants.SECPXFEROUTPUTID) {
+                let outValue = out.value as AmountOutput
+                let amtBig = bnToBig(outValue.getAmount(), 9)
+                return amtBig
+            } else if (outId === PlatformVMConstants.STAKEABLELOCKOUTID) {
+                let outValue = out.value as StakeableLockOut
+                let amtBig = bnToBig(outValue.getAmount(), 9)
+                return amtBig
+            }
+
+            return Big(0)
+        })
+
+        const lockTime = computed((): BN => {
+            let outId = out.value.getOutputID()
+
+            if (outId === PlatformVMConstants.SECPXFEROUTPUTID) {
+                let outValue = out.value as AmountOutput
+                return outValue.getLocktime()
+            } else if (outId === PlatformVMConstants.STAKEABLELOCKOUTID) {
+                let outValue = out.value as StakeableLockOut
+                return outValue.getStakeableLocktime()
+            }
+
+            return new BN(0)
+        })
+
+        const lockDateText = computed((): string => {
+            if (lockTime.value.eq(new BN(0))) {
+                return '-'
+            }
+            let date = new Date(lockTime.value.toNumber() * 1000)
+
+            return date.toLocaleString()
+        })
+
+        const isLocked = computed((): boolean => {
+            let now = UnixNow()
+
+            if (now.lt(lockTime.value)) {
+                return true
+            }
+
+            return false
+        })
+
+        const onSelect = () => {
+            if (isSelect.value) {
+                emit('add')
+            } else {
+                emit('remove')
+            }
+        }
+
+        return {
+            isSelect,
+            out,
+            amount,
+            lockTime,
+            lockDateText,
+            isLocked,
+            onSelect
+        }
+    }
+})
 </script>
 <style scoped lang="scss">
 tr {

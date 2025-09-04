@@ -24,44 +24,59 @@
 </template>
 <script lang="ts">
 import 'reflect-metadata'
-import { Vue, Component, Prop } from 'vue-property-decorator'
+import { defineComponent, computed } from 'vue'
 import { BN } from 'avalanche/dist'
 import Big from 'big.js'
 
-@Component
-export default class ConfirmPage extends Vue {
-    @Prop() nodeID!: string
-    // @Prop() start!: Date
-    @Prop() end!: Date
-    @Prop() amount!: BN
-    @Prop() rewardAddress!: string
-    @Prop() rewardDestination!: string
-
-    // get startDate(){
-    //     return new Date(this.start);
-    // }
-    //
-    // get endDate(){
-    //     return new Date(this.end);
-    // }
-
-    get amtBig(): Big {
-        let stakeAmt = Big(this.amount.toString()).div(Math.pow(10, 9))
-        return stakeAmt
-    }
-
-    get walletType() {
-        if (this.rewardDestination === 'local') {
-            return 'This wallet'
+export default defineComponent({
+    name: 'ConfirmPage',
+    props: {
+        nodeID: {
+            type: String,
+            required: true
+        },
+        end: {
+            type: Date,
+            required: true
+        },
+        amount: {
+            type: Object as () => BN,
+            required: true
+        },
+        rewardAddress: {
+            type: String,
+            required: true
+        },
+        rewardDestination: {
+            type: String,
+            required: true
         }
-        return 'Custom'
-    }
+    },
+    setup(props) {
+        const amtBig = computed(() => {
+            let stakeAmt = Big(props.amount.toString()).div(Math.pow(10, 9))
+            return stakeAmt
+        })
 
-    get amtText(): string {
-        let amt = this.amtBig
-        return amt.toLocaleString(9)
+        const walletType = computed(() => {
+            if (props.rewardDestination === 'local') {
+                return 'This wallet'
+            }
+            return 'Custom'
+        })
+
+        const amtText = computed(() => {
+            let amt = amtBig.value
+            return amt.toLocaleString(9)
+        })
+
+        return {
+            amtBig,
+            walletType,
+            amtText
+        }
     }
-}
+})
 </script>
 <style scoped lang="scss">
 .confirmation {

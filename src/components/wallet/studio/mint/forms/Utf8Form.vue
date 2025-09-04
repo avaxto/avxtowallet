@@ -8,35 +8,44 @@
     </div>
 </template>
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator'
+import { defineComponent, ref, computed } from 'vue'
 import { UrlFormType, UtfFormType } from '@/components/wallet/studio/mint/types'
 
-@Component
-export default class Utf8Form extends Vue {
-    val = ''
+export default defineComponent({
+    name: 'Utf8Form',
+    emits: ['onInput'],
+    setup(props, { emit }) {
+        const val = ref('')
 
-    get isValid(): boolean {
-        if (this.val.length === 0 || this.val.length > 1024) {
-            return false
-        }
-
-        return true
-    }
-
-    onInput() {
-        let msg: null | UtfFormType = null
-
-        if (this.isValid) {
-            msg = {
-                text: this.val,
+        const isValid = computed((): boolean => {
+            if (val.value.length === 0 || val.value.length > 1024) {
+                return false
             }
-        } else {
-            msg = null
+
+            return true
+        })
+
+        const onInput = () => {
+            let msg: null | UtfFormType = null
+
+            if (isValid.value) {
+                msg = {
+                    text: val.value,
+                }
+            } else {
+                msg = null
+            }
+
+            emit('onInput', msg)
         }
 
-        this.$emit('onInput', msg)
+        return {
+            val,
+            isValid,
+            onInput
+        }
     }
-}
+})
 </script>
 <style scoped lang="scss">
 textarea {

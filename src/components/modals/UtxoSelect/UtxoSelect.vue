@@ -38,8 +38,7 @@
     </modal>
 </template>
 <script lang="ts">
-import 'reflect-metadata'
-import { Vue, Component, Prop, Model } from 'vue-property-decorator'
+import { defineComponent, ref, computed } from 'vue'
 
 import Modal from '@/components/modals/Modal.vue'
 import {
@@ -56,95 +55,116 @@ import { BN } from 'avalanche'
 import { UnixNow } from 'avalanche/dist/utils'
 import { bnToBig } from '@/helpers/helper'
 
-@Component({
+export default defineComponent({
+    name: 'UtxoSelect',
     components: {
         Modal,
         UtxoRow,
     },
-})
-export default class UtxoSelect extends Vue {
-    @Model('change', { type: Array }) readonly utxos!: UTXO[]
-    @Prop() all!: UTXO[]
+    props: {
+        utxos: {
+            type: Array as () => UTXO[],
+            required: true
+        },
+        all: {
+            type: Array as () => UTXO[],
+            required: true
+        }
+    },
+    emits: ['change'],
+    setup(props, { emit }) {
+        const modal = ref<InstanceType<typeof Modal> | null>(null)
+        const customSet = ref(new UTXOSet())
 
-    customSet = new UTXOSet()
+        const addUtxo = (utxo: UTXO) => {
+            customSet.value.add(utxo)
+            emit('change', customSet.value.getAllUTXOs())
+        }
 
-    addUtxo(utxo: UTXO) {
-        this.customSet.add(utxo)
-        this.$emit('change', this.customSet.getAllUTXOs())
-    }
+        const removeUtxo = (utxo: UTXO) => {
+            customSet.value.remove(utxo)
+            emit('change', customSet.value.getAllUTXOs())
+        }
 
-    removeUtxo(utxo: UTXO) {
-        this.customSet.remove(utxo)
-        this.$emit('change', this.customSet.getAllUTXOs())
-    }
-    open(): void {
-        let modal = this.$refs.modal as Modal
-        modal.open()
-    }
+        const open = (): void => {
+            modal.value?.open()
+        }
 
-    close(): void {
-        let modal = this.$refs.modal as Modal
-        modal.close()
-    }
+        const close = (): void => {
+            modal.value?.close()
+        }
 
-    get allSorted() {
-        return this.all.sort((a: UTXO, b: UTXO) => {
-            // Sort by Lock status
-            let typeA = a.getOutput().getTypeID()
-            let typeB = b.getOutput().getTypeID()
+        const allSorted = computed(() => {
+            return props.all.sort((a: UTXO, b: UTXO) => {
+                // Sort by Lock status
+                let typeA = a.getOutput().getTypeID()
+                let typeB = b.getOutput().getTypeID()
 
-            let locktimeA = a.getOutput().getLocktime()
-            let locktimeB = a.getOutput().getLocktime()
+                let locktimeA = a.getOutput().getLocktime()
+                let locktimeB = a.getOutput().getLocktime()
 
-            if (typeA === PlatformVMConstants.STAKEABLELOCKOUTID) {
-                let sLocktime = (a.getOutput() as StakeableLockOut).getStakeableLocktime()
-                locktimeA = BN.max(locktimeA, sLocktime)
-            }
+                if (typeA === PlatformVMConstants.STAKEABLELOCKOUTID) {
+                    let sLocktime = (a.getOutput() as StakeableLockOut).getStakeableLocktime()
+                    locktimeA = BN.max(locktimeA, sLocktime)
+                }
 
-            if (typeB === PlatformVMConstants.STAKEABLELOCKOUTID) {
-                let sLocktime = (b.getOutput() as StakeableLockOut).getStakeableLocktime()
-                locktimeB = BN.max(locktimeB, sLocktime)
-            }
+                if (typeB === PlatformVMConstants.STAKEABLELOCKOUTID) {
+                    let sLocktime = (b.getOutput() as StakeableLockOut).getStakeableLocktime()
+                    locktimeB = BN.max(locktimeB, sLocktime)
+                }
 
-            let now = UnixNow()
+                let now = UnixNow()
 
-            // if (now.lt(locktimeA) && now.lt(locktimeB)) {
-            if (locktimeA.gt(locktimeB)) {
-                return -1
-            } else if (locktimeA.lt(locktimeB)) {
-                return 1
-            }
-            // }
+                // if (now.lt(locktimeA) && now.lt(locktimeB)) {
+                if (locktimeA.gt(locktimeB)) {
+                    return -1
+                } else if (locktimeA.lt(locktimeB)) {
+                    return 1
+                }
+                // }
 
-            // Sort by amount
-            let outA = a.getOutput() as StakeableLockOut | SECPTransferOutput
-            let outB = b.getOutput() as StakeableLockOut | SECPTransferOutput
+                // Sort by amount
+                let outA = a.getOutput() as StakeableLockOut | SECPTransferOutput
+                let outB = b.getOutput() as StakeableLockOut | SECPTransferOutput
 
-            let amtA = outA.getAmount()
-            let amtB = outB.getAmount()
+                let amtA = outA.getAmount()
+                let amtB = outB.getAmount()
 
-            if (amtA.gt(amtB)) {
-                return -1
-            } else {
-                return 1
-            }
+                if (amtA.gt(amtB)) {
+                    return -1
+                } else {
+                    return 1
+                }
 
-            return 0
+                return 0
+            })
         })
-    }
 
-    get selectedBalance() {
-        let res = this.utxos.reduce((acc, utxo) => {
-            let out = utxo.getOutput() as AmountOutput | StakeableLockOut
-            return acc.add(out.getAmount())
-        }, new BN(0))
-        return res
-    }
+        const selectedBalance = computed(() => {
+            let res = props.utxos.reduce((acc, utxo) => {
+                let out = utxo.getOutput() as AmountOutput | StakeableLockOut
+                return acc.add(out.getAmount())
+            }, new BN(0))
+            return res
+        })
 
-    get selectedBalanceText() {
-        return bnToBig(this.selectedBalance, 9).toLocaleString()
+        const selectedBalanceText = computed(() => {
+            return bnToBig(selectedBalance.value, 9).toLocaleString()
+        })
+
+        return {
+            modal,
+            customSet,
+            addUtxo,
+            removeUtxo,
+            open,
+            close,
+            allSorted,
+            selectedBalance,
+            selectedBalanceText
+        }
     }
-}
+})
 </script>
 <style scoped lang="scss">
 .utxo_select_modal_body {

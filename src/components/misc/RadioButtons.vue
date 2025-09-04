@@ -13,20 +13,39 @@
     </div>
 </template>
 <script lang="ts">
-import { Vue, Component, Prop, Model } from 'vue-property-decorator'
+import { defineComponent, type PropType } from 'vue'
 
-@Component
-export default class RadioButtons extends Vue {
-    @Prop() labels!: string[]
-    @Prop() keys!: string[]
-    @Prop({ default: false }) disabled!: boolean
+export default defineComponent({
+    name: 'RadioButtons',
+    props: {
+        labels: {
+            type: Array as PropType<string[]>,
+            required: true
+        },
+        keys: {
+            type: Array as PropType<string[]>,
+            required: true
+        },
+        disabled: {
+            type: Boolean,
+            default: false
+        },
+        selection: {
+            type: String,
+            required: true
+        }
+    },
+    emits: ['change'],
+    setup(props, { emit }) {
+        const select = (val: string) => {
+            emit('change', val)
+        }
 
-    @Model('change', { type: String }) readonly selection!: string
-
-    select(val: string) {
-        this.$emit('change', val)
+        return {
+            select
+        }
     }
-}
+})
 </script>
 <style scoped lang="scss">
 @use '../../main';

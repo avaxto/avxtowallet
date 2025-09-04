@@ -8,50 +8,58 @@
     </div>
 </template>
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator'
+import { defineComponent, ref, computed, onMounted } from 'vue'
 import { JsonFormType } from '@/components/wallet/studio/mint/types'
 
-// const JSONEditor = require('jsoneditor')
+export default defineComponent({
+    name: 'JsonForm',
+    emits: ['onInput'],
+    setup(props, { emit }) {
+        const data = ref('{\n\n}')
 
-@Component
-export default class JsonForm extends Vue {
-    data = '{\n\n}'
+        const isValid = computed((): boolean => {
+            let dataVal = data.value
 
-    get isValid(): boolean {
-        let data = this.data
-
-        if (data.length === 0) return false
-        try {
-            JSON.parse(data)
-        } catch (e) {
-            return false
-        }
-        return true
-    }
-
-    mounted() {
-        // const container = this.$refs.editor
-        // const options = {
-        //     mode: 'text',
-        // }
-        // const editor = new JSONEditor(container, options)
-        //
-        // console.log(editor)
-    }
-    onInput() {
-        let msg: null | JsonFormType = null
-
-        if (this.isValid) {
-            msg = {
-                data: this.data,
+            if (dataVal.length === 0) return false
+            try {
+                JSON.parse(dataVal)
+            } catch (e) {
+                return false
             }
-        } else {
-            msg = null
+            return true
+        })
+
+        onMounted(() => {
+            // const container = this.$refs.editor
+            // const options = {
+            //     mode: 'text',
+            // }
+            // const editor = new JSONEditor(container, options)
+            //
+            // console.log(editor)
+        })
+
+        const onInput = () => {
+            let msg: null | JsonFormType = null
+
+            if (isValid.value) {
+                msg = {
+                    data: data.value,
+                }
+            } else {
+                msg = null
+            }
+
+            emit('onInput', msg)
         }
 
-        this.$emit('onInput', msg)
+        return {
+            data,
+            isValid,
+            onInput
+        }
     }
-}
+})
 </script>
 <style scoped lang="scss">
 textarea,

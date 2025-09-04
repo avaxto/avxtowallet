@@ -9,61 +9,78 @@
                 @focus="onFocus"
                 @blur="onBlur"
                 @input="onInput($event, i - 1)"
-                :ref="`in_${i - 1}`"
+                :ref="(el) => { if (el) inputRefs[`in_${i - 1}`] = [el as HTMLInputElement] }"
                 @paste="onPaste"
             />
         </span>
     </div>
 </template>
 <script lang="ts">
-import { Vue, Component } from 'vue-property-decorator'
+import { defineComponent, ref } from 'vue'
 
 const SIZE = 24
-@Component
-export default class MnemonicPasswordInput extends Vue {
-    // words = Array.from(''.repeat(24))
-    onFocus(ev: any) {
-        ev.target.setAttribute('type', 'text')
-    }
 
-    onBlur(ev: any) {
-        ev.target.setAttribute('type', 'password')
-    }
+export default defineComponent({
+    name: 'MnemonicPasswordInput',
+    emits: ['change'],
+    setup(props, { emit }) {
+        const inputRefs = ref<Record<string, HTMLInputElement[]>>({})
 
-    onPaste(e: any) {
-        e.preventDefault()
-    }
-
-    onInput(ev: any, index: number) {
-        const val: string = ev.target.value.trim()
-        const words: string[] = val.split(' ').filter((w) => w !== '')
-
-        if (words.length > 1) {
-            words.forEach((word, i) => {
-                const wordIndex = index + i
-                if (wordIndex >= SIZE) return
-
-                //@ts-ignore
-                const dom = this.$refs[`in_${wordIndex}`][0]
-                dom.value = word
-                dom.focus()
-            })
+        const onFocus = (ev: Event) => {
+            const target = ev.target as HTMLInputElement
+            target.setAttribute('type', 'text')
         }
 
-        this.emitValue()
-    }
-
-    emitValue() {
-        let val = ''
-        for (var i = 0; i < SIZE; i++) {
-            //@ts-ignore
-            const input = this.$refs[`in_${i}`][0]
-            val += `${input.value} `
+        const onBlur = (ev: Event) => {
+            const target = ev.target as HTMLInputElement
+            target.setAttribute('type', 'password')
         }
 
-        this.$emit('change', val.trim())
+        const onPaste = (e: Event) => {
+            e.preventDefault()
+        }
+
+        const emitValue = () => {
+            let val = ''
+            for (var i = 0; i < SIZE; i++) {
+                const input = inputRefs.value[`in_${i}`]?.[0]
+                if (input) {
+                    val += `${input.value} `
+                }
+            }
+            emit('change', val.trim())
+        }
+
+        const onInput = (ev: Event, index: number) => {
+            const target = ev.target as HTMLInputElement
+            const val: string = target.value.trim()
+            const words: string[] = val.split(' ').filter((w) => w !== '')
+
+            if (words.length > 1) {
+                words.forEach((word, i) => {
+                    const wordIndex = index + i
+                    if (wordIndex >= SIZE) return
+
+                    const dom = inputRefs.value[`in_${wordIndex}`]?.[0]
+                    if (dom) {
+                        dom.value = word
+                        dom.focus()
+                    }
+                })
+            }
+
+            emitValue()
+        }
+
+        return {
+            inputRefs,
+            onFocus,
+            onBlur,
+            onPaste,
+            onInput
+        }
     }
-}
+})
 </script>
 <style scoped lang="scss">
 .input_cont {

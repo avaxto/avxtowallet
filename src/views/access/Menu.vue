@@ -41,13 +41,14 @@
 </template>
 
 <script lang="ts">
-import { Vue, Component } from 'vue-property-decorator'
+import { defineComponent } from 'vue'
 import LedgerButton from '@/components/Ledger/LedgerButton.vue'
 import AccountsFound from '@/components/Access/AccountsFound.vue'
 import ToS from '@/components/misc/ToS.vue'
 import ImageDayNight from '@/components/misc/ImageDayNight.vue'
 
-@Component({
+export default defineComponent({
+    name: 'Menu',
     components: {
         ImageDayNight,
         ToS,
@@ -55,7 +56,6 @@ import ImageDayNight from '@/components/misc/ImageDayNight.vue'
         AccountsFound,
     },
 })
-export default class Menu extends Vue {}
 </script>
 
 <style scoped lang="scss">

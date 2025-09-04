@@ -10,51 +10,72 @@
     </div>
 </template>
 <script lang="ts">
-import 'reflect-metadata'
-import { Vue, Component, Prop, Watch } from 'vue-property-decorator'
+import { defineComponent, ref, computed } from 'vue'
 import { UTXOSet } from 'avalanche/dist/apis/platformvm'
 import { UnixNow } from 'avalanche/dist/utils'
+
 type Selection = 'all' | 'unlocked' | 'locked'
-@Component
-export default class UTXOSelect extends Vue {
-    @Prop() utxos!: UTXOSet
-    selected: Selection = 'all'
-    select(type: Selection) {
-        this.selected = type
-        this.$emit('change', this.selectedSet)
-    }
-    get selectedSet() {
-        switch (this.selected) {
-            case 'all':
-                return this.utxos
-            case 'unlocked':
-                return this.unlocked
-            case 'locked':
-                return this.locked
+
+export default defineComponent({
+    name: 'UTXOSelect',
+    props: {
+        utxos: {
+            type: Object as () => UTXOSet,
+            required: true
         }
-        return this.utxos
-    }
-    get unlocked(): UTXOSet {
-        let utxos = this.utxos.getAllUTXOs()
-        let res = new UTXOSet()
-        let now = UnixNow()
-        for (var i = 0; i < utxos.length; i++) {
-            let utxo = utxos[i]
-            let out = utxo.getOutput()
-            let type = out.getOutputID()
-            if (type !== 22) {
-                let locktime = out.getLocktime()
-                if (locktime.lt(now)) {
-                    res.add(utxo)
+    },
+    emits: ['change'],
+    setup(props, { emit }) {
+        const selected = ref<Selection>('all')
+
+        const select = (type: Selection) => {
+            selected.value = type
+            emit('change', selectedSet.value)
+        }
+
+        const unlocked = computed((): UTXOSet => {
+            let utxos = props.utxos.getAllUTXOs()
+            let res = new UTXOSet()
+            let now = UnixNow()
+            for (var i = 0; i < utxos.length; i++) {
+                let utxo = utxos[i]
+                let out = utxo.getOutput()
+                let type = out.getOutputID()
+                if (type !== 22) {
+                    let locktime = out.getLocktime()
+                    if (locktime.lt(now)) {
+                        res.add(utxo)
+                    }
                 }
             }
+            return res
+        })
+
+        const locked = computed((): UTXOSet => {
+            return props.utxos.difference(unlocked.value)
+        })
+
+        const selectedSet = computed(() => {
+            switch (selected.value) {
+                case 'all':
+                    return props.utxos
+                case 'unlocked':
+                    return unlocked.value
+                case 'locked':
+                    return locked.value
+            }
+            return props.utxos
+        })
+
+        return {
+            selected,
+            select,
+            selectedSet,
+            unlocked,
+            locked
         }
-        return res
     }
-    get locked(): UTXOSet {
-        return this.utxos.difference(this.unlocked)
-    }
-}
+})
 </script>
 <style scoped lang="scss">
 .utxo_select {

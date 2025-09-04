@@ -72,15 +72,13 @@
 </template>
 
 <script lang="ts">
-import 'reflect-metadata'
-import { Vue, Component, Prop } from 'vue-property-decorator'
+import { defineComponent } from 'vue'
 import ToS from '@/components/misc/ToS.vue'
 
-@Component({
-    name: 'home',
+export default defineComponent({
+    name: 'Home',
     components: { ToS },
 })
-export default class Home extends Vue {}
 </script>
 
 <style scoped lang="scss">

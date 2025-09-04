@@ -28,53 +28,66 @@
 </template>
 <script lang="ts">
 import 'reflect-metadata'
-import { Vue, Component, Prop, Watch } from 'vue-property-decorator'
+import { defineComponent, computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { BN } from 'avalanche'
 import Big from 'big.js'
 
-@Component
-export default class ConfirmPage extends Vue {
-    @Prop() nodeID!: string
-    @Prop() end!: Date
-    @Prop() delegationFee!: number
-    @Prop() amount!: BN
-    @Prop() rewardAddress!: string
-    @Prop() rewardDestination!: string
-
-    // amountCopy: BN = new BN(0);
-
-    // @Watch('amount')
-    // onAmountChange(val: BN){
-    //     console.log(val.toString(), val);
-    //     this.amountCopy = val.clone()
-    //     this.amountCopy = val.
-    // }
-
-    // get startDate(){
-    //     return new Date(this.start);
-    // }
-    //
-    // get endDate(){
-    //     return new Date(this.end);
-    // }
-
-    get amtBig(): Big {
-        let stakeAmt = Big(this.amount.toString()).div(Math.pow(10, 9))
-        return stakeAmt
-    }
-
-    get walletType() {
-        if (this.rewardDestination === 'local') {
-            return this.$t('earn.validate.confirmation.type_local')
+export default defineComponent({
+    name: 'ConfirmPage',
+    props: {
+        nodeID: {
+            type: String,
+            required: true
+        },
+        end: {
+            type: Date,
+            required: true
+        },
+        delegationFee: {
+            type: Number,
+            required: true
+        },
+        amount: {
+            type: Object as () => BN,
+            required: true
+        },
+        rewardAddress: {
+            type: String,
+            required: true
+        },
+        rewardDestination: {
+            type: String,
+            required: true
         }
-        return this.$t('earn.validate.confirmation.type_custom')
-    }
+    },
+    setup(props) {
+        const { t } = useI18n()
 
-    get amtText(): string {
-        let amt = this.amtBig
-        return amt.toLocaleString(9)
+        const amtBig = computed(() => {
+            let stakeAmt = Big(props.amount.toString()).div(Math.pow(10, 9))
+            return stakeAmt
+        })
+
+        const walletType = computed(() => {
+            if (props.rewardDestination === 'local') {
+                return t('earn.validate.confirmation.type_local')
+            }
+            return t('earn.validate.confirmation.type_custom')
+        })
+
+        const amtText = computed(() => {
+            let amt = amtBig.value
+            return amt.toLocaleString(9)
+        })
+
+        return {
+            amtBig,
+            walletType,
+            amtText
+        }
     }
-}
+})
 </script>
 <style scoped lang="scss">
 .confirmation {

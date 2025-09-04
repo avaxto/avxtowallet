@@ -24,54 +24,71 @@
 </template>
 <script lang="ts">
 import 'reflect-metadata'
-import { Vue, Component, Prop } from 'vue-property-decorator'
+import { defineComponent, computed } from 'vue'
+import { useStore } from 'vuex'
+import { useRoute } from 'vue-router'
 
 import Spinner from '@/components/misc/Spinner.vue'
 import TxHistoryRow from '@/components/SidePanels/TxHistoryRow.vue'
 import { AvaNetwork } from '@/js/AvaNetwork'
 import { TransactionType } from '@/js/Glacier/models'
 
-@Component({
+export default defineComponent({
+    name: 'TransactionHistoryPanel',
     components: {
         TxHistoryRow,
         Spinner,
     },
+    setup() {
+        const store = useStore()
+        const route = useRoute()
+
+        const isExplorer = computed((): boolean => {
+            const network: AvaNetwork | null = store.state.Network.selectedNetwork
+            if (!network) return false
+            if (network.explorerUrl) {
+                return true
+            }
+            return false
+        })
+
+        const isEmpty = computed((): boolean => {
+            if (transactions.value.length === 0) {
+                return true
+            }
+            return false
+        })
+
+        const isUpdating = computed((): boolean => {
+            return store.state.History.isUpdating
+        })
+
+        const transactions = computed((): TransactionType[] => {
+            return store.state.History.recentTransactions
+        })
+
+        const isActivityPage = computed(() => {
+            if (route.fullPath.includes('/activity')) {
+                return true
+            }
+            return false
+        })
+
+        const explorerUrl = computed((): string => {
+            const addr = store.state.address.split('-')[1]
+            return `https://explorer.avax.network/address/${addr}`
+        })
+
+        return {
+            isExplorer,
+            isEmpty,
+            isUpdating,
+            transactions,
+            isActivityPage,
+            explorerUrl
+        }
+    }
 })
-export default class TransactionHistoryPanel extends Vue {
-    get isExplorer(): boolean {
-        let network: AvaNetwork | null = this.$store.state.Network.selectedNetwork
-        if (!network) return false
-        if (network.explorerUrl) {
-            return true
-        }
-        return false
-    }
-
-    get isEmpty(): boolean {
-        if (this.transactions.length === 0) {
-            return true
-        }
-        return false
-    }
-    get isUpdating(): boolean {
-        return this.$store.state.History.isUpdating
-    }
-    get transactions(): TransactionType[] {
-        return this.$store.state.History.recentTransactions
-    }
-
-    get isActivityPage() {
-        if (this.$route.fullPath.includes('/activity')) {
-            return true
-        }
-        return false
-    }
-
-    get explorerUrl(): string {
-        let addr = this.$store.state.address.split('-')[1]
-        return `https://explorer.avax.network/address/${addr}`
-    }
-}
 </script>
 <style scoped lang="scss">
 @use '../../main';

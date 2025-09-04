@@ -7,20 +7,28 @@
     </div>
 </template>
 <script lang="ts">
-import { Vue, Component } from 'vue-property-decorator'
+import { defineComponent, computed } from 'vue'
+import { useStore } from 'vuex'
+
 import Spinner from '@/components/misc/Spinner.vue'
 
-@Component({
+export default defineComponent({
+    name: 'NetworkLoadingBlock',
     components: {
         Spinner,
     },
-})
-export default class NetworkLoadingBlock extends Vue {
-    get networkLoading() {
-        // return true
-        return this.$store.state.Network.status === 'connecting'
+    setup() {
+        const store = useStore()
+
+        const networkLoading = computed(() => {
+            return store.state.Network.status === 'connecting'
+        })
+
+        return {
+            networkLoading
+        }
     }
-}
+})
 </script>
 <style scoped lang="scss">
 .network_loading {

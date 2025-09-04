@@ -15,15 +15,14 @@
     </div>
 </template>
 <script lang="ts">
-import 'reflect-metadata'
-import { Vue, Component, Prop } from 'vue-property-decorator'
+import { defineComponent, ref } from 'vue'
 
 import ChainImport from '@/components/wallet/advanced/ChainImport.vue'
 import SignMessage from '@/components/wallet/advanced/SignMessage/SignMessage.vue'
 import VerifyMessage from '@/components/wallet/advanced/VerifyMessage.vue'
 import TokenListModal from '@/components/modals/TokenList/TokenListModal.vue'
 
-@Component({
+export default defineComponent({
     name: 'advanced',
     components: {
         TokenListModal,
@@ -31,15 +30,19 @@ import TokenListModal from '@/components/modals/TokenList/TokenListModal.vue'
         SignMessage,
         VerifyMessage,
     },
+    setup() {
+        const token_list = ref<InstanceType<typeof TokenListModal>>()
+
+        const openTokenlist = () => {
+            token_list.value?.open()
+        }
+
+        return {
+            token_list,
+            openTokenlist,
+        }
+    }
 })
-export default class Advanced extends Vue {
-    $refs!: {
-        token_list: TokenListModal
-    }
-    openTokenlist() {
-        this.$refs.token_list.open()
-    }
-}
 </script>
 <style scoped lang="scss">
 @use '../../main';

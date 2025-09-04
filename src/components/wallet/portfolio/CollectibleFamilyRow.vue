@@ -24,95 +24,114 @@
     </div>
 </template>
 <script lang="ts">
-import { Vue, Component, Prop } from 'vue-property-decorator'
+import { defineComponent, computed } from 'vue'
+import { useStore } from 'vuex'
 import { AvaNftFamily } from '@/js/AvaNftFamily'
 import NFTCard from './NftCard.vue'
 import { IWalletNftDict, IWalletNftMintDict } from '@/store/types'
 import { NFTTransferOutput, UTXO, AVMConstants, NFTMintOutput } from 'avalanche/dist/apis/avm'
 import { NftGroupDict } from '@/components/wallet/portfolio/types'
 import CollectibleFamilyGroup from '@/components/wallet/portfolio/CollectibleFamilyGroup.vue'
-@Component({
+
+export default defineComponent({
+    name: 'CollectibleFamilyRow',
     components: {
         NFTCard,
         CollectibleFamilyGroup,
     },
-})
-export default class CollectibleFamilyRow extends Vue {
-    @Prop() family!: AvaNftFamily
-
-    // get groups() {}
-    get nftDict(): IWalletNftDict {
-        // return this.$store.getters.walletNftDict
-        return this.$store.getters['Assets/walletNftDict']
-    }
-
-    get nftMintDict(): IWalletNftMintDict {
-        // return this.$store.getters.walletNftMintDict
-        return this.$store.getters['Assets/nftMintDict']
-    }
-
-    get utxos(): UTXO[] {
-        return this.nftDict[this.family.id] || []
-    }
-
-    get mintUtxos(): UTXO[] {
-        return this.nftMintDict[this.family.id] || []
-    }
-
-    get canMint() {
-        return this.mintUtxos.length > 0
-    }
-
-    get groupDict(): NftGroupDict {
-        let dict: NftGroupDict = {}
-        for (var i = 0; i < this.utxos.length; i++) {
-            let utxo = this.utxos[i]
-            let out = utxo.getOutput() as NFTTransferOutput
-            let groupId = out.getGroupID()
-
-            let target = dict[groupId]
-            if (target) {
-                target.push(utxo)
-            } else {
-                dict[groupId] = [utxo]
-            }
+    props: {
+        family: {
+            type: Object as () => AvaNftFamily,
+            required: true
         }
-        return dict
-    }
-    get allUtxos(): UTXO[] {
-        return this.utxos.concat(this.mintUtxos)
-    }
+    },
+    setup(props) {
+        const store = useStore()
 
-    get mintUrl() {
-        if (this.mintUtxos.length === 0) return ''
-        let mintUtxo = this.mintUtxos[0]
+        const nftDict = computed((): IWalletNftDict => {
+            return store.getters['Assets/walletNftDict']
+        })
 
-        return `/wallet/studio?utxo=${mintUtxo.getUTXOID()}`
-    }
+        const nftMintDict = computed((): IWalletNftMintDict => {
+            return store.getters['Assets/nftMintDict']
+        })
 
-    get groupIds(): number[] {
-        let ids: number[] = this.allUtxos.map((val) => {
-            let id = val.getOutput().getOutputID()
-            if (id === AVMConstants.NFTMINTOUTPUTID) {
-                let out = val.getOutput() as NFTMintOutput
-                return out.getGroupID()
-            } else {
-                let out = val.getOutput() as NFTTransferOutput
-                return out.getGroupID()
+        const utxos = computed((): UTXO[] => {
+            return nftDict.value[props.family.id] || []
+        })
+
+        const mintUtxos = computed((): UTXO[] => {
+            return nftMintDict.value[props.family.id] || []
+        })
+
+        const canMint = computed(() => {
+            return mintUtxos.value.length > 0
+        })
+
+        const groupDict = computed((): NftGroupDict => {
+            let dict: NftGroupDict = {}
+            for (var i = 0; i < utxos.value.length; i++) {
+                let utxo = utxos.value[i]
+                let out = utxo.getOutput() as NFTTransferOutput
+                let groupId = out.getGroupID()
+
+                let target = dict[groupId]
+                if (target) {
+                    target.push(utxo)
+                } else {
+                    dict[groupId] = [utxo]
+                }
             }
+            return dict
         })
 
-        let idsUnique = ids.filter((val, index) => {
-            return ids.indexOf(val) === index
+        const allUtxos = computed((): UTXO[] => {
+            return utxos.value.concat(mintUtxos.value)
         })
 
-        idsUnique.sort((a, b) => {
-            return a - b
+        const mintUrl = computed(() => {
+            if (mintUtxos.value.length === 0) return ''
+            let mintUtxo = mintUtxos.value[0]
+
+            return `/wallet/studio?utxo=${mintUtxo.getUTXOID()}`
         })
 
-        return idsUnique
+        const groupIds = computed((): number[] => {
+            let ids: number[] = allUtxos.value.map((val) => {
+                let id = val.getOutput().getOutputID()
+                if (id === AVMConstants.NFTMINTOUTPUTID) {
+                    let out = val.getOutput() as NFTMintOutput
+                    return out.getGroupID()
+                } else {
+                    let out = val.getOutput() as NFTTransferOutput
+                    return out.getGroupID()
+                }
+            })
+
+            let idsUnique = ids.filter((val, index) => {
+                return ids.indexOf(val) === index
+            })
+
+            idsUnique.sort((a, b) => {
+                return a - b
+            })
+
+            return idsUnique
+        })
+
+        return {
+            nftDict,
+            nftMintDict,
+            utxos,
+            mintUtxos,
+            canMint,
+            groupDict,
+            allUtxos,
+            mintUrl,
+            groupIds
+        }
     }
-}
+})
 </script>
 <style scoped lang="scss">
 @use '../../../main';

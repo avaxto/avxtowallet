@@ -14,25 +14,35 @@
 </template>
 <script lang="ts">
 import 'reflect-metadata'
-import { Vue, Component, Prop } from 'vue-property-decorator'
+import { defineComponent, computed } from 'vue'
+import { useStore } from 'vuex'
 
 import NetworkRow from './NetworkRow.vue'
 import { AvaNetwork } from '@/js/AvaNetwork'
 
-@Component({
+export default defineComponent({
+    name: 'ListPage',
     components: {
         NetworkRow,
     },
-})
-export default class ListPage extends Vue {
-    get networks(): AvaNetwork[] {
-        return this.$store.getters['Network/allNetworks']
-    }
+    emits: ['edit'],
+    setup(_, { emit }) {
+        const store = useStore()
 
-    onEdit(net: AvaNetwork) {
-        this.$emit('edit', net)
+        const networks = computed((): AvaNetwork[] => {
+            return store.getters['Network/allNetworks']
+        })
+
+        const onEdit = (net: AvaNetwork) => {
+            emit('edit', net)
+        }
+
+        return {
+            networks,
+            onEdit
+        }
     }
-}
+})
 </script>
 <style scoped lang="scss">
 .networks_list {

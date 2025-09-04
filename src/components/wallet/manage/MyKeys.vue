@@ -22,68 +22,79 @@
     </div>
 </template>
 <script lang="ts">
-import 'reflect-metadata'
-import { Vue, Component, Prop } from 'vue-property-decorator'
+import { defineComponent, computed } from 'vue'
+import { useStore } from 'vuex'
+import { useI18n } from 'vue-i18n'
 
 import KeyRow from '@/components/wallet/manage/KeyRow.vue'
 import RememberKey from '@/components/misc/RememberKey.vue'
 import { WalletType } from '@/js/wallets/types'
 
-@Component({
+export default defineComponent({
+    name: 'MyKeys',
     components: {
         KeyRow,
         RememberKey,
     },
-})
-export default class MyKeys extends Vue {
-    selectWallet(wallet: WalletType) {
-        this.$store.dispatch('activateWallet', wallet)
-        this.$store.dispatch('History/updateTransactionHistory')
-    }
+    setup() {
+        const store = useStore()
+        const { t } = useI18n()
 
-    get account() {
-        return this.$store.getters['Accounts/account']
-    }
-
-    async removeWallet(wallet: WalletType) {
-        let msg = this.$t('keys.del_check') as string
-        let isConfirm = confirm(msg)
-
-        if (isConfirm) {
-            await this.$store.dispatch('Accounts/deleteKey', wallet)
-            await this.$store.dispatch('removeWallet', wallet)
-            this.$store.dispatch('Notifications/add', {
-                title: this.$t('keys.remove_success_title'),
-                message: this.$t('keys.remove_success_msg'),
-            })
+        const selectWallet = (wallet: WalletType) => {
+            store.dispatch('activateWallet', wallet)
+            store.dispatch('History/updateTransactionHistory')
         }
-    }
 
-    get inactiveWallets(): WalletType[] {
-        let wallets = this.wallets
-
-        let res = wallets.filter((wallet) => {
-            if (this.activeWallet === wallet) return false
-            return true
+        const account = computed(() => {
+            return store.getters['Accounts/account']
         })
 
-        return res
-    }
+        const removeWallet = async (wallet: WalletType) => {
+            let msg = t('keys.del_check') as string
+            let isConfirm = confirm(msg)
 
-    get wallets(): WalletType[] {
-        return this.$store.state.wallets
-    }
+            if (isConfirm) {
+                await store.dispatch('Accounts/deleteKey', wallet)
+                await store.dispatch('removeWallet', wallet)
+                store.dispatch('Notifications/add', {
+                    title: t('keys.remove_success_title'),
+                    message: t('keys.remove_success_msg'),
+                })
+            }
+        }
 
-    get activeWallet(): WalletType {
-        return this.$store.state.activeWallet
+        const inactiveWallets = computed((): WalletType[] => {
+            let wallets = store.state.wallets
+
+            let res = wallets.filter((wallet: WalletType) => {
+                if (activeWallet.value === wallet) return false
+                return true
+            })
+
+            return res
+        })
+
+        const wallets = computed((): WalletType[] => {
+            return store.state.wallets
+        })
+
+        const activeWallet = computed((): WalletType => {
+            return store.state.activeWallet
+        })
+
+        return {
+            selectWallet,
+            account,
+            removeWallet,
+            inactiveWallets,
+            wallets,
+            activeWallet
+        }
     }
-}
+})
 </script>
 <style scoped lang="scss">
 @use "../../../main";
-
-.default_key {
-}
 
 hr {
     border-top: 1px solid var(--bg-light);
@@ -110,10 +121,6 @@ hr {
 .my_keys {
     padding-top: 15px;
 }
-.addressItem {
-    &[selected] {
-    }
-}
 
 .volatile_cont {
     max-width: 380px;
@@ -122,10 +129,6 @@ hr {
     padding-top: 20px;
     /*display: grid;*/
     /*grid-template-columns: 1fr 1fr;*/
-}
-
-.remember_comp {
-    /*padding: 20px 0;*/
 }
 
 .alert_box {

@@ -9,8 +9,8 @@
     </div>
 </template>
 <script lang="ts">
-import 'reflect-metadata'
-import { Vue, Component, Prop, Watch } from 'vue-property-decorator'
+import { defineComponent, ref, computed, watch, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 //@ts-ignore
 import langMap from '@/locales/lang_map'
@@ -40,50 +40,56 @@ const FLAGS_OVERRIDE: FLAG_DICT = {
     ja: 'jp',
 }
 
-@Component({
+export default defineComponent({
+    name: 'LanguageSelect',
     components: {
         CountryFlag,
     },
+    setup() {
+        const { locale: i18nLocale, messages } = useI18n()
+        const locale = ref('en')
+
+        onMounted(() => {
+            locale.value = i18nLocale.value
+        })
+
+        watch(locale, (val: string) => {
+            i18nLocale.value = val
+            localStorage.setItem('lang', val)
+        })
+
+        const flag = computed(() => {
+            let selCode = locale.value
+
+            if (FLAGS_OVERRIDE[selCode]) {
+                return FLAGS_OVERRIDE[selCode]
+            } else {
+                return selCode
+            }
+        })
+
+        const items = computed((): LanguageItem[] => {
+            let res = []
+
+            for (var langCode in messages.value) {
+                let data = langMap[langCode]
+
+                res.push({
+                    code: langCode,
+                    name: data.name,
+                    nativeName: data.nativeName,
+                })
+            }
+            return res
+        })
+
+        return {
+            locale,
+            flag,
+            items
+        }
+    }
 })
-export default class LanguageSelect extends Vue {
-    locale = 'en'
-
-    mounted() {
-        this.locale = this.$root.$i18n.locale
-    }
-
-    @Watch('locale')
-    onSelectedChange(val: string) {
-        this.$root.$i18n.locale = val
-        localStorage.setItem('lang', val)
-    }
-
-    get flag() {
-        let selCode = this.locale
-
-        if (FLAGS_OVERRIDE[selCode]) {
-            return FLAGS_OVERRIDE[selCode]
-        } else {
-            return selCode
-        }
-    }
-
-    get items(): LanguageItem[] {
-        let res = []
-
-        let messages = this.$root.$i18n.messages
-        for (var langCode in messages) {
-            let data = langMap[langCode]
-
-            res.push({
-                code: langCode,
-                name: data.name,
-                nativeName: data.nativeName,
-            })
-        }
-        return res
-    }
-}
 </script>
 <style scoped lang="scss">
 .sel_locale {

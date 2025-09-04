@@ -11,20 +11,31 @@
     </v-banner>
 </template>
 <script lang="ts">
-import { Vue, Component } from 'vue-property-decorator'
+import { defineComponent, ref, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
 
-@Component
-export default class UrlBanner extends Vue {
-    mounted() {
-        if (this.$route.name === 'legal') {
-            this.dismiss()
+export default defineComponent({
+    name: 'UrlBanner',
+    setup() {
+        const route = useRoute()
+        const banner = ref<any>()
+
+        onMounted(() => {
+            if (route.name === 'legal') {
+                dismiss()
+            }
+        })
+
+        const dismiss = () => {
+            banner.value?.toggle()
+        }
+
+        return {
+            banner,
+            dismiss
         }
     }
-    dismiss() {
-        //@ts-ignore
-        this.$refs.banner.toggle()
-    }
-}
+})
 </script>
 <style scoped lang="scss">
 .url_banner {

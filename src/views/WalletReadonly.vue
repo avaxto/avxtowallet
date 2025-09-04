@@ -27,7 +27,10 @@
     </div>
 </template>
 <script lang="ts">
-import { Vue, Component, Prop, Watch } from 'vue-property-decorator'
+import { defineComponent, ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
+import { useStore } from 'vuex'
+
 import {
     PublicMnemonicWallet,
     iAvaxBalance,
@@ -48,154 +51,181 @@ import Addresses from '@/views/wallet_readonly/Addresses.vue'
 import Spinner from '@/components/misc/Spinner.vue'
 import { Network } from 'avalanche/dist/utils'
 import { getPriceAtUnixTime } from '@/helpers/price_helper'
-// import {ethers} from "ethers";
-@Component({
+
+export default defineComponent({
+    name: 'WalletReadonly',
     components: { Spinner, Addresses, Balances },
-})
-export default class WalletReadonly extends Vue {
-    isWalletLoading = true
-    isBalanceLoading = false
-    isStakeDownloading = false
+    setup() {
+        const router = useRouter()
+        const route = useRoute()
+        const store = useStore()
 
-    balances: iAvaxBalance | null = null
-    stakeAmt: BN | null = null
-    addressX = ''
-    addressP = ''
-    addressC = ''
-    utxosX: null | AVMUTXOSet = null
-    utxosP: null | PlatformUTXOSet = null
-    stakeOuts: null | TransferableOutput[] = null
+        const isWalletLoading = ref(true)
+        const isBalanceLoading = ref(false)
+        const isStakeDownloading = ref(false)
+        const balances = ref<iAvaxBalance | null>(null)
+        const stakeAmt = ref<BN | null>(null)
+        const addressX = ref('')
+        const addressP = ref('')
+        const addressC = ref('')
+        const utxosX = ref<null | AVMUTXOSet>(null)
+        const utxosP = ref<null | PlatformUTXOSet>(null)
+        const stakeOuts = ref<null | TransferableOutput[]>(null)
 
-    get wallet(): PublicMnemonicWallet {
-        //@ts-ignore
-        return this.$route.params.wallet
-    }
-
-    get evmAddress(): string {
-        //@ts-ignore
-        return this.$route.params.evmAddress
-    }
-    updateAddresses() {
-        this.addressX = this.wallet.getAddressX()
-        this.addressP = this.wallet.getAddressP()
-        this.addressC = this.wallet.getAddressC()
-    }
-
-    async updateBalance() {
-        this.isBalanceLoading = true
-        this.utxosX = await this.wallet.updateUtxosX()
-        this.utxosP = await this.wallet.updateUtxosP()
-        await this.wallet.updateAvaxBalanceC()
-
-        const avaxBalance = this.wallet.getAvaxBalance()
-        this.balances = avaxBalance
-
-        const cBal = await ethersProvider.getSigner(this.evmAddress).getBalance('latest')
-        avaxBalance.C = new BN(cBal.toString())
-
-        const { staked, stakedOutputs } = await this.wallet.getStake()
-        this.stakeAmt = staked
-        this.stakeOuts = stakedOutputs
-        this.isBalanceLoading = false
-    }
-
-    async downloadAvaxHistory() {
-        const hist = await this.wallet.getHistory()
-        const csvContent = createCsvNormal(hist)
-        const encoding = 'data:text/csv;charset=utf-8,'
-        downloadCSVFile(encoding + csvContent, 'avax_transfers')
-    }
-
-    async downloadRewardsHistory() {
-        try {
-            this.isStakeDownloading = true
-            // const hist = await this.wallet.getHistory()
-            const hist = await this.wallet.getHistoryP()
-            let parsed: HistoryItemType[] = []
-
-            for (let i = 0; i < hist.length; i++) {
-                const tx = hist[i]
-                try {
-                    const summary = await getTransactionSummary(
-                        tx,
-                        this.wallet.getAllAddressesPSync(),
-                        this.evmAddress
-                    )
-                    parsed.push(summary)
-                } catch (e) {
-                    console.log('Error parsing transaction: ', tx.id)
-                    console.log(e)
-                }
-            }
-
-            parsed = parsed.map((item) => {
-                if (isHistoryStakingTx(item)) {
-                    let unixTime = item.stakeEnd.getTime()
-                    let price = getPriceAtUnixTime(unixTime)
-                    return {
-                        ...item,
-                        avaxPrice: price,
-                    }
-                } else {
-                    return item
-                }
-            })
-
-            const csvContent = createCsvStaking(parsed)
-            const encoding = 'data:text/csv;charset=utf-8,'
-            const fileName = `avax_staking_txs_${new Date().toLocaleDateString()}`
-            downloadCSVFile(encoding + csvContent, fileName)
-        } catch (e) {
-            this.isStakeDownloading = false
-            this.$store.dispatch('Notifications/add', {
-                type: 'error',
-                title: 'Request Failed',
-                message: 'Failed to download rewards history.',
-            })
-            console.log(e)
-        }
-        this.isStakeDownloading = false
-    }
-
-    created() {
-        if (!this.wallet) {
-            this.logout()
-        }
-    }
-
-    logout() {
-        this.$router.push('/access')
-    }
-    mounted() {
-        this.init()
-    }
-
-    destroyed() {
-        this.wallet.destroy()
-    }
-
-    init() {
-        this.isWalletLoading = true
-        this.wallet.resetHdIndices().then(() => {
-            this.updateAddresses()
-            this.isWalletLoading = false
-            this.updateBalance()
+        const wallet = computed(() => {
+            return route.params.wallet as PublicMnemonicWallet
         })
-    }
 
-    get isLoading() {
-        return this.isWalletLoading || this.isBalanceLoading
-    }
+        const evmAddress = computed(() => {
+            return route.params.evmAddress as string
+        })
 
-    get network(): Network | null {
-        return this.$store.state.Network.selectedNetwork
-    }
+        const isLoading = computed(() => {
+            return isWalletLoading.value || isBalanceLoading.value
+        })
 
-    @Watch('network')
-    onNetworkChange() {
-        this.init()
+        const network = computed(() => {
+            return store.state.Network.selectedNetwork as Network | null
+        })
+
+        const updateAddresses = () => {
+            addressX.value = wallet.value.getAddressX()
+            addressP.value = wallet.value.getAddressP()
+            addressC.value = wallet.value.getAddressC()
+        }
+
+        const updateBalance = async () => {
+            isBalanceLoading.value = true
+            utxosX.value = await wallet.value.updateUtxosX()
+            utxosP.value = await wallet.value.updateUtxosP()
+            await wallet.value.updateAvaxBalanceC()
+
+            const avaxBalance = wallet.value.getAvaxBalance()
+            balances.value = avaxBalance
+
+            const cBal = await ethersProvider.getSigner(evmAddress.value).getBalance('latest')
+            avaxBalance.C = new BN(cBal.toString())
+
+            const { staked, stakedOutputs } = await wallet.value.getStake()
+            stakeAmt.value = staked
+            stakeOuts.value = stakedOutputs
+            isBalanceLoading.value = false
+        }
+
+        const downloadAvaxHistory = async () => {
+            const hist = await wallet.value.getHistory()
+            const csvContent = createCsvNormal(hist)
+            const encoding = 'data:text/csv;charset=utf-8,'
+            downloadCSVFile(encoding + csvContent, 'avax_transfers')
+        }
+
+        const downloadRewardsHistory = async () => {
+            try {
+                isStakeDownloading.value = true
+                // const hist = await wallet.value.getHistory()
+                const hist = await wallet.value.getHistoryP()
+                let parsed: HistoryItemType[] = []
+
+                for (let i = 0; i < hist.length; i++) {
+                    const tx = hist[i]
+                    try {
+                        const summary = await getTransactionSummary(
+                            tx,
+                            wallet.value.getAllAddressesPSync(),
+                            evmAddress.value
+                        )
+                        parsed.push(summary)
+                    } catch (e) {
+                        console.log('Error parsing transaction: ', tx.id)
+                        console.log(e)
+                    }
+                }
+
+                parsed = parsed.map((item) => {
+                    if (isHistoryStakingTx(item)) {
+                        let unixTime = item.stakeEnd.getTime()
+                        let price = getPriceAtUnixTime(unixTime)
+                        return {
+                            ...item,
+                            avaxPrice: price,
+                        }
+                    } else {
+                        return item
+                    }
+                })
+
+                const csvContent = createCsvStaking(parsed)
+                const encoding = 'data:text/csv;charset=utf-8,'
+                const fileName = `avax_staking_txs_${new Date().toLocaleDateString()}`
+                downloadCSVFile(encoding + csvContent, fileName)
+            } catch (e) {
+                isStakeDownloading.value = false
+                store.dispatch('Notifications/add', {
+                    type: 'error',
+                    title: 'Request Failed',
+                    message: 'Failed to download rewards history.',
+                })
+                console.log(e)
+            }
+            isStakeDownloading.value = false
+        }
+
+        const logout = () => {
+            router.push('/access')
+        }
+
+        const init = () => {
+            isWalletLoading.value = true
+            wallet.value.resetHdIndices().then(() => {
+                updateAddresses()
+                isWalletLoading.value = false
+                updateBalance()
+            })
+        }
+
+        watch(network, () => {
+            init()
+        })
+
+        onMounted(() => {
+            if (!wallet.value) {
+                logout()
+                return
+            }
+            init()
+        })
+
+        onUnmounted(() => {
+            if (wallet.value) {
+                wallet.value.destroy()
+            }
+        })
+
+        return {
+            isWalletLoading,
+            isBalanceLoading,
+            isStakeDownloading,
+            balances,
+            stakeAmt,
+            addressX,
+            addressP,
+            addressC,
+            utxosX,
+            utxosP,
+            stakeOuts,
+            wallet,
+            evmAddress,
+            isLoading,
+            network,
+            updateAddresses,
+            updateBalance,
+            downloadAvaxHistory,
+            downloadRewardsHistory,
+            logout,
+            init
+        }
     }
-}
+})
 </script>
 <style scoped lang="scss">
 .wallet_body {

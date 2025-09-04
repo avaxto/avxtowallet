@@ -11,7 +11,8 @@
     </div>
 </template>
 <script lang="ts">
-import { Vue, Component, Prop } from 'vue-property-decorator'
+import { defineComponent, ref, computed } from 'vue'
+import { useStore } from 'vuex'
 import Erc20Token from '@/js/Erc20Token'
 import { WalletType } from '@/js/wallets/types'
 
@@ -20,49 +21,71 @@ import Big from 'big.js'
 import EVMTokenSelectModal from '@/components/modals/EvmTokenSelect/EVMTokenSelectModal.vue'
 import { iErc721SelectInput } from '@/components/misc/EVMInputDropdown/types'
 import ERC721Token from '@/js/ERC721Token'
-@Component({
-    components: { EVMTokenSelectModal },
+
+export default defineComponent({
+    name: 'EVMAssetDropdown',
+    components: { 
+        EVMTokenSelectModal 
+    },
+    props: {
+        disabled: {
+            type: Boolean,
+            default: false
+        }
+    },
+    emits: ['change', 'changeCollectible'],
+    setup(props, { emit }) {
+        const store = useStore()
+        
+        const select_modal = ref<InstanceType<typeof EVMTokenSelectModal>>()
+        const isPopup = ref(false)
+        const selected = ref<Erc20Token | ERC721Token | 'native'>('native')
+
+        const symbol = computed(() => {
+            if (selected.value === 'native') return 'AVAX'
+            else return selected.value.data.symbol
+        })
+
+        const showPopup = () => {
+            if (select_modal.value) {
+                select_modal.value.open()
+            }
+        }
+
+        const avaxBalance = computed((): Big => {
+            let w: WalletType | null = store.state.activeWallet
+            if (!w) return Big(0)
+            let balBN = w.ethBalance
+            return bnToBig(balBN, 18)
+        })
+
+        const select = (token: Erc20Token | 'native') => {
+            selected.value = token
+            emit('change', token)
+        }
+
+        const clear = () => {
+            select('native')
+        }
+
+        const selectERC721 = (val: iErc721SelectInput) => {
+            selected.value = val.token
+            emit('changeCollectible', val)
+        }
+
+        return {
+            select_modal,
+            isPopup,
+            selected,
+            symbol,
+            showPopup,
+            avaxBalance,
+            select,
+            clear,
+            selectERC721
+        }
+    }
 })
-export default class EVMAssetDropdown extends Vue {
-    isPopup = false
-    selected: Erc20Token | ERC721Token | 'native' = 'native'
-
-    @Prop({ default: false }) disabled!: boolean
-
-    $refs!: {
-        select_modal: EVMTokenSelectModal
-    }
-
-    get symbol() {
-        if (this.selected === 'native') return 'AVAX'
-        else return this.selected.data.symbol
-    }
-
-    showPopup() {
-        this.$refs.select_modal.open()
-    }
-
-    get avaxBalance(): Big {
-        let w: WalletType | null = this.$store.state.activeWallet
-        if (!w) return Big(0)
-        let balBN = w.ethBalance
-        return bnToBig(balBN, 18)
-    }
-
-    select(token: Erc20Token | 'native') {
-        this.selected = token
-        this.$emit('change', token)
-    }
-
-    clear() {
-        this.select('native')
-    }
-
-    selectERC721(val: iErc721SelectInput) {
-        this.selected = val.token
-        this.$emit('changeCollectible', val)
-    }
-}
 </script>
 <style scoped lang="scss">
 @use "../../../main";

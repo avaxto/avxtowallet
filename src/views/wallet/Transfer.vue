@@ -132,8 +132,10 @@
     </div>
 </template>
 <script lang="ts">
-import 'reflect-metadata'
-import { Vue, Component, Ref } from 'vue-property-decorator'
+import { defineComponent, ref, computed, onActivated, onDeactivated } from 'vue'
+import { useStore } from 'vuex'
+import { useRoute } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 
 import TxList from '@/components/wallet/transfer/TxList.vue'
 import Big from 'big.js'
@@ -158,7 +160,9 @@ import { ChainIdType } from '@/constants'
 import ChainInput from '@/components/wallet/transfer/ChainInput.vue'
 import AvaAsset from '../../js/AvaAsset'
 import { TxState } from '@/components/wallet/earn/ChainTransfer/types'
-@Component({
+
+export default defineComponent({
+    name: 'Transfer',
     components: {
         FaucetLink,
         TxList,
@@ -168,330 +172,382 @@ import { TxState } from '@/components/wallet/earn/ChainTransfer/types'
         FormC,
         ChainInput,
     },
-})
-export default class Transfer extends Vue {
-    formType: ChainIdType = 'X'
-    showAdvanced: boolean = false
-    isAjax: boolean = false
-    addressIn: string = ''
-    memo: string = ''
-    orders: ITransaction[] = []
-    nftOrders: UTXO[] = []
-    formErrors: string[] = []
-    err = ''
+    setup() {
+        const store = useStore()
+        const route = useRoute()
+        const { t } = useI18n()
 
-    formAddress: string = ''
-    formOrders: ITransaction[] = []
-    formNftOrders: UTXO[] = []
-    formMemo = ''
+        const formType = ref<ChainIdType>('X')
+        const showAdvanced = ref(false)
+        const isAjax = ref(false)
+        const addressIn = ref('')
+        const memo = ref('')
+        const orders = ref<ITransaction[]>([])
+        const nftOrders = ref<UTXO[]>([])
+        const formErrors = ref<string[]>([])
+        const err = ref('')
 
-    isConfirm = false
-    isSuccess = false
-    txId = ''
+        const formAddress = ref('')
+        const formOrders = ref<ITransaction[]>([])
+        const formNftOrders = ref<UTXO[]>([])
+        const formMemo = ref('')
 
-    canSendAgain = false
-    txState: TxState | null = null
+        const isConfirm = ref(false)
+        const isSuccess = ref(false)
+        const txId = ref('')
 
-    $refs!: {
-        txList: TxList
-        nftList: NftList
-    }
+        const canSendAgain = ref(false)
+        const txState = ref<TxState | null>(null)
 
-    confirm() {
-        let isValid = this.formCheck()
-        if (!isValid) return
+        const txList = ref<InstanceType<typeof TxList>>()
+        const nftList = ref<InstanceType<typeof NftList>>()
 
-        this.formOrders = [...this.orders]
-        this.formNftOrders = [...this.nftOrders]
-        this.formAddress = this.addressIn
-        this.formMemo = this.memo
+        const confirm = () => {
+            let isValid = formCheck()
+            if (!isValid) return
 
-        this.isConfirm = true
-    }
+            formOrders.value = [...orders.value]
+            formNftOrders.value = [...nftOrders.value]
+            formAddress.value = addressIn.value
+            formMemo.value = memo.value
 
-    cancelConfirm() {
-        this.err = ''
-        this.formMemo = ''
-        this.formOrders = []
-        this.formNftOrders = []
-        this.formAddress = ''
-        this.isConfirm = false
-    }
-
-    updateTxList(data: ITransaction[]) {
-        this.orders = data
-    }
-
-    updateNftList(val: UTXO[]) {
-        this.nftOrders = val
-    }
-
-    formCheck() {
-        this.formErrors = []
-        let err = []
-
-        let addr = this.addressIn
-
-        let chain = addr.split('-')
-
-        if (chain[0] !== 'X') {
-            err.push('Invalid address. You can only send to other X addresses.')
+            isConfirm.value = true
         }
 
-        if (!isValidAddress(addr)) {
-            err.push('Invalid address.')
+        const cancelConfirm = () => {
+            err.value = ''
+            formMemo.value = ''
+            formOrders.value = []
+            formNftOrders.value = []
+            formAddress.value = ''
+            isConfirm.value = false
         }
 
-        let memo = this.memo
-        if (this.memo) {
-            let buff = Buffer.from(memo)
-            let size = buff.length
-            if (size > 256) {
-                err.push('You can have a maximum of 256 characters in your memo.')
+        const updateTxList = (data: ITransaction[]) => {
+            orders.value = data
+        }
+
+        const updateNftList = (val: UTXO[]) => {
+            nftOrders.value = val
+        }
+
+        const formCheck = () => {
+            formErrors.value = []
+            let errList = []
+
+            let addr = addressIn.value
+
+            let chain = addr.split('-')
+
+            if (chain[0] !== 'X') {
+                errList.push('Invalid address. You can only send to other X addresses.')
             }
 
-            // Make sure memo isnt mnemonic
-            let isMnemonic = bip39.validateMnemonic(memo)
-            if (isMnemonic) {
-                err.push('You should not put a mnemonic phrase into the Memo field.')
+            if (!isValidAddress(addr)) {
+                errList.push('Invalid address.')
             }
-        }
 
-        // Make sure to address matches the bech32 network hrp
-        let hrp = ava.getHRP()
-        if (!addr.includes(hrp)) {
-            err.push('Not a valid address for this network.')
-        }
+            let memoVal = memo.value
+            if (memo.value) {
+                let buff = Buffer.from(memoVal)
+                let size = buff.length
+                if (size > 256) {
+                    errList.push('You can have a maximum of 256 characters in your memo.')
+                }
 
-        this.formErrors = err
-        if (err.length === 0) {
-            // this.send();
-            return true
-        } else {
-            return false
-        }
-    }
-
-    startAgain() {
-        this.clearForm()
-
-        this.txId = ''
-        this.isSuccess = false
-        this.cancelConfirm()
-
-        this.orders = []
-        this.nftOrders = []
-        this.formOrders = []
-        this.formNftOrders = []
-    }
-
-    clearForm() {
-        this.addressIn = ''
-        this.memo = ''
-
-        // Clear transactions list
-        this.$refs.txList.reset()
-
-        // Clear NFT list
-        if (this.hasNFT) {
-            this.$refs.nftList.clear()
-        }
-    }
-
-    async onsuccess(txId: string) {
-        this.isAjax = false
-        this.isSuccess = true
-
-        this.$store.dispatch('Notifications/add', {
-            title: this.$t('transfer.success_title'),
-            message: this.$t('transfer.success_msg'),
-            type: 'success',
-        })
-
-        // Update the user's balance
-        this.$store.dispatch('Assets/updateUTXOs').then(() => {
-            this.updateSendAgainLock()
-        })
-        this.$store.dispatch('History/updateTransactionHistory')
-    }
-
-    updateSendAgainLock() {
-        if (!this.wallet.isFetchUtxos) {
-            this.canSendAgain = true
-        } else {
-            setTimeout(() => {
-                this.updateSendAgainLock()
-            }, 1000)
-        }
-    }
-
-    onerror(err: any) {
-        this.err = err
-        this.isAjax = false
-        this.$store.dispatch('Notifications/add', {
-            title: this.$t('transfer.error_title'),
-            message: this.$t('transfer.error_msg'),
-            type: 'error',
-        })
-    }
-
-    submit() {
-        this.isAjax = true
-        this.err = ''
-
-        let sumArray: (ITransaction | UTXO)[] = [...this.formOrders, ...this.formNftOrders]
-
-        let txList: IssueBatchTxInput = {
-            toAddress: this.formAddress,
-            memo: Buffer.from(this.formMemo),
-            orders: sumArray,
-        }
-
-        this.$store
-            .dispatch('issueBatchTx', txList)
-            .then((res) => {
-                this.canSendAgain = false
-                this.waitTxConfirm(res)
-                this.txId = res
-            })
-            .catch((err) => {
-                this.onerror(err)
-            })
-    }
-
-    async waitTxConfirm(txId: string) {
-        let status = await avm.getTxStatus(txId)
-        if (status === 'Unknown' || status === 'Processing') {
-            // if not confirmed ask again
-            setTimeout(() => {
-                this.waitTxConfirm(txId)
-            }, 500)
-            return false
-        } else if (status === 'Dropped') {
-            // If dropped stop the process
-            this.txState = TxState.failed
-            return false
-        } else {
-            // If success display success page
-            this.txState = TxState.success
-            this.onsuccess(txId)
-        }
-    }
-
-    get networkStatus(): string {
-        let stat = this.$store.state.Network.status
-        return stat
-    }
-
-    get hasNFT(): boolean {
-        // return this.$store.getters.walletNftUTXOs.length > 0
-        return this.$store.state.Assets.nftUTXOs.length > 0
-    }
-
-    get faucetLink() {
-        let link = process.env.VUE_APP_FAUCET_LINK
-        if (link) return link
-        return null
-    }
-    get canSend() {
-        if (!this.addressIn) return false
-
-        if (
-            this.orders.length > 0 &&
-            this.totalTxSize.eq(new BN(0)) &&
-            this.nftOrders.length === 0
-        ) {
-            return false
-        }
-
-        if (this.orders.length === 0 && this.nftOrders.length === 0) return false
-
-        return true
-    }
-    get totalTxSize() {
-        let res = new BN(0)
-        for (var i = 0; i < this.orders.length; i++) {
-            let order = this.orders[i]
-            if (order.amount) {
-                res = res.add(this.orders[i].amount)
+                // Make sure memo isnt mnemonic
+                let isMnemonic = bip39.validateMnemonic(memoVal)
+                if (isMnemonic) {
+                    errList.push('You should not put a mnemonic phrase into the Memo field.')
+                }
             }
-        }
 
-        return res
-    }
-    get avaxTxSize() {
-        let res = new BN(0)
-        for (var i = 0; i < this.orders.length; i++) {
-            let order = this.orders[i]
-            if (!order.asset) continue
-            if (order.amount && order.asset.id === this.avaxAsset.id) {
-                res = res.add(this.orders[i].amount)
+            // Make sure to address matches the bech32 network hrp
+            let hrp = ava.getHRP()
+            if (!addr.includes(hrp)) {
+                errList.push('Not a valid address for this network.')
             }
-        }
 
-        return res
-    }
-    get avaxAsset(): AvaAsset {
-        return this.$store.getters['Assets/AssetAVA']
-    }
-
-    get wallet(): WalletType {
-        return this.$store.state.activeWallet
-    }
-
-    get txFee(): Big {
-        let fee = avm.getTxFee()
-        return bnToBig(fee, 9)
-    }
-
-    get totalUSD(): Big {
-        let totalAsset = this.avaxTxSize.add(avm.getTxFee())
-        let bigAmt = bnToBig(totalAsset, 9)
-        let usdPrice = this.priceDict.usd
-        let usdBig = bigAmt.times(usdPrice)
-        return usdBig
-    }
-
-    get addresses() {
-        return this.$store.state.addresses
-    }
-
-    get priceDict(): priceDict {
-        return this.$store.state.prices
-    }
-
-    get nftUTXOs(): UTXO[] {
-        return this.$store.state.Assets.nftUTXOs
-    }
-
-    deactivated() {
-        this.startAgain()
-    }
-
-    activated() {
-        this.clearForm()
-
-        if (this.$route.query.chain) {
-            let chain = this.$route.query.chain as string
-            if (chain === 'X') {
-                this.formType = 'X'
+            formErrors.value = errList
+            if (errList.length === 0) {
+                return true
             } else {
-                this.formType = 'C'
+                return false
             }
         }
 
-        if (this.$route.query.nft) {
-            let utxoId = this.$route.query.nft as string
-            let target = this.nftUTXOs.find((el) => {
-                return el.getUTXOID() === utxoId
+        const startAgain = () => {
+            clearForm()
+
+            txId.value = ''
+            isSuccess.value = false
+            cancelConfirm()
+
+            orders.value = []
+            nftOrders.value = []
+            formOrders.value = []
+            formNftOrders.value = []
+        }
+
+        const clearForm = () => {
+            addressIn.value = ''
+            memo.value = ''
+
+            // Clear transactions list
+            txList.value?.reset()
+
+            // Clear NFT list
+            if (hasNFT.value) {
+                nftList.value?.clear()
+            }
+        }
+
+        const onsuccess = async (txIdVal: string) => {
+            isAjax.value = false
+            isSuccess.value = true
+
+            store.dispatch('Notifications/add', {
+                title: t('transfer.success_title'),
+                message: t('transfer.success_msg'),
+                type: 'success',
             })
 
-            if (target) {
-                this.$refs.nftList.addNft(target)
+            // Update the user's balance
+            store.dispatch('Assets/updateUTXOs').then(() => {
+                updateSendAgainLock()
+            })
+            store.dispatch('History/updateTransactionHistory')
+        }
+
+        const updateSendAgainLock = () => {
+            if (!wallet.value.isFetchUtxos) {
+                canSendAgain.value = true
+            } else {
+                setTimeout(() => {
+                    updateSendAgainLock()
+                }, 1000)
             }
         }
+
+        const onerror = (errVal: any) => {
+            err.value = errVal
+            isAjax.value = false
+            store.dispatch('Notifications/add', {
+                title: t('transfer.error_title'),
+                message: t('transfer.error_msg'),
+                type: 'error',
+            })
+        }
+
+        const submit = () => {
+            isAjax.value = true
+            err.value = ''
+
+            let sumArray: (ITransaction | UTXO)[] = [...formOrders.value, ...formNftOrders.value]
+
+            let txListData: IssueBatchTxInput = {
+                toAddress: formAddress.value,
+                memo: Buffer.from(formMemo.value),
+                orders: sumArray,
+            }
+
+            store
+                .dispatch('issueBatchTx', txListData)
+                .then((res) => {
+                    canSendAgain.value = false
+                    waitTxConfirm(res)
+                    txId.value = res
+                })
+                .catch((errVal) => {
+                    onerror(errVal)
+                })
+        }
+
+        const waitTxConfirm = async (txIdVal: string) => {
+            let status = await avm.getTxStatus(txIdVal)
+            if (status === 'Unknown' || status === 'Processing') {
+                // if not confirmed ask again
+                setTimeout(() => {
+                    waitTxConfirm(txIdVal)
+                }, 500)
+                return false
+            } else if (status === 'Dropped') {
+                // If dropped stop the process
+                txState.value = TxState.failed
+                return false
+            } else {
+                // If success display success page
+                txState.value = TxState.success
+                onsuccess(txIdVal)
+            }
+        }
+
+        // Computed properties
+        const networkStatus = computed(() => {
+            return store.state.Network.status
+        })
+
+        const hasNFT = computed(() => {
+            return store.state.Assets.nftUTXOs.length > 0
+        })
+
+        const faucetLink = computed(() => {
+            let link = process.env.VUE_APP_FAUCET_LINK
+            if (link) return link
+            return null
+        })
+
+        const canSend = computed(() => {
+            if (!addressIn.value) return false
+
+            if (
+                orders.value.length > 0 &&
+                totalTxSize.value.eq(new BN(0)) &&
+                nftOrders.value.length === 0
+            ) {
+                return false
+            }
+
+            if (orders.value.length === 0 && nftOrders.value.length === 0) return false
+
+            return true
+        })
+
+        const totalTxSize = computed(() => {
+            let res = new BN(0)
+            for (var i = 0; i < orders.value.length; i++) {
+                let order = orders.value[i]
+                if (order.amount) {
+                    res = res.add(orders.value[i].amount)
+                }
+            }
+            return res
+        })
+
+        const avaxTxSize = computed(() => {
+            let res = new BN(0)
+            for (var i = 0; i < orders.value.length; i++) {
+                let order = orders.value[i]
+                if (!order.asset) continue
+                if (order.amount && order.asset.id === avaxAsset.value.id) {
+                    res = res.add(orders.value[i].amount)
+                }
+            }
+            return res
+        })
+
+        const avaxAsset = computed((): AvaAsset => {
+            return store.getters['Assets/AssetAVA']
+        })
+
+        const wallet = computed((): WalletType => {
+            return store.state.activeWallet
+        })
+
+        const txFee = computed((): Big => {
+            let fee = avm.getTxFee()
+            return bnToBig(fee, 9)
+        })
+
+        const totalUSD = computed((): Big => {
+            let totalAsset = avaxTxSize.value.add(avm.getTxFee())
+            let bigAmt = bnToBig(totalAsset, 9)
+            let usdPrice = priceDict.value.usd
+            let usdBig = bigAmt.times(usdPrice)
+            return usdBig
+        })
+
+        const addresses = computed(() => {
+            return store.state.addresses
+        })
+
+        const priceDict = computed((): priceDict => {
+            return store.state.prices
+        })
+
+        const nftUTXOs = computed((): UTXO[] => {
+            return store.state.Assets.nftUTXOs
+        })
+
+        // Lifecycle hooks
+        onDeactivated(() => {
+            startAgain()
+        })
+
+        onActivated(() => {
+            clearForm()
+
+            if (route.query.chain) {
+                let chain = route.query.chain as string
+                if (chain === 'X') {
+                    formType.value = 'X'
+                } else {
+                    formType.value = 'C'
+                }
+            }
+
+            if (route.query.nft) {
+                let utxoId = route.query.nft as string
+                let target = nftUTXOs.value.find((el) => {
+                    return el.getUTXOID() === utxoId
+                })
+
+                if (target) {
+                    nftList.value?.addNft(target)
+                }
+            }
+        })
+
+        return {
+            formType,
+            showAdvanced,
+            isAjax,
+            addressIn,
+            memo,
+            orders,
+            nftOrders,
+            formErrors,
+            err,
+            formAddress,
+            formOrders,
+            formNftOrders,
+            formMemo,
+            isConfirm,
+            isSuccess,
+            txId,
+            canSendAgain,
+            txState,
+            txList,
+            nftList,
+            confirm,
+            cancelConfirm,
+            updateTxList,
+            updateNftList,
+            formCheck,
+            startAgain,
+            clearForm,
+            onsuccess,
+            updateSendAgainLock,
+            onerror,
+            submit,
+            waitTxConfirm,
+            networkStatus,
+            hasNFT,
+            faucetLink,
+            canSend,
+            totalTxSize,
+            avaxTxSize,
+            avaxAsset,
+            wallet,
+            txFee,
+            totalUSD,
+            addresses,
+            priceDict,
+            nftUTXOs,
+        }
     }
-}
+})
+
 </script>
 
 <style lang="scss">

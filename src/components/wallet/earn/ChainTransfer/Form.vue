@@ -47,7 +47,8 @@
     </div>
 </template>
 <script lang="ts">
-import { Vue, Component, Prop, Watch } from 'vue-property-decorator'
+import { defineComponent, ref, computed, watch, onMounted } from 'vue'
+import { useStore } from 'vuex'
 import AvaxInput from '@/components/misc/AvaxInput.vue'
 import { BN } from 'avalanche'
 import Big from 'big.js'
@@ -63,94 +64,118 @@ const chainNames = {
     P: 'P Chain',
 }
 
-@Component({
+export default defineComponent({
+    name: 'Form',
     components: {
         AvaxInput,
     },
-})
-export default class Form extends Vue {
-    sourceChain: ChainIdType = 'X'
-    targetChain: ChainIdType = 'P'
-    amt: BN = new BN(0)
+    props: {
+        balance: {
+            type: Big,
+            required: true
+        },
+        maxAmt: {
+            type: BN,
+            required: true
+        },
+        isConfirm: {
+            type: Boolean,
+            required: true
+        }
+    },
+    emits: ['change'],
+    setup(props, { emit }) {
+        const store = useStore()
+        const sourceChain = ref<ChainIdType>('X')
+        const targetChain = ref<ChainIdType>('P')
+        const amt = ref(new BN(0))
 
-    @Prop() balance!: Big
-    @Prop() maxAmt!: BN
-    @Prop() isConfirm!: boolean
-
-    clear() {
-        this.amt = new BN(0)
-        this.onChange()
-    }
-
-    get chainNames() {
-        return chainNames
-    }
-
-    get formAmtText() {
-        return bnToBig(this.amt, 9).toLocaleString()
-    }
-
-    get sourceOptions(): ChainIdType[] {
-        if (!this.isEVMSupported) {
-            return ['X', 'P']
+        const clear = () => {
+            amt.value = new BN(0)
+            onChange()
         }
 
-        let all = [...chainTypes]
-        return all
-    }
+        const formAmtText = computed(() => {
+            return bnToBig(amt.value, 9).toLocaleString()
+        })
 
-    get destinationOptions(): ChainIdType[] {
+        const wallet = computed(() => {
+            const currentWallet: MnemonicWallet = store.state.activeWallet
+            return currentWallet
+        })
+
+        const isEVMSupported = computed(() => {
+            return wallet.value.ethAddress
+        })
+
+        const sourceOptions = computed((): ChainIdType[] => {
+            if (!isEVMSupported.value) {
+                return ['X', 'P']
+            }
+
+            const all = [...chainTypes]
+            return all
+        })
+
+        const destinationOptions = computed((): ChainIdType[] => {
+            return {
+                X: ['P', 'C'],
+                P: ['X', 'C'],
+                C: ['X', 'P'],
+            }[sourceChain.value] as ChainIdType[]
+        })
+
+        const onChangeSource = (ev: any) => {
+            const val: ChainIdType = ev.target.value
+            sourceChain.value = val
+            onChange()
+        }
+
+        const onChangeDestination = (ev: any) => {
+            const val: ChainIdType = ev.target.value
+            targetChain.value = val
+            onChange()
+        }
+
+        const onAmtChange = () => {
+            onChange()
+        }
+
+        const onChange = () => {
+            const data: ChainSwapFormData = {
+                sourceChain: sourceChain.value,
+                destinationChain: targetChain.value,
+                amount: amt.value,
+            }
+            emit('change', data)
+        }
+
+        // Watch destinationOptions for changes
+        watch(destinationOptions, () => {
+            targetChain.value = destinationOptions.value[0]
+            onChange()
+        })
+
+        onMounted(() => {
+            onChange()
+        })
+
         return {
-            X: ['P', 'C'],
-            P: ['X', 'C'],
-            C: ['X', 'P'],
-        }[this.sourceChain] as ChainIdType[]
-    }
-
-    @Watch('destinationOptions')
-    onDestinationsChange() {
-        this.targetChain = this.destinationOptions[0]
-        this.onChange()
-    }
-
-    get wallet() {
-        let wallet: MnemonicWallet = this.$store.state.activeWallet
-        return wallet
-    }
-
-    get isEVMSupported() {
-        return this.wallet.ethAddress
-    }
-
-    onChangeSource(ev: any) {
-        let val: ChainIdType = ev.target.value
-        this.sourceChain = val
-        this.onChange()
-    }
-
-    onChangeDestination(ev: any) {
-        let val: ChainIdType = ev.target.value
-        this.targetChain = val
-        this.onChange()
-    }
-
-    onAmtChange() {
-        this.onChange()
-    }
-
-    onChange() {
-        let data: ChainSwapFormData = {
-            sourceChain: this.sourceChain,
-            destinationChain: this.targetChain,
-            amount: this.amt,
+            sourceChain,
+            targetChain,
+            amt,
+            clear,
+            chainNames,
+            formAmtText,
+            sourceOptions,
+            destinationOptions,
+            isEVMSupported,
+            onChangeSource,
+            onChangeDestination,
+            onAmtChange
         }
-        this.$emit('change', data)
     }
-
-    mounted() {
-        this.onChange()
-    }
-}
+})
 </script>
 <style scoped lang="scss">
 .swap_form {

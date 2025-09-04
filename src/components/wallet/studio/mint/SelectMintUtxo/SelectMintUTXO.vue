@@ -9,28 +9,40 @@
     </div>
 </template>
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator'
+import { defineComponent, computed } from 'vue'
+import { useStore } from 'vuex'
+
 import { IWalletNftMintDict } from '@/store/types'
 import { NftFamilyDict } from '@/store/modules/assets/types'
 import { UTXO } from 'avalanche/dist/apis/avm'
 import FamilyRow from '@/components/wallet/studio/mint/SelectMintUtxo/FamilyRow.vue'
-@Component({
+
+export default defineComponent({
+    name: 'SelectMintUTXO',
     components: { FamilyRow },
+    emits: ['change'],
+    setup(props, { emit }) {
+        const store = useStore()
+
+        const nftFamsDict = computed((): NftFamilyDict => {
+            return store.state.Assets.nftFamsDict
+        })
+
+        const nftMintDict = computed((): IWalletNftMintDict => {
+            return store.getters['Assets/nftMintDict']
+        })
+
+        const select = (utxo: UTXO) => {
+            emit('change', utxo)
+        }
+
+        return {
+            nftFamsDict,
+            nftMintDict,
+            select
+        }
+    }
 })
-export default class SelectMintUTXO extends Vue {
-    get nftFamsDict(): NftFamilyDict {
-        return this.$store.state.Assets.nftFamsDict
-    }
-
-    get nftMintDict(): IWalletNftMintDict {
-        // return this.$store.getters.walletNftMintDict
-        return this.$store.getters['Assets/nftMintDict']
-    }
-
-    select(utxo: UTXO) {
-        this.$emit('change', utxo)
-    }
-}
 </script>
 <style scoped lang="scss">
 @use '../../../../../main';

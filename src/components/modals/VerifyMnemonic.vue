@@ -22,103 +22,128 @@
 </template>
 
 <script lang="ts">
-import 'reflect-metadata'
-import { Vue, Component, Prop, Watch } from 'vue-property-decorator'
+import { defineComponent, ref, computed, watch, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 import Modal from '@/components/modals/Modal.vue'
 import MnemonicPhrase from '@/js/wallets/MnemonicPhrase'
 
-@Component({
+export default defineComponent({
+    name: 'VerifyMnemonic',
     components: {
         Modal,
     },
-})
-export default class VerifyMnemonic extends Vue {
-    isActive: boolean = false
-    keysIn: string[] = []
-    hiddenIndices: number[] = []
-    err: string = ''
-    title: string = ''
-
-    @Prop() mnemonic?: MnemonicPhrase
-
-    @Watch('mnemonic')
-    onmnemonicchange(val: string) {
-        this.init()
-    }
-    created() {
-        this.init()
-        this.title = `${this.$t('create.verifytitle')}`
-    }
-
-    init() {
-        const wordsLen = 24
-        this.keysIn = Array(wordsLen).join('.').split('.')
-
-        // Hide 4 words
-        let hideNum = 4
-        let hidden: number[] = []
-
-        while (hidden.length < hideNum) {
-            let hideIndex = Math.floor(Math.random() * wordsLen)
-            if (!hidden.includes(hideIndex)) {
-                hidden.push(hideIndex)
-            }
+    props: {
+        mnemonic: {
+            type: Object as () => MnemonicPhrase,
+            required: false
         }
+    },
+    emits: ['complete'],
+    setup(props, { emit }) {
+        const { t } = useI18n()
+        
+        const modal = ref<InstanceType<typeof Modal>>()
+        const isActive = ref(false)
+        const keysIn = ref<string[]>([])
+        const hiddenIndices = ref<number[]>([])
+        const err = ref('')
+        const title = ref('')
 
-        this.words.forEach((word, i) => {
-            if (!hidden.includes(i)) {
-                this.keysIn[i] = word
-            }
+        const words = computed(() => {
+            return props.mnemonic ? props.mnemonic.getValue().split(' ') : []
         })
 
-        this.hiddenIndices = hidden
-    }
+        const init = () => {
+            const wordsLen = 24
+            keysIn.value = Array(wordsLen).join('.').split('.')
 
-    get words() {
-        return this.mnemonic ? this.mnemonic.getValue().split(' ') : []
-    }
+            // Hide 4 words
+            let hideNum = 4
+            let hidden: number[] = []
 
-    open() {
-        // @ts-ignore
-        this.$refs.modal.open()
-    }
-
-    close() {
-        this.isActive = false
-    }
-
-    formCheck() {
-        this.err = ''
-        let userWords = this.keysIn
-
-        for (var i = 0; i < userWords.length; i++) {
-            let userWord = userWords[i].trim()
-            let trueWord = this.words[i].trim()
-
-            if (userWord.length === 0) {
-                this.err = `Oops, looks like you forgot to fill number ${i + 1}`
-                return false
+            while (hidden.length < hideNum) {
+                let hideIndex = Math.floor(Math.random() * wordsLen)
+                if (!hidden.includes(hideIndex)) {
+                    hidden.push(hideIndex)
+                }
             }
 
-            if (userWord !== trueWord) {
-                this.err = `The mnemonic phrase you entered for word ${
-                    i + 1
-                } not match the actual phrase.`
-                return false
+            words.value.forEach((word, i) => {
+                if (!hidden.includes(i)) {
+                    keysIn.value[i] = word
+                }
+            })
+
+            hiddenIndices.value = hidden
+        }
+
+        watch(() => props.mnemonic, (val) => {
+            init()
+        })
+
+        onMounted(() => {
+            init()
+            title.value = t('create.verifytitle')
+        })
+
+        const open = () => {
+            if (modal.value) {
+                modal.value.open()
             }
         }
 
-        return true
-    }
+        const close = () => {
+            isActive.value = false
+        }
 
-    verify() {
-        if (!this.formCheck()) return
-        // @ts-ignore
-        this.$refs.modal.close()
-        this.$emit('complete')
+        const formCheck = () => {
+            err.value = ''
+            let userWords = keysIn.value
+
+            for (var i = 0; i < userWords.length; i++) {
+                let userWord = userWords[i].trim()
+                let trueWord = words.value[i].trim()
+
+                if (userWord.length === 0) {
+                    err.value = `Oops, looks like you forgot to fill number ${i + 1}`
+                    return false
+                }
+
+                if (userWord !== trueWord) {
+                    err.value = `The mnemonic phrase you entered for word ${
+                        i + 1
+                    } not match the actual phrase.`
+                    return false
+                }
+            }
+
+            return true
+        }
+
+        const verify = () => {
+            if (!formCheck()) return
+            if (modal.value) {
+                modal.value.close()
+            }
+            emit('complete')
+        }
+
+        return {
+            modal,
+            isActive,
+            keysIn,
+            hiddenIndices,
+            err,
+            title,
+            words,
+            open,
+            close,
+            formCheck,
+            verify
+        }
     }
-}
+})
 </script>
 <style scoped lang="scss">
 @use "../../main";

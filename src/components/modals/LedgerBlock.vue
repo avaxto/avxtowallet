@@ -20,65 +20,85 @@
 </template>
 <script lang="ts">
 import 'reflect-metadata'
-import { Vue, Component, Watch } from 'vue-property-decorator'
+import { defineComponent, computed, watch, ref } from 'vue'
+import { useStore } from 'vuex'
 
 import Spinner from '@/components/misc/Spinner.vue'
 import Modal from './Modal.vue'
 import { ILedgerBlockMessage } from '../../store/modules/ledger/types'
 import { LEDGER_EXCHANGE_TIMEOUT } from '../../store/modules/ledger/types'
 
-@Component({
+export default defineComponent({
+    name: 'LedgerBlock',
     components: {
         Modal,
         Spinner,
     },
-})
-export default class LedgerBlock extends Vue {
-    intervalId: ReturnType<typeof setTimeout> | null = null
+    setup() {
+        const store = useStore()
+        
+        const intervalId = ref<ReturnType<typeof setTimeout> | null>(null)
+        const modal = ref<InstanceType<typeof Modal>>()
 
-    open() {
-        // @ts-ignore
-        this.$refs.modal.open()
-    }
-    close() {
-        // @ts-ignore
-        this.$refs.modal.close()
-    }
+        const open = () => {
+            if (modal.value) {
+                modal.value.open()
+            }
+        }
 
-    get title(): string {
-        return this.$store.state.Ledger.title
-    }
+        const close = () => {
+            if (modal.value) {
+                modal.value.close()
+            }
+        }
 
-    get info(): string {
-        return this.$store.state.Ledger.info
-    }
+        const title = computed((): string => {
+            return store.state.Ledger.title
+        })
 
-    get messages(): Array<ILedgerBlockMessage> {
-        return this.$store.state.Ledger.messages
-    }
+        const info = computed((): string => {
+            return store.state.Ledger.info
+        })
 
-    get isActive(): boolean {
-        return this.$store.state.Ledger.isBlock
-    }
+        const messages = computed((): Array<ILedgerBlockMessage> => {
+            return store.state.Ledger.messages
+        })
 
-    get isPrompt(): boolean {
-        return this.$store.state.Ledger.isPrompt
-    }
+        const isActive = computed((): boolean => {
+            return store.state.Ledger.isBlock
+        })
 
-    get warning() {
-        return this.$store.state.Ledger.warning
-    }
+        const isPrompt = computed((): boolean => {
+            return store.state.Ledger.isPrompt
+        })
 
-    @Watch('isActive', { immediate: true })
-    onActive(val: boolean): void {
-        if (!this.$refs.modal) return
-        if (val) {
-            this.open()
-        } else {
-            this.close()
+        const warning = computed(() => {
+            return store.state.Ledger.warning
+        })
+
+        watch(isActive, (val: boolean) => {
+            if (!modal.value) return
+            if (val) {
+                open()
+            } else {
+                close()
+            }
+        }, { immediate: true })
+
+        return {
+            intervalId,
+            modal,
+            open,
+            close,
+            title,
+            info,
+            messages,
+            isActive,
+            isPrompt,
+            warning
         }
     }
-}
+})
 </script>
 <style scoped lang="scss">
 .ledger_block {

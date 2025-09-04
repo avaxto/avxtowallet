@@ -28,100 +28,112 @@
     </div>
 </template>
 <script lang="ts">
-import { Vue, Component, Ref } from 'vue-property-decorator'
+import { defineComponent, ref, computed } from 'vue'
+import { useStore } from 'vuex'
 import FileInput from '@/components/misc/FileInput.vue'
 import { ImportKeyfileInput } from '@/store/types'
 import { AllKeyFileTypes } from '@/js/IKeystore'
 import { KEYSTORE_VERSION } from '@/js/Keystore'
 
-@Component({
+export default defineComponent({
+    name: 'AddKeyFile',
     components: {
         FileInput,
     },
-})
-export default class AddKeyFile extends Vue {
-    canAdd: boolean = false
-    pass: string = ''
-    keyfile: File | null = null
-    isLoading: boolean = false
-    err: string | null = null
-    fileText: string | null = null
+    emits: ['success'],
+    setup(props, { emit }) {
+        const store = useStore()
+        
+        const canAdd = ref(false)
+        const pass = ref('')
+        const keyfile = ref<File | null>(null)
+        const isLoading = ref(false)
+        const err = ref<string | null>(null)
+        const fileText = ref<string | null>(null)
+        const fileIn = ref<InstanceType<typeof FileInput>>()
 
-    @Ref('fileIn') readonly fileIn!: FileInput
-
-    get canSubmit() {
-        return this.keyfile && this.pass && this.fileText ? true : false
-    }
-
-    onfile(val: File) {
-        this.keyfile = val
-        let parent = this
-
-        let reader = new FileReader()
-        reader.addEventListener('load', async () => {
-            let res = reader.result as string
-            parent.fileText = res
+        const canSubmit = computed(() => {
+            return keyfile.value && pass.value && fileText.value ? true : false
         })
-        reader.readAsText(val)
-    }
 
-    importKeyfile() {
-        let fileData: AllKeyFileTypes
-        this.err = null
+        const onfile = (val: File) => {
+            keyfile.value = val
 
-        try {
-            fileData = JSON.parse(this.fileText as string)
-        } catch (e) {
-            this.err = 'Unable to parse JSON file.'
-            return
+            let reader = new FileReader()
+            reader.addEventListener('load', async () => {
+                let res = reader.result as string
+                fileText.value = res
+            })
+            reader.readAsText(val)
         }
 
-        if (fileData.version != KEYSTORE_VERSION) {
-            // TODO: update here?
-            this.err =
-                'Tried to import an old keystore version. Please update your keystore file before importing.'
-            return
-        }
-
-        this.isLoading = true
-
-        setTimeout(async () => {
-            let input: ImportKeyfileInput = {
-                password: this.pass,
-                data: fileData,
-            }
+        const importKeyfile = () => {
+            let fileData: AllKeyFileTypes
+            err.value = null
 
             try {
-                await this.$store.dispatch('importKeyfile', input)
-                // @ts-ignore
-                this.$emit('success')
-                this.clear()
-            } catch (err) {
-                this.isLoading = false
-                if (err === 'INVALID_PASS') {
-                    this.err = 'Invalid password.'
-                } else {
-                    this.err = 'Failed to read keystore file.'
+                fileData = JSON.parse(fileText.value as string)
+            } catch (e) {
+                err.value = 'Unable to parse JSON file.'
+                return
+            }
+
+            if (fileData.version != KEYSTORE_VERSION) {
+                // TODO: update here?
+                err.value =
+                    'Tried to import an old keystore version. Please update your keystore file before importing.'
+                return
+            }
+
+            isLoading.value = true
+
+            setTimeout(async () => {
+                let input: ImportKeyfileInput = {
+                    password: pass.value,
+                    data: fileData,
                 }
 
-                // this.$store.dispatch("Notifications/add", {
-                //     type: "error",
-                //     title: "Import Failed",
-                //     message: err.message
-                // });
-            }
-        }, 200)
-    }
+                try {
+                    await store.dispatch('importKeyfile', input)
+                    emit('success')
+                    clear()
+                } catch (error) {
+                    isLoading.value = false
+                    if (error === 'INVALID_PASS') {
+                        err.value = 'Invalid password.'
+                    } else {
+                        err.value = 'Failed to read keystore file.'
+                    }
+                }
+            }, 200)
+        }
 
-    clear() {
-        this.isLoading = false
-        this.pass = ''
-        this.keyfile = null
-        this.canAdd = false
-        this.err = null
-        this.fileIn.clear()
+        const clear = () => {
+            isLoading.value = false
+            pass.value = ''
+            keyfile.value = null
+            canAdd.value = false
+            err.value = null
+            if (fileIn.value) {
+                fileIn.value.clear()
+            }
+        }
+
+        return {
+            canAdd,
+            pass,
+            keyfile,
+            isLoading,
+            err,
+            fileText,
+            fileIn,
+            canSubmit,
+            onfile,
+            importKeyfile,
+            clear
+        }
     }
-}
+})
 </script>
 <style lang="scss">
 .add_key_file {

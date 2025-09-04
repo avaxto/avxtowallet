@@ -8,7 +8,9 @@
     </div>
 </template>
 <script lang="ts">
-import { Vue, Component } from 'vue-property-decorator'
+import { defineComponent, ref, computed, onMounted } from 'vue'
+import { useStore } from 'vuex'
+import { useRoute } from 'vue-router'
 import { pChain } from '@/AVA'
 import { bnToBig } from '@/helpers/helper'
 import Big from 'big.js'
@@ -16,62 +18,78 @@ import Big from 'big.js'
 import SelectMintUTXO from '@/components/wallet/studio/mint/SelectMintUtxo/SelectMintUTXO.vue'
 import MintForm from '@/components/wallet/studio/mint/MintForm.vue'
 import { UTXO } from 'avalanche/dist/apis/avm'
-@Component({
+
+export default defineComponent({
+    name: 'MintNft',
     components: {
         SelectMintUTXO,
         MintForm,
     },
-})
-export default class MintNft extends Vue {
-    isLoading = false
-    mintUtxo: null | UTXO = null
+    emits: ['cancel'],
+    setup(props, { emit }) {
+        const store = useStore()
+        const route = useRoute()
+        
+        const isLoading = ref(false)
+        const mintUtxo = ref<null | UTXO>(null)
 
-    get txFee(): Big {
-        return bnToBig(pChain.getTxFee(), 9)
-    }
+        const txFee = computed((): Big => {
+            return bnToBig(pChain.getTxFee(), 9)
+        })
 
-    async submit() {
-        let wallet = this.$store.state.activeWallet
-        if (!wallet) return
+        const mintUtxos = computed(() => {
+            return store.state.Assets.nftMintUTXOs
+        })
 
-        this.isLoading = true
-        this.isLoading = false
-    }
+        const submit = async () => {
+            let wallet = store.state.activeWallet
+            if (!wallet) return
 
-    get mintUtxos() {
-        // return this.$store.getters.walletNftMintUTXOs
-        return this.$store.state.Assets.nftMintUTXOs
-    }
+            isLoading.value = true
+            isLoading.value = false
+        }
 
-    setUtxo(utxo: UTXO) {
-        this.mintUtxo = utxo
-    }
+        const setUtxo = (utxo: UTXO) => {
+            mintUtxo.value = utxo
+        }
 
-    clearUtxo() {
-        this.mintUtxo = null
-    }
+        const clearUtxo = () => {
+            mintUtxo.value = null
+        }
 
-    cancel() {
-        this.$emit('cancel')
-    }
+        const cancel = () => {
+            emit('cancel')
+        }
 
-    mounted() {
-        let utxoId = this.$route.query.utxo
+        onMounted(() => {
+            let utxoId = route.query.utxo
 
-        // Select the utxo in the query if possible
-        if (utxoId) {
-            let utxos: UTXO[] = this.mintUtxos
+            // Select the utxo in the query if possible
+            if (utxoId) {
+                let utxos: UTXO[] = mintUtxos.value
 
-            for (var i = 0; i < utxos.length; i++) {
-                let utxo = utxos[i]
-                let id = utxo.getUTXOID()
+                for (var i = 0; i < utxos.length; i++) {
+                    let utxo = utxos[i]
+                    let id = utxo.getUTXOID()
 
-                if (id === utxoId) {
-                    this.setUtxo(utxo)
+                    if (id === utxoId) {
+                        setUtxo(utxo)
+                    }
                 }
             }
+        })
+
+        return {
+            isLoading,
+            mintUtxo,
+            txFee,
+            mintUtxos,
+            submit,
+            setUtxo,
+            clearUtxo,
+            cancel
         }
     }
-}
+})
 </script>
 <style scoped lang="scss"></style>

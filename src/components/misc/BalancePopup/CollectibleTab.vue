@@ -15,38 +15,56 @@
     </div>
 </template>
 <script lang="ts">
-import 'reflect-metadata'
-import { Vue, Prop, Component } from 'vue-property-decorator'
+import { defineComponent, computed } from 'vue'
+import { useStore } from 'vuex'
+import { useI18n } from 'vue-i18n'
 import NftCard from '@/components/wallet/portfolio/NftCard.vue'
 import { NftFamilyDict } from '@/store/modules/assets/types'
 import { UTXO } from 'avalanche/dist/apis/avm'
 
 import CollectibleFamily from '@/components/misc/BalancePopup/CollectibleFamily.vue'
-@Component({
+
+export default defineComponent({
+    name: 'CollectibleTab',
     components: {
         NftCard,
         CollectibleFamily,
     },
+    props: {
+        disabledIds: {
+            type: Array as () => string[],
+            default: () => []
+        }
+    },
+    emits: ['select'],
+    setup(props, { emit }) {
+        const store = useStore()
+        const { t } = useI18n()
+
+        const isEmpty = computed((): boolean => {
+            return store.state.Assets.nftUTXOs.length === 0
+        })
+
+        const nftFamsDict = computed((): NftFamilyDict => {
+            return store.state.Assets.nftFamsDict
+        })
+
+        const isNftUsed = (utxo: UTXO) => {
+            return props.disabledIds.includes(utxo.getUTXOID())
+        }
+
+        const selectNft = (nft: UTXO) => {
+            emit('select', nft)
+        }
+
+        return {
+            isEmpty,
+            nftFamsDict,
+            isNftUsed,
+            selectNft
+        }
+    }
 })
-export default class CollectibleTab extends Vue {
-    @Prop({ default: [] }) disabledIds!: string[]
-    get isEmpty(): boolean {
-        // return this.$store.getters.walletNftUTXOs.length === 0
-        return this.$store.state.Assets.nftUTXOs.length === 0
-    }
-
-    get nftFamsDict(): NftFamilyDict {
-        return this.$store.state.Assets.nftFamsDict
-    }
-
-    isNftUsed(utxo: UTXO) {
-        return this.disabledIds.includes(utxo.getUTXOID())
-    }
-
-    selectNft(nft: UTXO) {
-        this.$emit('select', nft)
-    }
-}
 </script>
 <style scoped lang="scss">
 .collectible_tab {

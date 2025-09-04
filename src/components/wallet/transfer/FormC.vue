@@ -3,7 +3,13 @@
         <div class="form">
             <slot></slot>
             <div class="table_title">
-                <p>{{ $t('transfer.tx_list.amount') }}</p>
+<script lang="ts">
+import { defineComponent, ref, computed, onMounted, onUnmounted, onActivated } from 'vue'
+import { useStore } from 'vuex'
+import { useRoute } from 'vue-router'
+import { useI18n } from 'vue-i18n'
+
+import AvaxInput from '@/components/misc/AvaxInput.vue'             <p>{{ $t('transfer.tx_list.amount') }}</p>
                 <p>{{ $t('transfer.tx_list.token') }}</p>
             </div>
             <div class="list_item">
@@ -147,37 +153,62 @@ import Erc20Token from '@/js/Erc20Token'
 import { iErc721SelectInput } from '@/components/misc/EVMInputDropdown/types'
 import { WalletHelper } from '@/helpers/wallet_helper'
 
-@Component({
+export default defineComponent({
+    name: 'FormC',
     components: {
         EVMInputDropdown,
         AvaxInput,
         QrInput,
     },
-})
-export default class FormC extends Vue {
-    isConfirm = false
-    isSuccess = false
-    addressIn = ''
-    amountIn = new BN(0)
-    gasPrice = new BN(225000000000)
-    gasPriceInterval: ReturnType<typeof setTimeout> | undefined = undefined
-    gasLimit = 21000
-    err = ''
-    isLoading = false
+    setup() {
+        const store = useStore()
+        const route = useRoute()
+        const { t } = useI18n()
 
-    formAddress = ''
-    formAmount = new BN(0)
-    formToken: Erc20Token | 'native' = 'native'
-    canSendAgain = false
+        const isConfirm = ref(false)
+        const isSuccess = ref(false)
+        const addressIn = ref('')
+        const amountIn = ref(new BN(0))
+        const gasPrice = ref(new BN(225000000000))
+        const gasPriceInterval = ref<ReturnType<typeof setTimeout> | undefined>(undefined)
+        const gasLimit = ref(21000)
+        const err = ref('')
+        const isLoading = ref(false)
 
-    isCollectible = false
-    formCollectible: iErc721SelectInput | null = null
+        const formAddress = ref('')
+        const formAmount = ref(new BN(0))
+        const formToken = ref<Erc20Token | 'native'>('native')
+        const canSendAgain = ref(false)
 
-    txHash = ''
+        const isCollectible = ref(false)
+        const formCollectible = ref<iErc721SelectInput | null>(null)
 
-    $refs!: {
-        token_in: EVMInputDropdown
+        const txHash = ref('')
+
+        // Template refs
+        const token_in = ref<InstanceType<typeof EVMInputDropdown> | null>(null)
+
+        // Continue with rest of component logic...
+        return {
+            isConfirm,
+            isSuccess,
+            addressIn,
+            amountIn,
+            gasPrice,
+            gasLimit,
+            err,
+            isLoading,
+            formAddress,
+            formAmount,
+            formToken,
+            canSendAgain,
+            isCollectible,
+            formCollectible,
+            txHash,
+            token_in
+        }
     }
+})
 
     created() {
         // Update gas price automatically

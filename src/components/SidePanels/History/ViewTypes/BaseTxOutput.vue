@@ -12,52 +12,79 @@
     </div>
 </template>
 <script lang="ts">
-import { Vue, Component, Prop } from 'vue-property-decorator'
+import { defineComponent, computed } from 'vue'
+import { useStore } from 'vuex'
 import { BaseTxAssetSummary } from '@/helpers/history_helper'
 import AvaAsset from '@/js/AvaAsset'
 import { bnToBig } from '@/helpers/helper'
 import { BN } from 'avalanche'
 
-@Component
-export default class BaseTxOutput extends Vue {
-    @Prop() assetID!: string
-    @Prop() summary!: BaseTxAssetSummary
-
-    get assetDetail(): AvaAsset {
-        return (
-            this.$store.state.Assets.assetsDict[this.assetID] ||
-            this.$store.state.Assets.nftFamsDict[this.assetID]
-        )
-    }
-
-    get payload() {
-        return this.summary.payload
-    }
-
-    get isProfit() {
-        return this.summary.amount.gte(new BN(0))
-    }
-
-    get actionText() {
-        if (this.isProfit) {
-            return 'Received'
-        } else {
-            return 'Sent'
-        }
-    }
-
-    get direction() {
-        if (this.isProfit) {
-            return 'from'
-        } else {
-            return 'to'
-        }
-    }
-    get amtText() {
-        let big = bnToBig(this.summary.amount, this.assetDetail?.denomination || 0)
-        return big.toLocaleString()
-    }
+interface Props {
+    assetID: string
+    summary: BaseTxAssetSummary
 }
+
+export default defineComponent({
+    name: 'BaseTxOutput',
+    props: {
+        assetID: {
+            type: String,
+            required: true
+        },
+        summary: {
+            type: Object as () => BaseTxAssetSummary,
+            required: true
+        }
+    },
+    setup(props: Props) {
+        const store = useStore()
+
+        const assetDetail = computed((): AvaAsset => {
+            return (
+                store.state.Assets.assetsDict[props.assetID] ||
+                store.state.Assets.nftFamsDict[props.assetID]
+            )
+        })
+
+        const payload = computed(() => {
+            return props.summary.payload
+        })
+
+        const isProfit = computed(() => {
+            return props.summary.amount.gte(new BN(0))
+        })
+
+        const actionText = computed(() => {
+            if (isProfit.value) {
+                return 'Received'
+            } else {
+                return 'Sent'
+            }
+        })
+
+        const direction = computed(() => {
+            if (isProfit.value) {
+                return 'from'
+            } else {
+                return 'to'
+            }
+        })
+
+        const amtText = computed(() => {
+            const big = bnToBig(props.summary.amount, assetDetail.value?.denomination || 0)
+            return big.toLocaleString()
+        })
+
+        return {
+            assetDetail,
+            payload,
+            isProfit,
+            actionText,
+            direction,
+            amtText
+        }
+    }
+})
 </script>
 <style scoped lang="scss">
 @use "../../../../main";

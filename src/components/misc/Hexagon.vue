@@ -5,12 +5,17 @@
     </div>
 </template>
 <script lang="ts">
-import { Vue, Component, Prop } from 'vue-property-decorator'
+import { defineComponent, type PropType } from 'vue'
 
-@Component
-export default class FungibleRow extends Vue {
-    @Prop({ default: false }) isAva?: boolean
-}
+export default defineComponent({
+    name: 'Hexagon',
+    props: {
+        isAva: {
+            type: Boolean as PropType<boolean>,
+            default: false
+        }
+    }
+})
 </script>
 <style scoped lang="scss">
 .hex_img {

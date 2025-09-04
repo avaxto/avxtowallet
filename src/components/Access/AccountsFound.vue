@@ -12,30 +12,40 @@
     </div>
 </template>
 <script lang="ts">
-import { Vue, Component, Prop } from 'vue-property-decorator'
+import { defineComponent, ref, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { iUserAccountEncrypted } from '@/store/types'
 import Identicon from '@/components/misc/Identicon.vue'
 
-@Component({
+export default defineComponent({
+    name: 'AccountsFound',
     components: {
         Identicon,
     },
+    setup() {
+        const router = useRouter()
+        const accounts = ref<iUserAccountEncrypted[]>([])
+
+        const refreshAccounts = () => {
+            let accountsRaw = localStorage.getItem('accounts') || '{}'
+            accounts.value = JSON.parse(accountsRaw) || []
+        }
+
+        const selectAccount = (index: number) => {
+            router.push(`/access/account/${index}`)
+        }
+
+        onMounted(() => {
+            refreshAccounts()
+        })
+
+        return {
+            accounts,
+            refreshAccounts,
+            selectAccount
+        }
+    }
 })
-export default class AccountsFound extends Vue {
-    accounts: iUserAccountEncrypted[] = []
-
-    created() {
-        this.refreshAccounts()
-    }
-    refreshAccounts() {
-        let accountsRaw = localStorage.getItem('accounts') || '{}'
-        this.accounts = JSON.parse(accountsRaw) || []
-    }
-
-    selectAccount(index: number) {
-        this.$router.push(`/access/account/${index}`)
-    }
-}
 </script>
 <style scoped lang="scss">
 @use '../../main';

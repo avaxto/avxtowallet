@@ -75,8 +75,8 @@
     </div>
 </template>
 <script lang="ts">
-import 'reflect-metadata'
-import { Vue, Component, Prop } from 'vue-property-decorator'
+import { defineComponent, ref, computed } from 'vue'
+import { useStore } from 'vuex'
 
 import NetworkRow from './NetworkRow.vue'
 import CustomPage from './CustomPage.vue'
@@ -85,77 +85,103 @@ import EditPage from '@/components/NetworkSettings/EditPage.vue'
 import { AvaNetwork } from '@/js/AvaNetwork'
 import { NetworkStatus } from '@/store/modules/network/types'
 
-@Component({
+export default defineComponent({
+    name: 'NetworkMenu',
     components: {
         ListPage,
         NetworkRow,
         CustomPage,
         EditPage,
     },
-})
-export default class NetworkMenu extends Vue {
-    page: string = 'list'
-    isActive: boolean = false
-    editNetwork: AvaNetwork | null = null
+    setup() {
+        const store = useStore()
 
-    viewCustom(): void {
-        this.page = 'custom'
-    }
-    viewList(): void {
-        this.page = 'list'
-    }
-    closeMenu(): void {
-        this.page = 'list'
-        this.isActive = false
-    }
-    toggleMenu(): void {
-        this.isActive = !this.isActive
-    }
-    addCustomNetwork(data: AvaNetwork): void {
-        this.$store.dispatch('Network/addCustomNetwork', data)
-        this.page = 'list'
-    }
+        const page = ref('list')
+        const isActive = ref(false)
+        const editNetwork = ref<AvaNetwork | null>(null)
 
-    get connectionColor(): string {
-        switch (this.status) {
-            case 'connecting':
-                return '#ffaa00'
-            case 'connected':
-                return '#0f0'
-            default:
-                return '#f00'
+        const viewCustom = (): void => {
+            page.value = 'custom'
+        }
+
+        const viewList = (): void => {
+            page.value = 'list'
+        }
+
+        const closeMenu = (): void => {
+            page.value = 'list'
+            isActive.value = false
+        }
+
+        const toggleMenu = (): void => {
+            isActive.value = !isActive.value
+        }
+
+        const addCustomNetwork = (data: AvaNetwork): void => {
+            store.dispatch('Network/addCustomNetwork', data)
+            page.value = 'list'
+        }
+
+        const connectionColor = computed((): string => {
+            switch (status.value) {
+                case 'connecting':
+                    return '#ffaa00'
+                case 'connected':
+                    return '#0f0'
+                default:
+                    return '#f00'
+            }
+        })
+
+        const networkUpdated = () => {
+            page.value = 'list'
+            store.dispatch('Network/save')
+        }
+
+        const onedit = (network: AvaNetwork): void => {
+            editNetwork.value = network
+            page.value = 'edit'
+        }
+
+        const status = computed((): NetworkStatus => {
+            return store.state.Network.status
+        })
+
+        const activeNetwork = computed((): null | AvaNetwork => {
+            return store.state.Network.selectedNetwork
+        })
+
+        const networks = computed((): AvaNetwork[] => {
+            return store.getters('Network/allNetworks')
+        })
+
+        const isTestnet = computed((): boolean => {
+            let net = activeNetwork.value
+
+            if (!net) return false
+            if (net.networkId !== 1) return true
+            return false
+        })
+
+        return {
+            page,
+            isActive,
+            editNetwork,
+            viewCustom,
+            viewList,
+            closeMenu,
+            toggleMenu,
+            addCustomNetwork,
+            connectionColor,
+            networkUpdated,
+            onedit,
+            status,
+            activeNetwork,
+            networks,
+            isTestnet
         }
     }
-
-    networkUpdated() {
-        this.page = 'list'
-        this.$store.dispatch('Network/save')
-    }
-
-    onedit(network: AvaNetwork): void {
-        this.editNetwork = network
-        this.page = 'edit'
-    }
-
-    get status(): NetworkStatus {
-        return this.$store.state.Network.status
-    }
-    get activeNetwork(): null | AvaNetwork {
-        return this.$store.state.Network.selectedNetwork
-    }
-    get networks(): AvaNetwork[] {
-        return this.$store.getters('Network/allNetworks')
-        // return this.$store.state.Network.networks;
-    }
-
-    get isTestnet(): boolean {
-        let net = this.activeNetwork
-
-        if (!net) return false
-        if (net.networkId !== 1) return true
-        return false
-    }
-}
+})
 </script>
 <style scoped lang="scss">
 @use '../../main';

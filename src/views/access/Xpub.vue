@@ -41,52 +41,68 @@
     </div>
 </template>
 <script lang="ts">
-import { Vue, Component, Watch } from 'vue-property-decorator'
+import { defineComponent, ref, computed } from 'vue'
+import { useRouter } from 'vue-router'
+
 import Form from '@/components/wallet/earn/ChainTransfer/Form.vue'
 import { PublicMnemonicWallet, getEthAddressKeyFromAccountKey } from '@avalabs/avalanche-wallet-sdk'
 import WalletReadonly from '@/views/WalletReadonly.vue'
 import { ethers } from 'ethers'
 
-@Component({
+export default defineComponent({
+    name: 'Xpub',
     components: { WalletReadonly, Form },
+    setup() {
+        const router = useRouter()
+        
+        const xpubXP = ref('')
+        const evmAddr = ref('')
+        const xpubC = ref('')
+        const isLoading = ref(false)
+        const error = ref('')
+        const wallet = ref<PublicMnemonicWallet | null>(null)
+
+        const canSubmit = computed(() => {
+            return xpubXP.value.length > 10 && evmAddr.value.length > 9
+        })
+
+        const access = () => {
+            try {
+                ethers.utils.getAddress(evmAddr.value)
+            } catch (e) {
+                error.value = ' Invalid evm address'
+                return
+            }
+
+            try {
+                // Not using real xpub for EVM, instead getting C balance
+                // directly from network
+                const walletInstance = new PublicMnemonicWallet(xpubXP.value, xpubXP.value)
+                router.push({
+                    name: 'wallet_readonly',
+                    params: {
+                        //@ts-ignore
+                        wallet: walletInstance,
+                        evmAddress: evmAddr.value,
+                    },
+                })
+            } catch (e) {
+                error.value = 'Invalid XPUB key.'
+            }
+        }
+
+        return {
+            xpubXP,
+            evmAddr,
+            xpubC,
+            isLoading,
+            error,
+            wallet,
+            canSubmit,
+            access
+        }
+    }
 })
-export default class Xpub extends Vue {
-    xpubXP = ''
-    evmAddr = ''
-    xpubC = ''
-    isLoading = false
-    error = ''
-    wallet: PublicMnemonicWallet | null = null
-
-    get canSubmit() {
-        return this.xpubXP.length > 10 && this.evmAddr.length > 9
-    }
-
-    access() {
-        try {
-            ethers.utils.getAddress(this.evmAddr)
-        } catch (e) {
-            this.error = ' Invalid evm address'
-            return
-        }
-
-        try {
-            // Not using real xpub for EVM, instead getting C balance
-            // directly from network
-            const wallet = new PublicMnemonicWallet(this.xpubXP, this.xpubXP)
-            this.$router.push({
-                name: 'wallet_readonly',
-                params: {
-                    //@ts-ignore
-                    wallet: wallet,
-                    evmAddress: this.evmAddr,
-                },
-            })
-        } catch (e) {
-            this.error = 'Invalid XPUB key.'
-        }
-    }
-}
 </script>
 <style scoped lang="scss">
 @use '../../main';

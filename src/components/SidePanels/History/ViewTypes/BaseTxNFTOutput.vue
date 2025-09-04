@@ -13,7 +13,8 @@
     </div>
 </template>
 <script lang="ts">
-import { Vue, Component, Prop } from 'vue-property-decorator'
+import { defineComponent, computed, reactive, onMounted } from 'vue'
+import { useStore } from 'vuex'
 import { BaseTxAssetSummary, BaseTxNFTSummary } from '@/helpers/history_helper'
 import AvaAsset from '@/js/AvaAsset'
 import { bnToBig } from '@/helpers/helper'
@@ -25,45 +26,64 @@ interface GroupDict {
     [key: number]: UTXO[]
 }
 
-@Component({
-    components: { TxHistoryNftFamilyGroup },
+export default defineComponent({
+    name: 'BaseTxNFTOutput',
+    components: { 
+        TxHistoryNftFamilyGroup 
+    },
+    props: {
+        assetID: {
+            type: String,
+            required: true
+        },
+        summary: {
+            type: Array as () => UTXO[],
+            required: true
+        }
+    },
+    setup(props) {
+        const store = useStore()
+        
+        const groupDict = reactive<GroupDict>({})
+
+        const assetDetail = computed((): AvaAsset => {
+            return store.state.Assets.nftFamsDict[props.assetID]
+        })
+
+        onMounted(() => {
+            let newGroupDict: GroupDict = {}
+            props.summary.forEach((utxo) => {
+                let groupID = utxo.groupID
+
+                if (newGroupDict[groupID]) {
+                    newGroupDict[groupID].push(utxo)
+                } else {
+                    newGroupDict[groupID] = [utxo]
+                }
+            })
+            Object.assign(groupDict, newGroupDict)
+        })
+
+        const groups = computed((): number[] => {
+            let gNums: number[] = []
+
+            props.summary.forEach((utxo) => {
+                let groupID = utxo.groupID
+
+                if (!gNums.includes(groupID)) {
+                    gNums.push(groupID)
+                }
+            })
+            return gNums
+        })
+
+        return {
+            assetDetail,
+            groupDict,
+            groups
+        }
+    }
 })
-export default class BaseTxNFTOutput extends Vue {
-    @Prop() assetID!: string
-    @Prop() summary!: UTXO[]
-
-    get assetDetail(): AvaAsset {
-        return this.$store.state.Assets.nftFamsDict[this.assetID]
-    }
-
-    groupDict: GroupDict = {}
-    created() {
-        let groupDict: GroupDict = {}
-        this.summary.forEach((utxo) => {
-            let groupID = utxo.groupID
-
-            if (groupDict[groupID]) {
-                groupDict[groupID].push(utxo)
-            } else {
-                groupDict[groupID] = [utxo]
-            }
-        })
-        this.groupDict = groupDict
-    }
-
-    get groups(): number[] {
-        let gNums: number[] = []
-
-        this.summary.forEach((utxo) => {
-            let groupID = utxo.groupID
-
-            if (!gNums.includes(groupID)) {
-                gNums.push(groupID)
-            }
-        })
-        return gNums
-    }
-}
 </script>
 <style scoped lang="scss">
 .amount {

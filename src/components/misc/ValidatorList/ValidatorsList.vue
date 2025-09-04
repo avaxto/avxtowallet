@@ -49,73 +49,89 @@
     </div>
 </template>
 <script lang="ts">
-import 'reflect-metadata'
-import { Vue, Component, Prop } from 'vue-property-decorator'
-import { ava, pChain } from '@/AVA'
-import { BN } from 'avalanche'
+import { defineComponent, ref, computed } from 'vue'
+import { useStore } from 'vuex'
 
 import ValidatorRow from '@/components/misc/ValidatorList/ValidatorRow.vue'
 import FilterSettings from '@/components/misc/ValidatorList/FilterSettings.vue'
-import { ValidatorRaw, ValidatorDict } from '@/components/misc/ValidatorList/types'
 import Tooltip from '@/components/misc/Tooltip.vue'
 import { ValidatorListItem } from '@/store/modules/platform/types'
 import { ValidatorListFilter } from '@/components/wallet/earn/Delegate/types'
 import { filterValidatorList } from '@/components/wallet/earn/Delegate/helper'
 
-@Component({
+export default defineComponent({
+    name: 'ValidatorsList',
     components: { Tooltip, ValidatorRow, FilterSettings },
-})
-export default class ValidatorsList extends Vue {
-    @Prop() search!: string
-    showFilter = false
-    filter: ValidatorListFilter | null = null
+    props: {
+        search: {
+            type: String,
+            required: true
+        }
+    },
+    emits: ['select'],
+    setup(props, { emit }) {
+        const store = useStore()
+        const showFilter = ref(false)
+        const filter = ref<ValidatorListFilter | null>(null)
 
-    openFilters() {
-        this.showFilter = true
-    }
-
-    hideFilters() {
-        this.showFilter = false
-    }
-
-    applyFilter(filter: ValidatorListFilter | null) {
-        this.filter = filter
-    }
-
-    get validators(): ValidatorListItem[] {
-        let list: ValidatorListItem[] = this.$store.getters['Platform/validatorListEarn']
-
-        if (this.search) {
-            list = list.filter((v) => {
-                return v.nodeID.includes(this.search)
-            })
+        const openFilters = () => {
+            showFilter.value = true
         }
 
-        // order by stake amount
-        list = list.sort((a, b) => {
-            let amtA = a.validatorStake
-            let amtB = b.validatorStake
+        const hideFilters = () => {
+            showFilter.value = false
+        }
 
-            if (amtA.gt(amtB)) {
-                return -1
-            } else if (amtA.lt(amtB)) {
-                return 1
-            } else {
-                return 0
+        const applyFilter = (newFilter: ValidatorListFilter | null) => {
+            filter.value = newFilter
+        }
+
+        const validators = computed((): ValidatorListItem[] => {
+            let list: ValidatorListItem[] = store.getters['Platform/validatorListEarn']
+
+            if (props.search) {
+                list = list.filter((v) => {
+                    return v.nodeID.includes(props.search)
+                })
             }
+
+            // order by stake amount
+            list = list.sort((a, b) => {
+                const amtA = a.validatorStake
+                const amtB = b.validatorStake
+
+                if (amtA.gt(amtB)) {
+                    return -1
+                } else if (amtA.lt(amtB)) {
+                    return 1
+                } else {
+                    return 0
+                }
+            })
+
+            return list
         })
 
-        return list
-    }
+        const validatorsFiltered = computed((): ValidatorListItem[] => {
+            return filterValidatorList(validators.value, filter.value)
+        })
 
-    get validatorsFiltered(): ValidatorListItem[] {
-        return filterValidatorList(this.validators, this.filter)
-    }
+        const onselect = (val: ValidatorListItem) => {
+            emit('select', val)
+        }
 
-    onselect(val: ValidatorListItem) {
-        this.$emit('select', val)
+        return {
+            showFilter,
+            filter,
+            openFilters,
+            hideFilters,
+            applyFilter,
+            validators,
+            validatorsFiltered,
+            onselect
+        }
     }
-}
+})
 </script>
 <style scoped lang="scss">
 .validator_list {

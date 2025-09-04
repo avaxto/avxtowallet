@@ -55,152 +55,170 @@
 </template>
 <script lang="ts">
 import 'reflect-metadata'
-import { Vue, Component, Prop } from 'vue-property-decorator'
+import { defineComponent, ref } from 'vue'
 
 import { AvaNetwork } from '@/js/AvaNetwork'
 import axios from 'axios'
 import punycode from 'punycode'
 
-@Component
-export default class CustomPage extends Vue {
-    name = 'My Custom Network'
-    url = ''
-    explorer_api = ''
-    explorer_site = ''
-    err: null | string = null
-    err_url = ''
-    isAjax = false
+export default defineComponent({
+    name: 'CustomPage',
+    emits: ['add'],
+    setup(props, { emit }) {
+        const name = ref<string>('My Custom Network')
+        const url = ref<string>('')
+        const explorer_api = ref<string>('')
+        const explorer_site = ref<string>('')
+        const err = ref<null | string>(null)
+        const err_url = ref<string>('')
+        const isAjax = ref<boolean>(false)
 
-    cleanExplorerUrl() {
-        let url = this.explorer_api
-        url = punycode.toASCII(url)
-        this.explorer_api = url
-    }
-
-    cleanExplorerSite() {
-        let url = this.explorer_site
-        url = punycode.toASCII(url)
-        this.explorer_site = url
-    }
-
-    checkUrl() {
-        let err = ''
-        let url = this.url
-        // protect against homograph attack: https://hethical.io/homograph-attack-using-internationalized-domain-name/
-
-        url = punycode.toASCII(url)
-        this.url = url
-
-        // must contain http / https prefix
-        if (url.substr(0, 7) !== 'http://' && url.substr(0, 8) !== 'https://') {
-            this.err_url = 'URLs require the appropriate HTTP/HTTPS prefix.'
-            return false
+        const cleanExplorerUrl = () => {
+            let urlVal = explorer_api.value
+            urlVal = punycode.toASCII(urlVal)
+            explorer_api.value = urlVal
         }
 
-        let split = url.split('://')
-        let rest = split[1]
-
-        // must have base ip
-        if (rest.length === 0) {
-            this.err_url = 'Invalid URL.'
-            return false
+        const cleanExplorerSite = () => {
+            let urlVal = explorer_site.value
+            urlVal = punycode.toASCII(urlVal)
+            explorer_site.value = urlVal
         }
 
-        // Must have port
-        if (!rest.includes(':')) {
-            this.err_url = 'You must specify the port of the url.'
-            return false
+        const checkUrl = () => {
+            let urlVal = url.value
+            // protect against homograph attack: https://hethical.io/homograph-attack-using-internationalized-domain-name/
+
+            urlVal = punycode.toASCII(urlVal)
+            url.value = urlVal
+
+            // must contain http / https prefix
+            if (urlVal.substr(0, 7) !== 'http://' && urlVal.substr(0, 8) !== 'https://') {
+                err_url.value = 'URLs require the appropriate HTTP/HTTPS prefix.'
+                return false
+            }
+
+            let split = urlVal.split('://')
+            let rest = split[1]
+
+            // must have base ip
+            if (rest.length === 0) {
+                err_url.value = 'Invalid URL.'
+                return false
+            }
+
+            // Must have port
+            if (!rest.includes(':')) {
+                err_url.value = 'You must specify the port of the url.'
+                return false
+            }
+
+            // Port must be number
+            let urlSplit = rest.split(':')
+            if (urlSplit.length === 0) {
+                err_url.value = 'Invalid port.'
+                return false
+            }
+
+            let port = parseInt(urlSplit[1])
+
+            if (isNaN(port)) {
+                err_url.value = 'Invalid port.'
+                return false
+            }
+
+            err_url.value = ''
+            return true
         }
 
-        // Port must be number
-        let urlSplit = rest.split(':')
-        if (urlSplit.length === 0) {
-            this.err_url = 'Invalid port.'
-            return false
+        const errCheck = () => {
+            let error = null
+
+            // check for HTTP HTTPS on url
+            let urlVal = url.value
+
+            if (urlVal.substr(0, 7) !== 'http://' && urlVal.substr(0, 8) !== 'https://') {
+                error = 'URLs require the appropriate HTTP/HTTPS prefix.'
+            }
+
+            if (!name.value) error = 'You must give the network a name.'
+            else if (!url.value) error = 'You must set the URL.'
+
+            return error
         }
 
-        let port = parseInt(urlSplit[1])
-
-        if (isNaN(port)) {
-            this.err_url = 'Invalid port.'
-            return false
+        const tryConnection = async (credential = false): Promise<number | null> => {
+            try {
+                let resp = await axios.post(
+                    url.value + '/ext/info',
+                    {
+                        jsonrpc: '2.0',
+                        id: 1,
+                        method: 'info.getNetworkID',
+                    },
+                    {
+                        withCredentials: credential,
+                    }
+                )
+                return parseInt(resp.data.result.networkID)
+            } catch (error) {
+                return null
+            }
         }
 
-        this.err_url = ''
-        return true
-    }
-    errCheck() {
-        let err = null
+        const submit = async () => {
+            err.value = null
+            let error = errCheck()
 
-        // check for HTTP HTTPS on url
-        let url = this.url
+            if (error) {
+                err.value = error
+                return
+            }
 
-        if (url.substr(0, 7) !== 'http://' && url.substr(0, 8) !== 'https://') {
-            err = 'URLs require the appropriate HTTP/HTTPS prefix.'
-        }
+            isAjax.value = true
+            let credNum = await tryConnection(true)
+            let noCredNum = await tryConnection()
+            isAjax.value = false
 
-        if (!this.name) err = 'You must give the network a name.'
-        else if (!this.url) err = 'You must set the URL.'
+            let validNetId = credNum || noCredNum
 
-        return err
-    }
+            if (!validNetId) {
+                err.value = 'Avalanche Network Not Found'
+                return
+            }
 
-    async tryConnection(credential = false): Promise<number | null> {
-        try {
-            let resp = await axios.post(
-                this.url + '/ext/info',
-                {
-                    jsonrpc: '2.0',
-                    id: 1,
-                    method: 'info.getNetworkID',
-                },
-                {
-                    withCredentials: credential,
-                }
+            let net = new AvaNetwork(
+                name.value,
+                url.value,
+                validNetId,
+                explorer_api.value,
+                explorer_site.value
             )
-            return parseInt(resp.data.result.networkID)
-        } catch (err) {
-            return null
+
+            emit('add', net)
+
+            // Clear values
+            name.value = 'My Custom Network'
+            url.value = ''
+        }
+
+        return {
+            name,
+            url,
+            explorer_api,
+            explorer_site,
+            err,
+            err_url,
+            isAjax,
+            cleanExplorerUrl,
+            cleanExplorerSite,
+            checkUrl,
+            errCheck,
+            tryConnection,
+            submit
         }
     }
-    async submit() {
-        this.err = null
-        let err = this.errCheck()
-
-        if (err) {
-            this.err = err
-            return
-        }
-
-        // let netID = null
-
-        this.isAjax = true
-        let credNum = await this.tryConnection(true)
-        let noCredNum = await this.tryConnection()
-        this.isAjax = false
-
-        let validNetId = credNum || noCredNum
-
-        if (!validNetId) {
-            this.err = 'Avalanche Network Not Found'
-            return
-        }
-
-        let net = new AvaNetwork(
-            this.name,
-            this.url,
-            validNetId,
-            this.explorer_api,
-            this.explorer_site
-        )
-
-        this.$emit('add', net)
-
-        // Clear values
-        this.name = 'My Custom Network'
-        this.url = ''
-    }
-}
+})
 </script>
 <style scoped lang="scss">
 @use '../../main';

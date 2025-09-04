@@ -78,8 +78,8 @@
     </modal>
 </template>
 <script lang="ts">
-import 'reflect-metadata'
-import { Vue, Component, Prop, Watch } from 'vue-property-decorator'
+import { defineComponent, ref, computed, watch } from 'vue'
+import { useStore } from 'vuex'
 
 import Modal from '@/components/modals/Modal.vue'
 import { BlockchainId, Glacier, OperationStatus } from '@avalabs/glacier-sdk'
@@ -97,200 +97,236 @@ const TIMEOUT_SECONDS = 15
 
 type Timeframe = 'Last 3 Months' | 'Last 6 Months' | 'This Year' | 'Last Year' | 'All' | 'Custom'
 
-@Component({
+export default defineComponent({
+    name: 'ExportGlacierHistoryModal',
     components: {
         Modal,
         MultiSelect,
         Spinner,
         RadioButtons,
     },
-})
-export default class ExportGlacierHistoryModal extends Vue {
-    operationID: string | null = null
-    downloadURL: string | null = null
-    loading = false
-    error: Error | null = null
-    endDate: Date = new Date()
-    startDate: Date = new Date(this.endDate.getTime() - DAY)
+    setup() {
+        const store = useStore()
+        
+        const modal = ref<InstanceType<typeof Modal> | null>(null)
+        const operationID = ref<string | null>(null)
+        const downloadURL = ref<string | null>(null)
+        const loading = ref(false)
+        const error = ref<Error | null>(null)
+        const endDate = ref(new Date())
+        const startDate = ref(new Date(endDate.value.getTime() - DAY))
 
-    timeframeOptions: Timeframe[] = [
-        'Last 3 Months',
-        'Last 6 Months',
-        'This Year',
-        'Last Year',
-        'All',
-        'Custom',
-    ]
-    timeframe: Timeframe = 'Last 3 Months'
+        const timeframeOptions: Timeframe[] = [
+            'Last 3 Months',
+            'Last 6 Months',
+            'This Year',
+            'Last Year',
+            'All',
+            'Custom',
+        ]
+        const timeframe = ref<Timeframe>('Last 3 Months')
 
-    includeChains: BlockchainId[] = [
-        BlockchainId.X_CHAIN,
-        BlockchainId.P_CHAIN,
-        BlockchainId.C_CHAIN,
-    ]
+        const includeChains = ref<BlockchainId[]>([
+            BlockchainId.X_CHAIN,
+            BlockchainId.P_CHAIN,
+            BlockchainId.C_CHAIN,
+        ])
 
-    formEndISO: string = this.endDate.toISOString()
-    formStartISO: string = this.startDate.toISOString()
+        const formEndISO = ref(endDate.value.toISOString())
+        const formStartISO = ref(startDate.value.toISOString())
 
-    intervalPromise: Promise<void> | undefined
+        const intervalPromise = ref<Promise<void> | undefined>(undefined)
 
-    open(): void {
-        this.reset()
-        let modal = this.$refs.modal as Modal
-        modal.open()
-    }
-
-    async checkStatus(): Promise<boolean> {
-        if (!this.operationID || this.downloadURL) return true
-
-        const res = await glacier.operations.getOperationResult({ operationId: this.operationID })
-
-        if (res.operationStatus == OperationStatus.COMPLETED) {
-            this.downloadURL = res.metadata.downloadUrl || null
-            this.loading = false
-            return true
-        } else if (res.operationStatus == OperationStatus.FAILED) {
-            this.onError(new Error(res.message))
-            return true
-        } else if (res.operationStatus !== OperationStatus.RUNNING) {
-            this.loading = false
-            return true
+        const open = (): void => {
+            reset()
+            modal.value?.open()
         }
-        return false
-    }
 
-    onError(error: any) {
-        this.loading = false
-        this.error = error
-    }
+        const checkStatus = async (): Promise<boolean> => {
+            if (!operationID.value || downloadURL.value) return true
 
-    get initialSelection() {
-        return [BlockchainId.X_CHAIN, BlockchainId.P_CHAIN, BlockchainId.C_CHAIN]
-    }
+            const res = await glacier.operations.getOperationResult({ operationId: operationID.value })
 
-    get canSubmit() {
-        return this.includeChains.length
-        // return this.showDelegation || this.showValidation || this.showFees
-    }
-
-    get wallet() {
-        return this.$store.state.activeWallet
-    }
-
-    get startDateMax() {
-        return new Date(this.formEndDate.getTime() - DAY).toISOString()
-    }
-
-    get startDateMin() {
-        return new Date(1591236400).toISOString()
-    }
-
-    get endDateMax() {
-        return new Date().toISOString()
-    }
-
-    get endDateMin() {
-        return new Date(1591236400).toISOString()
-    }
-
-    get formStartDate() {
-        return new Date(this.formStartISO)
-    }
-
-    get formEndDate() {
-        return new Date(this.formEndISO)
-    }
-
-    @Watch('timeframe', { immediate: true })
-    onTimeframe(val: Timeframe) {
-        switch (val) {
-            case 'Last 3 Months':
-                this.formStartISO = this.last3Months.toISOString()
-                this.formEndISO = this.dateNow.toISOString()
-                break
-            case 'Last 6 Months':
-                this.formStartISO = this.last6Months.toISOString()
-                this.formEndISO = this.dateNow.toISOString()
-                break
-            case 'This Year':
-                this.formStartISO = this.thisYear.toISOString()
-                this.formEndISO = this.dateNow.toISOString()
-                break
-            case 'Last Year':
-                this.formStartISO = this.lastYear.toISOString()
-                this.formEndISO = this.thisYear.toISOString()
-                break
-            case 'All':
-                this.formStartISO = this.dateAll.toISOString()
-                this.formEndISO = this.dateNow.toISOString()
-                break
+            if (res.operationStatus == OperationStatus.COMPLETED) {
+                downloadURL.value = res.metadata.downloadUrl || null
+                loading.value = false
+                return true
+            } else if (res.operationStatus == OperationStatus.FAILED) {
+                onError(new Error(res.message))
+                return true
+            } else if (res.operationStatus !== OperationStatus.RUNNING) {
+                loading.value = false
+                return true
+            }
+            return false
         }
-    }
 
-    get dateNow() {
-        return new Date()
-    }
+        const onError = (err: any) => {
+            loading.value = false
+            error.value = err
+        }
 
-    get last3Months() {
-        const date = new Date(this.dateNow.getTime() - 3 * MONTH)
-        return date
-    }
-
-    get last6Months() {
-        const date = new Date(this.dateNow.getTime() - 6 * MONTH)
-        return date
-    }
-
-    get thisYear() {
-        const date = new Date(`${this.dateNow.getFullYear()}-01-01`)
-        return date
-    }
-
-    get lastYear() {
-        const date = new Date(`${this.thisYear.getFullYear() - 1}-01-01`)
-        return date
-    }
-
-    get dateAll() {
-        const date = new Date(`2020-09-01`)
-        return date
-    }
-
-    generateCSVData() {
-        const w = this.$store.state.activeWallet as WalletType
-        if (!w) return
-        const start = new Date('2023-01-01')
-        const end = new Date()
-        w.startTxExportJob(this.formStartDate, this.formEndDate, this.includeChains).then((res) => {
-            this.operationID = res.operationId
-            this.loading = true
-
-            this.intervalPromise = setTimeoutInterval(
-                this.checkStatus,
-                2000,
-                TIMEOUT_SECONDS * 1000
-            ).catch((e) => {
-                this.onError(e)
-            })
+        const initialSelection = computed(() => {
+            return [BlockchainId.X_CHAIN, BlockchainId.P_CHAIN, BlockchainId.C_CHAIN]
         })
-    }
 
-    submit() {
-        try {
-            this.error = null
-            this.generateCSVData()
-        } catch (e: any) {
-            this.error = e
+        const canSubmit = computed(() => {
+            return includeChains.value.length
+        })
+
+        const wallet = computed(() => {
+            return store.state.activeWallet
+        })
+
+        const formStartDate = computed(() => {
+            return new Date(formStartISO.value)
+        })
+
+        const formEndDate = computed(() => {
+            return new Date(formEndISO.value)
+        })
+
+        const startDateMax = computed(() => {
+            return new Date(formEndDate.value.getTime() - DAY).toISOString()
+        })
+
+        const startDateMin = computed(() => {
+            return new Date(1591236400).toISOString()
+        })
+
+        const endDateMax = computed(() => {
+            return new Date().toISOString()
+        })
+
+        const endDateMin = computed(() => {
+            return new Date(1591236400).toISOString()
+        })
+
+        const dateNow = computed(() => {
+            return new Date()
+        })
+
+        const last3Months = computed(() => {
+            const date = new Date(dateNow.value.getTime() - 3 * MONTH)
+            return date
+        })
+
+        const last6Months = computed(() => {
+            const date = new Date(dateNow.value.getTime() - 6 * MONTH)
+            return date
+        })
+
+        const thisYear = computed(() => {
+            const date = new Date(`${dateNow.value.getFullYear()}-01-01`)
+            return date
+        })
+
+        const lastYear = computed(() => {
+            const date = new Date(`${thisYear.value.getFullYear() - 1}-01-01`)
+            return date
+        })
+
+        const dateAll = computed(() => {
+            const date = new Date(`2020-09-01`)
+            return date
+        })
+
+        watch(timeframe, (val: Timeframe) => {
+            switch (val) {
+                case 'Last 3 Months':
+                    formStartISO.value = last3Months.value.toISOString()
+                    formEndISO.value = dateNow.value.toISOString()
+                    break
+                case 'Last 6 Months':
+                    formStartISO.value = last6Months.value.toISOString()
+                    formEndISO.value = dateNow.value.toISOString()
+                    break
+                case 'This Year':
+                    formStartISO.value = thisYear.value.toISOString()
+                    formEndISO.value = dateNow.value.toISOString()
+                    break
+                case 'Last Year':
+                    formStartISO.value = lastYear.value.toISOString()
+                    formEndISO.value = thisYear.value.toISOString()
+                    break
+                case 'All':
+                    formStartISO.value = dateAll.value.toISOString()
+                    formEndISO.value = dateNow.value.toISOString()
+                    break
+            }
+        }, { immediate: true })
+
+        const generateCSVData = () => {
+            const w = store.state.activeWallet as WalletType
+            if (!w) return
+            w.startTxExportJob(formStartDate.value, formEndDate.value, includeChains.value).then((res) => {
+                operationID.value = res.operationId
+                loading.value = true
+
+                intervalPromise.value = setTimeoutInterval(
+                    checkStatus,
+                    2000,
+                    TIMEOUT_SECONDS * 1000
+                ).catch((e) => {
+                    onError(e)
+                })
+            })
+        }
+
+        const submit = () => {
+            try {
+                error.value = null
+                generateCSVData()
+            } catch (e: any) {
+                error.value = e
+            }
+        }
+
+        const reset = () => {
+            error.value = null
+            operationID.value = null
+            downloadURL.value = null
+            loading.value = false
+        }
+
+        return {
+            modal,
+            operationID,
+            downloadURL,
+            loading,
+            error,
+            endDate,
+            startDate,
+            timeframeOptions,
+            timeframe,
+            includeChains,
+            formEndISO,
+            formStartISO,
+            intervalPromise,
+            open,
+            checkStatus,
+            onError,
+            initialSelection,
+            canSubmit,
+            wallet,
+            formStartDate,
+            formEndDate,
+            startDateMax,
+            startDateMin,
+            endDateMax,
+            endDateMin,
+            dateNow,
+            last3Months,
+            last6Months,
+            thisYear,
+            lastYear,
+            dateAll,
+            generateCSVData,
+            submit,
+            reset
         }
     }
-
-    reset() {
-        this.error = null
-        this.operationID = null
-        this.downloadURL = null
-        this.loading = false
-    }
-}
+})
 </script>
 <style scoped lang="scss">
 .csv_modal_body {

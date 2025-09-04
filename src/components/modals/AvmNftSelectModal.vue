@@ -1,5 +1,5 @@
 <template>
-    <Modal ref="modal" title="Select a Collectible">
+    <Modal ref="modalRef" title="Select a Collectible">
         <div class="nft_sel_body">
             <div class="list">
                 <CollectibleFamily
@@ -14,45 +14,67 @@
     </Modal>
 </template>
 <script lang="ts">
-import { Vue, Component, Prop } from 'vue-property-decorator'
+import { defineComponent, ref, computed } from 'vue'
+import { useStore } from 'vuex'
 import Modal from '@/components/modals/Modal.vue'
 import { UTXO } from 'avalanche/dist/apis/avm'
 import { NftFamilyDict } from '@/store/modules/assets/types'
 import CollectibleFamily from '@/components/misc/BalancePopup/CollectibleFamily.vue'
-@Component({
-    components: { CollectibleFamily, Modal },
-})
-export default class AvmNftSelectModal extends Vue {
-    $refs!: {
-        modal: Modal
-    }
-    @Prop({ default: [] }) disabledIds!: string[]
 
-    open() {
-        this.$refs.modal.open()
-    }
-    close() {
-        this.$refs.modal.close()
-    }
-
-    select(nft: UTXO) {
-        this.$emit('select', nft)
-        this.close()
-    }
-
-    get isEmpty(): boolean {
-        // return this.$store.getters.walletNftUTXOs.length === 0
-        return this.$store.state.Assets.nftUTXOs.length === 0
-    }
-
-    get nftFamsDict(): NftFamilyDict {
-        return this.$store.state.Assets.nftFamsDict
-    }
-
-    isNftUsed(utxo: UTXO) {
-        return this.disabledIds.includes(utxo.getUTXOID())
-    }
+interface Props {
+    disabledIds: string[]
 }
+
+export default defineComponent({
+    name: 'AvmNftSelectModal',
+    components: { CollectibleFamily, Modal },
+    props: {
+        disabledIds: {
+            type: Array as () => string[],
+            default: () => []
+        }
+    },
+    emits: ['select'],
+    setup(props: Props, { emit }) {
+        const store = useStore()
+        const modalRef = ref<InstanceType<typeof Modal>>()
+
+        const isEmpty = computed((): boolean => {
+            return store.state.Assets.nftUTXOs.length === 0
+        })
+
+        const nftFamsDict = computed((): NftFamilyDict => {
+            return store.state.Assets.nftFamsDict
+        })
+
+        const open = () => {
+            modalRef.value?.open()
+        }
+
+        const close = () => {
+            modalRef.value?.close()
+        }
+
+        const select = (nft: UTXO) => {
+            emit('select', nft)
+            close()
+        }
+
+        const isNftUsed = (utxo: UTXO) => {
+            return props.disabledIds.includes(utxo.getUTXOID())
+        }
+
+        return {
+            modalRef,
+            isEmpty,
+            nftFamsDict,
+            open,
+            close,
+            select,
+            isNftUsed
+        }
+    }
+})
 </script>
 <style scoped lang="scss">
 @use '../../main';

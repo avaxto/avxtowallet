@@ -1,43 +1,60 @@
 <template>
-    <div class="utf_payload_view" @mouseenter="mouseEnter" @mouseleave="mouseLeave" ref="view">
+    <div class="utf_payload_view" @mouseenter="mouseEnter" @mouseleave="mouseLeave" ref="viewRef">
         <p class="icon"><fa icon="font"></fa></p>
-        <p class="hover_text" v-show="isText" ref="text">{{ text }}</p>
+        <p class="hover_text" v-show="isText" ref="textRef">{{ text }}</p>
     </div>
 </template>
 <script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator'
+import { defineComponent, ref, computed, type PropType } from 'vue'
 import { UTF8Payload } from 'avalanche/dist/utils'
 
-@Component
-export default class UtfPayloadView extends Vue {
-    @Prop() payload!: UTF8Payload
-    isText = false
+export default defineComponent({
+    name: 'UtfPayloadView',
+    props: {
+        payload: {
+            type: Object as PropType<UTF8Payload>,
+            required: true
+        }
+    },
+    setup(props) {
+        const isText = ref(false)
+        const textRef = ref<HTMLElement>()
+        const viewRef = ref<HTMLElement>()
 
-    $refs!: {
-        text: HTMLElement
-        view: HTMLElement
-    }
-    mouseEnter() {
-        this.showText()
-    }
+        const text = computed(() => {
+            return props.payload.getContent()
+        })
 
-    mouseLeave() {
-        this.isText = false
-    }
+        const mouseEnter = () => {
+            showText()
+        }
 
-    showText() {
-        let pos: HTMLElement = this.$refs.view
-        let rect = pos.getBoundingClientRect()
+        const mouseLeave = () => {
+            isText.value = false
+        }
 
-        this.$refs.text.style.top = rect.y + rect.height + 'px'
-        this.$refs.text.style.left = rect.x + 'px'
-        this.isText = true
-    }
+        const showText = () => {
+            if (!viewRef.value || !textRef.value) return
+            
+            let pos: HTMLElement = viewRef.value
+            let rect = pos.getBoundingClientRect()
 
-    get text() {
-        return this.payload.getContent()
+            textRef.value.style.top = rect.y + rect.height + 'px'
+            textRef.value.style.left = rect.x + 'px'
+            isText.value = true
+        }
+
+        return {
+            isText,
+            text,
+            textRef,
+            viewRef,
+            mouseEnter,
+            mouseLeave,
+            showText
+        }
     }
-}
+})
 </script>
 <style scoped lang="scss">
 .utf_payload_view {

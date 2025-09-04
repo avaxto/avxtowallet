@@ -14,37 +14,60 @@
     </div>
 </template>
 <script lang="ts">
-import { Vue, Component, Prop } from 'vue-property-decorator'
+import { defineComponent, computed } from 'vue'
 import { AvaNftFamily } from '@/js/AvaNftFamily'
 import { UTXO } from 'avalanche/dist/apis/avm'
 import { getPayloadFromUTXO } from '@/helpers/helper'
 import NftPayloadView from '@/components/misc/NftPayloadView/NftPayloadView.vue'
-@Component({
+
+interface Props {
+    utxos: UTXO[]
+    spread: boolean
+    max: number
+}
+
+export default defineComponent({
+    name: 'NftFamilyCardsPreview',
     components: {
         NftPayloadView,
     },
-})
-export default class NftFamilyCardsPreview extends Vue {
-    @Prop() utxos!: UTXO[]
-    @Prop({ default: false }) spread!: boolean
-    @Prop() max!: number
+    props: {
+        utxos: {
+            type: Array as () => UTXO[],
+            required: true
+        },
+        spread: {
+            type: Boolean,
+            default: false
+        },
+        max: {
+            type: Number,
+            required: true
+        }
+    },
+    setup(props: Props) {
+        const payloads = computed(() => {
+            return props.utxos.map((utxo) => {
+                return getPayloadFromUTXO(utxo)
+            })
+        })
 
-    get rotateDeg() {
-        if (!this.spread) {
-            return 5
-        } else {
-            let len = this.payloads.length
-            let maxLen = this.max
-            return 25 * ((maxLen - len) / maxLen) + 5
+        const rotateDeg = computed(() => {
+            if (!props.spread) {
+                return 5
+            } else {
+                let len = payloads.value.length
+                let maxLen = props.max
+                return 25 * ((maxLen - len) / maxLen) + 5
+            }
+        })
+
+        return {
+            payloads,
+            rotateDeg
         }
     }
-
-    get payloads() {
-        return this.utxos.map((utxo) => {
-            return getPayloadFromUTXO(utxo)
-        })
-    }
-}
+})
 </script>
 <style scoped lang="scss">
 .previews {

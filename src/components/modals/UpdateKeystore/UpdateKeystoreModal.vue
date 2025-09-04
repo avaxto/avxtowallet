@@ -7,7 +7,7 @@
                 @success="success"
                 :is-desc="false"
                 class="export_wallet"
-                ref="export"
+                ref="exportRef"
                 :wallets="allWallets"
             ></ExportWallet>
             <v-btn v-else class="ava_button button_primary" @click="logout">
@@ -17,53 +17,68 @@
     </modal>
 </template>
 <script lang="ts">
-import 'reflect-metadata'
-import { Vue, Component, Prop } from 'vue-property-decorator'
+import { defineComponent, ref, computed, onMounted } from 'vue'
+import { useStore } from 'vuex'
+import { useI18n } from 'vue-i18n'
 
 import Modal from '@/components/modals/Modal.vue'
 import CopyText from '@/components/misc/CopyText.vue'
 import ExportWallet from '@/components/wallet/manage/ExportWallet.vue'
 import MnemonicWallet from '@/js/wallets/MnemonicWallet'
 
-@Component({
+export default defineComponent({
+    name: 'UpdateKeystoreModal',
     components: {
         Modal,
         CopyText,
         ExportWallet,
     },
+    props: {
+        phrase: {
+            type: String,
+            default: ''
+        }
+    },
+    setup() {
+        const store = useStore()
+        const { t } = useI18n()
+        
+        const modal = ref<InstanceType<typeof Modal> | null>(null)
+        const exportRef = ref<InstanceType<typeof ExportWallet> | null>(null)
+        const isSuccess = ref(false)
+
+        const open = (): void => {
+            modal.value?.open()
+        }
+
+        const success = () => {
+            exportRef.value?.clear()
+            isSuccess.value = true
+        }
+
+        const logout = () => {
+            store.dispatch('logout')
+        }
+
+        const allWallets = computed((): MnemonicWallet[] => {
+            return store.state.wallets
+        })
+
+        onMounted(() => {
+            open()
+        })
+
+        return {
+            modal,
+            exportRef,
+            isSuccess,
+            open,
+            success,
+            logout,
+            allWallets
+        }
+    }
 })
-export default class MnemonicPhrase extends Vue {
-    isSuccess: boolean = false
-
-    $refs!: {
-        export: ExportWallet
-        modal: Modal
-    }
-
-    @Prop({ default: '' }) phrase!: string
-
-    open(): void {
-        let modal = this.$refs.modal as Modal
-        modal.open()
-    }
-
-    mounted() {
-        this.open()
-    }
-
-    success() {
-        this.$refs.export.clear()
-        this.isSuccess = true
-    }
-
-    logout() {
-        this.$store.dispatch('logout')
-    }
-
-    get allWallets(): MnemonicWallet[] {
-        return this.$store.state.wallets
-    }
-}
 </script>
 <style scoped lang="scss">
 .update_keystore_modal_body {

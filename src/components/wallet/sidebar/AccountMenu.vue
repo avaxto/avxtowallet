@@ -5,10 +5,10 @@
                 <Identicon :value="account.baseAddresses.join('')" diameter="18"></Identicon>
                 <p>{{ account.name }}</p>
             </button>
-            <AccountSettingsModal ref="settings_modal"></AccountSettingsModal>
+            <AccountSettingsModal ref="settingsModal"></AccountSettingsModal>
         </template>
         <template v-else>
-            <SaveAccountModal ref="save_modal"></SaveAccountModal>
+            <SaveAccountModal ref="saveModal"></SaveAccountModal>
             <button class="save_account" @click="save">
                 <fa icon="exclamation-triangle" class="volatile_alert"></fa>
                 Save Account
@@ -17,48 +17,60 @@
     </div>
 </template>
 <script lang="ts">
-import { Vue, Component } from 'vue-property-decorator'
+import { defineComponent, ref, computed } from 'vue'
+import { useStore } from 'vuex'
+
 import { iUserAccountEncrypted } from '@/store/types'
 import Identicon from '@/components/misc/Identicon.vue'
 import SaveAccountModal from '@/components/modals/SaveAccount/SaveAccountModal.vue'
 import AccountSettingsModal from '@/components/modals/AccountSettings/AccountSettingsModal.vue'
 import { WalletType } from '@/js/wallets/types'
 
-@Component({
+export default defineComponent({
+    name: 'AccountMenu',
     components: {
         AccountSettingsModal,
         SaveAccountModal,
         Identicon,
     },
+    setup() {
+        const store = useStore()
+        const saveModal = ref<InstanceType<typeof SaveAccountModal>>()
+        const settingsModal = ref<InstanceType<typeof AccountSettingsModal>>()
+
+        const account = computed((): iUserAccountEncrypted | null => {
+            return store.getters['Accounts/account']
+        })
+
+        const wallet = computed((): WalletType | null => {
+            return store.state.activeWallet
+        })
+
+        const isLedger = computed(() => {
+            let w = wallet.value
+            if (!w) return false
+            return w.type === 'ledger'
+        })
+
+        const openSettings = () => {
+            settingsModal.value?.open()
+        }
+
+        const save = () => {
+            saveModal.value?.open()
+        }
+
+        return {
+            account,
+            wallet,
+            isLedger,
+            saveModal,
+            settingsModal,
+            openSettings,
+            save
+        }
+    }
 })
-export default class AccountMenu extends Vue {
-    $refs!: {
-        save_modal: SaveAccountModal
-        settings_modal: AccountSettingsModal
-    }
-
-    get account(): iUserAccountEncrypted | null {
-        return this.$store.getters['Accounts/account']
-    }
-
-    get wallet(): WalletType | null {
-        return this.$store.state.activeWallet
-    }
-
-    get isLedger() {
-        let w = this.wallet
-        if (!w) return false
-        return w.type === 'ledger'
-    }
-
-    openSettings() {
-        this.$refs.settings_modal.open()
-    }
-
-    save() {
-        this.$refs.save_modal.open()
-    }
-}
 </script>
 <style scoped lang="scss">
 .account_but {

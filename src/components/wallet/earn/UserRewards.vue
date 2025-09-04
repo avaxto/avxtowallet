@@ -32,7 +32,8 @@
 </template>
 <script lang="ts">
 import 'reflect-metadata'
-import { Vue, Component, Prop } from 'vue-property-decorator'
+import { defineComponent, ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { useStore } from 'vuex'
 import { AvaWalletCore } from '../../../js/wallets/types'
 import UserRewardRow from '@/components/wallet/earn/UserRewardRow.vue'
 import { bnToBig } from '@/helpers/helper'
@@ -40,62 +41,76 @@ import Big from 'big.js'
 import { BN } from 'avalanche'
 import { EarnState } from '@/store/modules/earn/types'
 
-@Component({
+export default defineComponent({
+    name: 'UserRewards',
     components: {
         UserRewardRow,
     },
+    setup() {
+        const store = useStore()
+        
+        const updateInterval = ref<ReturnType<typeof setInterval> | undefined>(undefined)
+
+        const userAddresses = computed(() => {
+            let wallet: AvaWalletCore = store.state.activeWallet
+            if (!wallet) return []
+
+            return wallet.getAllAddressesP()
+        })
+
+        const stakingTxs = computed(() => {
+            return store.state.Earn.stakingTxs as EarnState['stakingTxs']
+        })
+
+        const validatorTxs = computed(() => {
+            return stakingTxs.value.filter((tx) => tx.txType === 'AddValidatorTx')
+        })
+
+        const delegatorTxs = computed(() => {
+            return stakingTxs.value.filter((tx) => tx.txType === 'AddDelegatorTx')
+        })
+
+        const totLength = computed(() => {
+            return validatorTxs.value.length + delegatorTxs.value.length
+        })
+
+        const totalReward = computed(() => {
+            let tot = stakingTxs.value.reduce((acc, val) => {
+                return acc.add(new BN(val.estimatedReward ?? 0))
+            }, new BN(0))
+            return tot
+        })
+
+        const totalRewardBig = computed((): Big => {
+            return bnToBig(totalReward.value, 9)
+        })
+
+        onMounted(() => {
+            store.dispatch('Earn/refreshRewards')
+
+            // Update every 5 minutes
+            updateInterval.value = setInterval(() => {
+                store.dispatch('Earn/refreshRewards')
+            }, 5 * 60 * 1000)
+        })
+
+        onBeforeUnmount(() => {
+            // Clear interval if exists
+            updateInterval.value && clearInterval(updateInterval.value)
+        })
+
+        return {
+            updateInterval,
+            userAddresses,
+            stakingTxs,
+            validatorTxs,
+            delegatorTxs,
+            totLength,
+            totalReward,
+            totalRewardBig
+        }
+    }
 })
-export default class UserRewards extends Vue {
-    updateInterval: ReturnType<typeof setInterval> | undefined = undefined
-
-    get userAddresses() {
-        let wallet: AvaWalletCore = this.$store.state.activeWallet
-        if (!wallet) return []
-
-        return wallet.getAllAddressesP()
-    }
-
-    created() {
-        this.$store.dispatch('Earn/refreshRewards')
-
-        // Update every 5 minutes
-        this.updateInterval = setInterval(() => {
-            this.$store.dispatch('Earn/refreshRewards')
-        }, 5 * 60 * 1000)
-    }
-
-    destroyed() {
-        // Clear interval if exists
-        this.updateInterval && clearInterval(this.updateInterval)
-    }
-
-    get stakingTxs() {
-        return this.$store.state.Earn.stakingTxs as EarnState['stakingTxs']
-    }
-
-    get validatorTxs() {
-        return this.stakingTxs.filter((tx) => tx.txType === 'AddValidatorTx')
-    }
-
-    get delegatorTxs() {
-        return this.stakingTxs.filter((tx) => tx.txType === 'AddDelegatorTx')
-    }
-
-    get totLength() {
-        return this.validatorTxs.length + this.delegatorTxs.length
-    }
-
-    get totalReward() {
-        let tot = this.stakingTxs.reduce((acc, val) => {
-            return acc.add(new BN(val.estimatedReward ?? 0))
-        }, new BN(0))
-        return tot
-    }
-
-    get totalRewardBig(): Big {
-        return bnToBig(this.totalReward, 9)
-    }
-}
 </script>
 <style scoped lang="scss">
 .user_rewards {

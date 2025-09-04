@@ -11,19 +11,40 @@
     </div>
 </template>
 <script lang="ts">
-import { Vue, Component, Model, Prop } from 'vue-property-decorator'
+import { defineComponent } from 'vue'
+import { useStore } from 'vuex'
 
-@Component
-export default class NftPayloadAllow extends Vue {
-    @Prop({}) nftID!: string
-    @Prop({ default: false }) isSmall!: boolean
-    @Model('change', { type: Boolean }) readonly isShow!: boolean
+export default defineComponent({
+    name: 'NftPayloadAllow',
+    props: {
+        nftID: {
+            type: String,
+            required: true
+        },
+        isSmall: {
+            type: Boolean,
+            default: false
+        },
+        modelValue: {
+            type: Boolean,
+            required: true
+        }
+    },
+    emits: ['update:modelValue', 'change'],
+    setup(props, { emit }) {
+        const store = useStore()
 
-    show() {
-        this.$store.commit('Assets/whitelistNFT', this.nftID)
-        this.$emit('change', true)
+        const show = () => {
+            store.commit('Assets/whitelistNFT', props.nftID)
+            emit('update:modelValue', true)
+            emit('change', true)
+        }
+
+        return {
+            show
+        }
     }
-}
+})
 </script>
 <style scoped lang="scss">
 .nft_allow {

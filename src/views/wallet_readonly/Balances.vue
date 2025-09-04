@@ -55,7 +55,7 @@
     </div>
 </template>
 <script lang="ts">
-import { Vue, Component, Prop } from 'vue-property-decorator'
+import { defineComponent, computed, type PropType } from 'vue'
 import {
     bnToAvaxX,
     bnToAvaxP,
@@ -67,67 +67,90 @@ import {
     bnToBigAvaxC,
 } from '@avalabs/avalanche-wallet-sdk'
 
-@Component
-export default class Balances extends Vue {
-    @Prop() balances!: iAvaxBalance
-    @Prop() stakeAmt!: BN
-
-    get isReady() {
-        return this.balances && this.stakeAmt
-    }
-
-    get xUnlocked() {
-        return bnToAvaxX(this.balances.X.unlocked)
-    }
-
-    get xLocked() {
-        return bnToAvaxX(this.balances.X.locked)
-    }
-
-    get xMultisig() {
-        return bnToAvaxX(this.balances.X.multisig)
-    }
-
-    get pUnlocked() {
-        return bnToAvaxX(this.balances.P.unlocked)
-    }
-
-    get pLocked() {
-        return bnToAvaxX(this.balances.P.locked)
-    }
-
-    get pMultisig() {
-        return bnToAvaxX(this.balances.P.multisig)
-    }
-
-    get pLockedStake() {
-        return bnToAvaxX(this.balances.P.lockedStakeable)
-    }
-
-    get stake() {
-        return bnToAvaxP(this.stakeAmt)
-    }
-
-    get cUnlocked() {
-        return bnToAvaxC(this.balances.C)
-    }
-
-    get totalBalance() {
-        if (!this.balances || !this.stakeAmt) {
-            return Big(0)
+export default defineComponent({
+    name: 'Balances',
+    props: {
+        balances: {
+            type: Object as PropType<iAvaxBalance>,
+            required: true
+        },
+        stakeAmt: {
+            type: Object as PropType<BN>,
+            required: true
         }
+    },
+    setup(props) {
+        const isReady = computed(() => {
+            return props.balances && props.stakeAmt
+        })
 
-        return bnToBigAvaxX(
-            this.balances.X.unlocked
-                .add(this.balances.X.locked)
-                .add(this.balances.X.multisig)
-                .add(this.balances.P.unlocked)
-                .add(this.balances.P.locked)
-                .add(this.balances.P.lockedStakeable)
-                .add(this.balances.P.multisig.add(this.stakeAmt))
-        ).add(bnToBigAvaxC(this.balances.C))
+        const xUnlocked = computed(() => {
+            return bnToAvaxX(props.balances.X.unlocked)
+        })
+
+        const xLocked = computed(() => {
+            return bnToAvaxX(props.balances.X.locked)
+        })
+
+        const xMultisig = computed(() => {
+            return bnToAvaxX(props.balances.X.multisig)
+        })
+
+        const pUnlocked = computed(() => {
+            return bnToAvaxX(props.balances.P.unlocked)
+        })
+
+        const pLocked = computed(() => {
+            return bnToAvaxX(props.balances.P.locked)
+        })
+
+        const pMultisig = computed(() => {
+            return bnToAvaxX(props.balances.P.multisig)
+        })
+
+        const pLockedStake = computed(() => {
+            return bnToAvaxX(props.balances.P.lockedStakeable)
+        })
+
+        const stake = computed(() => {
+            return bnToAvaxP(props.stakeAmt)
+        })
+
+        const cUnlocked = computed(() => {
+            return bnToAvaxC(props.balances.C)
+        })
+
+        const totalBalance = computed(() => {
+            if (!props.balances || !props.stakeAmt) {
+                return Big(0)
+            }
+
+            return bnToBigAvaxX(
+                props.balances.X.unlocked
+                    .add(props.balances.X.locked)
+                    .add(props.balances.X.multisig)
+                    .add(props.balances.P.unlocked)
+                    .add(props.balances.P.locked)
+                    .add(props.balances.P.lockedStakeable)
+                    .add(props.balances.P.multisig.add(props.stakeAmt))
+            ).add(bnToBigAvaxC(props.balances.C))
+        })
+
+        return {
+            isReady,
+            xUnlocked,
+            xLocked,
+            xMultisig,
+            pUnlocked,
+            pLocked,
+            pMultisig,
+            pLockedStake,
+            stake,
+            cUnlocked,
+            totalBalance
+        }
     }
-}
+})
 </script>
 <style scoped lang="scss">
 label {

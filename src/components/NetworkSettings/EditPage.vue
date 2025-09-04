@@ -47,235 +47,161 @@
 </template>
 <script lang="ts">
 import 'reflect-metadata'
-import { Vue, Component, Prop } from 'vue-property-decorator'
+import { defineComponent, ref, onMounted } from 'vue'
+import { useStore } from 'vuex'
 
 import { AvaNetwork } from '@/js/AvaNetwork'
 import punycode from 'punycode'
 
-@Component
-export default class EditPage extends Vue {
-    name = 'My Custom Network'
-    url = ''
-    networkId = 12345
-    explorer_api: string | undefined = ''
-    explorer_site: string | undefined = ''
-    chainId = 'X'
-    err = null
-    err_url = ''
+interface Props {
+    net: AvaNetwork
+}
 
-    @Prop() net!: AvaNetwork
+export default defineComponent({
+    name: 'EditPage',
+    props: {
+        net: {
+            type: Object as () => AvaNetwork,
+            required: true
+        }
+    },
+    emits: ['delete', 'success'],
+    setup(props: Props, { emit }) {
+        const store = useStore()
+        
+        const name = ref('My Custom Network')
+        const url = ref('')
+        const networkId = ref(12345)
+        const explorer_api = ref<string | undefined>('')
+        const explorer_site = ref<string | undefined>('')
+        const chainId = ref('X')
+        const err = ref(null)
+        const err_url = ref('')
 
-    mounted() {
-        let net = this.net
-
-        this.name = net.name
-        this.url = net.getFullURL()
-        this.networkId = net.networkId
-        this.explorer_api = net.explorerUrl
-        this.explorer_site = net.explorerSiteUrl
-    }
-
-    cleanExplorerUrl() {
-        // console.log(val);
-        let url = this.explorer_api as string
-        this.explorer_api = punycode.toASCII(url)
-        // console.log(this.explorer_api);
-    }
-
-    cleanExplorerSite() {
-        let url = this.explorer_site as string
-        url = punycode.toASCII(url)
-        this.explorer_site = url
-    }
-
-    checkUrl() {
-        let err = ''
-        let url = this.url
-        // protect against homograph attack: https://hethical.io/homograph-attack-using-internationalized-domain-name/
-        url = punycode.toASCII(url)
-        this.url = url
-
-        // must contain http / https prefix
-        if (url.substr(0, 7) !== 'http://' && url.substr(0, 8) !== 'https://') {
-            this.err_url = 'URLs require the appropriate HTTP/HTTPS prefix.'
-            return false
+        const cleanExplorerUrl = () => {
+            const urlValue = explorer_api.value as string
+            explorer_api.value = punycode.toASCII(urlValue)
         }
 
-        let split = url.split('://')
-        let rest = split[1]
-
-        // must have base ip
-        if (rest.length === 0) {
-            this.err_url = 'Invalid URL.'
-            return false
+        const cleanExplorerSite = () => {
+            const urlValue = explorer_site.value as string
+            explorer_site.value = punycode.toASCII(urlValue)
         }
 
-        // Must have port
-        if (!rest.includes(':')) {
-            this.err_url = 'You must specify the port of the url.'
-            return false
+        const checkUrl = () => {
+            let urlValue = url.value
+            // protect against homograph attack: https://hethical.io/homograph-attack-using-internationalized-domain-name/
+            urlValue = punycode.toASCII(urlValue)
+            url.value = urlValue
+
+            // must contain http / https prefix
+            if (urlValue.substr(0, 7) !== 'http://' && urlValue.substr(0, 8) !== 'https://') {
+                err_url.value = 'URLs require the appropriate HTTP/HTTPS prefix.'
+                return false
+            }
+
+            const split = urlValue.split('://')
+            const rest = split[1]
+
+            // must have base ip
+            if (rest.length === 0) {
+                err_url.value = 'Invalid URL.'
+                return false
+            }
+
+            // Must have port
+            if (!rest.includes(':')) {
+                err_url.value = 'You must specify the port of the url.'
+                return false
+            }
+            // Port must be number
+
+            const urlSplit = rest.split(':')
+            if (urlSplit.length === 0) {
+                err_url.value = 'Invalid port.'
+                return false
+            }
+
+            const port = parseInt(urlSplit[1])
+
+            if (isNaN(port)) {
+                err_url.value = 'Invalid port.'
+                return false
+            }
+
+            err_url.value = ''
+            return true
         }
-        // Port must be number
 
-        let urlSplit = rest.split(':')
-        if (urlSplit.length === 0) {
-            this.err_url = 'Invalid port.'
-            return false
+        const errCheck = () => {
+            let errValue = null
+
+            // check for HTTP HTTPS on url
+            const urlValue = url.value
+
+            if (urlValue.substr(0, 7) !== 'http://' && urlValue.substr(0, 8) !== 'https://') {
+                errValue = 'URLs require the appropriate HTTP/HTTPS prefix.'
+            }
+
+            if (!name.value) errValue = 'You must give the network a name.'
+            else if (!url.value) errValue = 'You must set the URL.'
+            else if (!chainId.value) errValue = 'You must set the chain id.'
+            else if (!networkId.value) errValue = 'You must set the network id.'
+
+            return errValue
         }
 
-        let port = parseInt(urlSplit[1])
-
-        if (isNaN(port)) {
-            this.err_url = 'Invalid port.'
-            return false
+        const deleteNetwork = () => {
+            emit('delete')
         }
 
-        this.err_url = ''
-        return true
-    }
-    errCheck() {
-        let err = null
+        const saveNetwork = async () => {
+            const net = props.net
+            net.name = name.value
+            net.updateURL(url.value)
+            net.explorerUrl = explorer_api.value
+            net.explorerSiteUrl = explorer_site.value
+            net.networkId = networkId.value
 
-        // check for HTTP HTTPS on url
-        let url = this.url
+            await store.dispatch('Network/save')
 
-        if (url.substr(0, 7) !== 'http://' && url.substr(0, 8) !== 'https://') {
-            err = 'URLs require the appropriate HTTP/HTTPS prefix.'
+            store.dispatch('Notifications/add', {
+                title: 'Changes Saved',
+                message: 'Network settings updated.',
+            })
+
+            emit('success')
         }
 
-        if (!this.name) err = 'You must give the network a name.'
-        else if (!this.url) err = 'You must set the URL.'
-        else if (!this.chainId) err = 'You must set the chain id.'
-        else if (!this.networkId) err = 'You must set the network id.'
+        onMounted(() => {
+            const net = props.net
 
-        return err
-    }
-    deleteNetwork() {
-        this.$emit('delete')
-    }
-    async saveNetwork() {
-        let net = this.net
-        net.name = this.name
-        net.updateURL(this.url)
-        net.explorerUrl = this.explorer_api
-        net.explorerSiteUrl = this.explorer_site
-        net.networkId = this.networkId
-
-        await this.$store.dispatch('Network/save')
-
-        this.$store.dispatch('Notifications/add', {
-            title: 'Changes Saved',
-            message: 'Network settings updated.',
+            name.value = net.name
+            url.value = net.getFullURL()
+            networkId.value = net.networkId
+            explorer_api.value = net.explorerUrl
+            explorer_site.value = net.explorerSiteUrl
         })
 
-        this.$emit('success')
+        return {
+            name,
+            url,
+            networkId,
+            explorer_api,
+            explorer_site,
+            chainId,
+            err,
+            err_url,
+            cleanExplorerUrl,
+            cleanExplorerSite,
+            checkUrl,
+            errCheck,
+            deleteNetwork,
+            saveNetwork
+        }
     }
+})
 }
-// export default {
-//     data(){
-//         return {
-//             name: "My Custom Network",
-//             url: '',
-//             networkId: 12345,
-//             explorer_api: '',
-//             chainId: 'X',
-//             err: null,
-//             err_url: '',
-//         }
-//     },
-//     props: {
-//         net: {
-//             type: AvaNetwork,
-//             required: true
-//         }
-//     },
-//     mounted() {
-//         let net = this.net;
-//
-//         this.name = net.name;
-//         this.url = net.getFullURL();
-//         this.networkId = net.networkId;
-//     },
-//     methods:{
-//         cleanExplorerUrl(){
-//             // console.log(val);
-//             let url = this.explorer_api;
-//             this.explorer_api = punycode.toASCII(url);
-//             // console.log(this.explorer_api);
-//         },
-//         checkUrl(){
-//             let err = '';
-//             let url = this.url;
-//             // protect against homograph attack: https://hethical.io/homograph-attack-using-internationalized-domain-name/
-//             url = punycode.toASCII(url);
-//             this.url = url;
-//
-//             // must contain http / https prefix
-//             if(url.substr(0,7) !== 'http://' && url.substr(0,8) !== 'https://'){
-//                 this.err_url = "URLs require the appropriate HTTP/HTTPS prefix."
-//                 return false;
-//             }
-//
-//             let split = url.split('://');
-//             let rest = split[1];
-//
-//             // must have base ip
-//             if(rest.length===0){
-//                 this.err_url = "Invalid URL.";
-//                 return false;
-//             }
-//
-//             // Must have port
-//             if(!rest.includes(':')){
-//                 this.err_url = "You must specify the port of the url.";
-//                 return false;
-//             }
-//
-//             let port = rest.split(':')[1];
-//
-//             // Port must be number
-//             if(isNaN(port) || port.length===0){
-//                 this.err_url = "Invalid port.";
-//                 return false;
-//             }
-//
-//             this.err_url = '';
-//             return true;
-//
-//         },
-//         errCheck(){
-//             let err = null;
-//
-//             // check for HTTP HTTPS on url
-//             let url = this.url;
-//
-//
-//             if(url.substr(0,7) !== 'http://' && url.substr(0,8) !== 'https://'){
-//                 err = "URLs require the appropriate HTTP/HTTPS prefix."
-//             }
-//
-//             if(!this.name) err = "You must give the network a name.";
-//             else if(!this.url) err = 'You must set the URL.';
-//             else if(!this.chainId) err = 'You must set the chain id.';
-//             else if(!this.networkId) err = 'You must set the network id.';
-//
-//
-//             return err;
-//         },
-//         deleteNetwork(){
-//             this.$emit('delete');
-//         },
-//         saveNetwork(){
-//             let net = this.net;
-//             net.name = this.name;
-//             net.updateURL(this.url);
-//             net.networkId =  this.networkId;
-//             net.chainId =  this.chainId;
-//
-//             this.$parent.page = 'list';
-//         },
-//     }
-// }
 </script>
 <style scoped lang="scss">
 @use '../../main';
@@ -332,8 +258,6 @@ button {
     border-radius: 4px;
 }
 
-.del_button {
-}
 
 .rowGroup {
     display: flex;

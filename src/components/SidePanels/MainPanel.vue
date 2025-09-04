@@ -1,6 +1,6 @@
 <template>
     <div class="main_panel">
-        <ConfirmLogout ref="logout"></ConfirmLogout>
+        <ConfirmLogout ref="logoutModal"></ConfirmLogout>
         <div class="panel_nav">
             <DayNightToggle class="hover_but"></DayNightToggle>
             <network-menu class="net_menu"></network-menu>
@@ -13,27 +13,35 @@
         </transition>
     </div>
 </template>
-<script>
-import NetworkMenu from '../NetworkSettings/NetworkMenu'
-import TransactionHistoryPanel from './TransactionHistoryPanel'
-import DayNightToggle from '@/components/misc/DayNightToggle'
+<script lang="ts">
+import { defineComponent, ref } from 'vue'
+
+import NetworkMenu from '../NetworkSettings/NetworkMenu.vue'
+import TransactionHistoryPanel from './TransactionHistoryPanel.vue'
+import DayNightToggle from '@/components/misc/DayNightToggle.vue'
 import ConfirmLogout from '@/components/modals/ConfirmLogout.vue'
 
-export default {
+export default defineComponent({
+    name: 'MainPanel',
     components: {
         NetworkMenu,
         TransactionHistoryPanel,
         DayNightToggle,
         ConfirmLogout,
     },
-    methods: {
-        logout() {
-            // this.$store.dispatch('logout');
-            // @ts-ignore
-            this.$refs.logout.open()
-        },
-    },
-}
+    setup() {
+        const logoutModal = ref<InstanceType<typeof ConfirmLogout>>()
+
+        const logout = () => {
+            logoutModal.value?.open()
+        }
+
+        return {
+            logout,
+            logoutModal
+        }
+    }
+})
 </script>
 <style scoped lang="scss">
 @use '../../main';

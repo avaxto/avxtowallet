@@ -96,8 +96,7 @@
     </div>
 </template>
 <script lang="ts">
-import 'reflect-metadata'
-import { Vue, Component, Prop, Watch } from 'vue-property-decorator'
+import { defineComponent, ref, computed, watch } from 'vue'
 import moment from 'moment'
 import { ValidatorListFilter } from '@/components/wallet/earn/Delegate/types'
 import { ValidatorListItem } from '@/store/modules/platform/types'
@@ -107,89 +106,110 @@ const MINUTE_MS = 60000
 const HOUR_MS = MINUTE_MS * 60
 const DAY_MS = HOUR_MS * 24
 
-@Component
-export default class FilterSettings extends Vue {
-    minDuration = 14
-    maxFee = 10
-    minUptime = 90
-    availableSpace = 25
-    activeFilter: null | ValidatorListFilter = null
-    count = 0
-    timeout: ReturnType<typeof setTimeout> | null = null
+export default defineComponent({
+    name: 'FilterSettings',
+    props: {
+        validators: {
+            type: Array as () => ValidatorListItem[],
+            required: true
+        }
+    },
+    emits: ['close', 'change'],
+    setup(props, { emit }) {
+        const minDuration = ref(14)
+        const maxFee = ref(10)
+        const minUptime = ref(90)
+        const availableSpace = ref(25)
+        const activeFilter = ref<null | ValidatorListFilter>(null)
+        const count = ref(0)
+        const timeout = ref<ReturnType<typeof setTimeout> | null>(null)
 
-    @Prop() validators!: ValidatorListItem[]
-    @Watch('validators')
-    onValidatorsChange() {
-        this.updateCount()
-    }
+        const checkValues = () => {
+            // max fee
+            if (maxFee.value > 100) maxFee.value = 100
+            if (maxFee.value < 0) maxFee.value = 0
 
-    checkValues() {
-        // max fee
-        if (this.maxFee > 100) this.maxFee = 100
-        if (this.maxFee < 0) this.maxFee = 0
-
-        // uptime
-        if (this.minUptime > 100) this.minUptime = 100
-        if (this.minUptime < 0) this.minUptime = 0
-    }
-
-    onInputChange() {
-        this.checkValues()
-        if (this.timeout) {
-            clearTimeout(this.timeout)
+            // uptime
+            if (minUptime.value > 100) minUptime.value = 100
+            if (minUptime.value < 0) minUptime.value = 0
         }
 
-        let timeout = setTimeout(() => {
-            this.updateCount()
-        }, 700)
-        this.timeout = timeout
-    }
+        const createFilter = (): ValidatorListFilter => {
+            return {
+                minDuration: minDuration.value,
+                maxFee: maxFee.value,
+                minUptime: minUptime.value,
+                availableSpace: availableSpace.value,
+            }
+        }
 
-    // Applies filters and calculates the validator count
-    updateCount() {
-        let validators = this.validators
-        let filter = this.createFilter()
-        let res = filterValidatorList(validators, filter)
-        this.count = res.length
-    }
+        // Applies filters and calculates the validator count
+        const updateCount = () => {
+            const validators = props.validators
+            const filter = createFilter()
+            const res = filterValidatorList(validators, filter)
+            count.value = res.length
+        }
 
-    close() {
-        this.$emit('close')
-    }
+        const onInputChange = () => {
+            checkValues()
+            if (timeout.value) {
+                clearTimeout(timeout.value)
+            }
 
-    createFilter(): ValidatorListFilter {
+            timeout.value = setTimeout(() => {
+                updateCount()
+            }, 700)
+        }
+
+        const close = () => {
+            emit('close')
+        }
+
+        const clear = () => {
+            activeFilter.value = null
+            emit('change', null)
+            close()
+        }
+
+        const apply = () => {
+            const filter: ValidatorListFilter = createFilter()
+            activeFilter.value = filter
+            emit('change', filter)
+            close()
+        }
+
+        const durationText = computed(() => {
+            const duration = moment.duration(minDuration.value * DAY_MS, 'milliseconds')
+            return `${duration.months()} months ${duration.days()} days`
+        })
+
+        const canApply = computed(() => {
+            if (count.value === 0) return false
+            return true
+        })
+
+        // Watch validators prop for changes
+        watch(() => props.validators, () => {
+            updateCount()
+        })
+
         return {
-            minDuration: this.minDuration,
-            maxFee: this.maxFee,
-            minUptime: this.minUptime,
-            availableSpace: this.availableSpace,
+            minDuration,
+            maxFee,
+            minUptime,
+            availableSpace,
+            activeFilter,
+            count,
+            onInputChange,
+            close,
+            clear,
+            apply,
+            durationText,
+            canApply
         }
     }
-
-    clear() {
-        this.activeFilter = null
-        this.$emit('change', null)
-        this.close()
-    }
-
-    apply() {
-        let filter: ValidatorListFilter = this.createFilter()
-        this.activeFilter = filter
-        this.$emit('change', filter)
-        this.close()
-    }
-
-    get durationText() {
-        let duration = moment.duration(this.minDuration * DAY_MS, 'milliseconds')
-
-        return `${duration.months()} months ${duration.days()} days`
-    }
-
-    get canApply() {
-        if (this.count === 0) return false
-        return true
-    }
-}
+})
 </script>
 <style scoped lang="scss">
 .filter_settings {

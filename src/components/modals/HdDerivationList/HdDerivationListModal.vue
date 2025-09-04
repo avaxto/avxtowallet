@@ -6,28 +6,37 @@
     </modal>
 </template>
 <script lang="ts">
-import 'reflect-metadata'
-import { Vue, Component, Prop } from 'vue-property-decorator'
+import { defineComponent, ref } from 'vue'
 
 import Modal from '@/components/modals/Modal.vue'
 import MnemonicWallet from '@/js/wallets/MnemonicWallet'
 import HDDerivationList from '@/components/modals/HdDerivationList/HDDerivationList.vue'
 
-@Component({
+export default defineComponent({
+    name: 'HdDerivationListModal',
     components: {
         Modal,
         HDDerivationList,
     },
-})
-export default class HdDerivationList extends Vue {
-    @Prop() wallet!: MnemonicWallet
+    props: {
+        wallet: {
+            type: Object as () => MnemonicWallet,
+            required: true
+        }
+    },
+    setup() {
+        const modal = ref<InstanceType<typeof Modal> | null>(null)
 
-    open(): void {
-        let modal = this.$refs.modal as Modal
-        // @ts-ignore
-        modal.open()
+        const open = (): void => {
+            modal.value?.open()
+        }
+
+        return {
+            modal,
+            open
+        }
     }
-}
+})
 </script>
 <style scoped lang="scss">
 .hd_deriv_modal_body {

@@ -13,56 +13,86 @@
     </div>
 </template>
 <script lang="ts">
-import { Vue, Component, Prop } from 'vue-property-decorator'
+import { defineComponent, computed } from 'vue'
 import { Utxo } from '@avalabs/glacier-sdk'
 import { BN } from 'avalanche'
 import { bnToLocaleString } from '@avalabs/avalanche-wallet-sdk'
 
-@Component
-export default class BaseTxUtxo extends Vue {
-    @Prop() utxo!: Utxo
-    @Prop() ins!: Utxo[]
-    @Prop() outs!: Utxo[]
-    @Prop() isSent!: boolean
-
-    get amountString() {
-        return bnToLocaleString(new BN(this.utxo.asset.amount), this.denomination)
-    }
-
-    get symbol() {
-        return this.utxo.asset.symbol
-    }
-
-    get denomination() {
-        return this.utxo.asset.denomination
-    }
-
-    /**
-     * Trim the address and prepend X-
-     * @param address
-     */
-    formatAddress(address: string) {
-        const len = address.length
-        return `X-${address.slice(0, 9)}..${address.slice(len - 5)}`
-    }
-
-    get addresses() {
-        // If this is a sent utxo, get who we sent to
-        if (this.isSent) {
-            return this.utxo.addresses.map(this.formatAddress)
-        }
-        // If received, get who sent this to us
-        else {
-            const insUtxos = this.ins.filter((utxo) => {
-                return utxo.asset.assetId === this.utxo.asset.assetId
-            })
-            return insUtxos
-                .map((utxo) => utxo.addresses)
-                .flat()
-                .map(this.formatAddress)
-        }
-    }
+interface Props {
+    utxo: Utxo
+    ins: Utxo[]
+    outs: Utxo[]
+    isSent: boolean
 }
+
+export default defineComponent({
+    name: 'BaseTxUtxo',
+    props: {
+        utxo: {
+            type: Object as () => Utxo,
+            required: true
+        },
+        ins: {
+            type: Array as () => Utxo[],
+            required: true
+        },
+        outs: {
+            type: Array as () => Utxo[],
+            required: true
+        },
+        isSent: {
+            type: Boolean,
+            required: true
+        }
+    },
+    setup(props: Props) {
+        const amountString = computed(() => {
+            return bnToLocaleString(new BN(props.utxo.asset.amount), denomination.value)
+        })
+
+        const symbol = computed(() => {
+            return props.utxo.asset.symbol
+        })
+
+        const denomination = computed(() => {
+            return props.utxo.asset.denomination
+        })
+
+        /**
+         * Trim the address and prepend X-
+         * @param address
+         */
+        const formatAddress = (address: string) => {
+            const len = address.length
+            return `X-${address.slice(0, 9)}..${address.slice(len - 5)}`
+        }
+
+        const addresses = computed(() => {
+            // If this is a sent utxo, get who we sent to
+            if (props.isSent) {
+                return props.utxo.addresses.map(formatAddress)
+            }
+            // If received, get who sent this to us
+            else {
+                const insUtxos = props.ins.filter((utxo) => {
+                    return utxo.asset.assetId === props.utxo.asset.assetId
+                })
+                return insUtxos
+                    .map((utxo) => utxo.addresses)
+                    .flat()
+                    .map(formatAddress)
+            }
+        })
+
+        return {
+            amountString,
+            symbol,
+            denomination,
+            formatAddress,
+            addresses
+        }
+    }
+})
 </script>
 <style scoped lang="scss">
 .utxo {

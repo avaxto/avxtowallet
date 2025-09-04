@@ -100,8 +100,8 @@
     </div>
 </template>
 <script lang="ts">
-import 'reflect-metadata'
-import { Vue, Component, Prop, Ref, Watch } from 'vue-property-decorator'
+import { defineComponent, ref, computed } from 'vue'
+import { useStore } from 'vuex'
 import AvaAsset from '@/js/AvaAsset'
 import MnemonicWallet from '@/js/wallets/MnemonicWallet'
 import Spinner from '@/components/misc/Spinner.vue'
@@ -116,258 +116,296 @@ import { priceDict } from '@/store/types'
 import { WalletType } from '@/js/wallets/types'
 import UtxosBreakdownModal from '@/components/modals/UtxosBreakdown/UtxosBreakdownModal.vue'
 
-@Component({
+export default defineComponent({
+    name: 'BalanceCard',
     components: {
         UtxosBreakdownModal,
         Spinner,
         NftCol,
         Tooltip,
     },
+    setup() {
+        const store = useStore()
+
+        const isBreakdown = ref(true)
+        const utxos_modal = ref<InstanceType<typeof UtxosBreakdownModal>>()
+
+        const cleanAvaxBN = (val: BN) => {
+            let big = Big(val.toString()).div(Big(ONEAVAX.toString()))
+            return big.toLocaleString()
+        }
+
+        const updateBalance = (): void => {
+            store.dispatch('Assets/updateUTXOs')
+            store.dispatch('History/updateTransactionHistory')
+        }
+
+        const showUTXOsModal = () => {
+            utxos_modal.value?.open()
+        }
+
+        const toggleBreakdown = () => {
+            isBreakdown.value = !isBreakdown.value
+        }
+
+        const ava_asset = computed((): AvaAsset | null => {
+            let ava = store.getters['Assets/AssetAVA']
+            return ava
+        })
+
+        const avmUnlocked = computed((): BN => {
+            if (!ava_asset.value) return new BN(0)
+            return ava_asset.value.amount
+        })
+
+        const avmLocked = computed((): BN => {
+            if (!ava_asset.value) return new BN(0)
+            return ava_asset.value.amountLocked
+        })
+
+        const evmUnlocked = computed((): BN => {
+            if (!wallet.value) return new BN(0)
+            // convert from ^18 to ^9
+            let bal = wallet.value.ethBalance
+            return bal.div(new BN(Math.pow(10, 9).toString()))
+        })
+
+        const totalBalance = computed((): BN => {
+            if (!ava_asset.value) return new BN(0)
+
+            let tot = ava_asset.value.getTotalAmount()
+            // add EVM balance
+            tot = tot.add(evmUnlocked.value)
+            return tot
+        })
+
+        const totalBalanceBig = computed((): Big => {
+            if (ava_asset.value) {
+                let denom = ava_asset.value.denomination
+                let bigTot = bnToBig(totalBalance.value, denom)
+                return bigTot
+            }
+            return Big(0)
+        })
+
+        const avaxPriceText = computed(() => {
+            return priceDict.value.usd
+        })
+
+        const totalBalanceUSD = computed((): Big => {
+            let usdPrice = priceDict.value.usd
+            let usdBig = totalBalanceBig.value.times(Big(usdPrice))
+            return usdBig
+        })
+
+        const totalBalanceUSDText = computed((): string => {
+            if (isUpdateBalance.value) return '--'
+            return totalBalanceUSD.value.toLocaleString(2)
+        })
+
+        const balanceText = computed((): string => {
+            if (ava_asset.value !== null) {
+                let denom = ava_asset.value.denomination
+                return totalBalanceBig.value.toLocaleString(denom)
+            } else {
+                return '?'
+            }
+        })
+
+        const balanceTextLeft = computed((): string => {
+            if (isUpdateBalance.value) return '--'
+            let text = balanceText.value
+            if (text.includes('.')) {
+                let left = text.split('.')[0]
+                return left
+            }
+            return text
+        })
+
+        const balanceTextRight = computed((): string => {
+            if (isUpdateBalance.value) return ''
+            let text = balanceText.value
+            if (text.includes('.')) {
+                let right = text.split('.')[1]
+                return right
+            }
+            return ''
+        })
+
+        const balanceTextLocked = computed((): string => {
+            if (isUpdateBalance.value) return '--'
+
+            if (ava_asset.value !== null) {
+                let denom = ava_asset.value.denomination
+                let tot = platformLocked.value.add(platformLockedStakeable.value)
+                let pLocked = Big(tot.toString()).div(Math.pow(10, denom))
+                let amt = ava_asset.value.getAmount(true)
+                amt = amt.add(pLocked)
+
+                return amt.toLocaleString(denom)
+            } else {
+                return '--'
+            }
+        })
+
+        const balanceTextMultisig = computed(() => {
+            if (isUpdateBalance.value) return '--'
+
+            if (ava_asset.value !== null) {
+                let denom = ava_asset.value.denomination
+                return bnToBig(avmMultisig.value.add(platformMultisig.value), denom).toLocaleString()
+            } else {
+                return '--'
+            }
+        })
+
+        const avmMultisig = computed((): BN => {
+            if (ava_asset.value !== null) {
+                return ava_asset.value.amountMultisig
+            } else {
+                return new BN(0)
+            }
+        })
+
+        const platformBalance = computed(() => {
+            return store.getters['Assets/walletPlatformBalance']
+        })
+
+        const platformUnlocked = computed((): BN => {
+            return platformBalance.value.available
+        })
+
+        const platformMultisig = computed((): BN => {
+            return platformBalance.value.multisig
+        })
+
+        const platformLocked = computed((): BN => {
+            return platformBalance.value.locked
+        })
+
+        const platformLockedStakeable = computed((): BN => {
+            return platformBalance.value.lockedStakeable
+        })
+
+        const unlockedText = computed(() => {
+            if (isUpdateBalance.value) return '--'
+
+            if (ava_asset.value) {
+                let xUnlocked = ava_asset.value.amount
+                let pUnlocked = platformUnlocked.value
+
+                let denom = ava_asset.value.denomination
+
+                let tot = xUnlocked.add(pUnlocked).add(evmUnlocked.value)
+
+                let amtBig = bnToBig(tot, denom)
+
+                return amtBig.toLocaleString(denom)
+            } else {
+                return '--'
+            }
+        })
+
+        const pBalanceText = computed(() => {
+            if (!ava_asset.value) return '--'
+            if (isUpdateBalance.value) return '--'
+
+            let denom = ava_asset.value.denomination
+            let bal = platformUnlocked.value
+            let bigBal = Big(bal.toString())
+            bigBal = bigBal.div(Math.pow(10, denom))
+
+            if (bigBal.lt(Big('1'))) {
+                return bigBal.toLocaleString(9)
+            } else {
+                return bigBal.toLocaleString(3)
+            }
+        })
+
+        const stakingAmount = computed((): BN => {
+            return store.getters['Assets/walletStakingBalance']
+        })
+
+        const stakingText = computed(() => {
+            let balance = stakingAmount.value
+            if (!balance) return '0'
+            if (isUpdateBalance.value) return '--'
+
+            let denom = 9
+            let bigBal = Big(balance.toString())
+            bigBal = bigBal.div(Math.pow(10, denom))
+
+            if (bigBal.lt(Big('1'))) {
+                return bigBal.toString()
+            } else {
+                return bigBal.toLocaleString()
+            }
+        })
+
+        const wallet = computed((): WalletType | null => {
+            return store.state.activeWallet
+        })
+
+        const isUpdateBalance = computed((): boolean => {
+            if (!wallet.value) return true
+            return wallet.value.isFetchUtxos
+        })
+
+        const priceDict = computed((): priceDict => {
+            return store.state.prices
+        })
+
+        const hasLocked = computed((): boolean => {
+            return (
+                !avmLocked.value.isZero() ||
+                !platformLocked.value.isZero() ||
+                !platformLockedStakeable.value.isZero()
+            )
+        })
+
+        const hasMultisig = computed((): boolean => {
+            return !avmMultisig.value.isZero() || !platformMultisig.value.isZero()
+        })
+
+        return {
+            isBreakdown,
+            utxos_modal,
+            cleanAvaxBN,
+            updateBalance,
+            showUTXOsModal,
+            toggleBreakdown,
+            ava_asset,
+            avmUnlocked,
+            avmLocked,
+            evmUnlocked,
+            totalBalance,
+            totalBalanceBig,
+            avaxPriceText,
+            totalBalanceUSD,
+            totalBalanceUSDText,
+            balanceText,
+            balanceTextLeft,
+            balanceTextRight,
+            balanceTextLocked,
+            balanceTextMultisig,
+            avmMultisig,
+            platformBalance,
+            platformUnlocked,
+            platformMultisig,
+            platformLocked,
+            platformLockedStakeable,
+            unlockedText,
+            pBalanceText,
+            stakingAmount,
+            stakingText,
+            wallet,
+            isUpdateBalance,
+            priceDict,
+            hasLocked,
+            hasMultisig,
+        }
+    }
 })
-export default class BalanceCard extends Vue {
-    isBreakdown = true
-
-    $refs!: {
-        utxos_modal: UtxosBreakdownModal
-    }
-
-    cleanAvaxBN(val: BN) {
-        let big = Big(val.toString()).div(Big(ONEAVAX.toString()))
-        return big.toLocaleString()
-    }
-
-    updateBalance(): void {
-        this.$store.dispatch('Assets/updateUTXOs')
-        this.$store.dispatch('History/updateTransactionHistory')
-    }
-
-    showUTXOsModal() {
-        this.$refs.utxos_modal.open()
-    }
-    get ava_asset(): AvaAsset | null {
-        let ava = this.$store.getters['Assets/AssetAVA']
-        return ava
-    }
-
-    toggleBreakdown() {
-        this.isBreakdown = !this.isBreakdown
-    }
-
-    get avmUnlocked(): BN {
-        if (!this.ava_asset) return new BN(0)
-        return this.ava_asset.amount
-    }
-
-    get avmLocked(): BN {
-        if (!this.ava_asset) return new BN(0)
-        return this.ava_asset.amountLocked
-    }
-
-    get evmUnlocked(): BN {
-        if (!this.wallet) return new BN(0)
-        // convert from ^18 to ^9
-        let bal = this.wallet.ethBalance
-        return bal.div(new BN(Math.pow(10, 9).toString()))
-    }
-
-    get totalBalance(): BN {
-        if (!this.ava_asset) return new BN(0)
-
-        let tot = this.ava_asset.getTotalAmount()
-        // add EVM balance
-        tot = tot.add(this.evmUnlocked)
-        return tot
-    }
-
-    get totalBalanceBig(): Big {
-        if (this.ava_asset) {
-            let denom = this.ava_asset.denomination
-            let bigTot = bnToBig(this.totalBalance, denom)
-            return bigTot
-        }
-        return Big(0)
-    }
-
-    get avaxPriceText() {
-        return this.priceDict.usd
-    }
-
-    get totalBalanceUSD(): Big {
-        let usdPrice = this.priceDict.usd
-        let usdBig = this.totalBalanceBig.times(Big(usdPrice))
-        return usdBig
-    }
-
-    get totalBalanceUSDText(): string {
-        if (this.isUpdateBalance) return '--'
-        return this.totalBalanceUSD.toLocaleString(2)
-    }
-    // should be unlocked (X+P), locked (X+P) and staked and lockedStakeable
-    get balanceText(): string {
-        if (this.ava_asset !== null) {
-            let denom = this.ava_asset.denomination
-            return this.totalBalanceBig.toLocaleString(denom)
-        } else {
-            return '?'
-        }
-    }
-
-    get balanceTextLeft(): string {
-        if (this.isUpdateBalance) return '--'
-        let text = this.balanceText
-        if (text.includes('.')) {
-            let left = text.split('.')[0]
-            return left
-        }
-        return text
-    }
-
-    get balanceTextRight(): string {
-        if (this.isUpdateBalance) return ''
-        let text = this.balanceText
-        if (text.includes('.')) {
-            let right = text.split('.')[1]
-            return right
-        }
-        return ''
-    }
-
-    // Locked balance is the sum of locked AVAX tokens on X and P chain
-    get balanceTextLocked(): string {
-        if (this.isUpdateBalance) return '--'
-
-        if (this.ava_asset !== null) {
-            let denom = this.ava_asset.denomination
-            let tot = this.platformLocked.add(this.platformLockedStakeable)
-            // let otherLockedAmt = this.platformLocked.add(this.platformLockedStakeable)
-            let pLocked = Big(tot.toString()).div(Math.pow(10, denom))
-            let amt = this.ava_asset.getAmount(true)
-            amt = amt.add(pLocked)
-
-            return amt.toLocaleString(denom)
-        } else {
-            return '--'
-        }
-    }
-
-    get balanceTextMultisig() {
-        if (this.isUpdateBalance) return '--'
-
-        if (this.ava_asset !== null) {
-            let denom = this.ava_asset.denomination
-            return bnToBig(this.avmMultisig.add(this.platformMultisig), denom).toLocaleString()
-        } else {
-            return '--'
-        }
-    }
-
-    get avmMultisig(): BN {
-        if (this.ava_asset !== null) {
-            return this.ava_asset.amountMultisig
-        } else {
-            return new BN(0)
-        }
-    }
-
-    get platformBalance() {
-        return this.$store.getters['Assets/walletPlatformBalance']
-    }
-
-    get platformUnlocked(): BN {
-        return this.platformBalance.available
-    }
-
-    get platformMultisig(): BN {
-        return this.platformBalance.multisig
-    }
-
-    get platformLocked(): BN {
-        return this.platformBalance.locked
-    }
-
-    get platformLockedStakeable(): BN {
-        return this.platformBalance.lockedStakeable
-    }
-
-    get unlockedText() {
-        if (this.isUpdateBalance) return '--'
-
-        if (this.ava_asset) {
-            let xUnlocked = this.ava_asset.amount
-            let pUnlocked = this.platformUnlocked
-
-            let denom = this.ava_asset.denomination
-
-            let tot = xUnlocked.add(pUnlocked).add(this.evmUnlocked)
-
-            let amtBig = bnToBig(tot, denom)
-
-            return amtBig.toLocaleString(denom)
-        } else {
-            return '--'
-        }
-    }
-
-    get pBalanceText() {
-        if (!this.ava_asset) return '--'
-        if (this.isUpdateBalance) return '--'
-
-        let denom = this.ava_asset.denomination
-        let bal = this.platformUnlocked
-        let bigBal = Big(bal.toString())
-        bigBal = bigBal.div(Math.pow(10, denom))
-
-        if (bigBal.lt(Big('1'))) {
-            return bigBal.toLocaleString(9)
-        } else {
-            return bigBal.toLocaleString(3)
-        }
-    }
-
-    get stakingAmount(): BN {
-        return this.$store.getters['Assets/walletStakingBalance']
-    }
-
-    get stakingText() {
-        let balance = this.stakingAmount
-        if (!balance) return '0'
-        if (this.isUpdateBalance) return '--'
-
-        let denom = 9
-        let bigBal = Big(balance.toString())
-        bigBal = bigBal.div(Math.pow(10, denom))
-
-        if (bigBal.lt(Big('1'))) {
-            return bigBal.toString()
-        } else {
-            return bigBal.toLocaleString()
-        }
-    }
-
-    get wallet(): WalletType | null {
-        return this.$store.state.activeWallet
-    }
-
-    get isUpdateBalance(): boolean {
-        if (!this.wallet) return true
-        return this.wallet.isFetchUtxos
-    }
-
-    get priceDict(): priceDict {
-        return this.$store.state.prices
-    }
-
-    get hasLocked(): boolean {
-        return (
-            !this.avmLocked.isZero() ||
-            !this.platformLocked.isZero() ||
-            !this.platformLockedStakeable.isZero()
-        )
-    }
-    get hasMultisig(): boolean {
-        return !this.avmMultisig.isZero() || !this.platformMultisig.isZero()
-    }
-}
 </script>
 <style scoped lang="scss">
 @use '../../../../main';

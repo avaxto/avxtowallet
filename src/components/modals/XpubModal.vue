@@ -17,24 +17,36 @@
     </modal>
 </template>
 <script lang="ts">
-import 'reflect-metadata'
-import { Vue, Component, Prop } from 'vue-property-decorator'
+import { defineComponent, ref } from 'vue'
 
 import Modal from '@/components/modals/Modal.vue'
 
-@Component({
+export default defineComponent({
+    name: 'XpubModal',
     components: {
         Modal,
     },
-})
-export default class XpubModal extends Vue {
-    @Prop({ default: '' }) xpub!: string
+    props: {
+        xpub: {
+            type: String,
+            default: ''
+        }
+    },
+    setup() {
+        const modal = ref<InstanceType<typeof Modal>>()
 
-    open(): void {
-        let modal = this.$refs.modal as Modal
-        modal.open()
+        const open = (): void => {
+            if (modal.value) {
+                modal.value.open()
+            }
+        }
+
+        return {
+            modal,
+            open
+        }
     }
-}
+})
 </script>
 <style scoped lang="scss">
 .singleton_modal_body {

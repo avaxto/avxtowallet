@@ -2,43 +2,54 @@
     <p>{{ tweenedNumber.toLocaleString() }}</p>
 </template>
 <script lang="ts">
-import { Vue, Component, Prop, Watch } from 'vue-property-decorator'
+import { defineComponent, ref, watch, onMounted, type PropType } from 'vue'
 import Big from 'big.js'
 
-@Component
-export default class NumberCounter extends Vue {
-    tweenedNumber: Big = Big(0)
-    @Prop() value!: Big
+export default defineComponent({
+    name: 'NumberCounter',
+    props: {
+        value: {
+            type: Object as PropType<Big>,
+            required: true
+        }
+    },
+    setup(props) {
+        const tweenedNumber = ref<Big>(Big(0))
 
-    @Watch('value')
-    onValueChange(val: Big) {
-        this.animate()
-    }
+        const animate = () => {
+            let increment = props.value.gt(tweenedNumber.value)
+            let diff = props.value.sub(tweenedNumber.value)
+            let step = diff.div(4).abs()
 
-    animate() {
-        let increment = this.value.gt(this.tweenedNumber)
-        let diff = this.value.sub(this.tweenedNumber)
-        let step = diff.div(4).abs()
+            let thresh = Big(0.01)
 
-        let thresh = Big(0.01)
+            step = step.round(2)
 
-        step = step.round(2)
+            if (step.lt(thresh)) {
+                tweenedNumber.value = props.value.add(0)
+                return
+            }
 
-        if (step.lt(thresh)) {
-            this.tweenedNumber = this.value.add(0)
-            return
+            if (increment) {
+                tweenedNumber.value = tweenedNumber.value.add(step)
+            } else {
+                tweenedNumber.value = tweenedNumber.value.sub(step)
+            }
+            requestAnimationFrame(animate)
         }
 
-        if (increment) {
-            this.tweenedNumber = this.tweenedNumber.add(step)
-        } else {
-            this.tweenedNumber = this.tweenedNumber.sub(step)
-        }
-        requestAnimationFrame(this.animate)
-    }
+        watch(() => props.value, () => {
+            animate()
+        })
 
-    mounted() {
-        this.animate()
+        onMounted(() => {
+            animate()
+        })
+
+        return {
+            tweenedNumber,
+            animate
+        }
     }
-}
+})
 </script>

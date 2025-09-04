@@ -12,7 +12,9 @@
     </div>
 </template>
 <script lang="ts">
-import { Vue, Component, Prop } from 'vue-property-decorator'
+import { defineComponent, computed } from 'vue'
+import { useStore } from 'vuex'
+import { useI18n } from 'vue-i18n'
 import { WalletType } from '@/js/wallets/types'
 
 import { LedgerWallet } from '@/js/wallets/LedgerWallet'
@@ -20,26 +22,47 @@ import { ava } from '@/AVA'
 import { getPreferredHRP } from 'avalanche/dist/utils'
 import { AVA_ACCOUNT_PATH } from '@/js/wallets/MnemonicWallet'
 
-@Component
-export default class HdEmptyAddressRow extends Vue {
-    @Prop() index!: number
-    @Prop() path!: number
-    @Prop() address!: string
+export default defineComponent({
+    name: 'HdEmptyAddressRow',
+    props: {
+        index: {
+            type: Number,
+            required: true
+        },
+        path: {
+            type: Number,
+            required: true
+        },
+        address: {
+            type: String,
+            required: true
+        }
+    },
+    setup(props) {
+        const store = useStore()
+        const { t } = useI18n()
 
-    get wallet() {
-        return this.$store.state.activeWallet as WalletType
-    }
+        const wallet = computed(() => {
+            return store.state.activeWallet as WalletType
+        })
 
-    get walletType() {
-        return this.wallet.type
-    }
+        const walletType = computed(() => {
+            return wallet.value.type
+        })
 
-    async verifyLedgerAddress() {
-        const wallet = this.wallet as LedgerWallet
-        const isInternal = this.path == 1
-        wallet.verifyAddress(this.index, isInternal)
+        const verifyLedgerAddress = async () => {
+            const walletInstance = wallet.value as LedgerWallet
+            const isInternal = props.path == 1
+            walletInstance.verifyAddress(props.index, isInternal)
+        }
+
+        return {
+            wallet,
+            walletType,
+            verifyLedgerAddress
+        }
     }
-}
+})
 </script>
 <style scoped lang="scss">
 .list_row_empty {

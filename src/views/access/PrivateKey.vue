@@ -29,7 +29,9 @@
     </div>
 </template>
 <script lang="ts">
-import { Vue, Component } from 'vue-property-decorator'
+import { defineComponent, ref, computed } from 'vue'
+import { useStore } from 'vuex'
+import { useRouter } from 'vue-router'
 import { ImportKeyfileInput } from '@/store/types'
 import { SingletonWallet } from '@/js/wallets/SingletonWallet'
 import { privateToAddress } from 'ethereumjs-util'
@@ -37,41 +39,59 @@ import { bintools } from '@/AVA'
 import { Buffer } from 'avalanche'
 import { strip0x } from '@avalabs/avalanche-wallet-sdk'
 
-@Component
-export default class PrivateKey extends Vue {
-    privatekey: string = ''
-    isLoading: boolean = false
-    error: string = ''
-    async access() {
-        if (!this.canSubmit || this.isLoading) return
-        let parent = this
-        this.error = ''
-        this.isLoading = true
-        let key = strip0x(this.privatekey)
+export default defineComponent({
+    name: 'PrivateKey',
+    setup() {
+        const store = useStore()
+        const router = useRouter()
+        
+        const privatekey = ref<string>('')
+        const isLoading = ref<boolean>(false)
+        const error = ref<string>('')
 
-        try {
-            let res = await this.$store.dispatch('accessWalletSingleton', key)
-            this.onsuccess()
-        } catch (e) {
-            this.onerror('Invalid Private Key.')
+        const canSubmit = computed((): boolean => {
+            if (!privatekey.value) {
+                return false
+            }
+            return true
+        })
+
+        const access = async () => {
+            if (!canSubmit.value || isLoading.value) return
+            error.value = ''
+            isLoading.value = true
+            let key = strip0x(privatekey.value)
+
+            try {
+                let res = await store.dispatch('accessWalletSingleton', key)
+                onsuccess()
+            } catch (e) {
+                onerror('Invalid Private Key.')
+            }
+        }
+
+        const onsuccess = () => {
+            isLoading.value = false
+            privatekey.value = ''
+        }
+
+        const onerror = (e: any) => {
+            error.value = e
+            privatekey.value = ''
+            isLoading.value = false
+        }
+
+        return {
+            privatekey,
+            isLoading,
+            error,
+            canSubmit,
+            access,
+            onsuccess,
+            onerror
         }
     }
-    onsuccess() {
-        this.isLoading = false
-        this.privatekey = ''
-    }
-    onerror(e: any) {
-        this.error = e
-        this.privatekey = ''
-        this.isLoading = false
-    }
-    get canSubmit(): boolean {
-        if (!this.privatekey) {
-            return false
-        }
-        return true
-    }
-}
+})
 </script>
 <style scoped lang="scss">
 @use '../../main';

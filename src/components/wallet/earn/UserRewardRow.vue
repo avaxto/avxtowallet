@@ -30,71 +30,97 @@
 </template>
 <script lang="ts">
 import 'reflect-metadata'
-import { Vue, Component, Prop } from 'vue-property-decorator'
+import { defineComponent, ref, computed, onMounted, onUnmounted } from 'vue'
 import { BN } from 'avalanche'
 import Big from 'big.js'
 import { bnToBigAvaxP } from '@avalabs/avalanche-wallet-sdk'
 import { PChainTransaction } from '@avalabs/glacier-sdk'
 
-@Component
-export default class UserRewardRow extends Vue {
-    now: number = Date.now()
-    intervalID: any = null
-
-    @Prop() tx!: PChainTransaction
-
-    updateNow() {
-        this.now = Date.now()
-    }
-
-    created() {
-        this.intervalID = setInterval(() => {
-            this.updateNow()
-        }, 2000)
-    }
-    destroyed() {
-        clearInterval(this.intervalID)
-    }
-    get startTime() {
-        return (this.tx.startTimestamp ?? 0) * 1000
-    }
-
-    get endtime() {
-        return (this.tx.endTimestamp ?? 0) * 1000
-    }
-
-    get startDate() {
-        return new Date(this.startTime)
-    }
-
-    get endDate() {
-        return new Date(this.endtime)
-    }
-
-    get rewardAmt(): BN {
-        return new BN(this.tx.estimatedReward || 0)
-    }
-
-    get stakingAmt(): BN {
-        if (this.tx.amountStaked !== undefined) {
-            return new BN(this.tx.amountStaked[0].amount || 0)
-        }
-        return new BN(0)
-    }
-
-    get rewardBig(): Big {
-        return Big(this.rewardAmt.toString()).div(Math.pow(10, 9))
-    }
-
-    get stakeBig() {
-        return bnToBigAvaxP(this.stakingAmt)
-    }
-    get percFull(): number {
-        let range = this.endtime - this.startTime
-        let res = (this.now - this.startTime) / range
-        return Math.min(res, 1)
-    }
+interface Props {
+    tx: PChainTransaction
 }
+
+export default defineComponent({
+    name: 'UserRewardRow',
+    props: {
+        tx: {
+            type: Object as () => PChainTransaction,
+            required: true
+        }
+    },
+    setup(props: Props) {
+        const now = ref(Date.now())
+        let intervalID: any = null
+
+        const updateNow = () => {
+            now.value = Date.now()
+        }
+
+        const startTime = computed(() => {
+            return (props.tx.startTimestamp ?? 0) * 1000
+        })
+
+        const endtime = computed(() => {
+            return (props.tx.endTimestamp ?? 0) * 1000
+        })
+
+        const startDate = computed(() => {
+            return new Date(startTime.value)
+        })
+
+        const endDate = computed(() => {
+            return new Date(endtime.value)
+        })
+
+        const rewardAmt = computed((): BN => {
+            return new BN(props.tx.estimatedReward || 0)
+        })
+
+        const stakingAmt = computed((): BN => {
+            if (props.tx.amountStaked !== undefined) {
+                return new BN(props.tx.amountStaked[0].amount || 0)
+            }
+            return new BN(0)
+        })
+
+        const rewardBig = computed((): Big => {
+            return Big(rewardAmt.value.toString()).div(Math.pow(10, 9))
+        })
+
+        const stakeBig = computed(() => {
+            return bnToBigAvaxP(stakingAmt.value)
+        })
+
+        const percFull = computed((): number => {
+            const range = endtime.value - startTime.value
+            const res = (now.value - startTime.value) / range
+            return Math.min(res, 1)
+        })
+
+        onMounted(() => {
+            intervalID = setInterval(() => {
+                updateNow()
+            }, 2000)
+        })
+
+        onUnmounted(() => {
+            clearInterval(intervalID)
+        })
+
+        return {
+            now,
+            startTime,
+            endtime,
+            startDate,
+            endDate,
+            rewardAmt,
+            stakingAmt,
+            rewardBig,
+            stakeBig,
+            percFull
+        }
+    }
+})
 </script>
 <style scoped lang="scss">
 @use '../../../main';

@@ -73,101 +73,122 @@
     </div>
 </template>
 <script lang="ts">
-import { Vue, Component, Watch } from 'vue-property-decorator'
+import { defineComponent, ref, computed, watch } from 'vue'
+import { useStore } from 'vuex'
 import { BN } from 'avalanche'
 import { pChain } from '@/AVA'
 import { bnToBig } from '@/helpers/helper'
 import Big from 'big.js'
 
-@Component
-export default class NewCollectibleFamily extends Vue {
-    name: string = ''
-    symbol: string = ''
-    groupNum = 1
-    isLoading = false
-    isSuccess = false
-    error = ''
-    txId = ''
+export default defineComponent({
+    name: 'NewCollectibleFamily',
+    emits: ['cancel'],
+    setup(_, { emit }) {
+        const store = useStore()
+        const name = ref('')
+        const symbol = ref('')
+        const groupNum = ref(1)
+        const isLoading = ref(false)
+        const isSuccess = ref(false)
+        const error = ref('')
+        const txId = ref('')
 
-    @Watch('symbol')
-    onSymbolChange(val: string) {
-        let newVal = val.toUpperCase()
-        // Remove numbers
-        newVal = newVal.replace(/[0-9]/g, '')
-        this.symbol = newVal
-    }
-
-    get txFee(): Big {
-        return bnToBig(pChain.getCreationTxFee(), 9)
-    }
-
-    validate(): boolean {
-        if (this.symbol.length === 0) {
-            this.error = 'You must provide a symbol.'
-            return false
-        } else if (this.symbol.length > 4) {
-            this.error = 'Symbol must be 4 characters max.'
-            return false
-        } else if (this.groupNum < 1) {
-            this.error = 'Number of groups must be at least 1.'
-            return false
-        }
-        return true
-    }
-    async submit() {
-        if (!this.validate()) {
-            return
-        }
-        let wallet = this.$store.state.activeWallet
-        if (!wallet) return
-
-        this.error = ''
-        this.isLoading = true
-
-        let nameTrimmed = this.name.trim()
-        let symbolTrimmed = this.symbol.trim()
-
-        try {
-            let txId = await wallet.createNftFamily(nameTrimmed, symbolTrimmed, this.groupNum)
-            console.log(txId)
-            this.onSuccess(txId)
-        } catch (e) {
-            this.onError(e)
-        }
-    }
-
-    cancel() {
-        this.$emit('cancel')
-    }
-
-    onError(e: any) {
-        this.error = e
-        console.error(e)
-        this.isLoading = false
-    }
-
-    onSuccess(txId: string) {
-        this.isLoading = false
-        this.isSuccess = true
-        this.txId = txId
-
-        this.$store.dispatch('Notifications/add', {
-            type: 'success',
-            title: 'Success',
-            message: 'Collectible family created.',
+        const txFee = computed((): Big => {
+            return bnToBig(pChain.getCreationTxFee(), 9)
         })
 
-        setTimeout(() => {
-            this.$store.dispatch('Assets/updateUTXOs')
-            this.$store.dispatch('History/updateTransactionHistory')
-        }, 3000)
-    }
+        const mintUtxos = computed(() => {
+            return store.state.Assets.nftMintUTXOs
+        })
 
-    get mintUtxos() {
-        // return this.$store.getters.walletNftMintUTXOs
-        return this.$store.state.Assets.nftMintUTXOs
+        watch(() => symbol.value, (val: string) => {
+            let newVal = val.toUpperCase()
+            // Remove numbers
+            newVal = newVal.replace(/[0-9]/g, '')
+            symbol.value = newVal
+        })
+
+        const validate = (): boolean => {
+            if (symbol.value.length === 0) {
+                error.value = 'You must provide a symbol.'
+                return false
+            } else if (symbol.value.length > 4) {
+                error.value = 'Symbol must be 4 characters max.'
+                return false
+            } else if (groupNum.value < 1) {
+                error.value = 'Number of groups must be at least 1.'
+                return false
+            }
+            return true
+        }
+
+        const submit = async () => {
+            if (!validate()) {
+                return
+            }
+            let wallet = store.state.activeWallet
+            if (!wallet) return
+
+            error.value = ''
+            isLoading.value = true
+
+            let nameTrimmed = name.value.trim()
+            let symbolTrimmed = symbol.value.trim()
+
+            try {
+                let txIdValue = await wallet.createNftFamily(nameTrimmed, symbolTrimmed, groupNum.value)
+                console.log(txIdValue)
+                onSuccess(txIdValue)
+            } catch (e) {
+                onError(e)
+            }
+        }
+
+        const cancel = () => {
+            emit('cancel')
+        }
+
+        const onError = (e: any) => {
+            error.value = e
+            console.error(e)
+            isLoading.value = false
+        }
+
+        const onSuccess = (txIdValue: string) => {
+            isLoading.value = false
+            isSuccess.value = true
+            txId.value = txIdValue
+
+            store.dispatch('Notifications/add', {
+                type: 'success',
+                title: 'Success',
+                message: 'Collectible family created.',
+            })
+
+            setTimeout(() => {
+                store.dispatch('Assets/updateUTXOs')
+                store.dispatch('History/updateTransactionHistory')
+            }, 3000)
+        }
+
+        return {
+            name,
+            symbol,
+            groupNum,
+            isLoading,
+            isSuccess,
+            error,
+            txId,
+            txFee,
+            mintUtxos,
+            validate,
+            submit,
+            cancel,
+            onError,
+            onSuccess
+        }
     }
-}
+})
 </script>
 <style scoped lang="scss">
 .new_family {

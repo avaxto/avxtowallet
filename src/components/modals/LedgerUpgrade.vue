@@ -31,62 +31,71 @@
     </modal>
 </template>
 <script lang="ts">
+import { defineComponent, ref, computed, watch, onBeforeUnmount } from 'vue'
+import { useStore } from 'vuex'
 import { WalletType } from '@/js/wallets/types'
-
-import 'reflect-metadata'
-import { Vue, Component, Watch } from 'vue-property-decorator'
 
 import Modal from './Modal.vue'
 import { MIN_LEDGER_V } from '@/js/wallets/constants'
 
-@Component({
+export default defineComponent({
+    name: 'LedgerUpgrade',
     components: {
         Modal,
     },
-})
-export default class LedgerUpgrade extends Vue {
-    $refs!: {
-        modal: Modal
-    }
+    setup() {
+        const store = useStore()
+        const modal = ref<InstanceType<typeof Modal> | null>(null)
 
-    open() {
-        this.$refs.modal.open()
-    }
+        const open = () => {
+            modal.value?.open()
+        }
 
-    close() {
-        this.$refs.modal.close()
-    }
+        const close = () => {
+            modal.value?.close()
+        }
 
-    beforeClose() {
-        this.$store.commit('Ledger/setIsUpgradeRequired', false)
-    }
+        const beforeClose = () => {
+            store.commit('Ledger/setIsUpgradeRequired', false)
+        }
 
-    destroyed() {
-        this.$store.commit('Ledger/setIsUpgradeRequired', false)
-    }
+        const minV = computed(() => {
+            return MIN_LEDGER_V
+        })
 
-    get minV() {
-        return MIN_LEDGER_V
-    }
+        const isActive = computed(() => {
+            return store.state.Ledger.isUpgradeRequired
+        })
 
-    get isActive() {
-        return this.$store.state.Ledger.isUpgradeRequired
-    }
+        const wallet = computed(() => {
+            return store.state.activeWallet as WalletType
+        })
 
-    get wallet() {
-        return this.$store.state.activeWallet as WalletType
-    }
+        // Watch isActive for changes
+        watch(isActive, (val: boolean) => {
+            if (!modal.value) return
+            if (val) {
+                open()
+            } else {
+                close()
+            }
+        }, { immediate: true })
 
-    @Watch('isActive', { immediate: true })
-    onActive(val: boolean): void {
-        if (!this.$refs.modal) return
-        if (val) {
-            this.open()
-        } else {
-            this.close()
+        onBeforeUnmount(() => {
+            store.commit('Ledger/setIsUpgradeRequired', false)
+        })
+
+        return {
+            modal,
+            open,
+            close,
+            beforeClose,
+            minV,
+            isActive,
+            wallet
         }
     }
-}
+})
 </script>
 <style scoped lang="scss">
 .ledger_block {

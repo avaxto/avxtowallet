@@ -6,24 +6,34 @@
     </div>
 </template>
 <script lang="ts">
-import 'reflect-metadata'
-import { Vue, Component, Prop } from 'vue-property-decorator'
+import { defineComponent, computed } from 'vue'
 import AvaAsset from '@/js/AvaAsset'
 
-@Component
-export default class BalanceRow extends Vue {
-    @Prop() asset!: AvaAsset
+export default defineComponent({
+    name: 'BalanceRow',
+    props: {
+        asset: {
+            type: Object as () => AvaAsset,
+            required: true
+        }
+    },
+    setup(props) {
+        const name = computed(() => {
+            let name = props.asset.name
+            return name
+        })
 
-    get name() {
-        let name = this.asset.name
-        return name
-    }
+        const symbol = computed(() => {
+            let sym = props.asset.symbol
+            return sym
+        })
 
-    get symbol() {
-        let sym = this.asset.symbol
-        return sym
+        return {
+            name,
+            symbol
+        }
     }
-}
+})
 </script>
 <style scoped lang="scss">
 @use '../../../main';

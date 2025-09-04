@@ -27,57 +27,78 @@
     </div>
 </template>
 <script lang="ts">
-import { Vue, Component, Prop, Model } from 'vue-property-decorator'
+import { defineComponent, ref, computed } from 'vue'
 import MnemonicWallet from '@/js/wallets/MnemonicWallet'
 import { LedgerWallet } from '@/js/wallets/LedgerWallet'
 
-@Component
-export default class SearchAddress extends Vue {
-    @Model('change', { type: String }) readonly selectedAddress!: string | null
-    @Prop() wallet!: MnemonicWallet | LedgerWallet
+export default defineComponent({
+    name: 'SearchAddress',
+    props: {
+        selectedAddress: {
+            type: String as () => string | null,
+            default: null
+        },
+        wallet: {
+            type: Object as () => MnemonicWallet | LedgerWallet,
+            required: true
+        }
+    },
+    emits: ['change'],
+    setup(props, { emit }) {
+        const address = ref('')
+        const matchingAddrs = ref<string[]>([])
 
-    address: string = ''
-    matchingAddrs: string[] = []
+        const addrsX = computed((): string[] => {
+            return props.wallet.getAllDerivedExternalAddresses()
+        })
 
-    get addrsX(): string[] {
-        return this.wallet.getAllDerivedExternalAddresses()
-    }
+        const addrsP = computed((): string[] => {
+            return props.wallet.getAllAddressesP()
+        })
 
-    get addrsP(): string[] {
-        return this.wallet.getAllAddressesP()
-    }
-
-    emitChange(val: string | null) {
-        this.$emit('change', val)
-    }
-
-    clearSelection() {
-        this.address = ''
-        this.matchingAddrs = []
-
-        this.emitChange(null)
-    }
-
-    selectAddress(addr: string) {
-        this.emitChange(addr)
-    }
-
-    onInput() {
-        if (this.address === '') {
-            this.matchingAddrs = []
-            return
+        const emitChange = (val: string | null) => {
+            emit('change', val)
         }
 
-        let pAddrs = this.addrsP.filter((addr) => {
-            return addr.includes(this.address)
-        })
-        let xAddrs = this.addrsX.filter((addr) => {
-            return addr.includes(this.address)
-        })
+        const clearSelection = () => {
+            address.value = ''
+            matchingAddrs.value = []
 
-        this.matchingAddrs = [...pAddrs.slice(0, 2), ...xAddrs.slice(0, 2)]
+            emitChange(null)
+        }
+
+        const selectAddress = (addr: string) => {
+            emitChange(addr)
+        }
+
+        const onInput = () => {
+            if (address.value === '') {
+                matchingAddrs.value = []
+                return
+            }
+
+            let pAddrs = addrsP.value.filter((addr) => {
+                return addr.includes(address.value)
+            })
+            let xAddrs = addrsX.value.filter((addr) => {
+                return addr.includes(address.value)
+            })
+
+            matchingAddrs.value = [...pAddrs.slice(0, 2), ...xAddrs.slice(0, 2)]
+        }
+
+        return {
+            address,
+            matchingAddrs,
+            addrsX,
+            addrsP,
+            emitChange,
+            clearSelection,
+            selectAddress,
+            onInput
+        }
     }
-}
+})
 </script>
 <style scoped lang="scss">
 $addrSize: 14px;

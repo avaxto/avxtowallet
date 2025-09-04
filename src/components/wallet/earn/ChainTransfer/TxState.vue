@@ -31,7 +31,7 @@
     </div>
 </template>
 <script lang="ts">
-import { Component, Model, Prop, Vue, Watch } from 'vue-property-decorator'
+import { defineComponent } from 'vue'
 import Spinner from '@/components/misc/Spinner.vue'
 import { UTXO } from 'avalanche/dist/apis/platformvm'
 import { ChainIdType } from '@/constants'
@@ -43,18 +43,34 @@ import { WalletType } from '@/js/wallets/types'
 import { bnToBig } from '@/helpers/helper'
 import { TxState } from '@/components/wallet/earn/ChainTransfer/types'
 
-@Component({
+export default defineComponent({
+    name: 'TxStateCard',
     components: {
         Spinner,
     },
+    props: {
+        state: {
+            type: Number as () => TxState,
+            required: true
+        },
+        status: {
+            type: String,
+            required: true
+        },
+        reason: {
+            type: String,
+            required: true
+        },
+        txId: {
+            type: String,
+            required: true
+        },
+        isExport: {
+            type: Boolean,
+            default: true
+        }
+    }
 })
-export default class TxStateCard extends Vue {
-    @Prop() state!: TxState
-    @Prop() status!: string
-    @Prop() reason!: string
-    @Prop() txId!: string
-    @Prop({ default: true }) isExport?: boolean
-}
 </script>
 <style scoped lang="scss">
 .loading_header {

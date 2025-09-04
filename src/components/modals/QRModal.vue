@@ -8,8 +8,8 @@
     </modal>
 </template>
 <script lang="ts">
-import 'reflect-metadata'
-import { Vue, Component, Prop, Watch } from 'vue-property-decorator'
+import { defineComponent, ref, watch, nextTick, getCurrentInstance } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 import Modal from './Modal.vue'
 import CopyText from '../misc/CopyText.vue'
@@ -18,64 +18,82 @@ import { KeyPair as AVMKeyPair } from 'avalanche/dist/apis/avm'
 import MnemonicWallet from '@/js/wallets/MnemonicWallet'
 import { LedgerWallet } from '@/js/wallets/LedgerWallet'
 
-@Component({
+export default defineComponent({
+    name: 'QRModal',
     components: {
         Modal,
         CopyText,
     },
-})
-export default class QRModal extends Vue {
-    colorDark: string = '#242729'
-    colorLight: string = '#FFF'
-
-    @Prop({ default: '-' }) address!: string
-
-    @Watch('address', { immediate: true })
-    onaddrchange(val: string) {
-        if (val) {
-            this.updateQR()
+    props: {
+        address: {
+            type: String,
+            default: '-'
         }
-    }
+    },
+    setup(props) {
+        const { t } = useI18n()
+        const instance = getCurrentInstance()
+        
+        const modal = ref<InstanceType<typeof Modal>>()
+        const qr = ref<HTMLCanvasElement>()
+        const colorDark = ref('#242729')
+        const colorLight = ref('#FFF')
 
-    @Watch('$root.theme', { immediate: true })
-    onthemechange(val: string) {
-        if (val === 'night') {
-            this.colorDark = '#E5E5E5'
-            this.colorLight = '#242729'
-        } else {
-            this.colorDark = '#242729'
-            this.colorLight = '#FFF'
-        }
-        this.updateQR()
-    }
-
-    open() {
-        // @ts-ignore
-        this.$refs.modal.open()
-
-        Vue.nextTick(() => {
-            this.updateQR()
-        })
-    }
-    updateQR() {
-        if (!this.address) return
-        let canvas = this.$refs.qr
-        QRCode.toCanvas(
-            canvas,
-            this.address,
-            {
-                scale: 6,
-                color: {
-                    light: this.colorLight,
-                    dark: this.colorDark,
+        const updateQR = () => {
+            if (!props.address || !qr.value) return
+            QRCode.toCanvas(
+                qr.value,
+                props.address,
+                {
+                    scale: 6,
+                    color: {
+                        light: colorLight.value,
+                        dark: colorDark.value,
+                    },
                 },
-            },
-            function (error) {
-                if (error) console.error(error)
+                function (error) {
+                    if (error) console.error(error)
+                }
+            )
+        }
+
+        watch(() => props.address, (val: string) => {
+            if (val) {
+                updateQR()
             }
-        )
+        }, { immediate: true })
+
+        watch(() => instance?.appContext.config.globalProperties.$root?.theme, (val: string) => {
+            if (val === 'night') {
+                colorDark.value = '#E5E5E5'
+                colorLight.value = '#242729'
+            } else {
+                colorDark.value = '#242729'
+                colorLight.value = '#FFF'
+            }
+            updateQR()
+        }, { immediate: true })
+
+        const open = () => {
+            if (modal.value) {
+                modal.value.open()
+            }
+
+            nextTick(() => {
+                updateQR()
+            })
+        }
+
+        return {
+            modal,
+            qr,
+            colorDark,
+            colorLight,
+            open,
+            updateQR
+        }
     }
-}
+})
 </script>
 <style scoped lang="scss">
 .qr_body {

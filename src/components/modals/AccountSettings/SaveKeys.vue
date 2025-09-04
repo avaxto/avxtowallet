@@ -9,37 +9,47 @@
     </form>
 </template>
 <script lang="ts">
-import { Vue, Component } from 'vue-property-decorator'
+import { defineComponent, ref, computed } from 'vue'
+import { useStore } from 'vuex'
 import AccountSettingsModal from '@/components/modals/AccountSettings/AccountSettingsModal.vue'
 
-@Component
-export default class SaveKeys extends Vue {
-    pass = ''
-    error = ''
+export default defineComponent({
+    name: 'SaveKeys',
+    emits: ['close'],
+    setup(props, { emit }) {
+        const store = useStore()
+        const pass = ref('')
+        const error = ref('')
 
-    $parent!: AccountSettingsModal
+        const canSubmit = computed(() => {
+            if (pass.value.length < 1) return false
+            return true
+        })
 
-    get canSubmit() {
-        if (this.pass.length < 1) return false
-        return true
-    }
-
-    submit() {
-        this.error = ''
-        this.$store
-            .dispatch('Accounts/saveKeys', this.pass)
-            .then((res) => {
-                this.$store.dispatch('Notifications/add', {
-                    title: 'Keys Saved',
-                    message: 'Your account is updated with new keys.',
+        const submit = () => {
+            error.value = ''
+            store
+                .dispatch('Accounts/saveKeys', pass.value)
+                .then((res) => {
+                    store.dispatch('Notifications/add', {
+                        title: 'Keys Saved',
+                        message: 'Your account is updated with new keys.',
+                    })
+                    emit('close')
                 })
-                this.$parent.close()
-            })
-            .catch((err) => {
-                this.error = err
-            })
+                .catch((err) => {
+                    error.value = err
+                })
+        }
+
+        return {
+            pass,
+            error,
+            canSubmit,
+            submit
+        }
     }
-}
+})
 </script>
 <style scoped lang="scss">
 @use './style';

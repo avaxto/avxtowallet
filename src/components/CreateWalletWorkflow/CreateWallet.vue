@@ -124,8 +124,8 @@
     </div>
 </template>
 <script lang="ts">
-import 'reflect-metadata'
-import { Vue, Component, Prop } from 'vue-property-decorator'
+import { defineComponent, ref, computed } from 'vue'
+import { useStore } from 'vuex'
 import TextDisplayCopy from '@/components/misc/TextDisplayCopy.vue'
 import Spinner from '@/components/misc/Spinner.vue'
 // import TorusGoogle from "@/components/Torus/TorusGoogle.vue";
@@ -138,7 +138,8 @@ import MnemonicCopied from '@/components/CreateWalletWorkflow/MnemonicCopied.vue
 import ToS from '@/components/misc/ToS.vue'
 import MnemonicPhrase from '@/js/wallets/MnemonicPhrase'
 
-@Component({
+export default defineComponent({
+    name: 'CreateWallet',
     components: {
         ToS,
         CopyText,
@@ -150,52 +151,66 @@ import MnemonicPhrase from '@/js/wallets/MnemonicPhrase'
         VerifyMnemonic2,
         MnemonicCopied,
     },
+    setup() {
+        const store = useStore()
+        const isLoad = ref(false)
+        const keyPhrase = ref<MnemonicPhrase | null>(null)
+        const isSecured = ref(false)
+        const isVerified = ref(false)
+        const verify = ref<InstanceType<typeof VerifyMnemonic2> | null>(null)
+
+        const canVerify = computed((): boolean => {
+            return isSecured.value ? true : false
+        })
+
+        const verificationColor = computed(() => {
+            return isVerified.value ? '#a9efbf' : '#F5F6FA'
+        })
+
+        const createKey = (): void => {
+            isSecured.value = false
+            const mnemonic = bip39.generateMnemonic(256)
+            keyPhrase.value = new MnemonicPhrase(mnemonic)
+        }
+
+        const canSubmit = computed((): boolean => {
+            return true
+        })
+
+        const verifyMnemonic = () => {
+            verify.value?.open()
+        }
+
+        const complete = () => {
+            isVerified.value = true
+        }
+
+        const access = async (): Promise<void> => {
+            if (!keyPhrase.value) return
+
+            isLoad.value = true
+
+            setTimeout(async () => {
+                await store.dispatch('accessWallet', keyPhrase.value!.getValue())
+            }, 500)
+        }
+
+        return {
+            isLoad,
+            keyPhrase,
+            isSecured,
+            isVerified,
+            verify,
+            canVerify,
+            verificationColor,
+            createKey,
+            canSubmit,
+            verifyMnemonic,
+            complete,
+            access
+        }
+    }
 })
-export default class CreateWallet extends Vue {
-    // TODO: We do not need to create keyPair, only mnemonic is sufficient
-    isLoad: boolean = false
-    keyPhrase: MnemonicPhrase | null = null
-    isSecured: boolean = false
-    isVerified: boolean = false
-
-    get canVerify(): boolean {
-        return this.isSecured ? true : false
-    }
-
-    get verificationColor() {
-        return this.isVerified ? '#a9efbf' : '#F5F6FA'
-    }
-
-    createKey(): void {
-        this.isSecured = false
-        let mnemonic = bip39.generateMnemonic(256)
-        this.keyPhrase = new MnemonicPhrase(mnemonic)
-    }
-
-    get canSubmit(): boolean {
-        return true
-    }
-    verifyMnemonic() {
-        // @ts-ignore
-        this.$refs.verify.open()
-    }
-
-    complete() {
-        this.isVerified = true
-    }
-
-    async access(): Promise<void> {
-        if (!this.keyPhrase) return
-
-        this.isLoad = true
-
-        let parent = this
-
-        setTimeout(async () => {
-            await parent.$store.dispatch('accessWallet', this.keyPhrase!.getValue())
-        }, 500)
-    }
-}
 </script>
 <style scoped lang="scss">
 @use '../../main';

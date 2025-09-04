@@ -189,7 +189,9 @@
 </template>
 <script lang="ts">
 import 'reflect-metadata'
-import { Vue, Component, Prop, Watch } from 'vue-property-decorator'
+import { defineComponent, ref, computed, watch, onMounted } from 'vue'
+import { useStore } from 'vuex'
+import { useI18n } from 'vue-i18n'
 
 import AvaxInput from '@/components/misc/AvaxInput.vue'
 //@ts-ignore
@@ -226,8 +228,8 @@ const MIN_MS = 60000
 const HOUR_MS = MIN_MS * 60
 const DAY_MS = HOUR_MS * 24
 
-@Component({
-    methods: { bnToAvaxP },
+export default defineComponent({
+    name: 'AddDelegator',
     components: {
         Tooltip,
         NodeCard,
@@ -243,38 +245,41 @@ const DAY_MS = HOUR_MS * 24
         ConfirmPage,
         Expandable,
     },
-})
-export default class AddDelegator extends Vue {
-    search: string = ''
-    selected: ValidatorListItem | null = null
-    stakeAmt: BN = new BN(0)
-    startDate: string = new Date(Date.now() + MIN_MS * 15).toISOString()
-    endDate: string = new Date().toISOString()
-    rewardIn: string = ''
-    rewardDestination = 'local' // local || custom
-    err: string = ''
-    isLoading = false
-    isConfirm = false
-    isSuccess = false
-    txId = ''
-    txStatus = ''
-    txReason: null | string = null
+    setup() {
+        const store = useStore()
+        const { t } = useI18n()
 
-    formNodeID = ''
-    formUtxos: UTXO[] = []
-    formAmt = new BN(0)
-    formEnd: Date = new Date()
-    formRewardAddr = ''
+        const search = ref('')
+        const selected = ref<ValidatorListItem | null>(null)
+        const stakeAmt = ref(new BN(0))
+        const startDate = ref(new Date(Date.now() + MIN_MS * 15).toISOString())
+        const endDate = ref(new Date().toISOString())
+        const rewardIn = ref('')
+        const rewardDestination = ref('local')
+        const err = ref('')
+        const isLoading = ref(false)
+        const isConfirm = ref(false)
+        const isSuccess = ref(false)
+        const txId = ref('')
+        const txStatus = ref('')
+        const txReason = ref<null | string>(null)
 
-    currency_type = 'AVAX'
+        const formNodeID = ref('')
+        const formUtxos = ref<UTXO[]>([])
+        const formAmt = ref(new BN(0))
+        const formEnd = ref(new Date())
+        const formRewardAddr = ref('')
 
-    maxTxSizeAmount: BN | null = null
+        const currency_type = ref('AVAX')
+        const maxTxSizeAmount = ref<BN | null>(null)
 
-    mounted() {
-        this.rewardSelect('local')
-    }
-    setEnd(val: string) {
-        this.endDate = val
+        const wallet = computed(() => {
+            return store.state.activeWallet as WalletType
+        })
+
+        const setEnd = (val: string) => {
+            endDate.value = val
+        }
     }
 
     onselect(val: ValidatorListItem) {

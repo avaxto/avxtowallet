@@ -7,23 +7,38 @@
 </template>
 <script lang="ts">
 import 'reflect-metadata'
-import { Vue, Component, Model } from 'vue-property-decorator'
+import { defineComponent, computed } from 'vue'
+import { useStore } from 'vuex'
 import { ChainAlias, WalletType } from '@/js/wallets/types'
 
-@Component
-export default class ChainSelect extends Vue {
-    @Model('change', { type: String }) readonly chain!: ChainAlias
+export default defineComponent({
+    name: 'ChainSelect',
+    props: {
+        chain: {
+            type: String as () => ChainAlias,
+            required: true
+        }
+    },
+    emits: ['change'],
+    setup(props, { emit }) {
+        const store = useStore()
 
-    get isEVMSupported() {
-        let wallet: WalletType | null = this.$store.state.activeWallet
-        if (!wallet) return false
-        return wallet.ethAddress
-    }
+        const isEVMSupported = computed(() => {
+            let wallet: WalletType | null = store.state.activeWallet
+            if (!wallet) return false
+            return wallet.ethAddress
+        })
 
-    setChain(val: ChainAlias) {
-        this.$emit('change', val)
+        const setChain = (val: ChainAlias) => {
+            emit('change', val)
+        }
+
+        return {
+            isEVMSupported,
+            setChain
+        }
     }
-}
+})
 </script>
 <style scoped lang="scss">
 .chain_select {

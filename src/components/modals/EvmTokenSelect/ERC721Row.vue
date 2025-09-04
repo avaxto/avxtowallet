@@ -18,44 +18,53 @@
     </div>
 </template>
 <script lang="ts">
-import { Vue, Component, Prop } from 'vue-property-decorator'
+import { defineComponent, computed } from 'vue'
+import { useStore } from 'vuex'
 import ERC721Token from '@/js/ERC721Token'
 import ERC721View from '@/components/misc/ERC721View.vue'
 import { iErc721SelectInput } from '@/components/misc/EVMInputDropdown/types'
 import { ERC721WalletBalance } from '@/store/modules/assets/modules/types'
 
-@Component({
-    components: { ERC721View },
-})
-export default class ERC721Row extends Vue {
-    @Prop() token!: ERC721Token
-
-    // created() {
-    //     this.getItems()
-    // }
-
-    get walletBalance(): string[] {
-        return this.$store.state.Assets.ERC721.walletBalance[this.token.contractAddress] || []
-    }
-
-    get hasBalance(): boolean {
-        return this.walletBalance.length > 0
-    }
-
-    selectToken(index: string) {
-        let data: iErc721SelectInput = {
-            id: index,
-            token: this.token,
-        }
-        this.$emit('select', data)
-    }
-
-    // async getItems() {
-    //     let w: WalletType = this.$store.state.activeWallet
-    //     let items = await this.token.getAllTokenData('0x' + w.ethAddress)
-    //     this.nftItems = items
-    // }
+interface Props {
+    token: ERC721Token
 }
+
+export default defineComponent({
+    name: 'ERC721Row',
+    components: { ERC721View },
+    props: {
+        token: {
+            type: Object as () => ERC721Token,
+            required: true
+        }
+    },
+    emits: ['select'],
+    setup(props: Props, { emit }) {
+        const store = useStore()
+
+        const walletBalance = computed((): string[] => {
+            return store.state.Assets.ERC721.walletBalance[props.token.contractAddress] || []
+        })
+
+        const hasBalance = computed((): boolean => {
+            return walletBalance.value.length > 0
+        })
+
+        const selectToken = (index: string) => {
+            const data: iErc721SelectInput = {
+                id: index,
+                token: props.token,
+            }
+            emit('select', data)
+        }
+
+        return {
+            walletBalance,
+            hasBalance,
+            selectToken
+        }
+    }
+})
 </script>
 <style scoped lang="scss">
 .family_row {

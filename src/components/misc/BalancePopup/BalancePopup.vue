@@ -32,47 +32,73 @@
 </template>
 <script lang="ts">
 import 'reflect-metadata'
-import { Vue, Component, Prop } from 'vue-property-decorator'
+import { defineComponent, ref } from 'vue'
 import AvaAsset from '@/js/AvaAsset'
 import BalanceRow from './BalanceRow.vue'
 import CollectibleTab from './CollectibleTab.vue'
 import { UTXO } from 'avalanche/dist/apis/avm'
 
-@Component({
+interface Props {
+    assets: AvaAsset[]
+    isNft?: boolean
+    disabledIds: string[]
+}
+
+export default defineComponent({
+    name: 'BalancePopup',
     components: {
         BalanceRow,
         CollectibleTab,
     },
+    props: {
+        assets: {
+            type: Array as () => AvaAsset[],
+            required: true
+        },
+        isNft: {
+            type: Boolean,
+            default: false
+        },
+        disabledIds: {
+            type: Array as () => string[],
+            default: () => []
+        }
+    },
+    emits: ['select', 'close'],
+    setup(props: Props, { emit }) {
+        const isActive = ref(false)
+
+        const select = (asset: AvaAsset) => {
+            if (asset.amount.isZero()) return
+            if (isDisabled(asset)) return
+
+            emit('select', asset)
+        }
+
+        const selectNFT = (utxo: UTXO) => {
+            emit('select', utxo)
+            closePopup()
+        }
+
+        const isDisabled = (asset: AvaAsset): boolean => {
+            if (props.disabledIds.includes(asset.id)) return true
+            return false
+        }
+
+        const closePopup = () => {
+            isActive.value = false
+            emit('close')
+        }
+
+        return {
+            isActive,
+            select,
+            selectNFT,
+            isDisabled,
+            closePopup
+        }
+    }
 })
-export default class BalancePopup extends Vue {
-    @Prop() assets!: AvaAsset[]
-    @Prop({ default: false }) isNft?: boolean
-    @Prop({ default: () => [] }) disabledIds!: string[] // asset id | if nft the utxo id
-
-    isActive: boolean = false
-
-    select(asset: AvaAsset) {
-        if (asset.amount.isZero()) return
-        if (this.isDisabled(asset)) return
-
-        this.$emit('select', asset)
-    }
-
-    selectNFT(utxo: UTXO) {
-        this.$emit('select', utxo)
-        this.closePopup()
-    }
-
-    isDisabled(asset: AvaAsset): boolean {
-        if (this.disabledIds.includes(asset.id)) return true
-        return false
-    }
-
-    closePopup() {
-        this.isActive = false
-        this.$emit('close')
-    }
-}
 </script>
 <style lang="scss">
 .popup_body {

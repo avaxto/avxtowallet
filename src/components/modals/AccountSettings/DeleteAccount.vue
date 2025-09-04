@@ -8,33 +8,44 @@
     </form>
 </template>
 <script lang="ts">
-import { Vue, Component } from 'vue-property-decorator'
+import { defineComponent, ref, computed } from 'vue'
+import { useStore } from 'vuex'
 
-@Component
-export default class DeleteAccount extends Vue {
-    pass = ''
-    error = ''
+export default defineComponent({
+    name: 'DeleteAccount',
+    setup() {
+        const store = useStore()
+        const pass = ref('')
+        const error = ref('')
 
-    get canSubmit() {
-        if (this.pass.length < 1) return false
-        return true
-    }
+        const canSubmit = computed(() => {
+            if (pass.value.length < 1) return false
+            return true
+        })
 
-    async submit() {
-        this.error = ''
-        await this.$store
-            .dispatch('Accounts/deleteAccount', this.pass)
-            .then((res) => {
-                this.$store.dispatch('Notifications/add', {
-                    title: 'Account Deleted',
-                    message: 'Your wallet is no longer stored on this browser.',
+        const submit = async () => {
+            error.value = ''
+            await store
+                .dispatch('Accounts/deleteAccount', pass.value)
+                .then((res) => {
+                    store.dispatch('Notifications/add', {
+                        title: 'Account Deleted',
+                        message: 'Your wallet is no longer stored on this browser.',
+                    })
                 })
-            })
-            .catch((err) => {
-                this.error = err
-            })
+                .catch((err) => {
+                    error.value = err
+                })
+        }
+
+        return {
+            pass,
+            error,
+            canSubmit,
+            submit
+        }
     }
-}
+})
 </script>
 <style scoped lang="scss">
 @use './style';

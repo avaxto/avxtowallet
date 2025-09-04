@@ -23,8 +23,9 @@
     </Modal>
 </template>
 <script lang="ts">
-import 'reflect-metadata'
-import { Vue, Component, Prop, Watch } from 'vue-property-decorator'
+import { defineComponent, ref, watch, onMounted } from 'vue'
+import { useStore } from 'vuex'
+import { useI18n } from 'vue-i18n'
 import Modal from '../Modal.vue'
 import {
     AllKeyFileDecryptedTypes,
@@ -41,95 +42,116 @@ import {
 import MnemonicWallet from '../../../js/wallets/MnemonicWallet'
 import { SingletonWallet } from '../../../js/wallets/SingletonWallet'
 import { SaveAccountInput } from '@/store/types'
-@Component({
+
+export default defineComponent({
+    name: 'UpgradeToAccountModal',
     components: { Modal },
-})
-export default class UpgradeToAccountModal extends Vue {
-    password: string = ''
-    isLoading: boolean = false
-    err: string = ''
-    mounted() {
-        this.openIfValid()
-    }
-    @Watch('$store.state.isAuth')
-    onauthchange(val: boolean) {
-        if (!val) {
-            this.openIfValid()
-        }
-    }
-    openIfValid() {
-        let w = localStorage.getItem('w')
-        if (w) {
-            this.open()
-        }
-    }
-    async onsubmit() {
-        this.isLoading = true
-        this.err = ''
-        let w = localStorage.getItem('w')
-        if (!w) return
-        let pass = this.password
-        let fileData: AllKeyFileTypes = JSON.parse(w)
-        try {
-            let keyFile: AllKeyFileDecryptedTypes = await readKeyFile(fileData, pass)
-            this.isLoading = false
-            let accessInput = extractKeysFromDecryptedFile(keyFile)
-            await this.$store.dispatch('accessWalletMultiple', {
-                keys: accessInput,
-                activeIndex: keyFile.activeIndex,
-            })
+    setup() {
+        const store = useStore()
+        const { t } = useI18n()
+        const modal = ref<InstanceType<typeof Modal> | null>(null)
+        const password = ref('')
+        const isLoading = ref(false)
+        const err = ref('')
 
-            // If they are using an old keystore version upgrade to a new one
-            // if (keyFile.version !== KEYSTORE_VERSION) {
-            //     let wallets = this.$store.state.wallets as MnemonicWallet[]
-            //     let wallet = this.$store.state.activeWallet as
-            //         | MnemonicWallet
-            //         | SingletonWallet
-            //         | null
-            //     if (!wallet) throw new Error('No active wallet.')
-            //     let activeIndex = wallets.findIndex((w) => w.id == wallet!.id)
-            //     let file = await makeKeyfile(wallets, pass, activeIndex)
-            //     let fileString = JSON.stringify(file)
-            //     localStorage.setItem('w', fileString)
-            // }
-
-            // Save the wallets to an account using the same password
-            let accountIn: SaveAccountInput = {
-                password: pass,
-                accountName: 'Account 1',
+        const openIfValid = () => {
+            const w = localStorage.getItem('w')
+            if (w) {
+                open()
             }
-            await this.$store.dispatch('Accounts/saveAccount', accountIn)
+        }
 
-            // Wont be using this anymore
+        const onsubmit = async () => {
+            isLoading.value = true
+            err.value = ''
+            const w = localStorage.getItem('w')
+            if (!w) return
+            const pass = password.value
+            const fileData: AllKeyFileTypes = JSON.parse(w)
+            try {
+                const keyFile: AllKeyFileDecryptedTypes = await readKeyFile(fileData, pass)
+                isLoading.value = false
+                const accessInput = extractKeysFromDecryptedFile(keyFile)
+                await store.dispatch('accessWalletMultiple', {
+                    keys: accessInput,
+                    activeIndex: keyFile.activeIndex,
+                })
+
+                // If they are using an old keystore version upgrade to a new one
+                // if (keyFile.version !== KEYSTORE_VERSION) {
+                //     let wallets = store.state.wallets as MnemonicWallet[]
+                //     let wallet = store.state.activeWallet as
+                //         | MnemonicWallet
+                //         | SingletonWallet
+                //         | null
+                //     if (!wallet) throw new Error('No active wallet.')
+                //     let activeIndex = wallets.findIndex((w) => w.id == wallet!.id)
+                //     let file = await makeKeyfile(wallets, pass, activeIndex)
+                //     let fileString = JSON.stringify(file)
+                //     localStorage.setItem('w', fileString)
+                // }
+
+                // Save the wallets to an account using the same password
+                const accountIn: SaveAccountInput = {
+                    password: pass,
+                    accountName: 'Account 1',
+                }
+                await store.dispatch('Accounts/saveAccount', accountIn)
+
+                // Wont be using this anymore
+                localStorage.removeItem('w')
+
+                // These are not volatile wallets since they are loaded from storage
+                store.state.volatileWallets = []
+                password.value = ''
+                close()
+            } catch (e) {
+                isLoading.value = false
+                if (e === 'INVALID_PASS') {
+                    err.value = t('modal.activateWallet.err1') as string
+                } else {
+                    err.value = t('modal.activateWallet.err2') as string
+                }
+                return
+            }
+        }
+
+        const cancel = () => {
             localStorage.removeItem('w')
+            close()
+        }
 
-            // These are not volatile wallets since they are loaded from storage
-            this.$store.state.volatileWallets = []
-            this.password = ''
-            this.close()
-        } catch (e) {
-            this.isLoading = false
-            if (e === 'INVALID_PASS') {
-                this.err = this.$t('modal.activateWallet.err1') as string
-            } else {
-                this.err = this.$t('modal.activateWallet.err2') as string
+        const close = () => {
+            modal.value?.close()
+        }
+
+        const open = () => {
+            modal.value?.open()
+        }
+
+        // Watch store auth state
+        watch(() => store.state.isAuth, (val: boolean) => {
+            if (!val) {
+                openIfValid()
             }
-            return
+        })
+
+        onMounted(() => {
+            openIfValid()
+        })
+
+        return {
+            modal,
+            password,
+            isLoading,
+            err,
+            onsubmit,
+            cancel,
+            close,
+            open
         }
     }
-    cancel() {
-        localStorage.removeItem('w')
-        this.close()
-    }
-    close() {
-        //@ts-ignore
-        this.$refs.modal.close()
-    }
-    open() {
-        //@ts-ignore
-        this.$refs.modal.open()
-    }
-}
+})
 </script>
 <style scoped lang="scss">
 @use '../../../main';

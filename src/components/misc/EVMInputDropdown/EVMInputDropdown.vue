@@ -40,7 +40,8 @@
     </div>
 </template>
 <script lang="ts">
-import { Vue, Component, Prop } from 'vue-property-decorator'
+import { defineComponent, ref, computed, nextTick } from 'vue'
+import { useStore } from 'vuex'
 //@ts-ignore
 import { BigNumInput } from '@avalabs/vue_components'
 import { BN } from 'avalanche'
@@ -55,150 +56,197 @@ import { iErc721SelectInput } from '@/components/misc/EVMInputDropdown/types'
 import ERC721View from '@/components/misc/ERC721View.vue'
 import ERC721Token from '@/js/ERC721Token'
 
-@Component({
+export default defineComponent({
+    name: 'EVMInputDropdown',
     components: {
         ERC721View,
         EVMTokenSelectModal,
         EVMAssetDropdown,
         BigNumInput,
     },
-})
-export default class EVMInputDropdown extends Vue {
-    token: Erc20Token | 'native' = 'native'
-    isCollectible = false
-    collectible: iErc721SelectInput | null = null
-    @Prop({ default: false }) disabled!: boolean
-    @Prop() gasPrice!: BN // in wei
-    @Prop({ default: 21000 }) gasLimit!: number
-    amt = new BN(0)
-
-    $refs!: {
-        bigIn: BigNumInput
-        dropdown: EVMAssetDropdown
-    }
-
-    clear() {
-        this.$refs.dropdown.clear()
-    }
-
-    get usd_val(): Big {
-        if (this.token != 'native') return Big(0)
-
-        let price = this.$store.state.prices.usd
-        let big = bnToBig(this.amt, 18)
-        return big.mul(Big(price))
-    }
-
-    get max_amount(): BN {
-        // Subtract gas
-        if (this.isNative) {
-            let limit = new BN(this.gasLimit)
-            let fee = limit.mul(this.gasPrice)
-            return this.balanceBN.sub(fee)
-        } else {
-            return this.balanceBN
+    props: {
+        disabled: {
+            type: Boolean,
+            default: false
+        },
+        gasPrice: {
+            type: Object as () => BN,
+            required: true
+        },
+        gasLimit: {
+            type: Number,
+            default: 21000
         }
-    }
+    },
+    emits: ['tokenChange', 'collectibleChange', 'amountChange'],
+    setup(props, { emit }) {
+        const store = useStore()
+        
+        const bigIn = ref<InstanceType<typeof BigNumInput>>()
+        const dropdown = ref<InstanceType<typeof EVMAssetDropdown>>()
+        
+        const token = ref<Erc20Token | 'native'>('native')
+        const isCollectible = ref(false)
+        const collectible = ref<iErc721SelectInput | null>(null)
+        const amt = ref(new BN(0))
 
-    get isNative() {
-        return this.token === 'native'
-    }
-    get denomination(): number {
-        if (this.isNative) {
-            return 18
-        } else {
-            return parseInt((this.token as Erc20Token).data.decimals as string)
+        const clear = () => {
+            if (dropdown.value) {
+                dropdown.value.clear()
+            }
         }
-    }
 
-    get stepSize(): BN {
-        if (this.denomination > 3) {
-            let powBN = new BN(10).pow(new BN(this.denomination - 2))
-            // let stepNum = Math.pow(10, this.denomination - 2)
-            return powBN
-        } else {
-            let powBN = new BN(10).pow(new BN(this.denomination))
-            // let stepNum = Math.pow(10, this.denomination)
-            return powBN
+        const usd_val = computed((): Big => {
+            if (token.value != 'native') return Big(0)
+
+            let price = store.state.prices.usd
+            let big = bnToBig(amt.value, 18)
+            return big.mul(Big(price))
+        })
+
+        const isNative = computed(() => {
+            return token.value === 'native'
+        })
+
+        const denomination = computed((): number => {
+            if (isNative.value) {
+                return 18
+            } else {
+                return parseInt((token.value as Erc20Token).data.decimals as string)
+            }
+        })
+
+        const stepSize = computed((): BN => {
+            if (denomination.value > 3) {
+                let powBN = new BN(10).pow(new BN(denomination.value - 2))
+                return powBN
+            } else {
+                let powBN = new BN(10).pow(new BN(denomination.value))
+                return powBN
+            }
+        })
+
+        const asset_now = computed(() => {
+            return {
+                denomination: 2,
+            }
+        })
+
+        const placeholder = computed((): string => {
+            let deno = denomination.value
+            let res = '0'
+            if (deno > 2) {
+                res = '0.00'
+            }
+            return res
+        })
+
+        const avaxBalanceBN = computed((): BN => {
+            let w: WalletType | null = store.state.activeWallet
+            if (!w) return new BN(0)
+            return w.ethBalance
+        })
+
+        const avaxBalance = computed((): Big => {
+            return bnToBig(avaxBalanceBN.value, 18)
+        })
+
+        const balance = computed((): Big => {
+            if (token.value === 'native') {
+                return avaxBalance.value
+            }
+            return token.value.balanceBig
+        })
+
+        const balanceBN = computed((): BN => {
+            if (token.value === 'native') {
+                return avaxBalanceBN.value
+            }
+            return token.value.balanceBN
+        })
+
+        const max_amount = computed((): BN => {
+            // Subtract gas
+            if (isNative.value) {
+                let limit = new BN(props.gasLimit)
+                let fee = limit.mul(props.gasPrice)
+                return balanceBN.value.sub(fee)
+            } else {
+                return balanceBN.value
+            }
+        })
+
+        const maxOut = () => {
+            if (bigIn.value) {
+                bigIn.value.maxout()
+            }
         }
-    }
 
-    get asset_now() {
+        const setToken = (tokenValue: 'native' | Erc20Token) => {
+            if (dropdown.value) {
+                dropdown.value.select(tokenValue)
+            }
+        }
+
+        const setErc721Token = (tokenValue: ERC721Token, tokenId: string) => {
+            if (dropdown.value) {
+                dropdown.value.selectERC721({
+                    token: tokenValue,
+                    id: tokenId,
+                })
+            }
+        }
+
+        const onAssetChange = (tokenValue: Erc20Token | 'native') => {
+            isCollectible.value = false
+            token.value = tokenValue
+            nextTick(() => {
+                if (bigIn.value) {
+                    bigIn.value.clear()
+                }
+            })
+            emit('tokenChange', tokenValue)
+        }
+
+        const onCollectibleChange = (val: iErc721SelectInput) => {
+            isCollectible.value = true
+            collectible.value = val
+            emit('collectibleChange', val)
+        }
+
+        const amount_in = (amtValue: BN) => {
+            amt.value = amtValue
+            emit('amountChange', amtValue)
+        }
+
         return {
-            denomination: 2,
+            bigIn,
+            dropdown,
+            token,
+            isCollectible,
+            collectible,
+            amt,
+            clear,
+            usd_val,
+            max_amount,
+            isNative,
+            denomination,
+            stepSize,
+            asset_now,
+            placeholder,
+            avaxBalanceBN,
+            avaxBalance,
+            balance,
+            balanceBN,
+            maxOut,
+            setToken,
+            setErc721Token,
+            onAssetChange,
+            onCollectibleChange,
+            amount_in
         }
     }
-
-    get placeholder(): string {
-        let deno = this.denomination
-        let res = '0'
-        if (deno > 2) {
-            res = '0.00'
-        }
-        return res
-    }
-
-    maxOut() {
-        // @ts-ignore
-        this.$refs.bigIn.maxout()
-    }
-
-    get avaxBalanceBN(): BN {
-        let w: WalletType | null = this.$store.state.activeWallet
-        if (!w) return new BN(0)
-        return w.ethBalance
-    }
-
-    get avaxBalance(): Big {
-        return bnToBig(this.avaxBalanceBN, 18)
-    }
-
-    get balance(): Big {
-        if (this.token === 'native') {
-            return this.avaxBalance
-        }
-        return this.token.balanceBig
-    }
-
-    // The available balance of the selected asset
-    get balanceBN(): BN {
-        if (this.token === 'native') {
-            return this.avaxBalanceBN
-        }
-        return this.token.balanceBN
-    }
-
-    setToken(token: 'native' | Erc20Token) {
-        this.$refs.dropdown.select(token)
-    }
-
-    setErc721Token(token: ERC721Token, tokenId: string) {
-        this.$refs.dropdown.selectERC721({
-            token: token,
-            id: tokenId,
-        })
-    }
-
-    onAssetChange(token: Erc20Token | 'native') {
-        this.isCollectible = false
-        this.token = token
-        this.$nextTick(() => {
-            this.$refs.bigIn.clear()
-        })
-        this.$emit('tokenChange', token)
-    }
-
-    onCollectibleChange(val: iErc721SelectInput) {
-        this.isCollectible = true
-        this.collectible = val
-        this.$emit('collectibleChange', val)
-    }
-
-    amount_in(amt: BN) {
-        this.amt = amt
-        this.$emit('amountChange', amt)
-    }
-}
+})
 </script>
 <style scoped lang="scss">
 .evm_input_dropdown {

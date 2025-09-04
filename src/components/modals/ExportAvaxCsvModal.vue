@@ -19,8 +19,8 @@
     </modal>
 </template>
 <script lang="ts">
-import 'reflect-metadata'
-import { Vue, Component, Prop } from 'vue-property-decorator'
+import { defineComponent, ref, computed } from 'vue'
+import { useStore } from 'vuex'
 
 import Modal from '@/components/modals/Modal.vue'
 import { CsvRowAvaxTransferData, ITransactionData, UTXO } from '@/store/modules/history/types'
@@ -29,74 +29,90 @@ const generate = require('csv-generate')
 import { downloadCSVFile } from '@/store/modules/history/history_utils'
 import { createCsvNormal, getHistoryForOwnedAddresses } from '@avalabs/avalanche-wallet-sdk'
 
-@Component({
+export default defineComponent({
+    name: 'ExportAvaxCsvModal',
     components: {
         Modal,
     },
+    setup() {
+        const store = useStore()
+        const modal = ref<InstanceType<typeof Modal> | null>(null)
+        const error = ref<Error | null>(null)
+        const isLoading = ref(false)
+
+        const open = (): void => {
+            error.value = null
+            modal.value?.open()
+        }
+
+        const canSubmit = computed(() => {
+            return true
+        })
+
+        const transactions = computed((): ITransactionData[] => {
+            return store.state.History.allTransactions
+        })
+
+        const wallet = computed(() => {
+            return store.state.activeWallet
+        })
+
+        const xAddresses = computed((): string[] => {
+            return wallet.value.getAllAddressesX()
+        })
+
+        const xAddressesStripped = computed((): string[] => {
+            return xAddresses.value.map((addr: string) => addr.split('-')[1])
+        })
+
+        const avaxID = computed(() => {
+            return store.state.Assets.AVA_ASSET_ID
+        })
+
+        const generateCSVFile = async () => {
+            isLoading.value = true
+
+            try {
+                const hist = await getHistoryForOwnedAddresses(
+                    wallet.value.getAllAddressesX(),
+                    wallet.value.getAllAddressesP(),
+                    wallet.value.getEvmAddressBech(),
+                    wallet.value.getEvmAddress()
+                )
+
+                const encoding = 'data:text/csv;charset=utf-8,'
+                const csvContent = createCsvNormal(hist)
+                downloadCSVFile(encoding + csvContent, 'avax_transfers')
+            } catch (e: any) {
+                error.value = e
+            }
+            isLoading.value = false
+        }
+
+        const submit = () => {
+            try {
+                error.value = null
+                generateCSVFile()
+            } catch (e: any) {
+                error.value = e
+            }
+        }
+
+        return {
+            modal,
+            error,
+            isLoading,
+            open,
+            canSubmit,
+            transactions,
+            wallet,
+            xAddresses,
+            xAddressesStripped,
+            avaxID,
+            submit
+        }
+    }
 })
-export default class ExportAvaxCsvModal extends Vue {
-    error: Error | null = null
-    isLoading = false
-
-    open(): void {
-        this.error = null
-        let modal = this.$refs.modal as Modal
-        modal.open()
-    }
-
-    get canSubmit() {
-        return true
-    }
-
-    get transactions(): ITransactionData[] {
-        return this.$store.state.History.allTransactions
-    }
-
-    get wallet() {
-        return this.$store.state.activeWallet
-    }
-
-    get xAddresses(): string[] {
-        return this.wallet.getAllAddressesX()
-    }
-
-    get xAddressesStripped(): string[] {
-        return this.xAddresses.map((addr: string) => addr.split('-')[1])
-    }
-
-    get avaxID() {
-        return this.$store.state.Assets.AVA_ASSET_ID
-    }
-
-    async generateCSVFile() {
-        this.isLoading = true
-
-        try {
-            const hist = await getHistoryForOwnedAddresses(
-                this.wallet.getAllAddressesX(),
-                this.wallet.getAllAddressesP(),
-                this.wallet.getEvmAddressBech(),
-                this.wallet.getEvmAddress()
-            )
-
-            const encoding = 'data:text/csv;charset=utf-8,'
-            const csvContent = createCsvNormal(hist)
-            downloadCSVFile(encoding + csvContent, 'avax_transfers')
-        } catch (e) {
-            this.error = e
-        }
-        this.isLoading = false
-    }
-
-    submit() {
-        try {
-            this.error = null
-            this.generateCSVFile()
-        } catch (e) {
-            this.error = e
-        }
-    }
-}
 </script>
 <style scoped lang="scss">
 .csv_modal_body {

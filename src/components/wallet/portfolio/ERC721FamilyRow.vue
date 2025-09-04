@@ -20,25 +20,43 @@
     </div>
 </template>
 <script lang="ts">
-import { Vue, Component, Prop } from 'vue-property-decorator'
+import { defineComponent, computed } from 'vue'
+import { useStore } from 'vuex'
 import ERC721Token from '@/js/ERC721Token'
 import { WalletType } from '@/js/wallets/types'
 import ERC721View from '@/components/wallet/portfolio/ERC721Card.vue'
 import { ERC721WalletBalance } from '@/store/modules/assets/modules/types'
-@Component({
-    components: { ERC721View },
-})
-export default class ERC721FamilyRow extends Vue {
-    @Prop() family!: ERC721Token
 
-    get walletBalance(): string[] {
-        return this.$store.state.Assets.ERC721.walletBalance[this.family.contractAddress] || []
-    }
-
-    get hasBalance() {
-        return this.walletBalance.length > 0
-    }
+interface Props {
+    family: ERC721Token
 }
+
+export default defineComponent({
+    name: 'ERC721FamilyRow',
+    components: { ERC721View },
+    props: {
+        family: {
+            type: Object as () => ERC721Token,
+            required: true
+        }
+    },
+    setup(props: Props) {
+        const store = useStore()
+
+        const walletBalance = computed((): string[] => {
+            return store.state.Assets.ERC721.walletBalance[props.family.contractAddress] || []
+        })
+
+        const hasBalance = computed(() => {
+            return walletBalance.value.length > 0
+        })
+
+        return {
+            walletBalance,
+            hasBalance
+        }
+    }
+})
 </script>
 <style scoped lang="scss">
 @use "tokens";

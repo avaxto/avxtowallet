@@ -38,8 +38,8 @@
     </modal>
 </template>
 <script lang="ts">
-import 'reflect-metadata'
-import { Vue, Component, Prop } from 'vue-property-decorator'
+import { defineComponent, ref, computed } from 'vue'
+import { useStore } from 'vuex'
 
 import Modal from '@/components/modals/Modal.vue'
 import {
@@ -62,176 +62,198 @@ import {
     createCSVContent,
 } from '@/store/modules/history/history_utils'
 
-@Component({
+export default defineComponent({
+    name: 'ExportCsvModal',
     components: {
         Modal,
     },
-})
-export default class ExportCsvModal extends Vue {
-    showValidation = true
-    showDelegation = true
-    showFees = true
-    error: Error | null = null
+    setup() {
+        const store = useStore()
+        
+        const modal = ref<InstanceType<typeof Modal>>()
+        const showValidation = ref(true)
+        const showDelegation = ref(true)
+        const showFees = ref(true)
+        const error = ref<Error | null>(null)
 
-    open(): void {
-        this.error = null
-        let modal = this.$refs.modal as Modal
-        modal.open()
-    }
-
-    get canSubmit() {
-        return this.showDelegation || this.showValidation || this.showFees
-    }
-
-    get transactions() {
-        return this.$store.state.History.allTransactions
-    }
-
-    get stakingTxs(): ITransactionData[] {
-        return this.$store.getters['History/stakingTxs']
-    }
-
-    get wallet() {
-        return this.$store.state.activeWallet
-    }
-
-    get pAddresses(): string[] {
-        return this.wallet.getAllAddressesP()
-    }
-
-    get pAddressesStripped(): string[] {
-        return this.pAddresses.map((addr: string) => addr.split('-')[1])
-    }
-
-    generateCSVData() {
-        let myAddresses = this.pAddressesStripped
-
-        // Sort tx by stake end time
-        const txsSorted = this.stakingTxs.sort((a, b) => {
-            return b.validatorEnd - a.validatorEnd
-        })
-
-        let rows: CsvRowStakingData[] = []
-        for (var i = 0; i < txsSorted.length; i++) {
-            let tx = txsSorted[i]
-
-            let type = tx.type
-            let isRewarded = tx.rewarded
-            let txId = tx.id
-
-            // We dont care about txs not rewarded
-            // TODO: we might care later
-            if (!isRewarded) continue
-
-            let stakeAmount = getStakeAmount(tx)
-            // Use validator end time for both delegation and validations as reward date
-            let rewardMoment = moment(tx.validatorEnd * 1000)
-            let startMoment = moment(tx.validatorStart * 1000)
-            let durationMoment = moment.duration(rewardMoment.diff(startMoment))
-
-            let nodeID = tx.validatorNodeID
-
-            let avaxPrice = getPriceAtUnixTime(rewardMoment.unix() * 1000)
-
-            let myOuts = getOwnedOutputs(tx.outputs, myAddresses)
-            let rewardOuts = getRewardOuts(myOuts)
-            let rewardAmt = getOutputTotals(rewardOuts)
-            let rewardAmtBig = bnToBig(rewardAmt, 9)
-            let rewardAmtUsd = avaxPrice ? rewardAmtBig.mul(avaxPrice) : undefined
-
-            // Did this wallet receive any rewards?
-            let isRewardOwner = rewardOuts.length > 0
-
-            // Did we send this staking transaction
-            let ins = tx.inputs || []
-            let inputOuts = ins.map((input) => input.output)
-            let myInputs = getOwnedOutputs(inputOuts, myAddresses)
-            let isInputOwner = myInputs.length > 0
-
-            if (type === 'add_delegator') {
-                // Skip if user did not want delegation / fee rewards
-                if (!this.showDelegation && !this.showFees) continue
-
-                // If user does not want delegation fees received, continue
-                if (!isInputOwner && !this.showFees) continue
-                // If user does not want delegation rewards, continue
-                if (isInputOwner && !this.showDelegation) continue
-
-                let type: CsvRowStakingTxType = isInputOwner ? 'add_delegator' : 'fee_received'
-
-                //TODO: What if reward went to another wallet?
-                // if (rewardOuts.length === 0) {
-                // }
-
-                rows.push({
-                    txId: txId,
-                    txType: type,
-                    stakeDate: startMoment,
-                    stakeDuration: durationMoment,
-                    stakeAmount: bnToBig(stakeAmount, 9),
-                    rewardDate: rewardMoment,
-                    rewardAmtAvax: rewardAmtBig,
-                    rewardAmtUsd: rewardAmtUsd,
-                    avaxPrice: avaxPrice,
-                    nodeID: nodeID,
-                    isRewardOwner: isRewardOwner,
-                    isInputOwner: isInputOwner,
-                    rewardDateUnix: tx.validatorEnd,
-                })
-            } else {
-                // Skip if user did not want validation rewards
-                if (!this.showValidation) continue
-
-                rows.push({
-                    txId: txId,
-                    txType: 'add_validator',
-                    stakeDate: startMoment,
-                    stakeDuration: durationMoment,
-                    stakeAmount: bnToBig(stakeAmount, 9),
-                    rewardDate: rewardMoment,
-                    rewardAmtAvax: rewardAmtBig,
-                    rewardAmtUsd: rewardAmtUsd,
-                    avaxPrice: avaxPrice,
-                    nodeID: nodeID,
-                    isRewardOwner: isRewardOwner,
-                    isInputOwner: isInputOwner,
-                    rewardDateUnix: tx.validatorEnd,
-                })
+        const open = (): void => {
+            error.value = null
+            if (modal.value) {
+                modal.value.open()
             }
         }
 
-        let headers = [
-            'Tx ID',
-            'Type',
-            'Node ID',
-            'Stake Amount',
-            'Stake Start Date',
-            'Stake Duration',
-            'Reward Date',
-            'Reward Timestamp (UNIX)',
-            'AVAX Price at Reward Date',
-            'Reward Received (AVAX)',
-            'Reward Received (USD)',
-        ]
+        const canSubmit = computed(() => {
+            return showDelegation.value || showValidation.value || showFees.value
+        })
 
-        // Convert data to valid CSV row string
-        let rowArrays = rows.map((rowData) => stakingDataToCsvRow(rowData))
+        const transactions = computed(() => {
+            return store.state.History.allTransactions
+        })
 
-        let allRows = [headers, ...rowArrays]
-        let csvContent = createCSVContent(allRows)
+        const stakingTxs = computed((): ITransactionData[] => {
+            return store.getters['History/stakingTxs']
+        })
 
-        downloadCSVFile(csvContent, 'staking_rewards')
-    }
+        const wallet = computed(() => {
+            return store.state.activeWallet
+        })
 
-    submit() {
-        try {
-            this.error = null
-            this.generateCSVData()
-        } catch (e) {
-            this.error = e
+        const pAddresses = computed((): string[] => {
+            return wallet.value.getAllAddressesP()
+        })
+
+        const pAddressesStripped = computed((): string[] => {
+            return pAddresses.value.map((addr: string) => addr.split('-')[1])
+        })
+
+        const generateCSVData = () => {
+            let myAddresses = pAddressesStripped.value
+
+            // Sort tx by stake end time
+            const txsSorted = stakingTxs.value.sort((a, b) => {
+                return b.validatorEnd - a.validatorEnd
+            })
+
+            let rows: CsvRowStakingData[] = []
+            for (var i = 0; i < txsSorted.length; i++) {
+                let tx = txsSorted[i]
+
+                let type = tx.type
+                let isRewarded = tx.rewarded
+                let txId = tx.id
+
+                // We dont care about txs not rewarded
+                // TODO: we might care later
+                if (!isRewarded) continue
+
+                let stakeAmount = getStakeAmount(tx)
+                // Use validator end time for both delegation and validations as reward date
+                let rewardMoment = moment(tx.validatorEnd * 1000)
+                let startMoment = moment(tx.validatorStart * 1000)
+                let durationMoment = moment.duration(rewardMoment.diff(startMoment))
+
+                let nodeID = tx.validatorNodeID
+
+                let avaxPrice = getPriceAtUnixTime(rewardMoment.unix() * 1000)
+
+                let myOuts = getOwnedOutputs(tx.outputs, myAddresses)
+                let rewardOuts = getRewardOuts(myOuts)
+                let rewardAmt = getOutputTotals(rewardOuts)
+                let rewardAmtBig = bnToBig(rewardAmt, 9)
+                let rewardAmtUsd = avaxPrice ? rewardAmtBig.mul(avaxPrice) : undefined
+
+                // Did this wallet receive any rewards?
+                let isRewardOwner = rewardOuts.length > 0
+
+                // Did we send this staking transaction
+                let ins = tx.inputs || []
+                let inputOuts = ins.map((input) => input.output)
+                let myInputs = getOwnedOutputs(inputOuts, myAddresses)
+                let isInputOwner = myInputs.length > 0
+
+                if (type === 'add_delegator') {
+                    // Skip if user did not want delegation / fee rewards
+                    if (!showDelegation.value && !showFees.value) continue
+
+                    // If user does not want delegation fees received, continue
+                    if (!isInputOwner && !showFees.value) continue
+                    // If user does not want delegation rewards, continue
+                    if (isInputOwner && !showDelegation.value) continue
+
+                    let type: CsvRowStakingTxType = isInputOwner ? 'add_delegator' : 'fee_received'
+
+                    //TODO: What if reward went to another wallet?
+                    // if (rewardOuts.length === 0) {
+                    // }
+
+                    rows.push({
+                        txId: txId,
+                        txType: type,
+                        stakeDate: startMoment,
+                        stakeDuration: durationMoment,
+                        stakeAmount: bnToBig(stakeAmount, 9),
+                        rewardDate: rewardMoment,
+                        rewardAmtAvax: rewardAmtBig,
+                        rewardAmtUsd: rewardAmtUsd,
+                        avaxPrice: avaxPrice,
+                        nodeID: nodeID,
+                        isRewardOwner: isRewardOwner,
+                        isInputOwner: isInputOwner,
+                        rewardDateUnix: tx.validatorEnd,
+                    })
+                } else {
+                    // Skip if user did not want validation rewards
+                    if (!showValidation.value) continue
+
+                    rows.push({
+                        txId: txId,
+                        txType: 'add_validator',
+                        stakeDate: startMoment,
+                        stakeDuration: durationMoment,
+                        stakeAmount: bnToBig(stakeAmount, 9),
+                        rewardDate: rewardMoment,
+                        rewardAmtAvax: rewardAmtBig,
+                        rewardAmtUsd: rewardAmtUsd,
+                        avaxPrice: avaxPrice,
+                        nodeID: nodeID,
+                        isRewardOwner: isRewardOwner,
+                        isInputOwner: isInputOwner,
+                        rewardDateUnix: tx.validatorEnd,
+                    })
+                }
+            }
+
+            let headers = [
+                'Tx ID',
+                'Type',
+                'Node ID',
+                'Stake Amount',
+                'Stake Start Date',
+                'Stake Duration',
+                'Reward Date',
+                'Reward Timestamp (UNIX)',
+                'AVAX Price at Reward Date',
+                'Reward Received (AVAX)',
+                'Reward Received (USD)',
+            ]
+
+            // Convert data to valid CSV row string
+            let rowArrays = rows.map((rowData) => stakingDataToCsvRow(rowData))
+
+            let allRows = [headers, ...rowArrays]
+            let csvContent = createCSVContent(allRows)
+
+            downloadCSVFile(csvContent, 'staking_rewards')
+        }
+
+        const submit = () => {
+            try {
+                error.value = null
+                generateCSVData()
+            } catch (e) {
+                error.value = e as Error
+            }
+        }
+
+        return {
+            modal,
+            showValidation,
+            showDelegation,
+            showFees,
+            error,
+            open,
+            canSubmit,
+            transactions,
+            stakingTxs,
+            wallet,
+            pAddresses,
+            pAddressesStripped,
+            generateCSVData,
+            submit
         }
     }
-}
+})
 </script>
 <style scoped lang="scss">
 .csv_modal_body {

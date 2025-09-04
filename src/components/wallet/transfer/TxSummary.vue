@@ -28,52 +28,69 @@
 </template>
 <script lang="ts">
 import 'reflect-metadata'
-import { Vue, Component, Ref, Prop } from 'vue-property-decorator'
+import { defineComponent, computed } from 'vue'
 import { ITransaction } from './types'
 import { UTXO } from 'avalanche/dist/apis/avm'
 import { BN } from 'avalanche'
 import { bnToBig, getPayloadFromUTXO } from '@/helpers/helper'
 import NftPayloadView from '@/components/misc/NftPayloadView/NftPayloadView.vue'
-@Component({
+
+export default defineComponent({
+    name: 'TxSummary',
     components: {
         NftPayloadView,
     },
-})
-export default class TxSummary extends Vue {
-    @Prop() orders!: ITransaction[]
-    @Prop() nftOrders!: UTXO[]
-
-    cleanNum(val: BN, denom: number) {
-        return bnToBig(val, denom).toLocaleString(denom)
-    }
-
-    get nftPayloads() {
-        return this.nftOrders.map((utxo) => {
-            return getPayloadFromUTXO(utxo)
-        })
-    }
-
-    get isFungibleEmpty() {
-        for (var i = 0; i < this.orders.length; i++) {
-            let order = this.orders[i]
-            if (order.amount.gt(new BN(0))) {
-                return false
-            }
+    props: {
+        orders: {
+            type: Array as () => ITransaction[],
+            required: true
+        },
+        nftOrders: {
+            type: Array as () => UTXO[],
+            required: true
         }
-        return true
-    }
+    },
+    setup(props) {
+        const cleanNum = (val: BN, denom: number) => {
+            return bnToBig(val, denom).toLocaleString(denom)
+        }
 
-    get cleanOrders() {
-        const ZERO = new BN(0)
-        return this.orders.filter((order) => {
-            return order.amount.gt(ZERO)
+        const nftPayloads = computed(() => {
+            return props.nftOrders.map((utxo) => {
+                return getPayloadFromUTXO(utxo)
+            })
         })
-    }
 
-    get isCollectibleEmpty() {
-        return this.nftOrders.length === 0
+        const isFungibleEmpty = computed(() => {
+            for (var i = 0; i < props.orders.length; i++) {
+                let order = props.orders[i]
+                if (order.amount.gt(new BN(0))) {
+                    return false
+                }
+            }
+            return true
+        })
+
+        const cleanOrders = computed(() => {
+            const ZERO = new BN(0)
+            return props.orders.filter((order) => {
+                return order.amount.gt(ZERO)
+            })
+        })
+
+        const isCollectibleEmpty = computed(() => {
+            return props.nftOrders.length === 0
+        })
+
+        return {
+            cleanNum,
+            nftPayloads,
+            isFungibleEmpty,
+            cleanOrders,
+            isCollectibleEmpty
+        }
     }
-}
+})
 </script>
 <style scoped lang="scss">
 .tx_summary {

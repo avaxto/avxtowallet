@@ -31,85 +31,102 @@
 </template>
 <script lang="ts">
 import 'reflect-metadata'
-import { Vue, Component, Prop } from 'vue-property-decorator'
+import { defineComponent, ref, onBeforeUnmount } from 'vue'
+import { useStore } from 'vuex'
+import { useI18n } from 'vue-i18n'
 
 import * as bip39 from 'bip39'
 import MnemonicPasswordInput from '@/components/misc/MnemonicPasswordInput.vue'
 
-@Component({
+export default defineComponent({
+    name: 'Mnemonic',
     components: {
         MnemonicPasswordInput,
     },
-})
-export default class Mnemonic extends Vue {
-    isLoading: boolean = false
-    err: string = ''
-    canSubmit = false
+    setup() {
+        const store = useStore()
+        const { t } = useI18n()
+        
+        const isLoading = ref<boolean>(false)
+        const err = ref<string>('')
+        const canSubmit = ref<boolean>(false)
+        const mnemonic_in = ref<HTMLInputElement>()
 
-    $refs!: {
-        mnemonic_in: HTMLInputElement
-    }
-
-    beforeDestroy() {
-        this.$refs.mnemonic_in.value = ''
-    }
-
-    errCheck() {
-        let phrase = this.getMnemonic()
-
-        if (!phrase) {
-            return
-        }
-
-        let words = phrase.split(' ')
-
-        // not a valid key phrase
-        if (words.length !== 24) {
-            this.err = `${this.$t('access.mnemonic.error')}`
-            return false
-        }
-
-        let isValid = bip39.validateMnemonic(phrase)
-        if (!isValid) {
-            this.err = 'Invalid mnemonic phrase. Make sure your mnemonic is all lowercase.'
-            return false
-        }
-
-        return true
-    }
-
-    getWordCount() {
-        const phrase = this.getMnemonic() || ''
-        return phrase.trim().split(' ').length
-    }
-
-    getMnemonic() {
-        const inputVal = this.$refs['mnemonic_in'].value
-        return inputVal.trim()
-    }
-
-    async access() {
-        this.err = ''
-        const phrase = this.getMnemonic()
-
-        this.isLoading = true
-
-        if (!this.errCheck()) {
-            this.isLoading = false
-            return
-        }
-
-        setTimeout(async () => {
-            try {
-                await this.$store.dispatch('accessWallet', phrase)
-                this.isLoading = false
-            } catch (e) {
-                this.isLoading = false
-                this.err = `${this.$t('access.mnemonic.error')}`
+        onBeforeUnmount(() => {
+            if (mnemonic_in.value) {
+                mnemonic_in.value.value = ''
             }
-        }, 500)
+        })
+
+        const getMnemonic = () => {
+            if (!mnemonic_in.value) return ''
+            const inputVal = mnemonic_in.value.value
+            return inputVal.trim()
+        }
+
+        const getWordCount = () => {
+            const phrase = getMnemonic() || ''
+            return phrase.trim().split(' ').length
+        }
+
+        const errCheck = () => {
+            let phrase = getMnemonic()
+
+            if (!phrase) {
+                return
+            }
+
+            let words = phrase.split(' ')
+
+            // not a valid key phrase
+            if (words.length !== 24) {
+                err.value = `${t('access.mnemonic.error')}`
+                return false
+            }
+
+            let isValid = bip39.validateMnemonic(phrase)
+            if (!isValid) {
+                err.value = 'Invalid mnemonic phrase. Make sure your mnemonic is all lowercase.'
+                return false
+            }
+
+            return true
+        }
+
+        const access = async () => {
+            err.value = ''
+            const phrase = getMnemonic()
+
+            isLoading.value = true
+
+            if (!errCheck()) {
+                isLoading.value = false
+                return
+            }
+
+            setTimeout(async () => {
+                try {
+                    await store.dispatch('accessWallet', phrase)
+                    isLoading.value = false
+                } catch (e) {
+                    isLoading.value = false
+                    err.value = `${t('access.mnemonic.error')}`
+                }
+            }, 500)
+        }
+
+        return {
+            isLoading,
+            err,
+            canSubmit,
+            mnemonic_in,
+            getMnemonic,
+            getWordCount,
+            errCheck,
+            access
+        }
     }
-}
+})
 </script>
 <style scoped lang="scss">
 @use '../../main';

@@ -39,7 +39,8 @@
 </template>
 <script lang="ts">
 import 'reflect-metadata'
-import { Vue, Component, Prop } from 'vue-property-decorator'
+import { defineComponent, ref, computed } from 'vue'
+import { useStore } from 'vuex'
 
 import Spinner from '@/components/misc/Spinner.vue'
 import { WalletType } from '@/js/wallets/types'
@@ -52,121 +53,134 @@ import {
     GasHelper,
 } from '@avalabs/avalanche-wallet-sdk'
 
-@Component({
+export default defineComponent({
+    name: 'ChainImport',
     components: { Spinner },
-})
-export default class ChainImport extends Vue {
-    err = ''
-    isSuccess = false
-    isLoading = false
-    txId = ''
+    setup() {
+        const store = useStore()
+        const err = ref('')
+        const isSuccess = ref(false)
+        const isLoading = ref(false)
+        const txId = ref('')
 
-    get wallet(): null | WalletType {
-        let wallet: null | WalletType = this.$store.state.activeWallet
-        return wallet
-    }
+        const wallet = computed((): null | WalletType => {
+            let wallet: null | WalletType = store.state.activeWallet
+            return wallet
+        })
 
-    get isEVMSupported() {
-        if (!this.wallet) return false
-        return this.wallet.ethAddress
-    }
+        const isEVMSupported = computed(() => {
+            if (!wallet.value) return false
+            return wallet.value.ethAddress
+        })
 
-    async atomicImportX(sourceChain: ExportChainsX) {
-        this.beforeSubmit()
-        if (!this.wallet) return
+        const atomicImportX = async (sourceChain: ExportChainsX) => {
+            beforeSubmit()
+            if (!wallet.value) return
 
-        // // Import from C
-        try {
-            let txId = await this.wallet.importToXChain(sourceChain)
-            this.onSuccess(txId)
-        } catch (e) {
-            if (this.isSuccess) return
-            this.onError(e)
-        }
-    }
-
-    async atomicImportP(source: ExportChainsP) {
-        this.beforeSubmit()
-        if (!this.wallet) return
-        try {
-            let txId = await this.wallet.importToPlatformChain(source)
-            this.onSuccess(txId)
-        } catch (e) {
-            this.onError(e)
-        }
-    }
-
-    async atomicImportC(source: ExportChainsC) {
-        this.beforeSubmit()
-        if (!this.wallet) return
-        try {
-            const utxoSet = await this.wallet.evmGetAtomicUTXOs(source)
-            const utxos = utxoSet.getAllUTXOs()
-
-            const numIns = utxos.length
-            const baseFee = await GasHelper.getBaseFeeRecommended()
-
-            if (numIns === 0) {
-                throw new Error('Nothing to import.')
+            // // Import from C
+            try {
+                let txIdVal = await wallet.value.importToXChain(sourceChain)
+                onSuccess(txIdVal)
+            } catch (e) {
+                if (isSuccess.value) return
+                onError(e)
             }
-
-            // Calculate number of signatures
-            const numSigs = utxos.reduce((acc, utxo) => {
-                return acc + utxo.getOutput().getAddresses().length
-            }, 0)
-
-            const gas = GasHelper.estimateImportGasFeeFromMockTx(numIns, numSigs)
-
-            const totFee = baseFee.mul(new BN(gas))
-            let txId = await this.wallet.importToCChain(source, avaxCtoX(totFee))
-            this.onSuccess(txId)
-        } catch (e) {
-            this.onError(e)
         }
-    }
 
+        const atomicImportP = async (source: ExportChainsP) => {
+            beforeSubmit()
+            if (!wallet.value) return
+            try {
+                let txIdVal = await wallet.value.importToPlatformChain(source)
+                onSuccess(txIdVal)
+            } catch (e) {
+                onError(e)
+            }
+        }
+
+        const atomicImportC = async (source: ExportChainsC) => {
+            beforeSubmit()
+            if (!wallet.value) return
+            try {
+                const utxoSet = await wallet.value.evmGetAtomicUTXOs(source)
+                const utxos = utxoSet.getAllUTXOs()
+
+                const numIns = utxos.length
+                const baseFee = await GasHelper.getBaseFeeRecommended()
+
+                if (numIns === 0) {
+                    throw new Error('Nothing to import.')
+                }
+
+                // Calculate number of signatures
+                const numSigs = utxos.reduce((acc, utxo) => {
+                    return acc + utxo.getOutput().getAddresses().length
+                }, 0)
+
+                const gas = GasHelper.estimateImportGasFeeFromMockTx(numIns, numSigs)
+
+                const totFee = baseFee.mul(new BN(gas))
+                let txIdVal = await wallet.value.importToCChain(source, avaxCtoX(totFee))
+                onSuccess(txIdVal)
+            } catch (e) {
+                onError(e)
+            }
+        }
+
+        const beforeSubmit = () => {
+            isLoading.value = true
+            err.value = ''
+            isSuccess.value = false
+            txId.value = ''
+        }
+
+        const onSuccess = (txIdVal: string) => {
+            isLoading.value = false
+            err.value = ''
+            isSuccess.value = true
+            txId.value = txIdVal
+
+            store.dispatch('Notifications/add', {
+                type: 'success',
+                title: 'Import Success',
+                message: txIdVal,
+            })
+
+            setTimeout(() => {
+                store.dispatch('Assets/updateUTXOs')
+                store.dispatch('History/updateTransactionHistory')
+            }, 3000)
+        }
+
+        const onError = (error: Error) => {
+            isLoading.value = false
+            let msg = ''
+            if (error.message.includes('No atomic')) {
+                err.value = 'Nothing found to import.'
+                return
+            } else {
+                err.value = error.message
+            }
+        }
+
+        return {
+            err,
+            isSuccess,
+            isLoading,
+            txId,
+            wallet,
+            isEVMSupported,
+            atomicImportX,
+            atomicImportP,
+            atomicImportC
+        }
+    },
     deactivated() {
         this.err = ''
         this.txId = ''
         this.isSuccess = false
     }
-
-    beforeSubmit() {
-        this.isLoading = true
-        this.err = ''
-        this.isSuccess = false
-        this.txId = ''
-    }
-
-    onSuccess(txId: string) {
-        this.isLoading = false
-        this.err = ''
-        this.isSuccess = true
-        this.txId = txId
-
-        this.$store.dispatch('Notifications/add', {
-            type: 'success',
-            title: 'Import Success',
-            message: txId,
-        })
-
-        setTimeout(() => {
-            this.$store.dispatch('Assets/updateUTXOs')
-            this.$store.dispatch('History/updateTransactionHistory')
-        }, 3000)
-    }
-
-    onError(err: Error) {
-        this.isLoading = false
-        let msg = ''
-        if (err.message.includes('No atomic')) {
-            this.err = 'Nothing found to import.'
-            return
-        } else {
-            this.err = err.message
-        }
-    }
-}
+})
 </script>
 <style scoped lang="scss">
 .v-btn {

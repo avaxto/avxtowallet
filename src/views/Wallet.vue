@@ -21,7 +21,9 @@
 </template>
 
 <script lang="ts">
-import { Vue, Component } from 'vue-property-decorator'
+import { defineComponent, ref, computed, onMounted, onBeforeUnmount, onUnmounted } from 'vue'
+import { useStore } from 'vuex'
+import { useRouter } from 'vue-router'
 import TopInfo from '@/components/wallet/TopInfo.vue'
 import Sidebar from '@/components/wallet/Sidebar.vue'
 import MainPanel from '@/components/SidePanels/MainPanel.vue'
@@ -30,87 +32,103 @@ import UpdateKeystoreModal from '@/components/modals/UpdateKeystore/UpdateKeysto
 const TIMEOUT_DURATION = 60 * 7 // in seconds
 const TIMEOUT_DUR_MS = TIMEOUT_DURATION * 1000
 
-@Component({
+export default defineComponent({
+    name: 'Wallet',
     components: {
         Sidebar,
         MainPanel,
         TopInfo,
         UpdateKeystoreModal,
     },
+    setup() {
+        const store = useStore()
+        const router = useRouter()
+        
+        const wallet_view = ref<HTMLDivElement>()
+        const intervalId = ref<ReturnType<typeof setTimeout> | null>(null)
+        const logoutTimestamp = ref<number>(Date.now() + TIMEOUT_DUR_MS)
+        const isLogOut = ref<boolean>(false)
+
+        const isManageWarning = computed((): boolean => {
+            if (store.state.warnUpdateKeyfile) {
+                return true
+            }
+            return false
+        })
+
+        const hasVolatileWallets = computed(() => {
+            return store.state.volatileWallets.length > 0
+        })
+
+        // Set the logout timestamp to now + TIMEOUT_DUR_MS
+        const resetTimer = () => {
+            logoutTimestamp.value = Date.now() + TIMEOUT_DUR_MS
+        }
+
+        const checkLogout = () => {
+            let now = Date.now()
+
+            // Logout if current time is passed the logout timestamp
+            if (now >= logoutTimestamp.value && !isLogOut.value) {
+                isLogOut.value = true
+                store.dispatch('timeoutLogout')
+            }
+        }
+
+        const unload = (event: BeforeUnloadEvent) => {
+            // user has no wallet saved
+            if (!localStorage.getItem('w') && hasVolatileWallets.value && isLogOut.value) {
+                event.preventDefault()
+                isLogOut.value = false
+                event.returnValue = ''
+                router.push('/wallet/keys')
+                resetTimer()
+            }
+        }
+
+        onMounted(() => {
+            resetTimer()
+            intervalId.value = setInterval(() => {
+                checkLogout()
+            }, 1000)
+
+            let view = wallet_view.value as HTMLDivElement
+
+            // @ts-ignore
+            if (window.$posthog) {
+                // @ts-ignore
+                window.$posthog.capture('UserLoggedIn')
+            }
+
+            view.addEventListener('mousemove', resetTimer)
+            view.addEventListener('mousedown', resetTimer)
+            window.addEventListener('beforeunload', unload)
+        })
+
+        onBeforeUnmount(() => {
+            let view = wallet_view.value as HTMLDivElement
+            // Remove Event Listeners
+            view.removeEventListener('mousemove', resetTimer)
+            view.removeEventListener('mousedown', resetTimer)
+            window.removeEventListener('beforeunload', unload)
+        })
+
+        onUnmounted(() => {
+            if (intervalId.value) {
+                clearInterval(intervalId.value)
+            }
+        })
+
+        return {
+            wallet_view,
+            isManageWarning,
+            hasVolatileWallets,
+            resetTimer,
+            checkLogout,
+            unload
+        }
+    }
 })
-export default class Wallet extends Vue {
-    intervalId: ReturnType<typeof setTimeout> | null = null
-    logoutTimestamp = Date.now() + TIMEOUT_DUR_MS
-    isLogOut = false
-
-    // Set the logout timestamp to now + TIMEOUT_DUR_MS
-    resetTimer() {
-        this.logoutTimestamp = Date.now() + TIMEOUT_DUR_MS
-    }
-
-    checkLogout() {
-        let now = Date.now()
-
-        // Logout if current time is passed the logout timestamp
-        if (now >= this.logoutTimestamp && !this.isLogOut) {
-            this.isLogOut = true
-            this.$store.dispatch('timeoutLogout')
-        }
-    }
-
-    created() {
-        this.resetTimer()
-        this.intervalId = setInterval(() => {
-            this.checkLogout()
-        }, 1000)
-    }
-
-    unload(event: BeforeUnloadEvent) {
-        // user has no wallet saved
-        if (!localStorage.getItem('w') && this.hasVolatileWallets && this.isLogOut) {
-            event.preventDefault()
-            this.isLogOut = false
-            event.returnValue = ''
-            this.$router.push('/wallet/keys')
-            this.resetTimer()
-        }
-    }
-
-    mounted() {
-        let view = this.$refs.wallet_view as HTMLDivElement
-
-        // @ts-ignore
-        this.$posthog.capture('UserLoggedIn')
-
-        view.addEventListener('mousemove', this.resetTimer)
-        view.addEventListener('mousedown', this.resetTimer)
-
-        window.addEventListener('beforeunload', this.unload)
-    }
-
-    beforeDestroy() {
-        let view = this.$refs.wallet_view as HTMLDivElement
-        // Remove Event Listeners
-        view.removeEventListener('mousemove', this.resetTimer)
-        view.removeEventListener('mousedown', this.resetTimer)
-        window.removeEventListener('beforeunload', this.unload)
-    }
-
-    destroyed() {
-        clearInterval(this.intervalId!)
-    }
-
-    get isManageWarning(): boolean {
-        if (this.$store.state.warnUpdateKeyfile) {
-            return true
-        }
-        return false
-    }
-
-    get hasVolatileWallets() {
-        return this.$store.state.volatileWallets.length > 0
-    }
-}
 </script>
 
 <style lang="scss" scoped>

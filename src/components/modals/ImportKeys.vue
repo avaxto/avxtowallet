@@ -1,5 +1,5 @@
 <template>
-    <modal ref="modal" :title="title" @beforeClose="beforeClose">
+    <modal ref="modalRef" :title="title" @beforeClose="beforeClose">
         <div class="add_key_body">
             <img src="@/assets/import_key_bg.png" class="bg" />
             <p class="explain">Add additional keys to use with your wallet.</p>
@@ -15,13 +15,13 @@
                 <v-tab key="keystore">{{ $t('keys.import_key_option2') }}</v-tab>
                 <v-tab key="priv_key">{{ $t('keys.import_key_option3') }}</v-tab>
                 <v-tab-item>
-                    <AddMnemonic @success="handleImportSuccess" ref="mnemonic"></AddMnemonic>
+                    <AddMnemonic @success="handleImportSuccess" ref="mnemonicRef"></AddMnemonic>
                 </v-tab-item>
                 <v-tab-item>
-                    <add-key-file @success="handleImportSuccess" ref="keyfile"></add-key-file>
+                    <add-key-file @success="handleImportSuccess" ref="keyfileRef"></add-key-file>
                 </v-tab-item>
                 <v-tab-item>
-                    <add-key-string @success="handleImportSuccess" ref="keyString"></add-key-string>
+                    <add-key-string @success="handleImportSuccess" ref="keyStringRef"></add-key-string>
                 </v-tab-item>
             </v-tabs>
         </div>
@@ -30,57 +30,75 @@
 
 <script lang="ts">
 import 'reflect-metadata'
-import { Vue, Component, Prop } from 'vue-property-decorator'
+import { defineComponent, ref, onMounted } from 'vue'
+import { useStore } from 'vuex'
+import { useI18n } from 'vue-i18n'
 import Modal from '@/components/modals/Modal.vue'
 import AddKeyFile from '@/components/wallet/manage/AddKeyFile.vue'
 import AddKeyString from '@/components/wallet/manage/AddKeyString.vue'
 import AddMnemonic from '@/components/wallet/manage/AddMnemonic.vue'
+
 interface ITab {
     id: number
     name: string
 }
 
-@Component({
+export default defineComponent({
+    name: 'ImportKeys',
     components: {
         Modal,
         AddKeyFile,
         AddKeyString,
         AddMnemonic,
     },
-})
-export default class ImportKeys extends Vue {
-    title: string = ''
-    selectedTab: string = ''
+    setup() {
+        const store = useStore()
+        const { t } = useI18n()
+        
+        const modalRef = ref<Modal>()
+        const keyfileRef = ref<AddKeyFile>()
+        const keyStringRef = ref<AddKeyString>()
+        const mnemonicRef = ref<AddMnemonic>()
+        
+        const title = ref('')
+        const selectedTab = ref('')
 
-    $refs!: {
-        modal: Modal
-        keyfile: AddKeyFile
-        keyString: AddKeyString
-        mnemonic: AddMnemonic
-    }
-    created() {
-        this.title = this.$t('keys.import_key_title') as string
-    }
+        const open = () => {
+            modalRef.value?.open()
+            selectedTab.value = 'private' // explicitly set v-model value for modal
+        }
 
-    open() {
-        this.$refs.modal.open()
-        this.selectedTab = 'private' // explicitly set v-model value for modal
-    }
+        const beforeClose = () => {
+            keyfileRef.value?.clear()
+            keyStringRef.value?.clear()
+            mnemonicRef.value?.clear()
+        }
 
-    beforeClose() {
-        this.$refs.keyfile?.clear()
-        this.$refs.keyString?.clear()
-        this.$refs.mnemonic?.clear()
-    }
+        const handleImportSuccess = () => {
+            modalRef.value?.close()
+            store.dispatch('Notifications/add', {
+                title: t('keys.import_key_success_title'),
+                message: t('keys.import_key_success_msg'),
+            })
+        }
 
-    handleImportSuccess() {
-        this.$refs.modal.close()
-        this.$store.dispatch('Notifications/add', {
-            title: this.$t('keys.import_key_success_title'),
-            message: this.$t('keys.import_key_success_msg'),
+        onMounted(() => {
+            title.value = t('keys.import_key_title') as string
         })
+
+        return {
+            modalRef,
+            keyfileRef,
+            keyStringRef,
+            mnemonicRef,
+            title,
+            selectedTab,
+            open,
+            beforeClose,
+            handleImportSuccess
+        }
     }
-}
+})
 </script>
 
 <style scoped lang="scss">

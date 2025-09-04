@@ -27,7 +27,8 @@
     </div>
 </template>
 <script lang="ts">
-import { Vue, Component, Model, Watch } from 'vue-property-decorator'
+import { defineComponent, ref, computed, watch, onMounted } from 'vue'
+import { useStore } from 'vuex'
 import UtxoSelectModal from '@/components/modals/UtxoSelect/UtxoSelect.vue'
 import { AmountOutput, UTXO, UTXOSet } from 'avalanche/dist/apis/platformvm'
 import { WalletType } from '@/js/wallets/types'
@@ -36,89 +37,118 @@ import { CurrencyType } from '@/components/misc/CurrencySelect/types'
 import { BN } from 'avalanche'
 import { bnToBig } from '@/helpers/helper'
 import { UnixNow } from 'avalanche/dist/utils'
-@Component({
+
+export default defineComponent({
+    name: 'UtxoSelectForm',
     components: {
         UtxoSelectModal,
     },
-})
-export default class UtxoSelectForm extends Vue {
-    customUtxos: UTXO[] = []
-    formType = 'all'
-    @Model('change', { type: Array }) readonly utxos!: UTXO[]
-
-    @Watch('customUtxos')
-    onCustomChange(utxos: UTXO[]) {
-        if (this.formType === 'custom') {
-            this.$emit('change', utxos)
+    props: {
+        utxos: {
+            type: Array as () => UTXO[],
+            required: true
         }
-    }
+    },
+    emits: ['change'],
+    setup(props, { emit }) {
+        const store = useStore()
+        
+        const customUtxos = ref<UTXO[]>([])
+        const formType = ref('all')
+        const modal = ref<InstanceType<typeof UtxoSelectModal>>()
 
-    onTypeChange(val: string) {
-        if (val === 'all') {
-            this.selectAll()
-        } else {
-            this.selectCustom()
-        }
-    }
-    openModal() {
-        //@ts-ignore
-        this.$refs.modal.open()
-    }
-    selectCustom() {
-        this.$emit('change', this.customUtxos)
-    }
-
-    selectAll() {
-        this.$emit('change', this.platformUtxos)
-    }
-
-    mounted() {
-        this.selectAll()
-    }
-
-    clear() {
-        this.selectAll()
-    }
-
-    get platformUtxos(): UTXO[] {
-        let wallet: WalletType | null = this.$store.state.activeWallet
-        if (!wallet) return []
-        const utxos = wallet.getPlatformUTXOSet().getAllUTXOs()
-        const now = UnixNow()
-        return utxos.filter((utxo) => {
-            // Filter out locked and multisig utxos
-            const locktime = utxo.getOutput().getLocktime()
-            const threshold = utxo.getOutput().getThreshold()
-            if (locktime.gt(now)) return false
-            if (threshold > 1) return false
-            return true
+        const platformUtxos = computed((): UTXO[] => {
+            let wallet: WalletType | null = store.state.activeWallet
+            if (!wallet) return []
+            const utxos = wallet.getPlatformUTXOSet().getAllUTXOs()
+            const now = UnixNow()
+            return utxos.filter((utxo) => {
+                // Filter out locked and multisig utxos
+                const locktime = utxo.getOutput().getLocktime()
+                const threshold = utxo.getOutput().getThreshold()
+                if (locktime.gt(now)) return false
+                if (threshold > 1) return false
+                return true
+            })
         })
-    }
 
-    get selectedBalance(): BN {
-        if (this.formType === 'all') {
-            return this.platformUtxos.reduce((acc, val: UTXO) => {
-                let out = val.getOutput() as AmountOutput
-                return acc.add(out.getAmount())
-            }, new BN(0))
-        } else {
-            return this.customUtxos.reduce((acc, val: UTXO) => {
-                let out = val.getOutput() as AmountOutput
-                return acc.add(out.getAmount())
-            }, new BN(0))
+        const selectedBalance = computed((): BN => {
+            if (formType.value === 'all') {
+                return platformUtxos.value.reduce((acc, val: UTXO) => {
+                    let out = val.getOutput() as AmountOutput
+                    return acc.add(out.getAmount())
+                }, new BN(0))
+            } else {
+                return customUtxos.value.reduce((acc, val: UTXO) => {
+                    let out = val.getOutput() as AmountOutput
+                    return acc.add(out.getAmount())
+                }, new BN(0))
+            }
+        })
+
+        const selectedBalanceText = computed(() => {
+            return bnToBig(selectedBalance.value, 9).toLocaleString()
+        })
+
+        const onTypeChange = (val: string) => {
+            if (val === 'all') {
+                selectAll()
+            } else {
+                selectCustom()
+            }
+        }
+
+        const openModal = () => {
+            if (modal.value) {
+                modal.value.open()
+            }
+        }
+
+        const selectCustom = () => {
+            emit('change', customUtxos.value)
+        }
+
+        const selectAll = () => {
+            emit('change', platformUtxos.value)
+        }
+
+        const clear = () => {
+            selectAll()
+        }
+
+        // Watch for custom utxos changes
+        watch(customUtxos, (utxos: UTXO[]) => {
+            if (formType.value === 'custom') {
+                emit('change', utxos)
+            }
+        })
+
+        // Watch for platform utxos changes
+        watch(platformUtxos, (utxos: UTXO[]) => {
+            if (formType.value === 'all') {
+                selectAll()
+            }
+        })
+
+        onMounted(() => {
+            selectAll()
+        })
+
+        return {
+            customUtxos,
+            formType,
+            modal,
+            platformUtxos,
+            selectedBalance,
+            selectedBalanceText,
+            onTypeChange,
+            openModal,
+            selectCustom,
+            selectAll,
+            clear
         }
     }
-    get selectedBalanceText() {
-        return bnToBig(this.selectedBalance, 9).toLocaleString()
-    }
-
-    @Watch('platformUtxos')
-    onPlatformUtxosChange(utxos: UTXO[]) {
-        if (this.formType === 'all') {
-            this.selectAll()
-        }
-    }
-}
+})
 </script>
 <style scoped lang="scss">
 .available {

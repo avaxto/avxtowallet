@@ -24,131 +24,110 @@
 </template>
 <script lang="ts">
 import { DAY_MS, MINUTE_MS } from '../../../constants'
-import { Component, Prop, Vue, Watch } from 'vue-property-decorator'
+import { defineComponent, ref, computed, watch, onMounted } from 'vue'
 
 const MIN_STAKE_DURATION = DAY_MS * 14
 
-@Component
-export default class DateForm extends Vue {
-    // timeNow = 0
+interface Props {
+    maxEndDate?: string
+}
 
-    localStart = this.startDateMin
-    localEnd = this.endDateMin
+export default defineComponent({
+    name: 'DateForm',
+    props: {
+        maxEndDate: {
+            type: String,
+            default: undefined
+        }
+    },
+    emits: ['change_end'],
+    setup(props: Props, { emit }) {
+        const localStart = ref('')
+        const localEnd = ref('')
 
-    @Prop() maxEndDate?: string
+        const startDateMin = computed(() => {
+            let now = Date.now()
+            let res = now + MINUTE_MS * 15
+            return new Date(res).toISOString()
+        })
 
-    // @Watch('localStart')
-    // startChange(val: string) {
-    //     this.setStartDate(val)
-    //
-    //     if (this.stakeDuration < MIN_STAKE_DURATION) {
-    //         this.localEnd = this.endDateMin
-    //     }
-    // }
+        const endDateMin = computed(() => {
+            let start = localStart.value
+            let startDate = new Date(start)
 
-    @Watch('localEnd')
-    endChange(val: string) {
-        this.setEndDate(val)
+            let end = startDate.getTime() + MIN_STAKE_DURATION
+            let endDate = new Date(end)
+            return endDate.toISOString()
+        })
 
-        let endTime = new Date(val).getTime()
-        let minDateTime = new Date(this.endDateMin).getTime()
+        const endDateMax = computed(() => {
+            if (props.maxEndDate) return props.maxEndDate
 
-        if (endTime < minDateTime) {
-            this.localEnd = this.endDateMin
+            let start = localStart.value
+            let startDate = new Date(start)
+
+            let end = startDate.getTime() + DAY_MS * 365
+            let endDate = new Date(end)
+            return endDate.toISOString()
+        })
+
+        const defaultEndDate = computed(() => {
+            let start = localStart.value
+            let startDate = new Date(start)
+
+            let end = startDate.getTime() + DAY_MS * 21
+            let endDate = new Date(end)
+            return endDate.toISOString()
+        })
+
+        const stakeDuration = computed((): number => {
+            let start = new Date(localStart.value)
+            let end = new Date(localEnd.value)
+            let diff = end.getTime() - start.getTime()
+            return diff
+        })
+
+        watch(() => localEnd.value, (val: string) => {
+            setEndDate(val)
+
+            let endTime = new Date(val).getTime()
+            let minDateTime = new Date(endDateMin.value).getTime()
+
+            if (endTime < minDateTime) {
+                localEnd.value = endDateMin.value
+            }
+        })
+
+        onMounted(() => {
+            localStart.value = startDateMin.value
+
+            // default end date is 3 weeks
+            localEnd.value = defaultEndDate.value
+
+            setEndDate(localEnd.value)
+        })
+
+        const setEndDate = (val: string) => {
+            emit('change_end', val)
+        }
+
+        const maxoutEndDate = () => {
+            localEnd.value = endDateMax.value
+        }
+
+        return {
+            localStart,
+            localEnd,
+            startDateMin,
+            endDateMin,
+            endDateMax,
+            defaultEndDate,
+            stakeDuration,
+            setEndDate,
+            maxoutEndDate
         }
     }
-
-    mounted() {
-        this.localStart = this.startDateMin
-
-        // default end date is 3 weeks
-        this.localEnd = this.defaultEndDate
-
-        // this.setStartDate(this.localStart)
-        this.setEndDate(this.localEnd)
-    }
-
-    // updateTimeNow() {
-    //     this.timeNow = Date.now()
-    //
-    //     let remaining = MINUTE_MS - (this.timeNow % MINUTE_MS)
-    //     // If current start date is less than now
-    //     let startCurrent = new Date(this.localStart)
-    //     if (startCurrent.getTime() <= this.timeNow + remaining) {
-    //         this.localStart = this.startDateMin
-    //     }
-    //     setTimeout(() => {
-    //         this.updateTimeNow()
-    //     }, 10000)
-    // }
-
-    // setStartDate(val: string) {
-    //     this.$emit('change_start', val)
-    // }
-
-    setEndDate(val: string) {
-        this.$emit('change_end', val)
-    }
-
-    maxoutEndDate() {
-        this.localEnd = this.endDateMax
-    }
-
-    get stakeDuration(): number {
-        let start = new Date(this.localStart)
-        let end = new Date(this.localEnd)
-        let diff = end.getTime() - start.getTime()
-        return diff
-    }
-
-    // 15 minutes from now
-    // In reality it will be 5 minutes after the form is submitted
-    get startDateMin() {
-        let now = Date.now()
-        let res = now + MINUTE_MS * 15
-        return new Date(res).toISOString()
-    }
-
-    // 2 weeks
-    // get startDateMax() {
-    //     let startDate = new Date()
-    //     // add 2 weeks
-    //     let endTime = startDate.getTime() + 60000 * 60 * 24 * 14
-    //     let endDate = new Date(endTime)
-    //     return endDate.toISOString()
-    // }
-
-    // now + 15 minutes + 2 weeks (Min Staking Duration)
-    get endDateMin() {
-        let start = this.localStart
-        let startDate = new Date(start)
-
-        let end = startDate.getTime() + MIN_STAKE_DURATION
-        let endDate = new Date(end)
-        return endDate.toISOString()
-    }
-
-    // Start date + 1 year, or the prop
-    get endDateMax() {
-        if (this.maxEndDate) return this.maxEndDate
-
-        let start = this.localStart
-        let startDate = new Date(start)
-
-        let end = startDate.getTime() + DAY_MS * 365
-        let endDate = new Date(end)
-        return endDate.toISOString()
-    }
-
-    get defaultEndDate() {
-        let start = this.localStart
-        let startDate = new Date(start)
-
-        let end = startDate.getTime() + DAY_MS * 21
-        let endDate = new Date(end)
-        return endDate.toISOString()
-    }
-}
+})
 </script>
 <style lang="scss">
 .dates_form {

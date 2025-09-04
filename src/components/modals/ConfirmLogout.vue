@@ -1,5 +1,5 @@
 <template>
-    <modal ref="modal" title="Confirm Logout" class="modal_main" :can_close="false">
+    <modal ref="modalRef" title="Confirm Logout" class="modal_main" :can_close="false">
         <div class="confirm_body">
             <p style="text-align: center">
                 {{ $t('logout.confirmation') }}
@@ -20,42 +20,61 @@
 </template>
 <script lang="ts">
 import 'reflect-metadata'
-import { Vue, Component, Prop } from 'vue-property-decorator'
+import { defineComponent, ref } from 'vue'
+import { useStore } from 'vuex'
 
 import Modal from '@/components/modals/Modal.vue'
 import CopyText from '@/components/misc/CopyText.vue'
 
-@Component({
+interface Props {
+    phrase: string
+}
+
+export default defineComponent({
+    name: 'ConfirmLogout',
     components: {
         Modal,
         CopyText,
     },
+    props: {
+        phrase: {
+            type: String,
+            default: ''
+        }
+    },
+    setup() {
+        const store = useStore()
+        const isLoading = ref(false)
+        const modalRef = ref<InstanceType<typeof Modal>>()
+
+        const open = (): void => {
+            modalRef.value?.open()
+        }
+
+        const close = (): void => {
+            modalRef.value?.close()
+        }
+
+        const submit = async () => {
+            isLoading.value = true
+            await store.dispatch('logout')
+            await store.dispatch('Notifications/add', {
+                title: 'Logout',
+                message: 'You have successfully logged out of your wallet.',
+            })
+            isLoading.value = false
+            close()
+        }
+
+        return {
+            isLoading,
+            modalRef,
+            open,
+            close,
+            submit
+        }
+    }
 })
-export default class ConfirmLogout extends Vue {
-    isLoading = false
-    @Prop({ default: '' }) phrase!: string
-
-    open(): void {
-        let modal = this.$refs.modal as Modal
-        modal.open()
-    }
-
-    close(): void {
-        let modal = this.$refs.modal as Modal
-        modal.close()
-    }
-
-    async submit() {
-        this.isLoading = true
-        await this.$store.dispatch('logout')
-        await this.$store.dispatch('Notifications/add', {
-            title: 'Logout',
-            message: 'You have successfully logged out of your wallet.',
-        })
-        this.isLoading = false
-        this.close()
-    }
-}
 </script>
 <style scoped lang="scss">
 .confirm_body {

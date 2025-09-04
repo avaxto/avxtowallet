@@ -9,7 +9,7 @@
     </div>
 </template>
 <script lang="ts">
-import { Vue, Component, Prop } from 'vue-property-decorator'
+import { defineComponent, computed, ref } from 'vue'
 import { NFTTransferOutput, UTXO } from 'avalanche/dist/apis/avm'
 import NftPayloadView from '@/components/misc/NftPayloadView/NftPayloadView.vue'
 import { PayloadBase } from 'avalanche/dist/utils'
@@ -20,35 +20,52 @@ import NFTViewModal from '@/components/modals/NFTViewModal.vue'
 import NftCard from '@/components/wallet/portfolio/NftCard.vue'
 
 let payloadtypes = PayloadTypes.getInstance()
-@Component({
-    components: { NftCard, NFTViewModal, Tooltip, NftPayloadView },
+
+export default defineComponent({
+    name: 'CollectibleFamilyGroup',
+    components: { 
+        NftCard, 
+        NFTViewModal, 
+        Tooltip, 
+        NftPayloadView 
+    },
+    props: {
+        utxos: {
+            type: Array as () => UTXO[],
+            required: true
+        }
+    },
+    setup(props) {
+        const modal = ref<InstanceType<typeof NFTViewModal>>()
+
+        const quantity = computed(() => {
+            return props.utxos.length
+        })
+
+        const groupID = computed(() => {
+            let output = props.utxos[0].getOutput() as NFTTransferOutput
+            return output.getGroupID()
+        })
+
+        const payload = computed((): PayloadBase => {
+            let out = props.utxos[0].getOutput() as NFTTransferOutput
+            let payload = out.getPayloadBuffer()
+
+            let typeId = payloadtypes.getTypeID(payload)
+            let pl: Buffer = payloadtypes.getContent(payload)
+            let payloadbase: PayloadBase = payloadtypes.select(typeId, pl)
+
+            return payloadbase
+        })
+
+        return {
+            modal,
+            quantity,
+            groupID,
+            payload
+        }
+    }
 })
-export default class CollectibleFamilyGroup extends Vue {
-    @Prop() utxos!: UTXO[]
-    $refs!: {
-        modal: NFTViewModal
-    }
-
-    get quantity() {
-        return this.utxos.length
-    }
-
-    get groupID() {
-        let output = this.utxos[0].getOutput() as NFTTransferOutput
-        return output.getGroupID()
-    }
-
-    get payload(): PayloadBase {
-        let out = this.utxos[0].getOutput() as NFTTransferOutput
-        let payload = out.getPayloadBuffer()
-
-        let typeId = payloadtypes.getTypeID(payload)
-        let pl: Buffer = payloadtypes.getContent(payload)
-        let payloadbase: PayloadBase = payloadtypes.select(typeId, pl)
-
-        return payloadbase
-    }
-}
 </script>
 <style scoped lang="scss">
 @use '../../../main';

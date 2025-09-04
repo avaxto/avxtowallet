@@ -9,62 +9,75 @@
     </div>
 </template>
 <script lang="ts">
-import { Vue, Component, Prop, Watch } from 'vue-property-decorator'
+import { defineComponent, ref, computed, watch, onMounted, type PropType } from 'vue'
 import ERC721Token from '@/js/ERC721Token'
-import axios from 'axios'
 
 // If an image url is hosted on one of these urls, reroute through cloudflare.
 const REDIRECT_DOMAINS = ['gateway.pinata.cloud/ipfs']
 const CF_IPFS_BASE = 'https://cloudflare-ipfs.com/ipfs/'
-@Component
-export default class ERC721View extends Vue {
-    @Prop() index!: string
-    @Prop() token!: ERC721Token
-    metadata: any = {}
-    isError = false
 
-    mounted() {
-        this.getData()
-    }
-
-    @Watch('token')
-    @Watch('index')
-    onIndexChange() {
-        this.getData()
-    }
-
-    parseURL(val: string) {
-        let isRedirect = REDIRECT_DOMAINS.reduce((acc, domain) => {
-            if (acc) return acc
-            if (val.includes(domain)) return true
-            return false
-        }, false)
-
-        if (isRedirect) {
-            let ipfsHash = val.split('ipfs/')[1]
-            return CF_IPFS_BASE + ipfsHash
+export default defineComponent({
+    name: 'ERC721View',
+    props: {
+        index: {
+            type: String,
+            required: true
+        },
+        token: {
+            type: Object as PropType<ERC721Token>,
+            required: true
         }
-        return val
-    }
+    },
+    setup(props) {
+        const metadata = ref<any>({})
+        const isError = ref(false)
 
-    get img() {
-        let data = this.metadata
-        if (!data) return null
-        return data.img || data.image || null
-    }
+        const img = computed(() => {
+            let data = metadata.value
+            if (!data) return null
+            return data.img || data.image || null
+        })
 
-    async getData() {
-        try {
-            this.metadata = await this.token.getTokenURIData(parseInt(this.index))
-            this.isError = false
-        } catch (e) {
-            this.isError = true
+        const parseURL = (val: string) => {
+            let isRedirect = REDIRECT_DOMAINS.reduce((acc, domain) => {
+                if (acc) return acc
+                if (val.includes(domain)) return true
+                return false
+            }, false)
+
+            if (isRedirect) {
+                let ipfsHash = val.split('ipfs/')[1]
+                return CF_IPFS_BASE + ipfsHash
+            }
+            return val
         }
-        // let uri = await this.token.getTokenURI(parseInt(this.index))
-        // let res = (await axios.get(uri)).data
-        // this.metadata = res
+
+        const getData = async () => {
+            try {
+                metadata.value = await props.token.getTokenURIData(parseInt(props.index))
+                isError.value = false
+            } catch (e) {
+                isError.value = true
+            }
+        }
+
+        watch([() => props.token, () => props.index], () => {
+            getData()
+        })
+
+        onMounted(() => {
+            getData()
+        })
+
+        return {
+            metadata,
+            isError,
+            img,
+            parseURL,
+            getData
+        }
     }
-}
+})
 </script>
 <style scoped lang="scss">
 .erc721_view {

@@ -33,8 +33,8 @@
     </modal>
 </template>
 <script lang="ts">
-import 'reflect-metadata'
-import { Vue, Component, Prop } from 'vue-property-decorator'
+import { defineComponent, ref, computed } from 'vue'
+import { useStore } from 'vuex'
 
 import Modal from '@/components/modals/Modal.vue'
 import Erc20Token from '@/js/Erc20Token'
@@ -46,61 +46,69 @@ import ERC721Row from '@/components/modals/EvmTokenSelect/ERC721Row.vue'
 import { ERC721WalletBalance } from '@/store/modules/assets/modules/types'
 import { iErc721SelectInput } from '@/components/misc/EVMInputDropdown/types'
 
-@Component({
+export default defineComponent({
+    name: 'EVMTokenSelectModal',
     components: {
         ERC721Row,
         Modal,
     },
-})
-export default class EVMTokenSelectModal extends Vue {
-    $refs!: {
-        modal: Modal
-    }
-    open(): void {
-        let modal = this.$refs.modal as Modal
-        modal.open()
-    }
+    emits: ['select', 'selectCollectible'],
+    setup(props, { emit }) {
+        const store = useStore()
+        
+        const modal = ref<InstanceType<typeof Modal> | null>(null)
 
-    get tokens(): Erc20Token[] {
-        let tokens: Erc20Token[] = this.$store.getters['Assets/networkErc20Tokens']
-        let filt = tokens.filter((t) => {
-            if (t.balanceBN.isZero()) return false
-            return true
+        const open = (): void => {
+            modal.value?.open()
+        }
+
+        const tokens = computed((): Erc20Token[] => {
+            let tokens: Erc20Token[] = store.getters['Assets/networkErc20Tokens']
+            let filt = tokens.filter((t) => {
+                if (t.balanceBN.isZero()) return false
+                return true
+            })
+            return filt
         })
-        return filt
-    }
 
-    get erc721s(): ERC721Token[] {
-        let w: WalletType = this.$store.state.activeWallet
-        return this.$store.getters['Assets/ERC721/networkContracts']
-    }
+        const erc721s = computed((): ERC721Token[] => {
+            let w: WalletType = store.state.activeWallet
+            return store.getters['Assets/ERC721/networkContracts']
+        })
 
-    // get symbol() {
-    //     if (this.selected === 'native') return 'AVAX'
-    //     else return this.selected.data.symbol
-    // }
+        const avaxBalance = computed((): Big => {
+            let w: WalletType | null = store.state.activeWallet
+            if (!w) return Big(0)
+            let balBN = w.ethBalance
+            return bnToBig(balBN, 18)
+        })
 
-    get avaxBalance(): Big {
-        let w: WalletType | null = this.$store.state.activeWallet
-        if (!w) return Big(0)
-        let balBN = w.ethBalance
-        return bnToBig(balBN, 18)
-    }
+        const select = (token: Erc20Token | 'native') => {
+            emit('select', token)
+            close()
+        }
 
-    select(token: Erc20Token | 'native') {
-        this.$emit('select', token)
-        this.close()
-    }
+        const onERC721Select = (val: iErc721SelectInput) => {
+            emit('selectCollectible', val)
+            close()
+        }
 
-    onERC721Select(val: iErc721SelectInput) {
-        this.$emit('selectCollectible', val)
-        this.close()
-    }
+        const close = () => {
+            modal.value?.close()
+        }
 
-    close() {
-        this.$refs.modal.close()
+        return {
+            modal,
+            open,
+            tokens,
+            erc721s,
+            avaxBalance,
+            select,
+            onERC721Select,
+            close
+        }
     }
-}
+})
 </script>
 <style scoped lang="scss">
 @use '../../../main';

@@ -40,60 +40,87 @@
 </template>
 <script lang="ts">
 import 'reflect-metadata'
-import { Vue, Component, Prop } from 'vue-property-decorator'
+import { defineComponent, ref, computed } from 'vue'
+import { useStore } from 'vuex'
 import MnemonicWallet from '@/js/wallets/MnemonicWallet'
 import { ExportWalletsInput } from '@/store/types'
 
-@Component
-export default class ExportWallet extends Vue {
-    isLoading: boolean = false
-    pass: string = ''
-    passConfirm: string = ''
-    err: string = ''
-
-    @Prop() wallets!: MnemonicWallet[]
-    @Prop({ default: true }) isDesc!: boolean
-
-    get isValid(): boolean {
-        return this.pass.length >= 9 && this.pass === this.passConfirm ? true : false
-    }
-
-    clear() {
-        this.isLoading = false
-        this.pass = ''
-        this.passConfirm = ''
-        this.err = ''
-    }
-
-    async download() {
-        this.isLoading = true
-        this.err = ''
-
-        if (!this.wallets) {
-            this.isLoading = false
-            this.err = 'No wallet selected.'
-            return
-        }
-
-        let input: ExportWalletsInput = {
-            password: this.pass,
-            wallets: this.wallets,
-        }
-        setTimeout(() => {
-            this.$store.dispatch('exportWallets', input).then((res) => {
-                this.isLoading = false
-                this.pass = ''
-                this.passConfirm = ''
-                this.$store.dispatch('Notifications/add', {
-                    title: 'Key File Export',
-                    message: 'Your keys are downloaded.',
-                })
-                // @ts-ignore
-                this.$emit('success')
-            })
-        }, 200)
-    }
+interface Props {
+    wallets: MnemonicWallet[]
+    isDesc: boolean
 }
+
+export default defineComponent({
+    name: 'ExportWallet',
+    props: {
+        wallets: {
+            type: Array as () => MnemonicWallet[],
+            required: true
+        },
+        isDesc: {
+            type: Boolean,
+            default: true
+        }
+    },
+    emits: ['success'],
+    setup(props: Props, { emit }) {
+        const store = useStore()
+        
+        const isLoading = ref(false)
+        const pass = ref('')
+        const passConfirm = ref('')
+        const err = ref('')
+
+        const isValid = computed((): boolean => {
+            return pass.value.length >= 9 && pass.value === passConfirm.value ? true : false
+        })
+
+        const clear = () => {
+            isLoading.value = false
+            pass.value = ''
+            passConfirm.value = ''
+            err.value = ''
+        }
+
+        const download = async () => {
+            isLoading.value = true
+            err.value = ''
+
+            if (!props.wallets) {
+                isLoading.value = false
+                err.value = 'No wallet selected.'
+                return
+            }
+
+            const input: ExportWalletsInput = {
+                password: pass.value,
+                wallets: props.wallets,
+            }
+            setTimeout(() => {
+                store.dispatch('exportWallets', input).then((res) => {
+                    isLoading.value = false
+                    pass.value = ''
+                    passConfirm.value = ''
+                    store.dispatch('Notifications/add', {
+                        title: 'Key File Export',
+                        message: 'Your keys are downloaded.',
+                    })
+                    emit('success')
+                })
+            }, 200)
+        }
+
+        return {
+            isLoading,
+            pass,
+            passConfirm,
+            err,
+            isValid,
+            clear,
+            download
+        }
+    }
+})
 </script>
 <style lang="scss">
 .export_wallet {

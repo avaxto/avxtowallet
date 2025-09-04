@@ -26,12 +26,13 @@
     </div>
 </template>
 <script lang="ts">
+import { defineComponent, ref, computed, onActivated, onDeactivated } from 'vue'
+import { useStore } from 'vuex'
 import { IWalletNftDict } from '../../../store/types'
 import { NftFamilyDict } from '../../../store/modules/assets/types'
 import BalancePopup from '@/components/misc/BalancePopup/BalancePopup.vue'
 
 import 'reflect-metadata'
-import { Vue, Component, Prop, Watch } from 'vue-property-decorator'
 import { NFTTransferOutput, UTXO } from 'avalanche/dist/apis/avm'
 import { getPayloadFromUTXO } from '@/helpers/helper'
 import NftListItem from '@/components/wallet/transfer/NftListItem.vue'
@@ -39,119 +40,132 @@ import { IGroupDict, IGroupQuantity } from '@/components/wallet/studio/mint/type
 import { bintools } from '@/AVA'
 import AvmNftSelectModal from '@/components/modals/AvmNftSelectModal.vue'
 
-@Component({
+export default defineComponent({
+    name: 'NftList',
     components: {
         AvmNftSelectModal,
         BalancePopup,
         NftListItem,
     },
-})
-export default class NftList extends Vue {
-    addedNfts: UTXO[] = []
+    props: {
+        disabled: {
+            type: Boolean,
+            default: false
+        }
+    },
+    emits: ['change'],
+    setup(props, { emit }) {
+        const store = useStore()
+        
+        const addedNfts = ref<UTXO[]>([])
+        const groupUtxos = ref<IGroupDict>({})
+        const select_modal = ref<InstanceType<typeof AvmNftSelectModal>>()
 
-    groupUtxos: IGroupDict = {}
+        const payloads = computed(() => {
+            return addedNfts.value.map((utxo) => {
+                return getPayloadFromUTXO(utxo)
+            })
+        })
 
-    $refs!: {
-        popup: BalancePopup
-        select_modal: AvmNftSelectModal
-    }
+        const isEmpty = computed((): boolean => {
+            return nftUTXOs.value.length === 0
+        })
 
-    @Prop({ default: false }) disabled!: boolean
+        const nftUTXOs = computed((): UTXO[] => {
+            return store.state.Assets.nftUTXOs
+        })
 
-    // @Watch('addedNfts')
-    // onlistchange(val: UTXO[]) {
-    //     this.$emit('change', val)
-    // }
+        const nftDict = computed((): IWalletNftDict => {
+            return store.getters['Assets/walletNftDict']
+        })
 
-    setGroupUtxos(val: IGroupQuantity) {
-        this.groupUtxos[val.id] = val.utxos
-        this.emit()
-    }
+        const nftFamsDict = computed((): NftFamilyDict => {
+            return store.state.Assets.nftFamsDict
+        })
 
-    emit() {
-        let utxos = []
+        const usedNftIds = computed(() => {
+            return addedNfts.value.map((utxo: UTXO) => {
+                return utxo.getUTXOID()
+            })
+        })
 
-        for (var id in this.groupUtxos) {
-            let gUtxos = this.groupUtxos[id]
-            utxos.push(...gUtxos)
+        const setGroupUtxos = (val: IGroupQuantity) => {
+            groupUtxos.value[val.id] = val.utxos
+            emitChange()
         }
 
-        this.$emit('change', utxos)
-    }
+        const emitChange = () => {
+            let utxos = []
 
-    // @Watch('groupUtxos')
-    // onGroupUtxosChange(val: IGroupDict) {
-    //     console.log(this.groupUtxos)
-    // }
+            for (var id in groupUtxos.value) {
+                let gUtxos = groupUtxos.value[id]
+                utxos.push(...gUtxos)
+            }
 
-    get payloads() {
-        return this.addedNfts.map((utxo) => {
-            return getPayloadFromUTXO(utxo)
-        })
-    }
+            emit('change', utxos)
+        }
 
-    get isEmpty(): boolean {
-        return this.nftUTXOs.length === 0
-    }
+        const clear = () => {
+            addedNfts.value = []
+            groupUtxos.value = {}
+            emitChange()
+        }
 
-    get nftUTXOs(): UTXO[] {
-        return this.$store.state.Assets.nftUTXOs
-    }
+        const addNft = (utxo: UTXO) => {
+            addedNfts.value.push(utxo)
+        }
 
-    get nftDict(): IWalletNftDict {
-        // return this.$store.getters.walletNftDict
-        return this.$store.getters['Assets/walletNftDict']
-    }
+        const remove = (utxo: UTXO) => {
+            let famId = bintools.cb58Encode(utxo.getAssetID())
+            let groupId = (utxo.getOutput() as NFTTransferOutput).getGroupID()
 
-    get nftFamsDict(): NftFamilyDict {
-        return this.$store.state.Assets.nftFamsDict
-    }
+            // Clear from selected utxos list
+            let dictId = `${famId}_${groupId}`
+            delete groupUtxos.value[dictId]
 
-    get usedNftIds() {
-        return this.addedNfts.map((utxo: UTXO) => {
-            return utxo.getUTXOID()
-        })
-    }
+            let utxos = addedNfts.value
+            for (var i = 0; i < utxos.length; i++) {
+                if (utxos[i].getUTXOID() === utxo.getUTXOID()) {
+                    addedNfts.value.splice(i, 1)
+                }
+            }
 
-    clear() {
-        this.addedNfts = []
-        this.groupUtxos = {}
-        this.emit()
-    }
+            emitChange()
+        }
 
-    addNft(utxo: UTXO) {
-        this.addedNfts.push(utxo)
-    }
-
-    remove(utxo: UTXO) {
-        let famId = bintools.cb58Encode(utxo.getAssetID())
-        let groupId = (utxo.getOutput() as NFTTransferOutput).getGroupID()
-
-        // Clear from selected utxos list
-        let dictId = `${famId}_${groupId}`
-        delete this.groupUtxos[dictId]
-
-        let utxos = this.addedNfts
-        for (var i = 0; i < utxos.length; i++) {
-            if (utxos[i].getUTXOID() === utxo.getUTXOID()) {
-                this.addedNfts.splice(i, 1)
+        const showPopup = () => {
+            if (select_modal.value) {
+                select_modal.value.open()
             }
         }
 
-        this.emit()
-    }
+        onDeactivated(() => {
+            clear()
+        })
 
-    showPopup() {
-        this.$refs.select_modal.open()
-        // this.$refs.popup.isActive = true
-    }
+        onActivated(() => {
+            // empty
+        })
 
-    deactivated() {
-        this.clear()
+        return {
+            addedNfts,
+            groupUtxos,
+            select_modal,
+            payloads,
+            isEmpty,
+            nftUTXOs,
+            nftDict,
+            nftFamsDict,
+            usedNftIds,
+            setGroupUtxos,
+            emitChange,
+            clear,
+            addNft,
+            remove,
+            showPopup
+        }
     }
-
-    activated() {}
-}
+})
 </script>
 <style scoped lang="scss">
 @use '../../../main';

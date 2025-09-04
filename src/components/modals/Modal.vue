@@ -16,31 +16,57 @@
 </template>
 <script lang="ts">
 import 'reflect-metadata'
-import { Vue, Component, Prop } from 'vue-property-decorator'
+import { defineComponent, ref } from 'vue'
 
-@Component
-export default class Modal extends Vue {
-    @Prop({ default: 'Modal Title' }) title!: string
-    @Prop({ default: true }) can_close!: boolean
-    @Prop({ default: false }) icy!: boolean
+interface Props {
+    title: string
+    can_close: boolean
+    icy: boolean
+}
 
-    isActive: boolean = false
+export default defineComponent({
+    name: 'Modal',
+    props: {
+        title: {
+            type: String,
+            default: 'Modal Title'
+        },
+        can_close: {
+            type: Boolean,
+            default: true
+        },
+        icy: {
+            type: Boolean,
+            default: false
+        }
+    },
+    emits: ['beforeClose'],
+    setup(props: Props, { emit }) {
+        const isActive = ref(false)
 
-    public open() {
-        this.isActive = true
-    }
+        const open = () => {
+            isActive.value = true
+        }
 
-    bgclick() {
-        if (this.can_close) {
-            this.close()
+        const bgclick = () => {
+            if (props.can_close) {
+                close()
+            }
+        }
+
+        const close = () => {
+            emit('beforeClose')
+            isActive.value = false
+        }
+
+        return {
+            isActive,
+            open,
+            bgclick,
+            close
         }
     }
-
-    public close() {
-        this.$emit('beforeClose')
-        this.isActive = false
-    }
-}
+})
 </script>
 <style scoped lang="scss">
 @use '../../main';

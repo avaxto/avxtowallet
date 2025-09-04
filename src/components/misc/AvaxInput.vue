@@ -3,7 +3,7 @@
         <div class="col1 hover_border">
             <button class="max_but" @click="maxOut" v-if="max">MAX</button>
             <BigNumInput
-                ref="amt_in"
+                ref="amtIn"
                 class="amt_in"
                 contenteditable="amt_in"
                 :denomination="9"
@@ -30,50 +30,75 @@
 </template>
 <script lang="ts">
 import 'reflect-metadata'
-import { Vue, Component, Prop, Model } from 'vue-property-decorator'
+import { defineComponent, ref, computed } from 'vue'
+import { useStore } from 'vuex'
 import { Big, bnToBig } from '@avalabs/avalanche-wallet-sdk'
 //@ts-ignore
 import { BigNumInput } from '@avalabs/vue_components'
 import { BN } from 'avalanche'
 import { priceDict } from '../../store/types'
 
-@Component({
+interface Props {
+    amount: BN
+    max?: BN | null
+    balance?: Big | null
+}
+
+export default defineComponent({
+    name: 'AvaxInput',
     components: {
         BigNumInput,
     },
+    props: {
+        amount: {
+            type: Object as () => BN,
+            required: true
+        },
+        max: {
+            type: Object as () => BN | null,
+            default: null
+        },
+        balance: {
+            type: Object as () => Big | null,
+            default: null
+        }
+    },
+    emits: ['change'],
+    setup(props: Props, { emit }) {
+        const store = useStore()
+        const amtIn = ref<InstanceType<typeof BigNumInput>>()
+
+        const priceDict = computed((): priceDict => {
+            return store.state.prices
+        })
+
+        const amountUSD = computed((): Big => {
+            let usdPrice = priceDict.value.usd
+            let amount = bnToBig(props.amount, 9)
+            let usdBig = amount.times(usdPrice)
+            return usdBig
+        })
+
+        const maxOut = (ev: MouseEvent) => {
+            ev.preventDefault()
+            ev.stopPropagation()
+            //@ts-ignore
+            amtIn.value?.maxout()
+        }
+
+        const amount_in = (val: BN) => {
+            emit('change', val)
+        }
+
+        return {
+            amtIn,
+            priceDict,
+            amountUSD,
+            maxOut,
+            amount_in
+        }
+    }
 })
-export default class AvaxInput extends Vue {
-    @Model('change', { type: Object }) readonly amount!: BN
-
-    @Prop({
-        default: null,
-    })
-    max?: BN | null
-
-    @Prop() balance?: Big | null
-
-    maxOut(ev: MouseEvent) {
-        ev.preventDefault()
-        ev.stopPropagation()
-        //@ts-ignore
-        this.$refs.amt_in.maxout()
-    }
-
-    amount_in(val: BN) {
-        this.$emit('change', val)
-    }
-
-    get amountUSD(): Big {
-        let usdPrice = this.priceDict.usd
-        let amount = bnToBig(this.amount, 9)
-        let usdBig = amount.times(usdPrice)
-        return usdBig
-    }
-
-    get priceDict(): priceDict {
-        return this.$store.state.prices
-    }
-}
 </script>
 <style scoped lang="scss">
 @use '../../main';

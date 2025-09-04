@@ -37,39 +37,62 @@
     </div>
 </template>
 <script lang="ts">
-import { Vue, Component, Prop } from 'vue-property-decorator'
+import { defineComponent, ref } from 'vue'
 import MnemonicWallet from '@/js/wallets/MnemonicWallet'
 import { LedgerWallet } from '@/js/wallets/LedgerWallet'
 import { DerivationListBalanceDict } from '@/components/modals/HdDerivationList/types'
 import HdDerivationListRow from '@/components/modals/HdDerivationList/HdDerivationListRow.vue'
 import HdEmptyAddressRow from '@/components/modals/HdDerivationList/HdEmptyAddressRow.vue'
 import { HdHelper } from '@/js/HdHelper'
-@Component({
+
+export default defineComponent({
+    name: 'HdChainTable',
     components: { HdEmptyAddressRow, HdDerivationListRow },
-})
-export default class HdChainTable extends Vue {
-    @Prop() wallet!: MnemonicWallet | LedgerWallet
-    @Prop() addresses!: string[]
-    @Prop() balanceDict!: DerivationListBalanceDict[]
-    @Prop() path!: number
-    @Prop() helper!: HdHelper
-
-    addressesFuture: string[] = []
-
-    showMore() {
-        this.addFutureAddress(10)
-    }
-
-    addFutureAddress(amt: number) {
-        let indexNow = this.addresses.length + this.addressesFuture.length
-        let addrs = []
-        for (var i = indexNow; i < indexNow + amt; i++) {
-            let addr = this.helper.getAddressForIndex(i)
-            addrs.push(addr)
+    props: {
+        wallet: {
+            type: Object as () => MnemonicWallet | LedgerWallet,
+            required: true
+        },
+        addresses: {
+            type: Array as () => string[],
+            required: true
+        },
+        balanceDict: {
+            type: Array as () => DerivationListBalanceDict[],
+            required: true
+        },
+        path: {
+            type: Number,
+            required: true
+        },
+        helper: {
+            type: Object as () => HdHelper,
+            required: true
         }
-        this.addressesFuture.push(...addrs)
+    },
+    setup(props) {
+        const addressesFuture = ref<string[]>([])
+
+        const addFutureAddress = (amt: number) => {
+            const indexNow = props.addresses.length + addressesFuture.value.length
+            const addrs = []
+            for (let i = indexNow; i < indexNow + amt; i++) {
+                const addr = props.helper.getAddressForIndex(i)
+                addrs.push(addr)
+            }
+            addressesFuture.value.push(...addrs)
+        }
+
+        const showMore = () => {
+            addFutureAddress(10)
+        }
+
+        return {
+            addressesFuture,
+            showMore
+        }
     }
-}
+})
 </script>
 <style lang="scss">
 .hd_chain_table {

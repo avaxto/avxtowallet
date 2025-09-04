@@ -1006,10 +1006,11 @@
     </div>
 </template>
 <script lang="ts">
-import { Vue, Component } from 'vue-property-decorator'
+import { defineComponent } from 'vue'
 
-@Component
-export default class ToSContent extends Vue {}
+export default defineComponent({
+    name: 'ToSContent'
+})
 </script>
 <style scoped lang="scss">
 .content {

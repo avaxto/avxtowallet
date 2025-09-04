@@ -20,54 +20,69 @@
     </div>
 </template>
 <script lang="ts">
-import { Component, Prop, Vue, Watch } from 'vue-property-decorator'
+import { defineComponent, ref, computed, watch, onMounted, type PropType } from 'vue'
 import { JSONPayload } from 'avalanche/dist/utils'
 import { IGenericNft } from '@/components/wallet/studio/mint/types'
 
-@Component
-export default class UtfPayloadView extends Vue {
-    @Prop() payload!: JSONPayload
-    isError = false
-    jsonData: IGenericNft | null = null
-    isImage = false
-    isVideo = false
+export default defineComponent({
+    name: 'GenericPayloadView',
+    props: {
+        payload: {
+            type: Object as PropType<JSONPayload>,
+            required: true
+        }
+    },
+    setup(props) {
+        const isError = ref(false)
+        const jsonData = ref<IGenericNft | null>(null)
+        const isImage = ref(false)
+        const isVideo = ref(false)
 
-    get content(): string {
-        return this.payload.getContent().toString()
-    }
+        const content = computed((): string => {
+            return props.payload.getContent().toString()
+        })
 
-    get desc() {
-        return this.jsonData?.desc
-    }
+        const desc = computed(() => {
+            return jsonData.value?.desc
+        })
 
-    get img() {
-        return this.jsonData?.img
-    }
+        const img = computed(() => {
+            return jsonData.value?.img
+        })
 
-    get title() {
-        return this.jsonData?.title
-    }
+        const title = computed(() => {
+            return jsonData.value?.title
+        })
 
-    // get data() {
-    //     return JSON.parse(this.content)
-    // }
-    mounted() {
-        try {
-            this.jsonData = JSON.parse(this.content).avalanche
-        } catch (e) {
-            this.isError = true
+        const parsePayload = () => {
+            try {
+                jsonData.value = JSON.parse(content.value).avalanche
+                isError.value = false
+            } catch (e) {
+                isError.value = true
+            }
+        }
+
+        watch(() => props.payload, () => {
+            parsePayload()
+        })
+
+        onMounted(() => {
+            parsePayload()
+        })
+
+        return {
+            isError,
+            jsonData,
+            isImage,
+            isVideo,
+            content,
+            desc,
+            img,
+            title
         }
     }
-
-    @Watch('payload')
-    onPayloadChange(val: JSONPayload) {
-        try {
-            this.jsonData = JSON.parse(this.content).avalanche
-        } catch (e) {
-            this.isError = true
-        }
-    }
-}
+})
 </script>
 <style scoped lang="scss">
 .generic_payload_view {

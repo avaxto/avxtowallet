@@ -48,49 +48,68 @@
     </div>
 </template>
 <script lang="ts">
-import { Vue, Component, Prop } from 'vue-property-decorator'
+import { defineComponent, computed } from 'vue'
+import { useStore } from 'vuex'
 import { ValidatorListItem } from '@/store/modules/platform/types'
 import { bnToBig } from '@/helpers/helper'
 import { AvaNetwork } from '@/js/AvaNetwork'
 
-@Component
-export default class NodeCard extends Vue {
-    @Prop() node!: ValidatorListItem
+export default defineComponent({
+    name: 'NodeCard',
+    props: {
+        node: {
+            type: Object as () => ValidatorListItem,
+            required: true
+        }
+    },
+    setup(props) {
+        const store = useStore()
 
-    get uptimeText(): string {
-        return (this.node.uptime * 100).toFixed(2) + '%'
-    }
+        const uptimeText = computed((): string => {
+            return (props.node.uptime * 100).toFixed(2) + '%'
+        })
 
-    get nodeStakeBig() {
-        return bnToBig(this.node.validatorStake, 9)
-    }
+        const nodeStakeBig = computed(() => {
+            return bnToBig(props.node.validatorStake, 9)
+        })
 
-    get delegatedStakeBig() {
-        return bnToBig(this.node.delegatedStake, 9)
-    }
+        const delegatedStakeBig = computed(() => {
+            return bnToBig(props.node.delegatedStake, 9)
+        })
 
-    get remainingStakeBig() {
-        return bnToBig(this.node.remainingStake, 9)
-    }
+        const remainingStakeBig = computed(() => {
+            return bnToBig(props.node.remainingStake, 9)
+        })
 
-    get totalStakeBig() {
-        return bnToBig(this.node.validatorStake.add(this.node.delegatedStake), 9)
-    }
+        const totalStakeBig = computed(() => {
+            return bnToBig(props.node.validatorStake.add(props.node.delegatedStake), 9)
+        })
 
-    get avascanURL() {
-        let activeNet: AvaNetwork = this.$store.state.Network.selectedNetwork
+        const avascanURL = computed(() => {
+            const activeNet: AvaNetwork = store.state.Network.selectedNetwork
 
-        if (activeNet.networkId === 1) {
-            return `https://avascan.info/staking/validator/${this.node.nodeID}`
-        } else {
-            return `https://testnet.avascan.info/staking/validator/${this.node.nodeID}`
+            if (activeNet.networkId === 1) {
+                return `https://avascan.info/staking/validator/${props.node.nodeID}`
+            } else {
+                return `https://testnet.avascan.info/staking/validator/${props.node.nodeID}`
+            }
+        })
+
+        const vscoutURL = computed(() => {
+            return `https://vscout.io/validator/${props.node.nodeID}`
+        })
+
+        return {
+            uptimeText,
+            nodeStakeBig,
+            delegatedStakeBig,
+            remainingStakeBig,
+            totalStakeBig,
+            avascanURL,
+            vscoutURL
         }
     }
-
-    get vscoutURL() {
-        return `https://vscout.io/validator/${this.node.nodeID}`
-    }
-}
+})
 </script>
 <style scoped lang="scss">
 .node_card {

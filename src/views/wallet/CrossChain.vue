@@ -10,16 +10,16 @@
     </div>
 </template>
 <script lang="ts">
-import { Vue, Component } from 'vue-property-decorator'
+import { defineComponent } from 'vue'
 
 import ChainTransfer from '@/components/wallet/earn/ChainTransfer/ChainTransfer.vue'
-@Component({
-    name: 'cross_chain',
+
+export default defineComponent({
+    name: 'CrossChain',
     components: {
         ChainTransfer,
     },
 })
-export default class CrossChain extends Vue {}
 </script>
 <style scoped lang="scss">
 h1 {

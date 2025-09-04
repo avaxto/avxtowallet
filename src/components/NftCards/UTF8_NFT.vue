@@ -13,26 +13,51 @@
 </template>
 <script lang="ts">
 import 'reflect-metadata'
-import { Vue, Component, Prop, Ref, Watch } from 'vue-property-decorator'
+import { defineComponent, computed } from 'vue'
 import { PayloadBase } from 'avalanche/dist/utils'
 import BaseNftCard from '@/components/NftCards/BaseNftCard.vue'
 import { UTXO } from 'avalanche/dist/apis/avm'
 
-@Component({
+interface Props {
+    payload: PayloadBase
+    mini?: boolean
+    rawCard?: boolean
+    utxo: UTXO
+}
+
+export default defineComponent({
+    name: 'UTF8_NFT',
     components: {
         BaseNftCard,
     },
-})
-export default class UTF8_NFT extends Vue {
-    @Prop() payload!: PayloadBase
-    @Prop({ default: false }) mini?: boolean
-    @Prop({ default: false }) rawCard?: boolean
-    @Prop() utxo!: UTXO
+    props: {
+        payload: {
+            type: Object as () => PayloadBase,
+            required: true
+        },
+        mini: {
+            type: Boolean,
+            default: false
+        },
+        rawCard: {
+            type: Boolean,
+            default: false
+        },
+        utxo: {
+            type: Object as () => UTXO,
+            required: true
+        }
+    },
+    setup(props: Props) {
+        const text = computed((): string => {
+            return props.payload.getContent().toString('utf-8')
+        })
 
-    get text(): string {
-        return this.payload.getContent().toString('utf-8')
+        return {
+            text
+        }
     }
-}
+})
 </script>
 <style scoped lang="scss">
 .utf8_nft {

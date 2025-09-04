@@ -3,32 +3,44 @@
 </template>
 
 <script lang="ts">
-import { Vue, Component, Prop, Watch } from 'vue-property-decorator'
+import { defineComponent, ref, watch, onMounted } from 'vue'
 import makeBlockie from 'ethereum-blockies-base64'
 
-@Component
-export default class Identicon extends Vue {
-    $refs!: {
-        image_tag: HTMLImageElement
-    }
+export default defineComponent({
+    name: 'Identicon',
+    props: {
+        value: {
+            type: String,
+            required: true
+        },
+        diameter: {
+            type: Number,
+            default: 40
+        }
+    },
+    setup(props) {
+        const image_tag = ref<HTMLImageElement>()
 
-    @Prop() value!: string
-    @Prop({ default: 40 }) diameter!: number
+        const generateImage = () => {
+            if (!image_tag.value) return
+            let base64 = makeBlockie(props.value)
+            image_tag.value.src = base64
+        }
 
-    @Watch('value')
-    onValueChange() {
-        this.generateImage()
-    }
+        // Watch for value changes
+        watch(() => props.value, () => {
+            generateImage()
+        })
 
-    mounted() {
-        this.generateImage()
-    }
+        onMounted(() => {
+            generateImage()
+        })
 
-    generateImage() {
-        let base64 = makeBlockie(this.value)
-        this.$refs.image_tag.src = base64
+        return {
+            image_tag
+        }
     }
-}
+})
 </script>
 <style scoped lang="scss">
 img {

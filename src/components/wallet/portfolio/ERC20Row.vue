@@ -18,25 +18,41 @@
     </div>
 </template>
 <script lang="ts">
-import { Vue, Component, Prop } from 'vue-property-decorator'
+import { defineComponent, computed } from 'vue'
 import Erc20Token from '@/js/Erc20Token'
 
-@Component
-export default class ERC20Row extends Vue {
-    @Prop() token!: Erc20Token
-
-    get balText() {
-        return this.token.balanceBig.toLocaleString()
-    }
-
-    get isBalance() {
-        return !this.token.balanceBN.isZero()
-    }
-
-    get sendLink() {
-        return `/wallet/transfer?chain=C&token=${this.token.data.address}`
-    }
+interface Props {
+    token: Erc20Token
 }
+
+export default defineComponent({
+    name: 'ERC20Row',
+    props: {
+        token: {
+            type: Object as () => Erc20Token,
+            required: true
+        }
+    },
+    setup(props: Props) {
+        const balText = computed(() => {
+            return props.token.balanceBig.toLocaleString()
+        })
+
+        const isBalance = computed(() => {
+            return !props.token.balanceBN.isZero()
+        })
+
+        const sendLink = computed(() => {
+            return `/wallet/transfer?chain=C&token=${props.token.data.address}`
+        })
+
+        return {
+            balText,
+            isBalance,
+            sendLink
+        }
+    }
+})
 </script>
 <style scoped lang="scss">
 @use '../../../main';

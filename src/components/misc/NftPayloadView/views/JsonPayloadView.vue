@@ -5,62 +5,76 @@
     <GenericPayloadView v-else :payload="payload"></GenericPayloadView>
 </template>
 <script lang="ts">
-import { Component, Prop, Vue, Watch } from 'vue-property-decorator'
+import { defineComponent, ref, computed, watch, onMounted, type PropType } from 'vue'
 import { JSONPayload } from 'avalanche/dist/utils'
 
 import GenericPayloadView from '@/components/misc/NftPayloadView/views/GenericPayloadView.vue'
 
-@Component({
+export default defineComponent({
+    name: 'JsonPayloadView',
     components: {
         GenericPayloadView,
     },
-})
-export default class JsonPayloadView extends Vue {
-    @Prop() payload!: JSONPayload
-    val = ''
-
-    updateText() {
-        this.val = this.jsonText
-    }
-
-    get jsonText() {
-        let data = this.text
-        try {
-            let obj = JSON.parse(data)
-            return JSON.stringify(obj, undefined, 4)
-        } catch (e) {
-            return data
+    props: {
+        payload: {
+            type: Object as PropType<JSONPayload>,
+            required: true
         }
-    }
-    get text(): string {
-        return this.payload.getContent().toString()
-    }
+    },
+    setup(props) {
+        const val = ref('')
 
-    get isGeneric() {
-        let data = this.text
-        try {
-            let obj = JSON.parse(data)
+        const text = computed((): string => {
+            return props.payload.getContent().toString()
+        })
 
-            if (obj.hasOwnProperty('avalanche')) {
-                return true
-            } else {
+        const jsonText = computed(() => {
+            let data = text.value
+            try {
+                let obj = JSON.parse(data)
+                return JSON.stringify(obj, undefined, 4)
+            } catch (e) {
+                return data
+            }
+        })
+
+        const isGeneric = computed(() => {
+            let data = text.value
+            try {
+                let obj = JSON.parse(data)
+
+                if (obj.hasOwnProperty('avalanche')) {
+                    return true
+                } else {
+                    return false
+                }
+            } catch (e) {
                 return false
             }
-        } catch (e) {
             return false
+        })
+
+        const updateText = () => {
+            val.value = jsonText.value
         }
-        return false
-    }
 
-    @Watch('payload')
-    onPayloadChange() {
-        this.updateText()
-    }
+        watch(() => props.payload, () => {
+            updateText()
+        })
 
-    mounted() {
-        this.updateText()
+        onMounted(() => {
+            updateText()
+        })
+
+        return {
+            val,
+            text,
+            jsonText,
+            isGeneric,
+            updateText
+        }
     }
-}
+})
 </script>
 <style scoped lang="scss">
 .json_payload_view {

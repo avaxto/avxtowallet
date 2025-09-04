@@ -8,28 +8,52 @@
     </div>
 </template>
 <script lang="ts">
-import { Vue, Component, Model, Prop } from 'vue-property-decorator'
+import { defineComponent, computed } from 'vue'
+import { useStore } from 'vuex'
 import { ChainIdType } from '@/constants'
 import { CurrencyType } from '@/components/misc/CurrencySelect/types'
 
-@Component
-export default class ChainInput extends Vue {
-    @Model('change', { type: String }) readonly formType!: CurrencyType
-    @Prop({ default: false }) disabled!: boolean
-
-    set(val: ChainIdType) {
-        if (this.disabled) return
-        this.$emit('change', val)
-    }
-
-    get wallet() {
-        return this.$store.state.activeWallet
-    }
-
-    get isEVMSupported() {
-        return this.wallet.ethAddress
-    }
+interface Props {
+    formType: CurrencyType
+    disabled: boolean
 }
+
+export default defineComponent({
+    name: 'ChainInput',
+    props: {
+        formType: {
+            type: String as () => CurrencyType,
+            required: true
+        },
+        disabled: {
+            type: Boolean,
+            default: false
+        }
+    },
+    emits: ['change'],
+    setup(props: Props, { emit }) {
+        const store = useStore()
+
+        const wallet = computed(() => {
+            return store.state.activeWallet
+        })
+
+        const isEVMSupported = computed(() => {
+            return wallet.value.ethAddress
+        })
+
+        const set = (val: ChainIdType) => {
+            if (props.disabled) return
+            emit('change', val)
+        }
+
+        return {
+            wallet,
+            isEVMSupported,
+            set
+        }
+    }
+})
 </script>
 <style scoped lang="scss">
 @use '../../../main';

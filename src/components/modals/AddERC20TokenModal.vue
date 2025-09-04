@@ -29,8 +29,8 @@
     </modal>
 </template>
 <script lang="ts">
-import 'reflect-metadata'
-import { Vue, Component, Prop, Watch } from 'vue-property-decorator'
+import { defineComponent, ref, watch } from 'vue'
+import { useStore } from 'vuex'
 
 import Modal from './Modal.vue'
 import { web3 } from '@/evm'
@@ -38,103 +38,119 @@ import ERC20Abi from '@openzeppelin/contracts/build/contracts/ERC20.json'
 import Erc20Token from '@/js/Erc20Token'
 import { TokenListToken } from '@/store/modules/assets/types'
 
-@Component({
+export default defineComponent({
+    name: 'AddERC20TokenModal',
     components: {
         Modal,
     },
-})
-export default class AddERC20TokenModal extends Vue {
-    tokenAddress = ''
-    name = ''
-    symbol = ''
-    denomination = 1
-    canAdd = false
-    err = ''
-    @Watch('tokenAddress')
-    async onAddressChange(val: string) {
-        this.err = ''
-        if (val === '') {
-            this.clear()
-            return
-        }
-        await this.validateAddress(val)
-    }
+    setup() {
+        const store = useStore()
+        const modal = ref<InstanceType<typeof Modal> | null>(null)
+        const tokenAddress = ref('')
+        const name = ref('')
+        const symbol = ref('')
+        const denomination = ref(1)
+        const canAdd = ref(false)
+        const err = ref('')
 
-    async validateAddress(val: string) {
-        if (val === '') {
-            this.err = ''
-            return false
-        }
-        try {
-            //@ts-ignore
-            var tokenInst = new web3.eth.Contract(ERC20Abi.abi, val)
-            let name = await tokenInst.methods.name().call()
-            let symbol = await tokenInst.methods.symbol().call()
-            let decimals = await tokenInst.methods.decimals().call()
-
-            this.symbol = symbol
-            this.denomination = decimals
-            this.name = name
-
-            this.canAdd = true
-            return true
-        } catch (e) {
-            this.canAdd = false
-            this.symbol = '-'
-            this.denomination = 0
-            this.name = '-'
-            this.err = 'Invalid contract address.'
-            return false
-        }
-    }
-
-    clear() {
-        this.tokenAddress = ''
-        this.canAdd = false
-        this.symbol = '-'
-        this.denomination = 0
-        this.name = '-'
-        this.err = ''
-    }
-
-    async submit() {
-        try {
-            let data: TokenListToken = {
-                address: this.tokenAddress,
-                name: this.name,
-                symbol: this.symbol,
-                decimals: this.denomination,
-                chainId: this.$store.state.Assets.evmChainId,
-                logoURI: '',
+        const validateAddress = async (val: string) => {
+            if (val === '') {
+                err.value = ''
+                return false
             }
+            try {
+                //@ts-ignore
+                const tokenInst = new web3.eth.Contract(ERC20Abi.abi, val)
+                const tokenName = await tokenInst.methods.name().call()
+                const tokenSymbol = await tokenInst.methods.symbol().call()
+                const decimals = await tokenInst.methods.decimals().call()
 
-            let token: Erc20Token = await this.$store.dispatch('Assets/addCustomErc20Token', data)
+                symbol.value = tokenSymbol
+                denomination.value = decimals
+                name.value = tokenName
 
-            this.$store.dispatch('Notifications/add', {
-                title: 'ERC20 Token Added',
-                message: token.data.name,
-            })
-            this.close()
-        } catch (e) {
-            this.err = e.message
-            console.error(e)
+                canAdd.value = true
+                return true
+            } catch (e) {
+                canAdd.value = false
+                symbol.value = '-'
+                denomination.value = 0
+                name.value = '-'
+                err.value = 'Invalid contract address.'
+                return false
+            }
+        }
+
+        const clear = () => {
+            tokenAddress.value = ''
+            canAdd.value = false
+            symbol.value = '-'
+            denomination.value = 0
+            name.value = '-'
+            err.value = ''
+        }
+
+        const submit = async () => {
+            try {
+                const data: TokenListToken = {
+                    address: tokenAddress.value,
+                    name: name.value,
+                    symbol: symbol.value,
+                    decimals: denomination.value,
+                    chainId: store.state.Assets.evmChainId,
+                    logoURI: '',
+                }
+
+                const token: Erc20Token = await store.dispatch('Assets/addCustomErc20Token', data)
+
+                store.dispatch('Notifications/add', {
+                    title: 'ERC20 Token Added',
+                    message: token.data.name,
+                })
+                close()
+            } catch (e: any) {
+                err.value = e.message
+                console.error(e)
+            }
+        }
+
+        const beforeClose = () => {
+            clear()
+        }
+
+        const open = () => {
+            modal.value?.open()
+        }
+
+        const close = () => {
+            modal.value?.close()
+        }
+
+        // Watch tokenAddress for changes
+        watch(tokenAddress, async (val: string) => {
+            err.value = ''
+            if (val === '') {
+                clear()
+                return
+            }
+            await validateAddress(val)
+        })
+
+        return {
+            modal,
+            tokenAddress,
+            name,
+            symbol,
+            denomination,
+            canAdd,
+            err,
+            submit,
+            beforeClose,
+            open,
+            close
         }
     }
-
-    beforeClose() {
-        this.clear()
-    }
-
-    open() {
-        // @ts-ignore
-        this.$refs.modal.open()
-    }
-
-    close() {
-        // @ts-ignore
-        this.$refs.modal.close()
-    }
-}
+})
 </script>
 <style scoped lang="scss">
 @use '../../main';

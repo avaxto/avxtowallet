@@ -39,74 +39,84 @@
     </modal>
 </template>
 <script lang="ts">
-import 'reflect-metadata'
-import { Vue, Component, Prop } from 'vue-property-decorator'
+import { defineComponent, ref, computed } from 'vue'
+import { useStore } from 'vuex'
 
 import Modal from '@/components/modals/Modal.vue'
 import { TokenList } from '@/store/modules/assets/types'
 
-@Component({
+export default defineComponent({
+    name: 'TokenListModal',
     components: {
         Modal,
     },
-})
-export default class TokenListModal extends Vue {
-    $refs!: {
-        modal: Modal
-    }
+    setup() {
+        const store = useStore()
+        const modal = ref<InstanceType<typeof Modal> | null>(null)
+        const urlIn = ref('')
+        const err = ref('')
 
-    urlIn = ''
-    err = ''
+        const canAdd = computed(() => {
+            if (urlIn.value.length < 4) {
+                return false
+            }
+            return true
+        })
 
-    get canAdd() {
-        if (this.urlIn.length < 4) {
-            return false
+        const lists = computed((): TokenList[] => {
+            return store.state.Assets.tokenLists
+        })
+
+        const beforeClose = () => {
+            urlIn.value = ''
+            err.value = ''
         }
-        return true
-    }
 
-    get lists(): TokenList[] {
-        return this.$store.state.Assets.tokenLists
-    }
+        const onSuccess = () => {
+            urlIn.value = ''
+            store.dispatch('Assets/updateERC20Balances')
+        }
 
-    beforeClose() {
-        this.urlIn = ''
-        this.err = ''
-    }
+        const onError = (error: any) => {
+            err.value = error
+        }
 
-    async addTokenList() {
-        this.err = ''
-        this.$store
-            .dispatch('Assets/addTokenListUrl', {
-                url: this.urlIn,
-                readonly: false,
-            })
-            .then((res) => {
-                this.onSuccess()
-            })
-            .catch((e) => {
-                this.onError(e)
-            })
-    }
+        const addTokenList = async () => {
+            err.value = ''
+            store
+                .dispatch('Assets/addTokenListUrl', {
+                    url: urlIn.value,
+                    readonly: false,
+                })
+                .then((res) => {
+                    onSuccess()
+                })
+                .catch((e) => {
+                    onError(e)
+                })
+        }
 
-    onSuccess() {
-        this.urlIn = ''
-        this.$store.dispatch('Assets/updateERC20Balances')
-    }
+        const removeList = async (list: TokenList) => {
+            store.dispatch('Assets/removeTokenList', list)
+        }
 
-    async removeList(list: TokenList) {
-        this.$store.dispatch('Assets/removeTokenList', list)
-    }
+        const open = (): void => {
+            modal.value?.open()
+        }
 
-    onError(err: any) {
-        this.err = err
+        return {
+            modal,
+            urlIn,
+            err,
+            canAdd,
+            lists,
+            beforeClose,
+            addTokenList,
+            removeList,
+            open
+        }
     }
-
-    open(): void {
-        let modal = this.$refs.modal
-        modal.open()
-    }
-}
+})
 </script>
 <style scoped lang="scss">
 .tokenlist_modal {

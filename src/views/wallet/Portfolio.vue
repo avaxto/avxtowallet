@@ -41,27 +41,31 @@
         </div>
     </div>
 </template>
-<script>
+<script lang="ts">
+import { defineComponent, ref, watch } from 'vue'
 import Fungibles from '@/components/wallet/portfolio/Fungibles'
 import Collectibles from '@/components/wallet/portfolio/Collectibles'
-export default {
+
+export default defineComponent({
     name: 'WalletHome',
-    data() {
-        return {
-            search: '',
-            tab: 'fungibles',
-        }
-    },
     components: {
         Fungibles,
         Collectibles,
     },
-    watch: {
-        tab() {
-            this.search = ''
-        },
-    },
-}
+    setup() {
+        const search = ref<string>('')
+        const tab = ref<string>('fungibles')
+
+        watch(tab, () => {
+            search.value = ''
+        })
+
+        return {
+            search,
+            tab
+        }
+    }
+})
 </script>
 <style scoped lang="scss">
 @use '../../main';

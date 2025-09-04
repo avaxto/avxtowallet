@@ -21,31 +21,47 @@
     </div>
 </template>
 <script lang="ts">
-import 'reflect-metadata'
-import { Vue, Component, Prop } from 'vue-property-decorator'
+import { defineComponent, computed, type PropType } from 'vue'
 import MnemonicPhrase from '@/js/wallets/MnemonicPhrase'
 import { getRandomMnemonicWord } from '@/helpers/getRandomMnemonicWord'
 
-@Component
-export default class MnemonicDisplay extends Vue {
-    @Prop({ default: '#FFFFFF' }) bgColor?: string
-    @Prop({ default: 4 }) rowSize!: number
-    @Prop() phrase!: MnemonicPhrase
-
-    get phraseArray(): string[] {
-        const words = this.phrase.getValue().split(' ')
-        const mixedMnemonic = []
-        for (let i in words) {
-            mixedMnemonic.push(words[i])
-            mixedMnemonic.push(this.getFakeWord())
+export default defineComponent({
+    name: 'MnemonicDisplay',
+    props: {
+        bgColor: {
+            type: String,
+            default: '#FFFFFF'
+        },
+        rowSize: {
+            type: Number,
+            default: 4
+        },
+        phrase: {
+            type: Object as PropType<MnemonicPhrase>,
+            required: true
         }
-        return mixedMnemonic
-    }
+    },
+    setup(props) {
+        const phraseArray = computed((): string[] => {
+            const words = props.phrase.getValue().split(' ')
+            const mixedMnemonic = []
+            for (let i in words) {
+                mixedMnemonic.push(words[i])
+                mixedMnemonic.push(getFakeWord())
+            }
+            return mixedMnemonic
+        })
 
-    getFakeWord() {
-        return getRandomMnemonicWord()
+        const getFakeWord = () => {
+            return getRandomMnemonicWord()
+        }
+
+        return {
+            phraseArray,
+            getFakeWord
+        }
     }
-}
+})
 </script>
 <style scoped lang="scss">
 @use "../../main";

@@ -80,15 +80,17 @@
     </div>
 </template>
 <script lang="ts">
-import 'reflect-metadata'
-import { Vue, Component, Prop } from 'vue-property-decorator'
+import { defineComponent, ref, computed } from 'vue'
+import { useStore } from 'vuex'
 import LanguageSelect from './misc/LanguageSelect/LanguageSelect.vue'
 
 import DayNightToggle from '@/components/misc/DayNightToggle.vue'
 import NetworkMenu from './NetworkSettings/NetworkMenu.vue'
 import ConfirmLogout from '@/components/modals/ConfirmLogout.vue'
 import AccountMenu from '@/components/wallet/sidebar/AccountMenu.vue'
-@Component({
+
+export default defineComponent({
+    name: 'Navbar',
     components: {
         AccountMenu,
         NetworkMenu,
@@ -96,24 +98,35 @@ import AccountMenu from '@/components/wallet/sidebar/AccountMenu.vue'
         ConfirmLogout,        
         LanguageSelect,
     },
+    setup() {
+        const store = useStore()
+
+        const isDrawer = ref(false)
+        const popupOpen = ref(false)
+        const logoutRef = ref<InstanceType<typeof ConfirmLogout>>()
+
+        const isAuth = computed((): boolean => {
+            return store.state.isAuth
+        })
+
+        const logout = (): void => {
+            logoutRef.value?.open()
+        }
+
+        const togglePopup = (): void => {
+            popupOpen.value = !popupOpen.value
+        }
+
+        return {
+            isDrawer,
+            popupOpen,
+            logout: logoutRef,
+            isAuth,
+            logout,
+            togglePopup
+        }
+    }
 })
-export default class Navbar extends Vue {
-    isDrawer: boolean = false
-    popupOpen: boolean = false
-
-    get isAuth(): boolean {
-        return this.$store.state.isAuth
-    }
-
-    logout(): void {
-        // @ts-ignore
-        this.$refs.logout.open()
-    }
-
-    togglePopup(): void {
-        this.popupOpen = !this.popupOpen
-    }
-}
 </script>
 <style scoped lang="scss">
 @use '../main';

@@ -43,8 +43,8 @@
     </div>
 </template>
 <script lang="ts">
-import 'reflect-metadata'
-import { Vue, Component, Prop } from 'vue-property-decorator'
+import { defineComponent, ref, computed, type PropType } from 'vue'
+import { useRouter } from 'vue-router'
 import { PayloadTypes, PayloadBase } from 'avalanche/dist/utils'
 
 const payloadtypes = PayloadTypes.getInstance()
@@ -53,67 +53,93 @@ import Tooltip from '@/components/misc/Tooltip.vue'
 import NftPayloadView from '@/components/misc/NftPayloadView/NftPayloadView.vue'
 import NFTViewModal from '@/components/modals/NFTViewModal.vue'
 import { UTXO } from 'avalanche/dist/apis/avm'
-@Component({
+
+export default defineComponent({
+    name: 'NftCard',
     components: { NFTViewModal, NftPayloadView, Tooltip },
-})
-export default class NftCard extends Vue {
-    @Prop() payload!: PayloadBase
-    @Prop({ default: 1 }) quantity!: number
-    @Prop() groupID!: number
-    @Prop() utxo?: UTXO
+    props: {
+        payload: {
+            type: Object as PropType<PayloadBase>,
+            required: true
+        },
+        quantity: {
+            type: Number,
+            default: 1
+        },
+        groupID: {
+            type: Number,
+            required: true
+        },
+        utxo: {
+            type: Object as PropType<UTXO>,
+            required: false
+        }
+    },
+    setup(props) {
+        const router = useRouter()
 
-    $refs!: {
-        modal: NFTViewModal
-    }
+        const modal = ref<InstanceType<typeof NFTViewModal>>()
 
-    transfer(ev: MouseEvent) {
-        ev.stopPropagation()
-        if (!this.utxo) return
+        const transfer = (ev: MouseEvent) => {
+            ev.stopPropagation()
+            if (!props.utxo) return
 
-        let utxoId = this.utxo.getUTXOID()
-        this.$router.push({
-            path: '/wallet/transfer',
-            query: {
-                nft: utxoId,
-                chain: 'X',
-            },
+            let utxoId = props.utxo.getUTXOID()
+            router.push({
+                path: '/wallet/transfer',
+                query: {
+                    nft: utxoId,
+                    chain: 'X',
+                },
+            })
+        }
+
+        const expand = () => {
+            modal.value?.open()
+        }
+
+        const payloadTypeID = computed(() => {
+            return props.payload.typeID()
         })
-    }
 
-    expand() {
-        this.$refs.modal.open()
-    }
+        const payloadTypeName = computed(() => {
+            return payloadtypes.lookupType(payloadTypeID.value) || 'Unknown Type'
+        })
 
-    get payloadTypeID() {
-        return this.payload.typeID()
-    }
+        const payloadContent = computed(() => {
+            return props.payload.getContent().toString()
+        })
 
-    get payloadTypeName() {
-        return payloadtypes.lookupType(this.payloadTypeID) || 'Unknown Type'
-    }
+        const nftTitle = computed(() => {
+            try {
+                let json = JSON.parse(payloadContent.value)
+                return json.avalanche.title
+            } catch (err) {
+                return ''
+            }
+        })
 
-    get payloadContent() {
-        return this.payload.getContent().toString()
-    }
+        const nftDesc = computed(() => {
+            try {
+                let json = JSON.parse(payloadContent.value)
+                return json.avalanche.desc
+            } catch (err) {
+                return ''
+            }
+        })
 
-    get nftTitle() {
-        try {
-            let json = JSON.parse(this.payloadContent)
-            return json.avalanche.title
-        } catch (err) {
-            return ''
+        return {
+            modal,
+            transfer,
+            expand,
+            payloadTypeID,
+            payloadTypeName,
+            payloadContent,
+            nftTitle,
+            nftDesc
         }
     }
-
-    get nftDesc() {
-        try {
-            let json = JSON.parse(this.payloadContent)
-            return json.avalanche.desc
-        } catch (err) {
-            return ''
-        }
-    }
-}
+})
 </script>
 <style scoped lang="scss">
 @use 'nft_card';

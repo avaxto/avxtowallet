@@ -32,7 +32,8 @@
     </div>
 </template>
 <script lang="ts">
-import { Vue, Component, Prop } from 'vue-property-decorator'
+import { defineComponent, computed } from 'vue'
+import { useStore } from 'vuex'
 import { AssetsDict, NftFamilyDict } from '@/store/modules/assets/types'
 import { PChainUtxo, Utxo } from '@avalabs/glacier-sdk'
 
@@ -50,93 +51,120 @@ import {
 } from '@/js/Glacier/models'
 import { ava } from '@/AVA'
 
-@Component({
+interface Props {
+    index: number
+    source: TransactionType
+}
+
+export default defineComponent({
+    name: 'TxRow',
     components: {
         StakingTx,
         BaseTx,
         ImportExport,
     },
+    props: {
+        index: {
+            type: Number,
+            required: true
+        },
+        source: {
+            type: Object as () => TransactionType,
+            required: true
+        }
+    },
+    setup(props: Props) {
+        const store = useStore()
+
+        const explorerUrl = computed((): string | null => {
+            const netID = ava.getNetworkID()
+            return getUrlFromTransaction(netID, props.source)
+        })
+
+        const hasMultisig = computed(() => {
+            if (!isCChainImportTransaction(props.source)) {
+                if (!props.source.emittedUtxos) return false
+                let totMultiSig = 0
+                props.source.emittedUtxos.forEach((utxo: Utxo | PChainUtxo) => {
+                    if (utxo.addresses.length > 1) {
+                        totMultiSig++
+                    }
+                })
+                return totMultiSig > 0
+            }
+            return false
+        })
+
+        const timestamp = computed(() => {
+            if (isTransactionX(props.source) || isTransactionC(props.source)) {
+                return props.source.timestamp * 1000
+            } else {
+                return props.source.blockTimestamp * 1000
+            }
+        })
+
+        const date = computed(() => {
+            return new Date(timestamp.value)
+        })
+
+        const type = computed((): TransactionTypeName => {
+            return props.source.txType
+        })
+
+        const tx_comp = computed(() => {
+            switch (type.value) {
+                case 'ExportTx':
+                case 'ImportTx':
+                    return ImportExport
+                case 'AddDelegatorTx':
+                case 'AddValidatorTx':
+                    return StakingTx
+                default:
+                    return BaseTx
+            }
+        })
+
+        const assets = computed((): AssetsDict => {
+            return store.state.Assets.assetsDict
+        })
+
+        const nftFams = computed((): NftFamilyDict => {
+            return store.state.Assets.nftFamsDict
+        })
+
+        const mom = computed(() => {
+            return moment(timestamp.value)
+        })
+
+        const dayLabel = computed(() => {
+            return mom.value.format('dddd Do')
+        })
+
+        const monthLabel = computed((): string => {
+            const month = mom.value.format('MMMM')
+            return month
+        })
+
+        const yearLabel = computed((): string => {
+            return mom.value.format('Y')
+        })
+
+        return {
+            explorerUrl,
+            hasMultisig,
+            timestamp,
+            date,
+            type,
+            tx_comp,
+            assets,
+            nftFams,
+            mom,
+            dayLabel,
+            monthLabel,
+            yearLabel
+        }
+    }
 })
-export default class TxRow extends Vue {
-    @Prop() index!: number
-    @Prop() source!: TransactionType
-
-    get explorerUrl(): string | null {
-        const netID = ava.getNetworkID()
-        return getUrlFromTransaction(netID, this.source)
-    }
-
-    get hasMultisig() {
-        if (!isCChainImportTransaction(this.source)) {
-            if (!this.source.emittedUtxos) return false
-            let totMultiSig = 0
-            this.source.emittedUtxos.forEach((utxo: Utxo | PChainUtxo) => {
-                if (utxo.addresses.length > 1) {
-                    totMultiSig++
-                }
-            })
-            return totMultiSig > 0
-        }
-        return false
-    }
-
-    get timestamp() {
-        if (isTransactionX(this.source) || isTransactionC(this.source)) {
-            return this.source.timestamp * 1000
-        } else {
-            return this.source.blockTimestamp * 1000
-        }
-    }
-
-    get date() {
-        return new Date(this.timestamp)
-    }
-    get type(): TransactionTypeName {
-        return this.source.txType
-    }
-
-    get tx_comp() {
-        switch (this.type) {
-            case 'ExportTx':
-            case 'ImportTx':
-                return ImportExport
-            case 'AddDelegatorTx':
-            case 'AddValidatorTx':
-                return StakingTx
-            default:
-                return BaseTx
-        }
-    }
-
-    get assets(): AssetsDict {
-        return this.$store.state.Assets.assetsDict
-    }
-
-    get nftFams(): NftFamilyDict {
-        return this.$store.state.Assets.nftFamsDict
-    }
-
-    // get memo(): string | null {
-    //     const memo = this.source.memo
-    //     return getMemoFromByteString(memo)
-    // }
-
-    get mom() {
-        return moment(this.timestamp)
-    }
-    get dayLabel() {
-        return this.mom.format('dddd Do')
-    }
-
-    get monthLabel(): string {
-        let month = this.mom.format('MMMM')
-        return month
-    }
-
-    get yearLabel(): string {
-        return this.mom.format('Y')
-    }
-}
 </script>
 <style scoped lang="scss">
 @use "../../../main";

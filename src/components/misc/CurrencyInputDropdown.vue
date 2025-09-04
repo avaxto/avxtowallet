@@ -33,8 +33,8 @@
     </div>
 </template>
 <script lang="ts">
-import 'reflect-metadata'
-import { Vue, Component, Prop, Emit, Watch } from 'vue-property-decorator'
+import { defineComponent, ref, computed, watch, onMounted } from 'vue'
+import { useStore } from 'vuex'
 
 import { BN } from 'avalanche'
 // import Big from 'big.js';
@@ -58,161 +58,203 @@ interface IDropdownValue {
     disabled: boolean
 }
 
-@Component({
+export default defineComponent({
+    name: 'CurrencyInputDropdown',
     components: {
         Dropdown,
         BigNumInput,
         BalanceDropdown,
     },
-})
-export default class CurrencyInputDropdown extends Vue {
-    amount: BN = new BN(0)
-    asset_now: AvaAsset = this.walletAssetsArray[0]
-
-    @Prop({ default: () => [] }) disabled_assets!: AvaAsset[]
-    @Prop({ default: '' }) initial!: string
-    @Prop({ default: false }) disabled!: boolean
-
-    $refs!: {
-        bigIn: BigNumInput
-    }
-
-    mounted() {
-        if (this.isEmpty) return
-        if (this.initial) {
-            let initialAsset = this.walletAssetsDict[this.initial]
-            this.drop_change(initialAsset)
-        } else {
-            this.drop_change(this.walletAssetsArray[0])
+    props: {
+        disabled_assets: {
+            type: Array as () => AvaAsset[],
+            default: () => []
+        },
+        initial: {
+            type: String,
+            default: ''
+        },
+        disabled: {
+            type: Boolean,
+            default: false
         }
-    }
+    },
+    emits: ['change'],
+    setup(props, { emit }) {
+        const store = useStore()
+        
+        const bigIn = ref<InstanceType<typeof BigNumInput>>()
+        const amount = ref<BN>(new BN(0))
+        
+        const walletAssetsArray = computed((): AvaAsset[] => {
+            return store.getters['Assets/walletAssetsArray']
+        })
+        
+        const asset_now = ref<AvaAsset>(walletAssetsArray.value[0])
 
-    @Watch('asset_now')
-    drop_change(val: AvaAsset) {
-        this.asset_now = val
-        this.$refs.bigIn.clear()
-        // this.amount_in(new BN(0))
-        this.onchange()
-    }
+        const walletAssetsDict = computed((): IWalletAssetsDict => {
+            return store.getters['Assets/walletAssetsDict']
+        })
 
-    get stepSize() {
-        if (this.denomination > 3) {
-            let stepNum = Math.pow(10, this.denomination - 2)
-            return new BN(stepNum.toString())
-        } else {
-            let stepNum = Math.pow(10, this.denomination)
-            return new BN(stepNum.toString())
-        }
-    }
-    maxOut() {
-        // @ts-ignore
-        this.$refs.bigIn.maxout()
-    }
+        const avaxAsset = computed((): AvaAsset | null => {
+            return store.getters['Assets/AssetAVA']
+        })
 
-    amount_in(val: BN) {
-        this.amount = val
-        this.onchange()
-    }
+        const priceDict = computed((): priceDict => {
+            return store.state.prices
+        })
 
-    // onchange event for the Component
-    @Emit('change')
-    onchange(): ICurrencyInputDropdownValue {
-        return {
-            asset: this.asset_now,
-            amount: this.amount,
-        }
-    }
-
-    onfocus() {
-        console.log('focus')
-    }
-
-    get amountUSD(): Big {
-        let usdPrice = this.priceDict.usd
-        let bigAmt = bnToBig(this.amount, this.denomination)
-        let usdBig = bigAmt.times(usdPrice)
-        return usdBig
-    }
-
-    get isEmpty(): boolean {
-        if (this.walletAssetsArray.length === 0) {
-            return true
-        } else {
-            return false
-        }
-    }
-
-    get isAvax(): boolean {
-        if (this.asset_now.id === this.avaxAsset?.id) return true
-        return false
-    }
-
-    get display(): string {
-        return ''
-    }
-
-    get placeholder(): string {
-        if (this.isEmpty || !this.asset_now) return '0.00'
-        let deno = this.asset_now.denomination
-        let res = '0'
-        if (deno > 2) {
-            res = '0.00'
-        }
-        return res
-    }
-
-    get denomination(): number {
-        if (!this.asset_now) return 0
-        return this.asset_now.denomination
-    }
-
-    get walletAssetsArray(): AvaAsset[] {
-        // return this.$store.getters.walletAssetsArray
-        return this.$store.getters['Assets/walletAssetsArray']
-    }
-
-    get walletAssetsDict(): IWalletAssetsDict {
-        // return this.$store.getters['walletAssetsDict']
-        return this.$store.getters['Assets/walletAssetsDict']
-    }
-
-    get avaxAsset(): AvaAsset | null {
-        return this.$store.getters['Assets/AssetAVA']
-    }
-
-    get max_amount(): null | BN {
-        if (!this.asset_now) return null
-        if (!this.avaxAsset) return null
-
-        let assetId = this.asset_now.id
-        let balance = this.walletAssetsDict[assetId]
-
-        let avaxId = this.avaxAsset.id
-
-        // Max amount is BALANCE - FEE for AVAX
-        if (assetId === avaxId) {
-            let fee = avm.getTxFee()
-            // console.log(fee);
-            if (fee.gte(balance.amount)) {
-                return new BN(0)
+        onMounted(() => {
+            if (isEmpty.value) return
+            if (props.initial) {
+                let initialAsset = walletAssetsDict.value[props.initial]
+                drop_change(initialAsset)
             } else {
-                return balance.amount.sub(fee)
+                drop_change(walletAssetsArray.value[0])
+            }
+        })
+
+        watch(() => asset_now.value, (val: AvaAsset) => {
+            drop_change(val)
+        })
+
+        const drop_change = (val: AvaAsset) => {
+            asset_now.value = val
+            if (bigIn.value) {
+                bigIn.value.clear()
+            }
+            // amount_in(new BN(0))
+            onchange()
+        }
+
+        const stepSize = computed((): BN => {
+            if (denomination.value > 3) {
+                let stepNum = Math.pow(10, denomination.value - 2)
+                return new BN(stepNum.toString())
+            } else {
+                let stepNum = Math.pow(10, denomination.value)
+                return new BN(stepNum.toString())
+            }
+        })
+
+        const maxOut = () => {
+            // @ts-ignore
+            if (bigIn.value) {
+                bigIn.value.maxout()
             }
         }
 
-        if (balance.amount.isZero()) return null
-        return balance.amount
-    }
+        const amount_in = (val: BN) => {
+            amount.value = val
+            onchange()
+        }
 
-    get maxAmountBig(): Big {
-        if (!this.max_amount) return Big(0)
-        return bnToBig(this.max_amount, this.denomination)
-    }
+        // onchange event for the Component
+        const onchange = (): ICurrencyInputDropdownValue => {
+            const result = {
+                asset: asset_now.value,
+                amount: amount.value,
+            }
+            emit('change', result)
+            return result
+        }
 
-    get priceDict(): priceDict {
-        return this.$store.state.prices
+        const onfocus = () => {
+            console.log('focus')
+        }
+
+        const amountUSD = computed((): Big => {
+            let usdPrice = priceDict.value.usd
+            let bigAmt = bnToBig(amount.value, denomination.value)
+            let usdBig = bigAmt.times(usdPrice)
+            return usdBig
+        })
+
+        const isEmpty = computed((): boolean => {
+            if (walletAssetsArray.value.length === 0) {
+                return true
+            } else {
+                return false
+            }
+        })
+
+        const isAvax = computed((): boolean => {
+            if (asset_now.value.id === avaxAsset.value?.id) return true
+            return false
+        })
+
+        const display = computed((): string => {
+            return ''
+        })
+
+        const placeholder = computed((): string => {
+            if (isEmpty.value || !asset_now.value) return '0.00'
+            let deno = asset_now.value.denomination
+            let res = '0'
+            if (deno > 2) {
+                res = '0.00'
+            }
+            return res
+        })
+
+        const denomination = computed((): number => {
+            if (!asset_now.value) return 0
+            return asset_now.value.denomination
+        })
+
+        const max_amount = computed((): null | BN => {
+            if (!asset_now.value) return null
+            if (!avaxAsset.value) return null
+
+            let assetId = asset_now.value.id
+            let balance = walletAssetsDict.value[assetId]
+
+            let avaxId = avaxAsset.value.id
+
+            // Max amount is BALANCE - FEE for AVAX
+            if (assetId === avaxId) {
+                let fee = avm.getTxFee()
+                // console.log(fee);
+                if (fee.gte(balance.amount)) {
+                    return new BN(0)
+                } else {
+                    return balance.amount.sub(fee)
+                }
+            }
+
+            if (balance.amount.isZero()) return null
+            return balance.amount
+        })
+
+        const maxAmountBig = computed((): Big => {
+            if (!max_amount.value) return Big(0)
+            return bnToBig(max_amount.value, denomination.value)
+        })
+
+        return {
+            bigIn,
+            amount,
+            asset_now,
+            stepSize,
+            maxOut,
+            amount_in,
+            onchange,
+            onfocus,
+            amountUSD,
+            isEmpty,
+            isAvax,
+            display,
+            placeholder,
+            denomination,
+            walletAssetsArray,
+            walletAssetsDict,
+            avaxAsset,
+            max_amount,
+            maxAmountBig,
+            priceDict
+        }
     }
-}
+})
 </script>
 <style scoped lang="scss">
 @use '../../main';

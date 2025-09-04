@@ -1,65 +1,83 @@
 <template>
     <div class="file_input hover_border">
-        <input type="file" :multiple="multiple" @input="oninput" ref="input" />
+        <input type="file" :multiple="multiple" @input="oninput" ref="inputRef" />
         <p v-if="fileNum === 0">Select File</p>
         <p v-else>{{ files[0].name }}</p>
     </div>
 </template>
 <script lang="ts">
-import 'reflect-metadata'
-import { Vue, Component, Prop } from 'vue-property-decorator'
+import { defineComponent, ref, computed, type PropType } from 'vue'
 
-@Component
-export default class FileInput extends Vue {
-    files: FileList | null = null
+export default defineComponent({
+    name: 'FileInput',
+    props: {
+        multiple: {
+            type: Boolean,
+            default: false
+        },
+        read_type: {
+            type: String as PropType<'raw' | 'text'>,
+            default: 'raw'
+        }
+    },
+    emits: ['change'],
+    setup(props, { emit }) {
+        const files = ref<FileList | null>(null)
+        const inputRef = ref<HTMLInputElement>()
 
-    @Prop({ default: false }) multiple!: boolean
-    @Prop({ default: 'raw' }) read_type!: string
+        const fileNum = computed(() => {
+            if (!files.value) return 0
+            return files.value.length
+        })
 
-    oninput(val: File) {
-        // @ts-ignore
-        let input = this.$refs.input as HTMLInputElement
-        this.files = input.files as FileList
-        if (this.read_type === 'raw') {
-            if (this.multiple) {
-                this.$emit('change', this.files)
+        const oninput = (event: Event) => {
+            const input = event.target as HTMLInputElement
+            files.value = input.files as FileList
+            
+            if (props.read_type === 'raw') {
+                if (props.multiple) {
+                    emit('change', files.value)
+                } else {
+                    emit('change', files.value?.[0])
+                }
             } else {
-                this.$emit('change', this.files[0])
+                read()
             }
-        } else {
-            this.read()
-        }
-    }
-
-    read() {
-        if (!this.files) return
-
-        let parent = this
-
-        let reader = new FileReader() // no arguments
-        reader.onload = function () {
-            parent.$emit('change', reader.result)
-        }
-        reader.onerror = function () {
-            console.log(reader.error)
         }
 
-        if (this.read_type === 'text') {
-            reader.readAsText(this.files[0])
+        const read = () => {
+            if (!files.value) return
+
+            let reader = new FileReader()
+            reader.onload = function () {
+                emit('change', reader.result)
+            }
+            reader.onerror = function () {
+                console.log(reader.error)
+            }
+
+            if (props.read_type === 'text') {
+                reader.readAsText(files.value[0])
+            }
+        }
+
+        const clear = () => {
+            if (inputRef.value) {
+                inputRef.value.value = ''
+            }
+            files.value = null
+        }
+
+        return {
+            files,
+            inputRef,
+            fileNum,
+            oninput,
+            read,
+            clear
         }
     }
-
-    clear() {
-        let input = this.$refs.input as HTMLInputElement
-        input.value = ''
-        this.files = null
-    }
-
-    get fileNum() {
-        if (!this.files) return 0
-        return this.files.length
-    }
-}
+})
 </script>
 <style scoped lang="scss">
 @use '../../main';

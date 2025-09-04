@@ -35,8 +35,8 @@
     </modal>
 </template>
 <script lang="ts">
-import 'reflect-metadata'
-import { Vue, Component, Prop, Watch } from 'vue-property-decorator'
+import { defineComponent, ref, computed, watch } from 'vue'
+import { useStore } from 'vuex'
 
 import Modal from './Modal.vue'
 import { web3 } from '@/evm'
@@ -49,105 +49,121 @@ import { WalletType } from '@/js/wallets/types'
 import axios from 'axios'
 import ERC721Token from '@/js/ERC721Token'
 
-@Component({
+export default defineComponent({
+    name: 'AddERC721TokenModal',
     components: {
         Modal,
     },
-})
-export default class AddERC721TokenModal extends Vue {
-    tokenAddress = ''
-    name = ''
-    symbol = ''
-    canAdd = false
-    err = ''
+    setup() {
+        const store = useStore()
+        const modal = ref<InstanceType<typeof Modal> | null>(null)
+        const tokenAddress = ref('')
+        const name = ref('')
+        const symbol = ref('')
+        const canAdd = ref(false)
+        const err = ref('')
 
-    @Watch('tokenAddress')
-    async onAddressChange(val: string) {
-        this.err = ''
-        if (val === '') {
-            this.clear()
-            return
-        }
-        await this.validateAddress(val)
-    }
-
-    async validateAddress(val: string) {
-        if (val === '') {
-            this.err = ''
-            return false
-        }
-        try {
-            //@ts-ignore
-            var tokenInst = new web3.eth.Contract(ERC721Abi.abi, val)
-            let name = await tokenInst.methods.name().call()
-            let symbol = await tokenInst.methods.symbol().call()
-
-            this.symbol = symbol
-            this.name = name
-
-            this.canAdd = true
-            return true
-        } catch (e) {
-            this.canAdd = false
-            this.symbol = '-'
-            this.name = '-'
-            this.err = 'Invalid contract address.'
-            return false
-        }
-    }
-
-    clear() {
-        this.tokenAddress = ''
-        this.canAdd = false
-        this.symbol = '-'
-        this.name = '-'
-        this.err = ''
-    }
-
-    async submit() {
-        try {
-            let data: ERC721TokenInput = {
-                address: this.tokenAddress,
-                name: this.name,
-                symbol: this.symbol,
-                chainId: this.$store.state.Assets.evmChainId,
+        const validateAddress = async (val: string) => {
+            if (val === '') {
+                err.value = ''
+                return false
             }
+            try {
+                //@ts-ignore
+                const tokenInst = new web3.eth.Contract(ERC721Abi.abi, val)
+                const tokenName = await tokenInst.methods.name().call()
+                const tokenSymbol = await tokenInst.methods.symbol().call()
 
-            let token: ERC721Token = await this.$store.dispatch('Assets/ERC721/addCustom', data)
+                symbol.value = tokenSymbol
+                name.value = tokenName
 
-            this.$store.dispatch('Notifications/add', {
-                title: 'ERC721 Token Added',
-                message: token.name,
-            })
-            this.close()
-        } catch (e) {
-            this.err = e.message
-            console.error(e)
+                canAdd.value = true
+                return true
+            } catch (e) {
+                canAdd.value = false
+                symbol.value = '-'
+                name.value = '-'
+                err.value = 'Invalid contract address.'
+                return false
+            }
+        }
+
+        const clear = () => {
+            tokenAddress.value = ''
+            canAdd.value = false
+            symbol.value = '-'
+            name.value = '-'
+            err.value = ''
+        }
+
+        const submit = async () => {
+            try {
+                const data: ERC721TokenInput = {
+                    address: tokenAddress.value,
+                    name: name.value,
+                    symbol: symbol.value,
+                    chainId: store.state.Assets.evmChainId,
+                }
+
+                const token: ERC721Token = await store.dispatch('Assets/ERC721/addCustom', data)
+
+                store.dispatch('Notifications/add', {
+                    title: 'ERC721 Token Added',
+                    message: token.name,
+                })
+                close()
+            } catch (e: any) {
+                err.value = e.message
+                console.error(e)
+            }
+        }
+
+        const beforeClose = () => {
+            clear()
+        }
+
+        const open = () => {
+            modal.value?.open()
+        }
+
+        const close = () => {
+            modal.value?.close()
+        }
+
+        const removeToken = async (token: ERC721Token) => {
+            await store.dispatch('Assets/ERC721/removeCustom', token)
+        }
+
+        const networkTokens = computed((): ERC721Token[] => {
+            return store.getters['Assets/ERC721/networkContractsCustom']
+        })
+
+        // Watch tokenAddress for changes
+        watch(tokenAddress, async (val: string) => {
+            err.value = ''
+            if (val === '') {
+                clear()
+                return
+            }
+            await validateAddress(val)
+        })
+
+        return {
+            modal,
+            tokenAddress,
+            name,
+            symbol,
+            canAdd,
+            err,
+            submit,
+            beforeClose,
+            open,
+            close,
+            removeToken,
+            networkTokens
         }
     }
-
-    beforeClose() {
-        this.clear()
-    }
-
-    open() {
-        // @ts-ignore
-        this.$refs.modal.open()
-    }
-
-    close() {
-        // @ts-ignore
-        this.$refs.modal.close()
-    }
-
-    async removeToken(token: ERC721Token) {
-        await this.$store.dispatch('Assets/ERC721/removeCustom', token)
-    }
-
-    get networkTokens(): ERC721Token[] {
-        return this.$store.getters['Assets/ERC721/networkContractsCustom']
-    }
-}
+})
 </script>
 <style scoped lang="scss">
 @use '../../main';

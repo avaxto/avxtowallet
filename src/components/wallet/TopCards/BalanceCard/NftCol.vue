@@ -17,7 +17,8 @@
     </div>
 </template>
 <script lang="ts">
-import { Vue, Component, Prop, Ref, Watch } from 'vue-property-decorator'
+import { defineComponent, computed } from 'vue'
+import { useStore } from 'vuex'
 import { IWalletNftDict } from '@/store/types'
 import { NFTTransferOutput, UTXO } from 'avalanche/dist/apis/avm'
 import NftCard from '@/components/wallet/portfolio/NftCard.vue'
@@ -34,102 +35,118 @@ const NFT_COUNT = 15
 
 let payloadtypes = PayloadTypes.getInstance()
 
-@Component({
+export default defineComponent({
+    name: 'NftCol',
     components: {
         ERC721View,
         NftFamilyCardsPreview,
         NftCard,
         NftPayloadView,
     },
-})
-export default class NftCol extends Vue {
-    get isEmpty(): boolean {
-        return this.nftArray.length + this.erc721BalanceArray.length === 0
-    }
+    setup() {
+        const store = useStore()
 
-    get nftDict(): IWalletNftDict {
-        return this.$store.getters['Assets/walletNftDict']
-    }
-
-    get nftArray(): UTXO[] {
-        let utxos: UTXO[] = this.$store.state.Assets.nftUTXOs
-
-        let ids: string[] = []
-        // Filter same groups
-        utxos = utxos.filter((utxo) => {
-            let out = utxo.getOutput() as NFTTransferOutput
-            let famId = bintools.cb58Encode(utxo.getAssetID())
-            let groupId = out.getGroupID()
-
-            let cacheId = `${famId}-${groupId}`
-            if (ids.includes(cacheId)) {
-                return false
-            } else {
-                ids.push(cacheId)
-                return true
-            }
+        const isEmpty = computed((): boolean => {
+            return nftArray.value.length + erc721BalanceArray.value.length === 0
         })
 
-        return utxos.slice(0, NFT_COUNT)
-    }
-
-    get nftPayloads(): PayloadBase[] {
-        return this.nftArray.map((utxo) => {
-            let out = utxo.getOutput() as NFTTransferOutput
-            let payload = out.getPayloadBuffer()
-
-            let typeId = payloadtypes.getTypeID(payload)
-            let pl: Buffer = payloadtypes.getContent(payload)
-            let payloadbase: PayloadBase = payloadtypes.select(typeId, pl)
-
-            return payloadbase
+        const nftDict = computed((): IWalletNftDict => {
+            return store.getters['Assets/walletNftDict']
         })
-    }
 
-    get erc721Balance(): ERC721WalletBalance {
-        return this.$store.state.Assets.ERC721.walletBalance
-    }
+        const nftArray = computed((): UTXO[] => {
+            let utxos: UTXO[] = store.state.Assets.nftUTXOs
 
-    get erc721BalanceArray() {
-        // TODO: Remove after ledger support
-        if (this.$store.state.activeWallet.type === 'ledger') return []
+            let ids: string[] = []
+            // Filter same groups
+            utxos = utxos.filter((utxo) => {
+                let out = utxo.getOutput() as NFTTransferOutput
+                let famId = bintools.cb58Encode(utxo.getAssetID())
+                let groupId = out.getGroupID()
 
-        let res = []
-        for (var tokenAddr in this.erc721Balance) {
-            let erc721Token = this.$store.getters['Assets/ERC721/find'](tokenAddr)
-            let tokenIds = this.erc721Balance[tokenAddr]
-            let tokens = tokenIds.map((id) => {
-                return {
-                    token: erc721Token,
-                    id: id,
+                let cacheId = `${famId}-${groupId}`
+                if (ids.includes(cacheId)) {
+                    return false
+                } else {
+                    ids.push(cacheId)
+                    return true
                 }
             })
-            res.push(...tokens)
+
+            return utxos.slice(0, NFT_COUNT)
+        })
+
+        const nftPayloads = computed((): PayloadBase[] => {
+            return nftArray.value.map((utxo) => {
+                let out = utxo.getOutput() as NFTTransferOutput
+                let payload = out.getPayloadBuffer()
+
+                let typeId = payloadtypes.getTypeID(payload)
+                let pl: Buffer = payloadtypes.getContent(payload)
+                let payloadbase: PayloadBase = payloadtypes.select(typeId, pl)
+
+                return payloadbase
+            })
+        })
+
+        const erc721Balance = computed((): ERC721WalletBalance => {
+            return store.state.Assets.ERC721.walletBalance
+        })
+
+        const erc721BalanceArray = computed(() => {
+            // TODO: Remove after ledger support
+            if (store.state.activeWallet.type === 'ledger') return []
+
+            let res = []
+            for (var tokenAddr in erc721Balance.value) {
+                let erc721Token = store.getters['Assets/ERC721/find'](tokenAddr)
+                let tokenIds = erc721Balance.value[tokenAddr]
+                let tokens = tokenIds.map((id) => {
+                    return {
+                        token: erc721Token,
+                        id: id,
+                    }
+                })
+                res.push(...tokens)
+            }
+            return res.slice(0, NFT_COUNT - nftArray.value.length)
+        })
+
+        const dummyAmt = computed((): number => {
+            return NFT_COUNT - (nftArray.value.length + erc721BalanceArray.value.length)
+        })
+
+        const collectedAmt = computed((): number => {
+            let avmAmt = store.state.Assets.nftUTXOs.length
+            let evmAmt = store.getters['Assets/ERC721/totalOwned']
+            return avmAmt + evmAmt
+        })
+
+        const collectionAmt = computed((): number => {
+            let avmFamsAmt = store.state.Assets.nftFams.length
+            let evmFamsAmt = store.getters['Assets/ERC721/totalCollectionsOwned']
+            return avmFamsAmt + evmFamsAmt
+        })
+
+        const statusText = computed((): string => {
+            let res = `${collectedAmt.value} collected from ${collectionAmt.value} Collections`
+            return res
+        })
+
+        return {
+            isEmpty,
+            nftDict,
+            nftArray,
+            nftPayloads,
+            erc721Balance,
+            erc721BalanceArray,
+            dummyAmt,
+            collectedAmt,
+            collectionAmt,
+            statusText
         }
-        return res.slice(0, NFT_COUNT - this.nftArray.length)
     }
-
-    get dummyAmt(): number {
-        return NFT_COUNT - (this.nftArray.length + this.erc721BalanceArray.length)
-    }
-
-    get collectedAmt(): number {
-        let avmAmt = this.$store.state.Assets.nftUTXOs.length
-        let evmAmt = this.$store.getters['Assets/ERC721/totalOwned']
-        return avmAmt + evmAmt
-    }
-
-    get collectionAmt(): number {
-        let avmFamsAmt = this.$store.state.Assets.nftFams.length
-        let evmFamsAmt = this.$store.getters['Assets/ERC721/totalCollectionsOwned']
-        return avmFamsAmt + evmFamsAmt
-    }
-
-    get statusText(): string {
-        let res = `${this.collectedAmt} collected from ${this.collectionAmt} Collections`
-        return res
-    }
-}
+})
 </script>
 <style scoped lang="scss">
 @use '../../../../main';

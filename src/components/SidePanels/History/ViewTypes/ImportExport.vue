@@ -15,8 +15,9 @@
     </div>
 </template>
 <script lang="ts">
+import { defineComponent, computed } from 'vue'
+import { useStore } from 'vuex'
 import { avm, cChain, pChain } from '@/AVA'
-import { Vue, Component, Prop } from 'vue-property-decorator'
 import { BN } from 'avalanche'
 import { bnToBig } from '@/helpers/helper'
 import {
@@ -40,107 +41,133 @@ function idToAlias(chainId: string | undefined) {
     return chainId
 }
 
-@Component
-export default class ImportExport extends Vue {
-    @Prop() transaction!: TransactionType
+export default defineComponent({
+    name: 'ImportExport',
+    props: {
+        transaction: {
+            type: Object as () => TransactionType,
+            required: true
+        }
+    },
+    setup(props) {
+        const store = useStore()
 
-    toLocaleString(val: BN, decimals: number) {
-        return bnToBig(val, decimals).toLocaleString()
-    }
+        const toLocaleString = (val: BN, decimals: number) => {
+            return bnToBig(val, decimals).toLocaleString()
+        }
 
-    getAssetFromID(id: string) {
-        return this.$store.state.Assets.assetsDict[id]
-    }
+        const getAssetFromID = (id: string) => {
+            return store.state.Assets.assetsDict[id]
+        }
 
-    get isExport() {
-        return this.transaction.txType === 'ExportTx'
-    }
+        const isExport = computed(() => {
+            return props.transaction.txType === 'ExportTx'
+        })
 
-    get actionTitle() {
-        if (this.isExport) {
-            if (this.isExportReceiver) {
-                return 'Received'
+        const actionTitle = computed(() => {
+            if (isExport.value) {
+                if (isExportReceiver.value) {
+                    return 'Received'
+                } else {
+                    return 'Export'
+                }
             } else {
-                return 'Export'
+                return 'Import'
             }
-        } else {
-            return 'Import'
+        })
+
+        /**
+         * Returns the chain id we are exporting/importing to
+         */
+        const destinationChainId = computed(() => {
+            //TODO: Remove type when PChainTx is ready
+            return (props.transaction as XChainTransaction).destinationChain!
+        })
+
+        const sourceChainId = computed(() => {
+            //TODO: Remove type when PChainTx is ready
+            return (props.transaction as XChainTransaction).sourceChain
+        })
+
+        const chainAlias = computed(() => {
+            let chainId = isExport.value ? sourceChainId.value : destinationChainId.value
+            return idToAlias(chainId)
+        })
+
+        /**
+         * All X/P addresses used by the wallet
+         */
+        const addresses = computed(() => {
+            let wallet: WalletType | null = store.state.activeWallet
+            if (!wallet) return []
+            return wallet.getHistoryAddresses()
+        })
+
+        const ownedInputs = computed(() => {
+            const tx = props.transaction
+            if (isTransactionP(tx)) {
+                return tx.consumedUtxos.filter((utxo) => {
+                    return isOwnedUTXO(utxo, addresses.value)
+                })
+            } else {
+                return []
+            }
+        })
+
+        const ownedOutputs = computed(() => {
+            const tx = props.transaction
+            if (isTransactionP(tx)) {
+                return tx.emittedUtxos.filter((utxo) => {
+                    return isOwnedUTXO(utxo, addresses.value)
+                })
+            } else {
+                return []
+            }
+        })
+
+        const sourceChainAlias = computed(() => {
+            return idToAlias(sourceChainId.value)
+        })
+
+        const wallet = computed((): WalletType => {
+            return store.state.activeWallet
+        })
+
+        const balances = computed(() => {
+            return getExportBalances(props.transaction, destinationChainId.value, getAssetFromID)
+        })
+
+        // If user received tokens from the export, but didnt consume any of their utxos
+        // Essentially, the P chain sending hack
+        const isExportReceiver = computed(() => {
+            return isExport.value && ownedInputs.value.length === 0 && ownedOutputs.value.length > 0
+        })
+
+        const outputReceivedBalances = computed(() => {
+            return ownedOutputs.value.reduce((agg, utxo) => {
+                return agg.add(new BN(utxo.amount))
+            }, new BN(0))
+        })
+
+        return {
+            toLocaleString,
+            getAssetFromID,
+            isExport,
+            actionTitle,
+            destinationChainId,
+            sourceChainId,
+            chainAlias,
+            addresses,
+            ownedInputs,
+            ownedOutputs,
+            sourceChainAlias,
+            wallet,
+            balances,
+            isExportReceiver,
+            outputReceivedBalances
         }
     }
-
-    /**
-     * Returns the chain id we are exporting/importing to
-     */
-    get destinationChainId() {
-        //TODO: Remove type when PChainTx is ready
-        return (this.transaction as XChainTransaction).destinationChain!
-    }
-
-    get sourceChainId() {
-        //TODO: Remove type when PChainTx is ready
-        return (this.transaction as XChainTransaction).sourceChain
-    }
-
-    get chainAlias() {
-        let chainId = this.isExport ? this.sourceChainId : this.destinationChainId
-        return idToAlias(chainId)
-    }
-
-    /**
-     * All X/P addresses used by the wallet
-     */
-    get addresses() {
-        let wallet: WalletType | null = this.$store.state.activeWallet
-        if (!wallet) return []
-        return wallet.getHistoryAddresses()
-    }
-
-    get ownedInputs() {
-        const tx = this.transaction
-        if (isTransactionP(tx)) {
-            return tx.consumedUtxos.filter((utxo) => {
-                return isOwnedUTXO(utxo, this.addresses)
-            })
-        } else {
-            return []
-        }
-    }
-
-    get ownedOutputs() {
-        const tx = this.transaction
-        if (isTransactionP(tx)) {
-            return tx.emittedUtxos.filter((utxo) => {
-                return isOwnedUTXO(utxo, this.addresses)
-            })
-        } else {
-            return []
-        }
-    }
-
-    get sourceChainAlias() {
-        return idToAlias(this.sourceChainId)
-    }
-
-    get wallet(): WalletType {
-        return this.$store.state.activeWallet
-    }
-
-    get balances() {
-        return getExportBalances(this.transaction, this.destinationChainId, this.getAssetFromID)
-    }
-
-    // If user received tokens from the export, but didnt consume any of their utxos
-    // Essentially, the P chain sending hack
-    get isExportReceiver() {
-        return this.isExport && this.ownedInputs.length === 0 && this.ownedOutputs.length > 0
-    }
-
-    get outputReceivedBalances() {
-        return this.ownedOutputs.reduce((agg, utxo) => {
-            return agg.add(new BN(utxo.amount))
-        }, new BN(0))
-    }
-}
+})
 </script>
 <style scoped lang="scss">
 .import_row {

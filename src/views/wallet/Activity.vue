@@ -85,7 +85,9 @@
     </div>
 </template>
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator'
+import { defineComponent, ref, computed, onMounted, onUnmounted } from 'vue'
+import { useStore } from 'vuex'
+import { useI18n } from 'vue-i18n'
 import {
     isTransactionC,
     isTransactionX,
@@ -111,11 +113,10 @@ type FilterModeType = 'all' | 'transfer' | 'export_import' | 'stake'
 type ModeKeyType = 'all' | 'transfer' | 'swap' | 'stake'
 
 const PAGE_LIMIT = 100
-
 const YEAR_MIN = 2020
 const MONTH_MIN = 8
 
-@Component({
+export default defineComponent({
     name: 'activity',
     components: {
         ExportAvaxCsvModal,
@@ -126,275 +127,317 @@ const MONTH_MIN = 8
         RadioButtons,
         VirtualList,
     },
-})
-export default class Activity extends Vue {
-    mode: ModeKeyType = 'all'
-    modes = [
-        this.$t('activity.mode1'),
-        this.$t('activity.mode2'),
-        this.$t('activity.mode3'),
-        this.$t('activity.mode4'),
-    ]
-    modeKey: ModeKeyType[] = ['all', 'transfer', 'swap', 'stake']
-    isLoading = false
-    pageNow = 0
-    RowComponent = TxRow
+    setup() {
+        const store = useStore()
+        const { t } = useI18n()
 
-    monthNow = 0
-    yearNow = 0
-
-    listH = 100
-
-    $refs!: {
-        csv_modal: ExportCsvModal
-        avax_csv_modal: ExportAvaxCsvModal
-        glacier_csv_modal: ExportGlacierHistoryModal
-    }
-
-    openCsvModal() {
-        this.$refs.csv_modal.open()
-    }
-
-    openAvaxCsvModal() {
-        this.$refs.avax_csv_modal.open()
-    }
-
-    openGlacierCsvModal() {
-        this.$refs.glacier_csv_modal.open()
-    }
-
-    get isCsvDisabled() {
-        return !this.hasExplorer || this.isFuji
-    }
-
-    get showList(): boolean {
-        if (this.isUpdatingAll || this.isLoading || this.isError) return false
-        return true
-    }
-
-    get isUpdatingAll(): boolean {
-        return this.$store.state.History.isUpdatingAll
-    }
-
-    get isNextPage() {
-        let now = new Date()
-        if (this.yearNow < now.getFullYear()) return true
-        if (this.monthNow < now.getMonth()) return true
-        return false
-    }
-
-    get isPrevPage() {
-        // if (this.yearNow  now.getFullYear()) return true
-        if (this.monthNow === MONTH_MIN && this.yearNow === YEAR_MIN) return false
-        return true
-    }
-
-    get monthNowName() {
-        return this.$t(`activity.months.${this.monthNow}`)
-    }
-
-    get activeNetwork(): AvaNetwork | null {
-        return this.$store.state.Network.selectedNetwork
-    }
-
-    get isMainnet() {
-        return this.activeNetwork && isMainnetNetworkID(this.activeNetwork.networkId)
-    }
-
-    get isFuji() {
-        return this.activeNetwork && isTestnetNetworkID(this.activeNetwork.networkId)
-    }
-
-    /**
-     * Returns true if conencted to mainnet or fuji
-     */
-    get hasExplorer() {
-        if (!this.activeNetwork) return false
-        return this.isMainnet || this.isFuji
-    }
-
-    mounted() {
-        this.updateHistory()
-
-        let now = new Date()
-        this.yearNow = now.getFullYear()
-        this.monthNow = now.getMonth()
-        this.scrollToTop()
-        this.setScrollHeight()
-    }
-    deleted() {}
-
-    get isError() {
-        return this.$store.state.History.isError
-    }
-
-    async updateHistory() {
-        this.$store.dispatch('History/updateAllTransactionHistory')
-    }
-
-    get monthGroups(): any {
-        let res: any = {}
-        let txs = this.txs
-
-        for (var i = 0; i < txs.length; i++) {
-            let tx = txs[i]
-            let date = new Date(this.getTxTimestamp(tx))
-            // let mom = moment(tx.timestamp)
-            let month = date.getMonth()
-            let year = date.getFullYear()
-            let key = `${month}/${year}`
-            if (res[key]) {
-                res[key].push(tx)
-            } else {
-                res[key] = [tx]
-            }
-        }
-        return res
-    }
-
-    get allTxs(): TransactionType[] {
-        const supportedTypes: TransactionTypeName[] = [
-            'BaseTx',
-            'ImportTx',
-            'ExportTx',
-            'OperationTx',
-            'AddValidatorTx',
-            'AddDelegatorTx',
-            'CreateAssetTx',
+        const mode = ref<ModeKeyType>('all')
+        const modes = [
+            t('activity.mode1'),
+            t('activity.mode2'),
+            t('activity.mode3'),
+            t('activity.mode4'),
         ]
-        return this.$store.state.History.allTransactions.filter((tx: TransactionType) => {
-            return supportedTypes.includes(tx.txType)
+        const modeKey: ModeKeyType[] = ['all', 'transfer', 'swap', 'stake']
+        const isLoading = ref(false)
+        const pageNow = ref(0)
+        const RowComponent = TxRow
+
+        const monthNow = ref(0)
+        const yearNow = ref(0)
+        const listH = ref(100)
+
+        const csv_modal = ref<InstanceType<typeof ExportCsvModal>>()
+        const avax_csv_modal = ref<InstanceType<typeof ExportAvaxCsvModal>>()
+        const glacier_csv_modal = ref<InstanceType<typeof ExportGlacierHistoryModal>>()
+        const vlist = ref()
+        const list = ref()
+
+        const openCsvModal = () => {
+            csv_modal.value?.open()
+        }
+
+        const openAvaxCsvModal = () => {
+            avax_csv_modal.value?.open()
+        }
+
+        const openGlacierCsvModal = () => {
+            glacier_csv_modal.value?.open()
+        }
+
+        const isCsvDisabled = computed(() => {
+            return !hasExplorer.value || isFuji.value
         })
-    }
 
-    getTxTimestamp(tx: TransactionType) {
-        if (isTransactionX(tx) || isTransactionC(tx)) {
-            return tx.timestamp * 1000
-        } else {
-            return tx.blockTimestamp * 1000
-        }
-    }
+        const showList = computed((): boolean => {
+            if (isUpdatingAll.value || isLoading.value || isError.value) return false
+            return true
+        })
 
-    get txs(): TransactionType[] {
-        let txs
-        switch (this.mode) {
-            case 'transfer':
-                txs = this.txsTransfer
-                break
-            case 'swap':
-                txs = this.txsSwap
-                break
-            case 'stake':
-                txs = this.txsStake
-                break
-            default:
-                txs = this.allTxs
-                break
-        }
+        const isUpdatingAll = computed((): boolean => {
+            return store.state.History.isUpdatingAll
+        })
 
-        let filtered = txs.filter((tx) => {
-            let date = new Date(this.getTxTimestamp(tx))
-
-            if (date.getMonth() === this.monthNow && date.getFullYear() === this.yearNow) {
-                return true
-            }
+        const isNextPage = computed(() => {
+            let now = new Date()
+            if (yearNow.value < now.getFullYear()) return true
+            if (monthNow.value < now.getMonth()) return true
             return false
         })
-        return filtered
-    }
 
-    get txsProcessed() {
-        let txs = this.txs
+        const isPrevPage = computed(() => {
+            if (monthNow.value === MONTH_MIN && yearNow.value === YEAR_MIN) return false
+            return true
+        })
 
-        let res = txs.map((tx, index) => {
-            let showMonth = false
-            let showDay = false
+        const monthNowName = computed(() => {
+            return t(`activity.months.${monthNow.value}`)
+        })
 
-            if (index === 0) {
-                showMonth = true
-                showDay = true
-            } else {
-                let txBefore = txs[index - 1]
+        const activeNetwork = computed((): AvaNetwork | null => {
+            return store.state.Network.selectedNetwork
+        })
 
-                let date = new Date(this.getTxTimestamp(tx))
-                let dateBefore = new Date(this.getTxTimestamp(txBefore))
+        const isMainnet = computed(() => {
+            return activeNetwork.value && isMainnetNetworkID(activeNetwork.value.networkId)
+        })
 
-                if (dateBefore.getMonth() !== date.getMonth()) {
-                    showMonth = true
-                    showDay = true
-                } else if (dateBefore.getDay() !== date.getDay()) {
-                    showDay = true
+        const isFuji = computed(() => {
+            return activeNetwork.value && isTestnetNetworkID(activeNetwork.value.networkId)
+        })
+
+        const hasExplorer = computed(() => {
+            if (!activeNetwork.value) return false
+            return isMainnet.value || isFuji.value
+        })
+
+        const isError = computed(() => {
+            return store.state.History.isError
+        })
+
+        const updateHistory = async () => {
+            store.dispatch('History/updateAllTransactionHistory')
+        }
+
+        const monthGroups = computed((): any => {
+            let res: any = {}
+            let txsVal = txs.value
+
+            for (var i = 0; i < txsVal.length; i++) {
+                let tx = txsVal[i]
+                let date = new Date(getTxTimestamp(tx))
+                let month = date.getMonth()
+                let year = date.getFullYear()
+                let key = `${month}/${year}`
+                if (res[key]) {
+                    res[key].push(tx)
+                } else {
+                    res[key] = [tx]
                 }
             }
+            return res
+        })
 
-            return {
-                ...tx,
-                isMonthChange: showMonth,
-                isDayChange: showDay,
+        const allTxs = computed((): TransactionType[] => {
+            const supportedTypes: TransactionTypeName[] = [
+                'BaseTx',
+                'ImportTx',
+                'ExportTx',
+                'OperationTx',
+                'AddValidatorTx',
+                'AddDelegatorTx',
+                'CreateAssetTx',
+            ]
+            return store.state.History.allTransactions.filter((tx: TransactionType) => {
+                return supportedTypes.includes(tx.txType)
+            })
+        })
+
+        const getTxTimestamp = (tx: TransactionType) => {
+            if (isTransactionX(tx) || isTransactionC(tx)) {
+                return tx.timestamp * 1000
+            } else {
+                return tx.blockTimestamp * 1000
             }
-        })
-        return res
-    }
-
-    get pageAmount(): number {
-        return Math.floor(this.txs.length / PAGE_LIMIT)
-    }
-
-    prevPage() {
-        if (this.monthNow === 0) {
-            this.yearNow = this.yearNow - 1
-            this.monthNow = 11
-        } else {
-            this.monthNow = this.monthNow - 1
         }
-        this.scrollToTop()
-        this.setScrollHeight()
-    }
 
-    nextPage() {
-        if (this.monthNow === 11) {
-            this.yearNow = this.yearNow + 1
-            this.monthNow = 0
-        } else {
-            this.monthNow = this.monthNow + 1
+        const txs = computed((): TransactionType[] => {
+            let txsVal
+            switch (mode.value) {
+                case 'transfer':
+                    txsVal = txsTransfer.value
+                    break
+                case 'swap':
+                    txsVal = txsSwap.value
+                    break
+                case 'stake':
+                    txsVal = txsStake.value
+                    break
+                default:
+                    txsVal = allTxs.value
+                    break
+            }
+
+            let filtered = txsVal.filter((tx) => {
+                let date = new Date(getTxTimestamp(tx))
+
+                if (date.getMonth() === monthNow.value && date.getFullYear() === yearNow.value) {
+                    return true
+                }
+                return false
+            })
+            return filtered
+        })
+
+        const txsProcessed = computed(() => {
+            let txsVal = txs.value
+
+            let res = txsVal.map((tx, index) => {
+                let showMonth = false
+                let showDay = false
+
+                if (index === 0) {
+                    showMonth = true
+                    showDay = true
+                } else {
+                    let txBefore = txsVal[index - 1]
+
+                    let date = new Date(getTxTimestamp(tx))
+                    let dateBefore = new Date(getTxTimestamp(txBefore))
+
+                    if (dateBefore.getMonth() !== date.getMonth()) {
+                        showMonth = true
+                        showDay = true
+                    } else if (dateBefore.getDay() !== date.getDay()) {
+                        showDay = true
+                    }
+                }
+
+                return {
+                    ...tx,
+                    isMonthChange: showMonth,
+                    isDayChange: showDay,
+                }
+            })
+            return res
+        })
+
+        const pageAmount = computed((): number => {
+            return Math.floor(txs.value.length / PAGE_LIMIT)
+        })
+
+        const prevPage = () => {
+            if (monthNow.value === 0) {
+                yearNow.value = yearNow.value - 1
+                monthNow.value = 11
+            } else {
+                monthNow.value = monthNow.value - 1
+            }
+            scrollToTop()
+            setScrollHeight()
         }
-        this.scrollToTop()
-        this.setScrollHeight()
-    }
 
-    get txsTransfer(): TransactionType[] {
-        let transferTypes: TransactionTypeName[] = ['BaseTx', 'CreateAssetTx', 'OperationTx']
+        const nextPage = () => {
+            if (monthNow.value === 11) {
+                yearNow.value = yearNow.value + 1
+                monthNow.value = 0
+            } else {
+                monthNow.value = monthNow.value + 1
+            }
+            scrollToTop()
+            setScrollHeight()
+        }
 
-        return this.allTxs.filter((tx) => {
-            return transferTypes.includes(tx.txType)
+        const txsTransfer = computed((): TransactionType[] => {
+            let transferTypes: TransactionTypeName[] = ['BaseTx', 'CreateAssetTx', 'OperationTx']
+            return allTxs.value.filter((tx) => {
+                return transferTypes.includes(tx.txType)
+            })
         })
-    }
 
-    get txsSwap(): TransactionType[] {
-        let exportTypes: TransactionTypeName[] = ['ExportTx', 'ImportTx']
-        return this.allTxs.filter((tx) => {
-            return exportTypes.includes(tx.txType)
+        const txsSwap = computed((): TransactionType[] => {
+            let exportTypes: TransactionTypeName[] = ['ExportTx', 'ImportTx']
+            return allTxs.value.filter((tx) => {
+                return exportTypes.includes(tx.txType)
+            })
         })
-    }
 
-    get txsStake(): TransactionType[] {
-        let stakeTypes: TransactionTypeName[] = ['AddValidatorTx', 'AddDelegatorTx']
-        return this.allTxs.filter((tx) => {
-            return stakeTypes.includes(tx.txType)
+        const txsStake = computed((): TransactionType[] => {
+            let stakeTypes: TransactionTypeName[] = ['AddValidatorTx', 'AddDelegatorTx']
+            return allTxs.value.filter((tx) => {
+                return stakeTypes.includes(tx.txType)
+            })
         })
-    }
 
-    scrollToTop() {
-        //@ts-ignore
-        this.$refs.vlist.scrollToIndex(0)
+        const scrollToTop = () => {
+            vlist.value?.scrollToIndex(0)
+        }
+
+        const setScrollHeight = () => {
+            let h = list.value?.clientHeight
+            listH.value = h
+        }
+
+        onMounted(() => {
+            updateHistory()
+
+            let now = new Date()
+            yearNow.value = now.getFullYear()
+            monthNow.value = now.getMonth()
+            scrollToTop()
+            setScrollHeight()
+        })
+
+        onUnmounted(() => {
+            // Cleanup if needed
+        })
+
+        return {
+            mode,
+            modes,
+            modeKey,
+            isLoading,
+            pageNow,
+            RowComponent,
+            monthNow,
+            yearNow,
+            listH,
+            csv_modal,
+            avax_csv_modal,
+            glacier_csv_modal,
+            vlist,
+            list,
+            openCsvModal,
+            openAvaxCsvModal,
+            openGlacierCsvModal,
+            isCsvDisabled,
+            showList,
+            isUpdatingAll,
+            isNextPage,
+            isPrevPage,
+            monthNowName,
+            activeNetwork,
+            isMainnet,
+            isFuji,
+            hasExplorer,
+            isError,
+            updateHistory,
+            monthGroups,
+            allTxs,
+            getTxTimestamp,
+            txs,
+            txsProcessed,
+            pageAmount,
+            prevPage,
+            nextPage,
+            txsTransfer,
+            txsSwap,
+            txsStake,
+            scrollToTop,
+            setScrollHeight,
+        }
     }
-    // The virtual scroll needs to be given a height in pixels
-    setScrollHeight() {
-        //@ts-ignore
-        let h = this.$refs.list.clientHeight
-        this.listH = h
-    }
-}
+})
 </script>
 <style scoped lang="scss">
 @use '../../main';

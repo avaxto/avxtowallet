@@ -31,41 +31,71 @@
 </template>
 <script lang="ts">
 import 'reflect-metadata'
-import { Vue, Component, Prop, Ref, Watch } from 'vue-property-decorator'
+import { defineComponent, computed } from 'vue'
 import { PayloadBase } from 'avalanche/dist/utils'
 import BaseNftCard from '@/components/NftCards/BaseNftCard.vue'
 import { UTXO } from 'avalanche/dist/apis/avm'
 import UrlPayloadView from '@/components/misc/NftPayloadView/views/UrlPayloadView.vue'
-@Component({
+
+interface Props {
+    payload: PayloadBase
+    mini: boolean
+    rawCard: boolean
+    utxo: UTXO
+}
+
+export default defineComponent({
+    name: 'URL_NFT',
     components: {
         BaseNftCard,
         UrlPayloadView,
     },
+    props: {
+        payload: {
+            type: Object as () => PayloadBase,
+            required: true
+        },
+        mini: {
+            type: Boolean,
+            default: false
+        },
+        rawCard: {
+            type: Boolean,
+            default: false
+        },
+        utxo: {
+            type: Object as () => UTXO,
+            required: true
+        }
+    },
+    setup(props: Props) {
+        const img_types = ['jpeg', 'jpg', 'gif', 'png', 'apng', 'svg', 'bmp', 'ico']
+        const valid_types = img_types.concat(['pdf'])
+
+        const url = computed((): string => {
+            return props.payload.getContent().toString('utf-8')
+        })
+
+        const fileType = computed((): string | null => {
+            const urlValue = url.value
+            const split = urlValue.split('.')
+
+            // Couldn't find extension
+            if (split.length === 1) return null
+
+            const extension: string = split[split.length - 1]
+            if (!valid_types.includes(extension)) return null
+            return extension
+        })
+
+        return {
+            img_types,
+            valid_types,
+            url,
+            fileType
+        }
+    }
 })
-export default class URL_NFT extends Vue {
-    img_types = ['jpeg', 'jpg', 'gif', 'png', 'apng', 'svg', 'bmp', 'ico']
-    valid_types = this.img_types.concat(['pdf'])
-    @Prop() payload!: PayloadBase
-    @Prop({ default: false }) mini!: boolean
-    @Prop({ default: false }) rawCard!: boolean
-    @Prop() utxo!: UTXO
-
-    get url(): string {
-        return this.payload.getContent().toString('utf-8')
-    }
-    get fileType(): string | null {
-        let url = this.url
-
-        let split = url.split('.')
-
-        // Couldn't find extension
-        if (split.length === 1) return null
-
-        let extension: string = split[split.length - 1]
-        if (!this.valid_types.includes(extension)) return null
-        return extension
-    }
-}
 </script>
 <style scoped lang="scss">
 .url_nft {

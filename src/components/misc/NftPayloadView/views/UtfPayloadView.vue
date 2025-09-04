@@ -4,17 +4,27 @@
     </div>
 </template>
 <script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator'
+import { defineComponent, computed } from 'vue'
 import { UTF8Payload } from 'avalanche/dist/utils'
 
-@Component
-export default class UtfPayloadView extends Vue {
-    @Prop() payload!: UTF8Payload
+export default defineComponent({
+    name: 'UtfPayloadView',
+    props: {
+        payload: {
+            type: Object as () => UTF8Payload,
+            required: true
+        }
+    },
+    setup(props) {
+        const text = computed(() => {
+            return props.payload.getContent()
+        })
 
-    get text() {
-        return this.payload.getContent()
+        return {
+            text
+        }
     }
-}
+})
 </script>
 <style scoped lang="scss">
 p {

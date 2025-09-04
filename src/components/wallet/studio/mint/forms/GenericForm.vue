@@ -20,7 +20,8 @@
     </div>
 </template>
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator'
+import { defineComponent, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import {
     GenericFormType,
     IGenericNft,
@@ -28,70 +29,83 @@ import {
     UtfFormType,
 } from '@/components/wallet/studio/mint/types'
 
-@Component
-export default class GenericForm extends Vue {
-    title = ''
-    description = ''
-    imgUrl = ''
-    error = ''
-    // radius = 15
+export default defineComponent({
+    name: 'GenericForm',
+    emits: ['onInput'],
+    setup(props, { emit }) {
+        const { t } = useI18n()
+        const title = ref('')
+        const description = ref('')
+        const imgUrl = ref('')
+        const error = ref('')
+        // const radius = ref(15)
 
-    validate() {
-        // if (!this.title) {
-        //     this.error = 'You must set a title.'
-        //     return false
-        // }
+        const validate = () => {
+            // if (!title.value) {
+            //     error.value = 'You must set a title.'
+            //     return false
+            // }
 
-        try {
-            new URL(this.imgUrl)
-        } catch (e) {
-            this.error = this.$t('studio.mint.forms.generic.err1') as string
-            // this.error = 'Not a valid Image URL.'
-            return false
-        }
-        if (!this.imgUrl) {
-            this.error = this.$t('studio.mint.forms.generic.err2') as string
-            // this.error = 'You must set the image.'
-            return false
-        }
-
-        if (this.imgUrl.length > 516) {
-            this.error = this.$t('studio.mint.forms.generic.err3') as string
-            // this.error = 'Image URL too long.'
-            return false
-        }
-
-        // if (this.radius < 0 || this.radius > 100) {
-        //     this.error = 'Invalid corner radius.'
-        //     return false
-        // }
-
-        return true
-    }
-
-    onInput() {
-        let msg: null | GenericFormType = null
-        this.error = ''
-
-        if (this.validate()) {
-            let data: IGenericNft = {
-                version: 1,
-                type: 'generic',
-                title: this.title,
-                img: this.imgUrl,
-                // radius: this.radius,
-                desc: this.description,
+            try {
+                new URL(imgUrl.value)
+            } catch (e) {
+                error.value = t('studio.mint.forms.generic.err1') as string
+                // error.value = 'Not a valid Image URL.'
+                return false
+            }
+            if (!imgUrl.value) {
+                error.value = t('studio.mint.forms.generic.err2') as string
+                // error.value = 'You must set the image.'
+                return false
             }
 
-            msg = {
-                data: {
-                    avalanche: data,
-                },
+            if (imgUrl.value.length > 516) {
+                error.value = t('studio.mint.forms.generic.err3') as string
+                // error.value = 'Image URL too long.'
+                return false
             }
+
+            // if (radius.value < 0 || radius.value > 100) {
+            //     error.value = 'Invalid corner radius.'
+            //     return false
+            // }
+
+            return true
         }
-        this.$emit('onInput', msg)
+
+        const onInput = () => {
+            let msg: null | GenericFormType = null
+            error.value = ''
+
+            if (validate()) {
+                const data: IGenericNft = {
+                    version: 1,
+                    type: 'generic',
+                    title: title.value,
+                    img: imgUrl.value,
+                    // radius: radius.value,
+                    desc: description.value,
+                }
+
+                msg = {
+                    data: {
+                        avalanche: data,
+                    },
+                }
+            }
+            emit('onInput', msg)
+        }
+
+        return {
+            title,
+            description,
+            imgUrl,
+            error,
+            // radius,
+            onInput
+        }
     }
-}
+})
 </script>
 <style scoped lang="scss">
 textarea {

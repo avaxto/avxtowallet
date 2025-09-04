@@ -122,7 +122,9 @@
     </div>
 </template>
 <script lang="ts">
-import { Vue, Component, Prop } from 'vue-property-decorator'
+import { defineComponent, ref, computed } from 'vue'
+import { useStore } from 'vuex'
+import { useI18n } from 'vue-i18n'
 
 import SelectMintUTXO from '@/components/wallet/studio/mint/SelectMintUtxo/SelectMintUTXO.vue'
 import UrlForm from '@/components/wallet/studio/mint/forms/UrlForm.vue'
@@ -149,7 +151,8 @@ import NftCard from '@/components/wallet/portfolio/NftCard.vue'
 
 type NftType = 'utf8' | 'url' | 'json'
 
-@Component({
+export default defineComponent({
+    name: 'MintNft',
     components: {
         NftCard,
         NftFamilyCardsPreview,
@@ -160,199 +163,235 @@ type NftType = 'utf8' | 'url' | 'json'
         Utf8Form,
         JsonForm,
     },
-})
-export default class MintNft extends Vue {
-    @Prop() mintUtxo!: UTXO
-
-    quantity = 1
-    nftType: NftType = 'url'
-    nftFormType = 'generic'
-    payloadPreview: null | PayloadBase = null
-    canSubmit = false
-    isSuccess = false
-    isLoading = false
-    txId = ''
-
-    maxPreviewUtxoLen = 18
-    get typeDescription() {
-        if (this.nftFormType === 'generic') {
-            return this.$t('studio.mint.type_col.typeDesc.generic')
+    props: {
+        mintUtxo: {
+            type: Object as () => UTXO,
+            required: true
         }
+    },
+    emits: ['clearUtxo', 'cancel'],
+    setup(props, { emit }) {
+        const store = useStore()
+        const { t } = useI18n()
 
-        if (this.nftType === 'url') {
-            return this.$t('studio.mint.type_col.typeDesc.url')
-        } else if (this.nftType === 'json') {
-            return this.$t('studio.mint.type_col.typeDesc.json')
-        } else {
-            return this.$t('studio.mint.type_col.typeDesc.utf8')
-        }
-    }
+        const quantity = ref(1)
+        const nftType = ref<NftType>('url')
+        const nftFormType = ref('generic')
+        const payloadPreview = ref<null | PayloadBase>(null)
+        const canSubmit = ref(false)
+        const isSuccess = ref(false)
+        const isLoading = ref(false)
+        const txId = ref('')
 
-    get nftFamsDict(): NftFamilyDict {
-        return this.$store.state.Assets.nftFamsDict
-    }
+        const maxPreviewUtxoLen = 18
 
-    get family() {
-        let idBuff = this.mintUtxo.getAssetID()
-        let id = bintools.cb58Encode(idBuff)
-        return this.nftFamsDict[id]
-    }
+        const typeDescription = computed(() => {
+            if (nftFormType.value === 'generic') {
+                return t('studio.mint.type_col.typeDesc.generic')
+            }
 
-    get groupId() {
-        return (this.mintUtxo.getOutput() as NFTMintOutput).getGroupID()
-    }
-
-    get formComponent() {
-        switch (this.nftType) {
-            case 'utf8':
-                return Utf8Form
-            case 'url':
-                return UrlForm
-            case 'json':
-                return JsonForm
-            default:
-                return Utf8Form
-        }
-    }
-
-    get payloadContent() {
-        if (!this.payloadPreview) return null
-        return this.payloadPreview.getContent().toString()
-    }
-
-    get nftTitle() {
-        try {
-            let json = JSON.parse(this.payloadContent || '')
-            return json.avalanche.title
-        } catch (err) {
-            return ''
-        }
-    }
-
-    get nftDesc() {
-        try {
-            let json = JSON.parse(this.payloadContent || '')
-            return json.avalanche.desc
-        } catch (err) {
-            return ''
-        }
-    }
-
-    clearUtxo() {
-        this.$emit('clearUtxo')
-    }
-
-    get txFee(): Big {
-        return bnToBig(avm.getTxFee(), 9)
-    }
-
-    onInput(form: NftMintFormType | null) {
-        if (form === null) {
-            this.payloadPreview = null
-            this.canSubmit = false
-            return
-        }
-
-        try {
-            let payload
-            if (this.nftFormType === 'generic') {
-                // let dataStr = JSON.stringify((form as GenericFormType).data)
-                // payload = new JSONPayload(dataStr)
-                payload = new JSONPayload((form as GenericFormType).data)
+            if (nftType.value === 'url') {
+                return t('studio.mint.type_col.typeDesc.url')
+            } else if (nftType.value === 'json') {
+                return t('studio.mint.type_col.typeDesc.json')
             } else {
-                switch (this.nftType) {
-                    case 'url':
-                        payload = new URLPayload((form as UrlFormType).url)
-                        break
-                    case 'json':
-                        payload = new JSONPayload((form as JsonFormType).data)
-                        break
-                    case 'utf8':
-                        payload = new UTF8Payload((form as UtfFormType).text)
-                        break
-                    default:
-                        payload = new UTF8Payload('hi there')
-                        break
+                return t('studio.mint.type_col.typeDesc.utf8')
+            }
+        })
+
+        const nftFamsDict = computed(() => {
+            return store.state.Assets.nftFamsDict as NftFamilyDict
+        })
+
+        const family = computed(() => {
+            let idBuff = props.mintUtxo.getAssetID()
+            let id = bintools.cb58Encode(idBuff)
+            return nftFamsDict.value[id]
+        })
+
+        const groupId = computed(() => {
+            return (props.mintUtxo.getOutput() as NFTMintOutput).getGroupID()
+        })
+
+        const formComponent = computed(() => {
+            switch (nftType.value) {
+                case 'utf8':
+                    return Utf8Form
+                case 'url':
+                    return UrlForm
+                case 'json':
+                    return JsonForm
+                default:
+                    return Utf8Form
+            }
+        })
+
+        const payloadContent = computed(() => {
+            if (!payloadPreview.value) return null
+            return payloadPreview.value.getContent().toString()
+        })
+
+        const nftTitle = computed(() => {
+            try {
+                let json = JSON.parse(payloadContent.value || '')
+                return json.avalanche.title
+            } catch (err) {
+                return ''
+            }
+        })
+
+        const nftDesc = computed(() => {
+            try {
+                let json = JSON.parse(payloadContent.value || '')
+                return json.avalanche.desc
+            } catch (err) {
+                return ''
+            }
+        })
+
+        const clearUtxo = () => {
+            emit('clearUtxo')
+        }
+
+        const txFee = computed((): Big => {
+            return bnToBig(avm.getTxFee(), 9)
+        })
+
+        const onInput = (form: NftMintFormType | null) => {
+            if (form === null) {
+                payloadPreview.value = null
+                canSubmit.value = false
+                return
+            }
+
+            try {
+                let payload
+                if (nftFormType.value === 'generic') {
+                    payload = new JSONPayload((form as GenericFormType).data)
+                } else {
+                    switch (nftType.value) {
+                        case 'url':
+                            payload = new URLPayload((form as UrlFormType).url)
+                            break
+                        case 'json':
+                            payload = new JSONPayload((form as JsonFormType).data)
+                            break
+                        case 'utf8':
+                            payload = new UTF8Payload((form as UtfFormType).text)
+                            break
+                        default:
+                            payload = new UTF8Payload('hi there')
+                            break
+                    }
                 }
+
+                payloadPreview.value = payload
+                canSubmit.value = true
+            } catch (e) {
+                console.error(e)
             }
-
-            this.payloadPreview = payload
-            this.canSubmit = true
-        } catch (e) {
-            console.error(e)
         }
-    }
 
-    get familyUtxos(): UTXO[] {
-        let dict = this.$store.getters['Assets/walletNftDict']
+        const familyUtxos = computed((): UTXO[] => {
+            let dict = store.getters['Assets/walletNftDict']
         // return this.$store.getters.walletNftDict[this.family.id] || []
-        return dict[this.family.id] || []
-    }
+            return dict[family.value.id] || []
+        })
 
-    get groupUtxos() {
-        let utxos = this.familyUtxos
-        let ids: number[] = []
+        const groupUtxos = computed(() => {
+            let utxos = familyUtxos.value
+            let ids: number[] = []
 
-        let filtered = utxos.filter((utxo) => {
-            let groupId = (utxo.getOutput() as NFTTransferOutput).getGroupID()
+            let filtered = utxos.filter((utxo) => {
+                let groupId = (utxo.getOutput() as NFTTransferOutput).getGroupID()
 
-            if (ids.includes(groupId)) {
-                return false
-            } else {
-                ids.push(groupId)
-                return true
+                if (ids.includes(groupId)) {
+                    return false
+                } else {
+                    ids.push(groupId)
+                    return true
+                }
+            })
+
+            // order by group id
+            filtered.sort((a, b) => {
+                let gA = (a.getOutput() as NFTTransferOutput).getGroupID()
+                let gB = (b.getOutput() as NFTTransferOutput).getGroupID()
+                return gA - gB
+            })
+
+            return filtered.slice(0, maxPreviewUtxoLen)
+        })
+
+        const submit = async () => {
+            let wallet = store.state.activeWallet
+            if (!wallet) return
+
+            isLoading.value = true
+
+            try {
+                let txIdResult = await wallet.mintNft(props.mintUtxo, payloadPreview.value, quantity.value)
+                onSuccess(txIdResult)
+            } catch (e) {
+                console.error(e)
             }
-        })
+        }
 
-        // order by group id
-        filtered.sort((a, b) => {
-            let gA = (a.getOutput() as NFTTransferOutput).getGroupID()
-            let gB = (b.getOutput() as NFTTransferOutput).getGroupID()
-            return gA - gB
-        })
+        const cancel = () => {
+            emit('cancel')
+        }
 
-        return filtered.slice(0, this.maxPreviewUtxoLen)
-    }
+        const onSuccess = (txIdParam: string) => {
+            isLoading.value = false
+            isSuccess.value = true
+            txId.value = txIdParam
 
-    async submit() {
-        let wallet = this.$store.state.activeWallet
-        if (!wallet) return
+            store.dispatch('Notifications/add', {
+                type: 'success',
+                title: 'Success',
+                message: 'Collectible minted and added to your wallet.',
+            })
 
-        this.isLoading = true
+            setTimeout(() => {
+                store.dispatch('Assets/updateUTXOs')
+                store.dispatch('History/updateTransactionHistory')
+            }, 2000)
+        }
 
-        try {
-            let txId = await wallet.mintNft(this.mintUtxo, this.payloadPreview, this.quantity)
-            this.onSuccess(txId)
-        } catch (e) {
-            console.error(e)
+        const onError = (err: any) => {
+            isLoading.value = false
+        }
+
+        return {
+            quantity,
+            nftType,
+            nftFormType,
+            payloadPreview,
+            canSubmit,
+            isSuccess,
+            isLoading,
+            txId,
+            maxPreviewUtxoLen,
+            typeDescription,
+            nftFamsDict,
+            family,
+            groupId,
+            formComponent,
+            payloadContent,
+            nftTitle,
+            nftDesc,
+            clearUtxo,
+            txFee,
+            onInput,
+            familyUtxos,
+            groupUtxos,
+            submit,
+            cancel,
+            onSuccess,
+            onError
         }
     }
-
-    cancel() {
-        this.$emit('cancel')
-    }
-
-    onSuccess(txId: string) {
-        this.isLoading = false
-        this.isSuccess = true
-        this.txId = txId
-
-        this.$store.dispatch('Notifications/add', {
-            type: 'success',
-            title: 'Success',
-            message: 'Collectible minted and added to your wallet.',
-        })
-
-        setTimeout(() => {
-            this.$store.dispatch('Assets/updateUTXOs')
-            this.$store.dispatch('History/updateTransactionHistory')
-        }, 2000)
-    }
-
-    onError(err: any) {
-        this.isLoading = false
-    }
-}
+})
 </script>
 <style lang="scss">
 .mint_form {

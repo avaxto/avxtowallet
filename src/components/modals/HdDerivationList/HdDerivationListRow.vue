@@ -20,8 +20,9 @@
     </div>
 </template>
 <script lang="ts">
-import 'reflect-metadata'
-import { Vue, Component, Prop } from 'vue-property-decorator'
+import { defineComponent, computed } from 'vue'
+import { useStore } from 'vuex'
+import { useI18n } from 'vue-i18n'
 import Big from 'big.js'
 import { DerivationListBalanceDict } from '@/components/modals/HdDerivationList/types'
 import { LedgerWallet } from '@/js/wallets/LedgerWallet'
@@ -31,46 +32,73 @@ import { ava } from '@/AVA'
 import { getPreferredHRP } from 'avalanche/dist/utils'
 import { AVA_ACCOUNT_PATH } from '../../../js/wallets/MnemonicWallet'
 
-@Component
-export default class HdDerivationListRow extends Vue {
-    @Prop() index!: number
-    @Prop() path!: number
-    @Prop() address!: string
-    @Prop() balance!: DerivationListBalanceDict
-
-    get cleanBalance(): DerivationListBalanceDict {
-        let res: DerivationListBalanceDict = {}
-        for (var bal in this.balance) {
-            let balance: Big = this.balance[bal]
-            if (balance.gt(Big(0))) {
-                res[bal] = balance
-            }
+export default defineComponent({
+    name: 'HdDerivationListRow',
+    props: {
+        index: {
+            type: Number,
+            required: true
+        },
+        path: {
+            type: Number,
+            required: true
+        },
+        address: {
+            type: String,
+            required: true
+        },
+        balance: {
+            type: Object as () => DerivationListBalanceDict,
+            required: true
         }
-        return res
-    }
+    },
+    setup(props) {
+        const store = useStore()
+        const { t } = useI18n()
 
-    get noBalance(): boolean {
-        return Object.keys(this.cleanBalance).length === 0
-    }
+        const cleanBalance = computed((): DerivationListBalanceDict => {
+            let res: DerivationListBalanceDict = {}
+            for (var bal in props.balance) {
+                let balance: Big = props.balance[bal]
+                if (balance.gt(Big(0))) {
+                    res[bal] = balance
+                }
+            }
+            return res
+        })
 
-    get assetsDict() {
-        return this.$store.state.Assets.assetsDict
-    }
+        const noBalance = computed((): boolean => {
+            return Object.keys(cleanBalance.value).length === 0
+        })
 
-    get wallet() {
-        return this.$store.state.activeWallet as WalletType
-    }
+        const assetsDict = computed(() => {
+            return store.state.Assets.assetsDict
+        })
 
-    get walletType() {
-        return this.wallet.type
-    }
+        const wallet = computed(() => {
+            return store.state.activeWallet as WalletType
+        })
 
-    async verifyLedgerAddress() {
-        const wallet = this.wallet as LedgerWallet
-        const isInternal = this.path == 1
-        wallet.verifyAddress(this.index, isInternal)
+        const walletType = computed(() => {
+            return wallet.value.type
+        })
+
+        const verifyLedgerAddress = async () => {
+            const walletInstance = wallet.value as LedgerWallet
+            const isInternal = props.path == 1
+            walletInstance.verifyAddress(props.index, isInternal)
+        }
+
+        return {
+            cleanBalance,
+            noBalance,
+            assetsDict,
+            wallet,
+            walletType,
+            verifyLedgerAddress
+        }
     }
-}
+})
 </script>
 <style scoped lang="scss">
 .col_index {

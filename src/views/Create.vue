@@ -5,40 +5,38 @@
 </template>
 <script lang="ts">
 import 'reflect-metadata'
-import { Vue, Component, Prop } from 'vue-property-decorator'
+import { defineComponent } from 'vue'
+import { useHead } from '@unhead/vue'
 
 import CreateWallet from '@/components/CreateWalletWorkflow/CreateWallet.vue'
 
-@Component({
+export default defineComponent({
+    name: 'Create',
     components: {
         CreateWallet,
     },
-    metaInfo: () => {
-        const description =
-            "Here at Avalanche, we've made storing digital assets easy. Create an Avalanche wallet today is see what the buzz is all about!"
-        return {
+    setup() {
+        const description = "Here at Avalanche, we've made storing digital assets easy. Create an Avalanche wallet today is see what the buzz is all about!"
+        
+        useHead({
+            title: 'Create',
             meta: [
                 {
-                    vmid: 'description',
                     name: 'description',
                     content: description,
                 },
                 {
-                    vmid: 'og:description',
-                    name: 'description',
+                    property: 'og:description',
                     content: description,
                 },
                 {
-                    vmid: 'og:title',
-                    name: 'og:title',
+                    property: 'og:title',
                     content: 'Create | Avalanche Wallet',
                 },
             ],
-            title: 'Create',
-        }
-    },
+        })
+    }
 })
-export default class Create extends Vue {}
 </script>
 <style scoped lang="scss">
 @use '../main';

@@ -48,7 +48,9 @@
     </Modal>
 </template>
 <script lang="ts">
-import { Vue, Component } from 'vue-property-decorator'
+import { defineComponent, ref, computed } from 'vue'
+import { useStore } from 'vuex'
+
 import Modal from '@/components/modals/Modal.vue'
 import { WalletType } from '@/js/wallets/types'
 
@@ -61,103 +63,111 @@ import {
 } from 'avalanche/dist/apis/platformvm'
 import UTXORow from '@/components/modals/UtxosBreakdown/AVMUTXORow.vue'
 
-@Component({
+export default defineComponent({
+    name: 'UtxosBreakdownModal',
     components: { UTXORow, Modal },
-})
-export default class UtxosBreakdownModal extends Vue {
-    chain = 'X'
+    setup() {
+        const store = useStore()
+        
+        const modal = ref<InstanceType<typeof Modal> | null>(null)
+        const chain = ref('X')
 
-    $refs!: {
-        modal: Modal
-    }
-    open(): void {
-        let modal = this.$refs.modal as Modal
-        //@ts-ignore
-        modal.open()
-    }
-
-    setChain(chainID: string) {
-        this.chain = chainID
-    }
-
-    get wallet(): WalletType | null {
-        return this.$store.state.activeWallet
-    }
-
-    get avmUTXOs(): AVMUTXO[] {
-        if (!this.wallet) return []
-        let utxos = this.wallet.getUTXOSet().getAllUTXOs()
-        let sorted = utxos.sort(this.sortFnc)
-        return sorted
-    }
-
-    get platformUTXOs(): PlatformUTXO[] {
-        if (!this.wallet) return []
-        let utxos = this.wallet.getPlatformUTXOSet().getAllUTXOs()
-        let sorted = utxos.sort(this.sortFnc)
-        return sorted
-    }
-
-    get isEmpty() {
-        if (this.chain === 'X') {
-            return this.avmUTXOs.length === 0
-        } else {
-            return this.platformUTXOs.length === 0
+        const open = (): void => {
+            modal.value?.open()
         }
-    }
 
-    sortFnc<UTXO extends AVMUTXO | PlatformUTXO>(a: UTXO, b: UTXO) {
-        let aOut = a.getOutput()
-        let bOut = b.getOutput()
+        const setChain = (chainID: string) => {
+            chain.value = chainID
+        }
 
-        let aType = aOut.getTypeID()
-        let bType = bOut.getTypeID()
+        const wallet = computed((): WalletType | null => {
+            return store.state.activeWallet
+        })
 
-        if (aType === bType) {
-            let aLock = aOut.getLocktime().toNumber()
-            let bLock = bOut.getLocktime().toNumber()
+        const sortFnc = <UTXO extends AVMUTXO | PlatformUTXO>(a: UTXO, b: UTXO) => {
+            let aOut = a.getOutput()
+            let bOut = b.getOutput()
 
-            if (aType === PlatformVMConstants.STAKEABLELOCKOUTID) {
-                let aStakeLock = (aOut as StakeableLockOut).getStakeableLocktime().toNumber()
-                let bStakeLock = (bOut as StakeableLockOut).getStakeableLocktime().toNumber()
+            let aType = aOut.getTypeID()
+            let bType = bOut.getTypeID()
 
-                aLock = Math.max(aLock, aStakeLock)
-                bLock = Math.max(bLock, bStakeLock)
+            if (aType === bType) {
+                let aLock = aOut.getLocktime().toNumber()
+                let bLock = bOut.getLocktime().toNumber()
+
+                if (aType === PlatformVMConstants.STAKEABLELOCKOUTID) {
+                    let aStakeLock = (aOut as StakeableLockOut).getStakeableLocktime().toNumber()
+                    let bStakeLock = (bOut as StakeableLockOut).getStakeableLocktime().toNumber()
+
+                    aLock = Math.max(aLock, aStakeLock)
+                    bLock = Math.max(bLock, bStakeLock)
+                }
+
+                if (aLock !== bLock) return bLock - aLock
+                return 0
+            } else {
+                if (aType === AVMConstants.SECPXFEROUTPUTID) {
+                    return -1
+                } else if (bType === AVMConstants.SECPXFEROUTPUTID) {
+                    return 1
+                }
+
+                if (aType === AVMConstants.NFTXFEROUTPUTID) {
+                    return -1
+                } else if (bType === AVMConstants.NFTXFEROUTPUTID) {
+                    return 1
+                }
+
+                if (aType === AVMConstants.NFTMINTOUTPUTID) {
+                    return -1
+                } else if (bType === AVMConstants.NFTMINTOUTPUTID) {
+                    return 1
+                }
+
+                if (aType === AVMConstants.SECPMINTOUTPUTID) {
+                    return -1
+                } else if (bType === AVMConstants.SECPMINTOUTPUTID) {
+                    return 1
+                }
             }
 
-            if (aLock !== bLock) return bLock - aLock
             return 0
-        } else {
-            if (aType === AVMConstants.SECPXFEROUTPUTID) {
-                return -1
-            } else if (bType === AVMConstants.SECPXFEROUTPUTID) {
-                return 1
-            }
-
-            if (aType === AVMConstants.NFTXFEROUTPUTID) {
-                return -1
-            } else if (bType === AVMConstants.NFTXFEROUTPUTID) {
-                return 1
-            }
-
-            if (aType === AVMConstants.NFTMINTOUTPUTID) {
-                return -1
-            } else if (bType === AVMConstants.NFTMINTOUTPUTID) {
-                return 1
-            }
-
-            if (aType === AVMConstants.SECPMINTOUTPUTID) {
-                return -1
-            } else if (bType === AVMConstants.SECPMINTOUTPUTID) {
-                return 1
-            }
-
-            // if(aType === AVMConstants.)
         }
 
-        return 0
+        const avmUTXOs = computed((): AVMUTXO[] => {
+            if (!wallet.value) return []
+            let utxos = wallet.value.getUTXOSet().getAllUTXOs()
+            let sorted = utxos.sort(sortFnc)
+            return sorted
+        })
+
+        const platformUTXOs = computed((): PlatformUTXO[] => {
+            if (!wallet.value) return []
+            let utxos = wallet.value.getPlatformUTXOSet().getAllUTXOs()
+            let sorted = utxos.sort(sortFnc)
+            return sorted
+        })
+
+        const isEmpty = computed(() => {
+            if (chain.value === 'X') {
+                return avmUTXOs.value.length === 0
+            } else {
+                return platformUTXOs.value.length === 0
+            }
+        })
+
+        return {
+            modal,
+            chain,
+            open,
+            setChain,
+            wallet,
+            avmUTXOs,
+            platformUTXOs,
+            isEmpty
+        }
     }
-}
+})
 </script>
 <style scoped lang="scss">
 .utxos_breakdown_body {

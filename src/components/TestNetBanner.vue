@@ -6,19 +6,28 @@
 <script lang="ts">
 import { AvaNetwork } from '@/js/AvaNetwork'
 import 'reflect-metadata'
-import { Component, Prop, Vue } from 'vue-property-decorator'
+import { defineComponent, computed } from 'vue'
+import { useStore } from 'vuex'
 
-@Component
-export default class TestNetBanner extends Vue {
-    get isVisible() {
-        let network = this.$store.state.Network.selectedNetwork
-        if (!network) return false
-        let netId = parseInt(network.networkId)
+export default defineComponent({
+    name: 'TestNetBanner',
+    setup() {
+        const store = useStore()
+        
+        const isVisible = computed(() => {
+            let network = store.state.Network.selectedNetwork
+            if (!network) return false
+            let netId = parseInt(network.networkId)
 
-        if (netId == 1) return false
-        return true
+            if (netId == 1) return false
+            return true
+        })
+
+        return {
+            isVisible
+        }
     }
-}
+})
 </script>
 <style scoped lang="scss">
 $h: 24px;

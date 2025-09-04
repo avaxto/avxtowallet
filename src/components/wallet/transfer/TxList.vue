@@ -29,7 +29,9 @@
 </template>
 <script lang="ts">
 import 'reflect-metadata'
-import { Vue, Component, Prop, Watch } from 'vue-property-decorator'
+import { defineComponent, ref, computed, watch, onActivated, onDeactivated } from 'vue'
+import { useStore } from 'vuex'
+import { useRoute } from 'vue-router'
 
 const uuidv1 = require('uuid/v1')
 
@@ -39,141 +41,165 @@ import AvaAsset from '@/js/AvaAsset'
 import { AssetsDict } from '@/store/modules/assets/types'
 import { ICurrencyInputDropdownValue, ITransaction } from '@/components/wallet/transfer/types'
 
-@Component({
+export default defineComponent({
+    name: 'TxList',
     components: {
         CurrencyInputDropdown,
     },
+    props: {
+        disabled: {
+            type: Boolean,
+            default: false
+        }
+    },
+    emits: ['change'],
+    setup(props, { emit }) {
+        const store = useStore()
+        const route = useRoute()
+        
+        const tx_list = ref<ITransaction[]>([])
+        const disabledAssets = ref<AvaAsset[][]>([])
+        const next_initial = ref<AvaAsset | null>(null)
+
+        const assets_list = computed((): AvaAsset[] => {
+            return store.getters['Assets/walletAssetsArray']
+        })
+
+        const assets = computed((): AssetsDict => {
+            return store.getters['Assets/walletAssetsDict']
+        })
+
+        const showAdd = computed((): boolean => {
+            if (props.disabled) return false
+            if (tx_list.value.length === assets_list.value.length || assets_list.value.length === 0) {
+                return false
+            }
+            return true
+        })
+
+        const updateUnavailable = (): void => {
+            let res: AvaAsset[][] = []
+            let allDisabled = []
+
+            for (var i = 0; i < tx_list.value.length; i++) {
+                let localDisabled: AvaAsset[] = []
+
+                allDisabled.push(tx_list.value[i].asset)
+                for (var n = 0; n < tx_list.value.length; n++) {
+                    if (i === n) continue
+                    let assetNow = tx_list.value[n].asset
+                    localDisabled.push(assetNow)
+                }
+                res.push(localDisabled)
+            }
+
+            next_initial.value = null
+            for (i = 0; i < assets_list.value.length; i++) {
+                let asset = assets_list.value[i]
+                if (!allDisabled.includes(asset)) {
+                    next_initial.value = asset
+                    break
+                }
+            }
+
+            disabledAssets.value = res
+        }
+
+        const oninputchange = (index: number, event: ICurrencyInputDropdownValue): void => {
+            let asset = event.asset
+            let amt = event.amount
+
+            if (!asset) return
+
+            tx_list.value[index].asset = asset
+            tx_list.value[index].amount = amt
+
+            updateUnavailable()
+
+            emit('change', tx_list.value)
+        }
+
+        const removeTx = (index: number): void => {
+            tx_list.value.splice(index, 1)
+            updateUnavailable()
+            emit('change', tx_list.value)
+        }
+
+        const addTx = (id?: string): void => {
+            if (tx_list.value.length >= assets_list.value.length) {
+                return
+            }
+
+            let uuid = uuidv1()
+
+            if (id) {
+                tx_list.value.push({
+                    uuid: uuid,
+                    asset: assets.value[id],
+                    amount: new BN(0),
+                })
+            } else if (next_initial.value) {
+                tx_list.value.push({
+                    uuid: uuid,
+                    asset: next_initial.value,
+                    amount: new BN(0),
+                })
+            }
+            emit('change', tx_list.value)
+        }
+
+        // clears the list
+        const clear = (): void => {
+            for (var i = tx_list.value.length - 1; i >= 0; i--) {
+                removeTx(i)
+            }
+        }
+
+        const addDefaultAsset = () => {
+            next_initial.value = assets_list.value[0]
+            if (route.query.asset) {
+                let assetId = route.query.asset as string
+                addTx(assetId)
+            } else {
+                addTx()
+            }
+        }
+
+        // clear and add the default asset
+        const reset = () => {
+            clear()
+            addDefaultAsset()
+        }
+
+        onActivated(() => {
+            reset()
+        })
+
+        onDeactivated(() => {
+            reset()
+        })
+
+        watch(() => assets_list.value, () => {
+            updateUnavailable()
+        })
+
+        return {
+            tx_list,
+            disabledAssets,
+            next_initial,
+            assets_list,
+            assets,
+            showAdd,
+            updateUnavailable,
+            oninputchange,
+            removeTx,
+            addTx,
+            clear,
+            addDefaultAsset,
+            reset
+        }
+    }
 })
-export default class TxList extends Vue {
-    tx_list: ITransaction[] = []
-    disabledAssets: AvaAsset[][] = []
-    next_initial: AvaAsset | null = null
-
-    @Prop({ default: false }) disabled!: boolean
-
-    deactivated() {
-        this.reset()
-    }
-
-    updateUnavailable(): void {
-        let res: AvaAsset[][] = []
-        let allDisabled = []
-
-        for (var i = 0; i < this.tx_list.length; i++) {
-            let localDisabled: AvaAsset[] = []
-
-            allDisabled.push(this.tx_list[i].asset)
-            for (var n = 0; n < this.tx_list.length; n++) {
-                if (i === n) continue
-                let assetNow = this.tx_list[n].asset
-                localDisabled.push(assetNow)
-            }
-            res.push(localDisabled)
-        }
-
-        this.next_initial = null
-        for (i = 0; i < this.assets_list.length; i++) {
-            let asset = this.assets_list[i]
-            if (!allDisabled.includes(asset)) {
-                this.next_initial = asset
-                break
-            }
-        }
-
-        this.disabledAssets = res
-    }
-
-    oninputchange(index: number, event: ICurrencyInputDropdownValue): void {
-        let asset = event.asset
-        let amt = event.amount
-
-        if (!asset) return
-
-        this.tx_list[index].asset = asset
-        this.tx_list[index].amount = amt
-
-        this.updateUnavailable()
-
-        this.$emit('change', this.tx_list)
-    }
-
-    removeTx(index: number): void {
-        this.tx_list.splice(index, 1)
-        this.updateUnavailable()
-        this.$emit('change', this.tx_list)
-    }
-
-    addTx(id?: string): void {
-        if (this.tx_list.length >= this.assets_list.length) {
-            return
-        }
-
-        let uuid = uuidv1()
-
-        if (id) {
-            this.tx_list.push({
-                uuid: uuid,
-                asset: this.assets[id],
-                amount: new BN(0),
-            })
-        } else if (this.next_initial) {
-            this.tx_list.push({
-                uuid: uuid,
-                asset: this.next_initial,
-                amount: new BN(0),
-            })
-        }
-        this.$emit('change', this.tx_list)
-    }
-
-    // clears the list
-    clear(): void {
-        for (var i = this.tx_list.length - 1; i >= 0; i--) {
-            this.removeTx(i)
-        }
-    }
-
-    addDefaultAsset() {
-        this.next_initial = this.assets_list[0]
-        if (this.$route.query.asset) {
-            let assetId = this.$route.query.asset as string
-            this.addTx(assetId)
-        } else {
-            this.addTx()
-        }
-    }
-
-    // clear and add the default asset
-    reset() {
-        this.clear()
-        this.addDefaultAsset()
-    }
-
-    activated() {
-        this.reset()
-    }
-
-    @Watch('assets_list')
-    onAssetListChange() {
-        this.updateUnavailable()
-    }
-
-    get assets_list(): AvaAsset[] {
-        // return this.$store.getters.walletAssetsArray
-        return this.$store.getters['Assets/walletAssetsArray']
-    }
-    get assets(): AssetsDict {
-        // return this.$store.getters.walletAssetsDict
-        return this.$store.getters['Assets/walletAssetsDict']
-    }
-    get showAdd(): boolean {
-        if (this.disabled) return false
-        if (this.tx_list.length === this.assets_list.length || this.assets_list.length === 0) {
-            return false
-        }
-        return true
-    }
-}
 </script>
 <style scoped lang="scss">
 @use '../../../main';

@@ -28,7 +28,8 @@
 </template>
 <script lang="ts">
 import 'reflect-metadata'
-import { Vue, Component, Prop } from 'vue-property-decorator'
+import { defineComponent, computed } from 'vue'
+import { useStore } from 'vuex'
 
 import moment from 'moment'
 import TxHistoryNftFamilyGroup from '@/components/SidePanels/TxHistoryNftFamilyGroup.vue'
@@ -47,96 +48,120 @@ import { ava } from '@/AVA'
 import { isOwnedUTXO } from '@/js/Glacier/isOwnedUtxo'
 import { WalletType } from '@/js/wallets/types'
 
-@Component({
+interface Props {
+    transaction: XChainTransaction | PChainTransaction
+}
+
+export default defineComponent({
+    name: 'TxHistoryRow',
     components: {
         TxHistoryNftFamilyGroup,
     },
-})
-export default class TxHistoryRow extends Vue {
-    @Prop() transaction!: XChainTransaction | PChainTransaction
+    props: {
+        transaction: {
+            type: Object as () => XChainTransaction | PChainTransaction,
+            required: true
+        }
+    },
+    setup(props: Props) {
+        const store = useStore()
 
-    get explorerUrl(): string | null {
-        const netID = ava.getNetworkID()
-        return getUrlFromTransaction(netID, this.transaction)
-    }
+        const explorerUrl = computed((): string | null => {
+            const netID = ava.getNetworkID()
+            return getUrlFromTransaction(netID, props.transaction)
+        })
 
-    /**
-     * True if this tx contains a multi owner output
-     */
-    get hasMultisig() {
-        if (!this.ownedOutputs) return false
-        let totMultiSig = 0
-        this.ownedOutputs.forEach((utxo: Utxo | PChainUtxo) => {
-            if (utxo.addresses.length > 1) {
-                totMultiSig++
+        const outputUTXOs = computed((): Utxo[] | PChainUtxo[] => {
+            return props.transaction.emittedUtxos || []
+        })
+
+        const addresses = computed(() => {
+            const wallet: WalletType | null = store.state.activeWallet
+            if (!wallet) return []
+            return wallet.getHistoryAddresses()
+        })
+
+        /**
+         * Outputs owned by this wallet
+         */
+        const ownedOutputs = computed(() => {
+            return (outputUTXOs.value as (Utxo | PChainUtxo)[]).filter((utxo: Utxo | PChainUtxo) => {
+                return isOwnedUTXO(utxo, addresses.value)
+            })
+        })
+
+        /**
+         * True if this tx contains a multi owner output
+         */
+        const hasMultisig = computed(() => {
+            if (!ownedOutputs.value) return false
+            let totMultiSig = 0
+            ownedOutputs.value.forEach((utxo: Utxo | PChainUtxo) => {
+                if (utxo.addresses.length > 1) {
+                    totMultiSig++
+                }
+            })
+            return totMultiSig > 0
+        })
+
+        const memo = computed((): string | null => {
+            // TODO: Is Memo supported
+            return ''
+        })
+
+        const timestamp = computed(() => {
+            if (isTransactionX(props.transaction) || isTransactionC(props.transaction)) {
+                return props.transaction.timestamp * 1000
+            } else {
+                return props.transaction.blockTimestamp * 1000
             }
         })
-        return totMultiSig > 0
-    }
 
-    get outputUTXOs(): Utxo[] | PChainUtxo[] {
-        return this.transaction.emittedUtxos || []
-    }
-
-    get addresses() {
-        let wallet: WalletType | null = this.$store.state.activeWallet
-        if (!wallet) return []
-        return wallet.getHistoryAddresses()
-    }
-
-    /**
-     * Outputs owned by this wallet
-     */
-    get ownedOutputs() {
-        return (this.outputUTXOs as (Utxo | PChainUtxo)[]).filter((utxo: Utxo | PChainUtxo) => {
-            return isOwnedUTXO(utxo, this.addresses)
+        const time = computed(() => {
+            return moment(timestamp.value)
         })
-    }
 
-    get memo(): string | null {
-        // TODO: Is Memo supported
-        return ''
-    }
+        const timeText = computed((): string => {
+            const now = Date.now()
+            const diff = now - new Date(timestamp.value).getTime()
 
-    get timestamp() {
-        if (isTransactionX(this.transaction) || isTransactionC(this.transaction)) {
-            return this.transaction.timestamp * 1000
-        } else {
-            return this.transaction.blockTimestamp * 1000
+            const dayMs = 1000 * 60 * 60 * 24
+
+            if (diff > dayMs) {
+                return time.value.format('MMM DD, YYYY')
+            }
+            return time.value.fromNow()
+        })
+
+        const viewComponent = computed(() => {
+            const type = props.transaction.txType as TransactionTypeName
+
+            switch (type) {
+                case 'ExportTx':
+                case 'ImportTx':
+                    return ImportExport
+                case 'AddDelegatorTx':
+                case 'AddValidatorTx':
+                    return StakingTx
+                default:
+                    return BaseTx
+            }
+        })
+
+        return {
+            explorerUrl,
+            outputUTXOs,
+            addresses,
+            ownedOutputs,
+            hasMultisig,
+            memo,
+            timestamp,
+            time,
+            timeText,
+            viewComponent
         }
     }
-
-    get time() {
-        return moment(this.timestamp)
-    }
-
-    get timeText(): string {
-        let now = Date.now()
-        let diff = now - new Date(this.timestamp).getTime()
-
-        let dayMs = 1000 * 60 * 60 * 24
-
-        if (diff > dayMs) {
-            return this.time.format('MMM DD, YYYY')
-        }
-        return this.time.fromNow()
-    }
-
-    get viewComponent() {
-        let type = this.transaction.txType as TransactionTypeName
-
-        switch (type) {
-            case 'ExportTx':
-            case 'ImportTx':
-                return ImportExport
-            case 'AddDelegatorTx':
-            case 'AddValidatorTx':
-                return StakingTx
-            default:
-                return BaseTx
-        }
-    }
-}
+})
 </script>
 <style scoped lang="scss">
 @use '../../main';

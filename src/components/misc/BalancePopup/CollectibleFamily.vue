@@ -19,7 +19,8 @@
     </div>
 </template>
 <script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator'
+import { defineComponent, computed } from 'vue'
+import { useStore } from 'vuex'
 import { AvaNftFamily } from '@/js/AvaNftFamily'
 import { IWalletNftDict } from '@/store/types'
 import { NFTTransferOutput, UTXO } from 'avalanche/dist/apis/avm'
@@ -30,51 +31,71 @@ import { getPayloadFromUTXO } from '@/helpers/helper'
 
 let payloadtypes = PayloadTypes.getInstance()
 
-@Component({
+export default defineComponent({
+    name: 'CollectibleFamily',
     components: {
         NftPayloadView,
     },
+    props: {
+        family: {
+            type: Object as () => AvaNftFamily,
+            required: true
+        },
+        disabledIds: {
+            type: Array as () => string[],
+            default: () => []
+        }
+    },
+    emits: ['select'],
+    setup(props, { emit }) {
+        const store = useStore()
+
+        const nftFamilies = computed(() => {
+            return store.getters['Assets/nftFamilies']
+        })
+
+        const nftDict = computed((): IWalletNftDict => {
+            return store.getters['Assets/walletNftDict']
+        })
+
+        const utxos = computed(() => {
+            let id = props.family.id
+            return nftDict.value[id] || []
+        })
+
+        const uniqueGroups = computed(() => {
+            let ids: number[] = []
+            return utxos.value.filter((utxo) => {
+                let gId = (utxo.getOutput() as NFTTransferOutput).getGroupID()
+                if (ids.includes(gId)) {
+                    return false
+                } else {
+                    ids.push(gId)
+                    return true
+                }
+            })
+        })
+
+        const payloads = computed(() => {
+            return uniqueGroups.value.map((utxo) => {
+                return getPayloadFromUTXO(utxo)
+            })
+        })
+
+        const click = (utxo: UTXO) => {
+            emit('select', utxo)
+        }
+
+        return {
+            nftFamilies,
+            nftDict,
+            utxos,
+            uniqueGroups,
+            payloads,
+            click
+        }
+    }
 })
-export default class CollectibleFamily extends Vue {
-    @Prop() family!: AvaNftFamily
-    @Prop({ default: [] }) disabledIds!: string[]
-
-    get nftFamilies() {
-        return this.$store.getters['Assets/nftFamilies']
-    }
-
-    get nftDict(): IWalletNftDict {
-        // return this.$store.getters.walletNftDict
-        return this.$store.getters['Assets/walletNftDict']
-    }
-    get utxos() {
-        let id = this.family.id
-        return this.nftDict[id] || []
-    }
-
-    get uniqueGroups() {
-        let ids: number[] = []
-        return this.utxos.filter((utxo) => {
-            let gId = (utxo.getOutput() as NFTTransferOutput).getGroupID()
-            if (ids.includes(gId)) {
-                return false
-            } else {
-                ids.push(gId)
-                return true
-            }
-        })
-    }
-
-    get payloads() {
-        return this.uniqueGroups.map((utxo) => {
-            return getPayloadFromUTXO(utxo)
-        })
-    }
-
-    click(utxo: UTXO) {
-        this.$emit('select', utxo)
-    }
-}
 </script>
 <style scoped lang="scss">
 @use '../../../main';

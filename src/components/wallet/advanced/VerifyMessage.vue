@@ -31,7 +31,7 @@
     </div>
 </template>
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator'
+import { defineComponent, ref, computed } from 'vue'
 import { KeyPair } from 'avalanche/dist/apis/avm'
 import { ava, bintools } from '@/AVA'
 import createHash from 'create-hash'
@@ -40,59 +40,72 @@ import { avm } from '@/AVA'
 import { Buffer } from 'avalanche'
 import { digestMessage } from '@/helpers/helper'
 
-@Component
-export default class VerifyMessage extends Vue {
-    message: string = ''
-    addressX: string = ''
-    addressP: string = ''
-    signature = ''
-    error = ''
+export default defineComponent({
+    name: 'VerifyMessage',
+    setup() {
+        const message = ref('')
+        const addressX = ref('')
+        const addressP = ref('')
+        const signature = ref('')
+        const error = ref('')
 
-    submit() {
-        this.addressX = ''
-        this.addressP = ''
-        this.error = ''
-        try {
-            this.verify()
-        } catch (e) {
-            this.error = e
+        const canSubmit = computed(() => {
+            if (!message.value || !signature.value) return false
+            return true
+        })
+
+        const submit = () => {
+            addressX.value = ''
+            addressP.value = ''
+            error.value = ''
+            try {
+                verify()
+            } catch (e) {
+                error.value = e
+            }
         }
-    }
-    verify() {
-        let digest = digestMessage(this.message)
-        let digestBuff = Buffer.from(digest.toString('hex'), 'hex')
 
-        let networkId = ava.getNetworkID()
+        const verify = () => {
+            let digest = digestMessage(message.value)
+            let digestBuff = Buffer.from(digest.toString('hex'), 'hex')
 
-        let hrp = getPreferredHRP(networkId)
-        let keypair = new KeyPair(hrp, 'X')
+            let networkId = ava.getNetworkID()
 
-        let signedBuff = bintools.cb58Decode(this.signature)
+            let hrp = getPreferredHRP(networkId)
+            let keypair = new KeyPair(hrp, 'X')
 
-        let pubKey = keypair.recover(digestBuff, signedBuff)
-        const addressBuff = KeyPair.addressFromPublicKey(pubKey)
-        this.addressX = bintools.addressToString(hrp, 'X', addressBuff)
-        this.addressP = bintools.addressToString(hrp, 'P', addressBuff)
-    }
+            let signedBuff = bintools.cb58Decode(signature.value)
 
-    clear() {
-        this.message = ''
-        this.signature = ''
-        this.addressX = ''
-        this.addressP = ''
-        this.error = ''
-    }
+            let pubKey = keypair.recover(digestBuff, signedBuff)
+            const addressBuff = KeyPair.addressFromPublicKey(pubKey)
+            addressX.value = bintools.addressToString(hrp, 'X', addressBuff)
+            addressP.value = bintools.addressToString(hrp, 'P', addressBuff)
+        }
 
+        const clear = () => {
+            message.value = ''
+            signature.value = ''
+            addressX.value = ''
+            addressP.value = ''
+            error.value = ''
+        }
+
+        return {
+            message,
+            addressX,
+            addressP,
+            signature,
+            error,
+            canSubmit,
+            submit,
+            verify,
+            clear
+        }
+    },
     deactivated() {
         this.clear()
     }
-
-    get canSubmit() {
-        if (!this.message || !this.signature) return false
-
-        return true
-    }
-}
+})
 </script>
 <style lang="scss" scoped>
 textarea,

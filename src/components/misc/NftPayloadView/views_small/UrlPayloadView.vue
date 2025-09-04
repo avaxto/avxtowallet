@@ -14,36 +14,50 @@
     </div>
 </template>
 <script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator'
+import { defineComponent, ref, computed, type PropType } from 'vue'
 import { URLPayload } from 'avalanche/dist/utils'
 
-@Component
-export default class UrlPayloadView extends Vue {
-    @Prop() payload!: URLPayload
+export default defineComponent({
+    name: 'UrlPayloadView',
+    props: {
+        payload: {
+            type: Object as PropType<URLPayload>,
+            required: true
+        }
+    },
+    setup(props) {
+        const img_types = ['jpeg', 'jpg', 'gif', 'png', 'apng', 'svg', 'bmp', 'ico', 'webp']
+        const valid_types = img_types.concat(['pdf'])
+        const isImage = ref(false)
+        const isVideo = ref(false)
 
-    img_types = ['jpeg', 'jpg', 'gif', 'png', 'apng', 'svg', 'bmp', 'ico', 'webp']
-    valid_types = this.img_types.concat(['pdf'])
-    isImage = false
-    isVideo = false
+        const url = computed(() => {
+            return props.payload.getContent().toString()
+        })
 
-    get url() {
-        return this.payload.getContent().toString()
+        const fileType = computed((): string | null => {
+            let urlVal = url.value
+            let split = urlVal.split('.')
+
+            // Couldn't find extension
+            if (split.length === 1) return null
+
+            let extension: string = split[split.length - 1]
+
+            if (!valid_types.includes(extension)) return null
+            return extension
+        })
+
+        return {
+            img_types,
+            valid_types,
+            isImage,
+            isVideo,
+            url,
+            fileType
+        }
     }
-
-    get fileType(): string | null {
-        let url = this.url
-
-        let split = url.split('.')
-
-        // Couldn't find extension
-        if (split.length === 1) return null
-
-        let extension: string = split[split.length - 1]
-
-        if (!this.valid_types.includes(extension)) return null
-        return extension
-    }
-}
+})
 </script>
 <style scoped lang="scss">
 .url_payload_view {

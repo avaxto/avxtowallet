@@ -78,7 +78,8 @@
     </div>
 </template>
 <script lang="ts">
-import { Vue, Component, Prop } from 'vue-property-decorator'
+import { defineComponent, computed } from 'vue'
+import { useStore } from 'vuex'
 import { TransactionValueDict } from '@/components/SidePanels/types'
 import { PayloadBase, PayloadTypes } from 'avalanche/dist/utils'
 import { BN, Buffer } from 'avalanche'
@@ -97,7 +98,8 @@ import BaseTxUtxo from '@/components/SidePanels/History/ViewTypes/BaseTxUtxo.vue
 
 let payloadtypes = PayloadTypes.getInstance()
 
-@Component({
+export default defineComponent({
+    name: 'BaseTx',
     components: {
         BaseTxUtxo,
         BaseTxNFTOutput,
@@ -106,82 +108,101 @@ let payloadtypes = PayloadTypes.getInstance()
         TxHistoryValueFunctional,
         TxHistoryNftFamilyGroup,
     },
+    props: {
+        transaction: {
+            type: Object as () => XChainTransaction,
+            required: true
+        }
+    },
+    setup(props) {
+        const store = useStore()
+
+        const inputUTXOs = computed(() => {
+            return props.transaction.consumedUtxos || []
+        })
+
+        const outputUTXOs = computed(() => {
+            return props.transaction.emittedUtxos || []
+        })
+
+        /**
+         * All X/P addresses used by the wallet
+         */
+        const addresses = computed(() => {
+            let wallet: WalletType | null = store.state.activeWallet
+            if (!wallet) return []
+            return wallet.getHistoryAddresses()
+        })
+
+        /**
+         * Addresses stripped of the chain prefix
+         */
+        const addrsRaw = computed(() => {
+            let addrs: string[] = addresses.value
+            return addrs.map((addr) => addr.split('-')[1])
+        })
+
+        /**
+         * Output UTXOs owned by this wallet
+         */
+        const receivedUTXOs = computed(() => {
+            return outputUTXOs.value.filter((utxo) => {
+                return isOwnedUTXO(utxo, addresses.value)
+            })
+        })
+
+        /**
+         * Output UTXOs not owned by this wallet
+         */
+        const sentUTXOs = computed(() => {
+            const utxos = outputUTXOs.value.filter((utxo) => {
+                return !isOwnedUTXO(utxo, addresses.value)
+            })
+
+            return utxos
+        })
+
+        /**
+         * True if this wallet owns one of the input UTXOs
+         */
+        const isSender = computed(() => {
+            return (
+                inputUTXOs.value.filter((utxo) => {
+                    return isOwnedUTXO(utxo, addresses.value)
+                }).length > 0
+            )
+        })
+
+        const sentToSelf = computed(() => {
+            return isSender.value && !sentUTXOs.value.length
+        })
+
+        const hasReceived = computed(() => {
+            return (
+                props.transaction.emittedUtxos.filter((utxo) => {
+                    return isOwnedUTXO(utxo, addresses.value)
+                }).length > 0
+            )
+        })
+
+        const type = computed(() => {
+            return props.transaction.txType as TransactionTypeName
+        })
+
+        return {
+            inputUTXOs,
+            outputUTXOs,
+            receivedUTXOs,
+            sentUTXOs,
+            sentToSelf,
+            isSender,
+            hasReceived,
+            addresses,
+            addrsRaw,
+            type
+        }
+    }
 })
-export default class BaseTx extends Vue {
-    @Prop() transaction!: XChainTransaction
-
-    get inputUTXOs() {
-        return this.transaction.consumedUtxos || []
-    }
-
-    get outputUTXOs() {
-        return this.transaction.emittedUtxos || []
-    }
-
-    /**
-     * Output UTXOs owned by this wallet
-     */
-    get receivedUTXOs() {
-        return this.outputUTXOs.filter((utxo) => {
-            return isOwnedUTXO(utxo, this.addresses)
-        })
-    }
-
-    /**
-     * Output UTXOs not owned by this wallet
-     */
-    get sentUTXOs() {
-        const utxos = this.outputUTXOs.filter((utxo) => {
-            return !isOwnedUTXO(utxo, this.addresses)
-        })
-
-        return utxos
-    }
-
-    get sentToSelf() {
-        return this.isSender && !this.sentUTXOs.length
-    }
-
-    /**
-     * True if this wallet owns one of the input UTXOs
-     */
-    get isSender() {
-        return (
-            this.inputUTXOs.filter((utxo) => {
-                return isOwnedUTXO(utxo, this.addresses)
-            }).length > 0
-        )
-    }
-
-    get hasReceived() {
-        return (
-            this.transaction.emittedUtxos.filter((utxo) => {
-                return isOwnedUTXO(utxo, this.addresses)
-            }).length > 0
-        )
-    }
-
-    /**
-     * All X/P addresses used by the wallet
-     */
-    get addresses() {
-        let wallet: WalletType | null = this.$store.state.activeWallet
-        if (!wallet) return []
-        return wallet.getHistoryAddresses()
-    }
-
-    /**
-     * Addresses stripped of the chain prefix
-     */
-    get addrsRaw() {
-        let addrs: string[] = this.addresses
-        return addrs.map((addr) => addr.split('-')[1])
-    }
-
-    get type() {
-        return this.transaction.txType as TransactionTypeName
-    }
-}
 </script>
 <style scoped lang="scss">
 label {

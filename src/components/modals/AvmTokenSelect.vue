@@ -22,49 +22,66 @@
     </modal>
 </template>
 <script lang="ts">
-import 'reflect-metadata'
-import { Vue, Component, Prop } from 'vue-property-decorator'
+import { defineComponent, ref, type PropType } from 'vue'
 
 import Modal from '@/components/modals/Modal.vue'
 import AvaAsset from '@/js/AvaAsset'
 import { bnToBig } from '@/helpers/helper'
 
-@Component({
+export default defineComponent({
+    name: 'AvmTokenSelect',
     components: {
         Modal,
     },
+    props: {
+        assets: {
+            type: Array as PropType<AvaAsset[]>,
+            required: true
+        },
+        disabledIds: {
+            type: Array as PropType<string[]>,
+            default: () => []
+        }
+    },
+    emits: ['select'],
+    setup(props, { emit }) {
+        const modal = ref<InstanceType<typeof Modal>>()
+
+        const bal = (asset: AvaAsset) => {
+            return bnToBig(asset.amount, asset.denomination).toLocaleString()
+        }
+
+        const open = (): void => {
+            modal.value?.open()
+        }
+
+        const close = () => {
+            modal.value?.close()
+        }
+
+        const select = (asset: AvaAsset) => {
+            if (asset.amount.isZero()) return
+            if (isDisabled(asset)) return
+
+            close()
+            emit('select', asset)
+        }
+
+        const isDisabled = (asset: AvaAsset): boolean => {
+            if (props.disabledIds.includes(asset.id)) return true
+            return false
+        }
+
+        return {
+            modal,
+            bal,
+            open,
+            close,
+            select,
+            isDisabled
+        }
+    }
 })
-export default class PrivateKey extends Vue {
-    @Prop() assets!: AvaAsset[]
-    @Prop({ default: () => [] }) disabledIds!: string[] // asset id | if nft the utxo id
-
-    bal(asset: AvaAsset) {
-        return bnToBig(asset.amount, asset.denomination).toLocaleString()
-    }
-
-    open(): void {
-        let modal = this.$refs.modal as Modal
-        modal.open()
-    }
-
-    close() {
-        let modal = this.$refs.modal as Modal
-        modal.close()
-    }
-
-    select(asset: AvaAsset) {
-        if (asset.amount.isZero()) return
-        if (this.isDisabled(asset)) return
-
-        this.close()
-        this.$emit('select', asset)
-    }
-
-    isDisabled(asset: AvaAsset): boolean {
-        if (this.disabledIds.includes(asset.id)) return true
-        return false
-    }
-}
 </script>
 <style scoped lang="scss">
 @use '../../main';
