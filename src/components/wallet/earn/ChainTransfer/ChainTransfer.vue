@@ -197,6 +197,50 @@ export default defineComponent({
 
         const txMaxAmount = ref<BN | undefined>(undefined)
 
+        // Watch for chain changes
+        watch([sourceChain, targetChain], () => {
+            if (sourceChain.value === 'C' || targetChain.value === 'C') {
+                updateBaseFee()
+            }
+        })
+
+        onMounted(() => {
+            updateBaseFee()
+        })
+
+        const ava_asset = computed((): AvaAsset | null => {
+            let ava = store.getters['Assets/AssetAVA']
+            return ava
+        })
+
+        const platformBalance = computed(() => {
+            return store.getters['Assets/walletPlatformBalance']
+        })
+
+        const platformUnlocked = computed((): BN => {
+            return platformBalance.value.available
+        })
+
+        const avmUnlocked = computed((): BN => {
+            if (!ava_asset.value) return new BN(0)
+            return ava_asset.value.amount
+        })
+
+        const evmUnlocked = computed((): BN => {
+            let balRaw = wallet.value.ethBalance
+            return avaxCtoX(balRaw)
+        })
+
+        const balanceBN = computed((): BN => {
+            if (sourceChain.value === 'P') {
+                return platformUnlocked.value
+            } else if (sourceChain.value === 'C') {
+                return evmUnlocked.value
+            } else {
+                return avmUnlocked.value
+            }
+        })
+
         // Add the remaining computed properties and methods here...
         return {
             form,
@@ -217,197 +261,166 @@ export default defineComponent({
             importId,
             importState,
             importStatus,
-            importReason,
-            txMaxAmount,
-            bnToAvaxP
-        }
-    }
-})
+                return avmUnlocked.value
+            }
+        })
 
-    @Watch('sourceChain')
-    @Watch('targetChain')
-    onChainChange() {
-        if (this.sourceChain === 'C' || this.targetChain === 'C') {
-            this.updateBaseFee()
-        }
-    }
+        // Continue with rest of component logic...
+        return {
+            form,
+            sourceChain,
+            targetChain,
+            isLoading,
+            amt,
+            err,
+            isImportErr,
+            isConfirm,
+            isSuccess,
+            formAmt,
+            baseFee,
+            exportId,
+            exportState,
+            exportStatus,
+            exportReason,
+            importId,
+            importState,
+            importStatus,
 
-    created() {
-        this.updateBaseFee()
-    }
+        const balanceBig = computed((): Big => {
+            return bnToBig(balanceBN.value, 9)
+        })
 
-    get ava_asset(): AvaAsset | null {
-        let ava = this.$store.getters['Assets/AssetAVA']
-        return ava
-    }
+        const formAmtText = computed(() => {
+            return bnToAvaxX(formAmt.value)
+        })
 
-    get platformBalance() {
-        return this.$store.getters['Assets/walletPlatformBalance']
-    }
+        const fee = computed((): Big => {
+            return exportFee.value.add(importFee.value)
+        })
 
-    get platformUnlocked(): BN {
-        return this.platformBalance.available
-    }
+        const feeBN = computed((): BN => {
+            return importFeeBN.value.add(exportFeeBN.value)
+        })
 
-    get avmUnlocked(): BN {
-        if (!this.ava_asset) return new BN(0)
-        return this.ava_asset.amount
-    }
+        const getFee = (chain: ChainIdType, isExport: boolean): Big => {
+            if (chain === 'X') {
+                return bnToBigAvaxX(avm.getTxFee())
+            } else if (chain === 'P') {
+                return bnToBigAvaxX(pChain.getTxFee())
+            } else {
+                const fee = isExport
+                    ? GasHelper.estimateExportGasFeeFromMockTx(
+                          targetChain.value as ExportChainsC,
+                          amt.value,
+                          wallet.value.getEvmAddress(),
+                          wallet.value.getCurrentAddressPlatform()
+                      )
+                    : GasHelper.estimateImportGasFeeFromMockTx(1, 1)
 
-    get evmUnlocked(): BN {
-        let balRaw = this.wallet.ethBalance
-        return avaxCtoX(balRaw)
-    }
-
-    get balanceBN(): BN {
-        if (this.sourceChain === 'P') {
-            return this.platformUnlocked
-        } else if (this.sourceChain === 'C') {
-            return this.evmUnlocked
-        } else {
-            return this.avmUnlocked
-        }
-    }
-
-    get balanceBig(): Big {
-        return bnToBig(this.balanceBN, 9)
-    }
-
-    get formAmtText() {
-        return bnToAvaxX(this.formAmt)
-    }
-
-    get fee(): Big {
-        return this.exportFee.add(this.importFee)
-    }
-
-    get feeBN(): BN {
-        return this.importFeeBN.add(this.exportFeeBN)
-    }
-
-    getFee(chain: ChainIdType, isExport: boolean): Big {
-        if (chain === 'X') {
-            return bnToBigAvaxX(avm.getTxFee())
-        } else if (chain === 'P') {
-            return bnToBigAvaxX(pChain.getTxFee())
-        } else {
-            const fee = isExport
-                ? GasHelper.estimateExportGasFeeFromMockTx(
-                      this.targetChain as ExportChainsC,
-                      this.amt,
-                      this.wallet.getEvmAddress(),
-                      this.wallet.getCurrentAddressPlatform()
-                  )
-                : GasHelper.estimateImportGasFeeFromMockTx(1, 1)
-
-            const totFeeWei = this.baseFee.mul(new BN(fee))
-            return bnToBigAvaxC(totFeeWei)
-        }
-    }
-
-    get importFee(): Big {
-        return this.getFee(this.targetChain, false)
-    }
-
-    /**
-     * Returns the import fee in nAVAX
-     */
-    get importFeeBN(): BN {
-        return bigToBN(this.importFee, 9)
-    }
-
-    get exportFee(): Big {
-        return this.getFee(this.sourceChain, true)
-    }
-
-    get exportFeeBN(): BN {
-        return bigToBN(this.exportFee, 9)
-    }
-
-    /**
-     * User's spendable balance minus total fees
-     */
-    get maxAmt(): BN {
-        let max = this.balanceBN.sub(this.feeBN)
-
-        if (max.isNeg() || max.isZero()) {
-            return new BN(0)
-        } else {
-            return max
-        }
-    }
-
-    /**
-     * Maximum amount that fits into a valid transaction (excluding export fee)
-     */
-    get formMaxAmt() {
-        const amt = this.txMaxAmount ? BN.min(this.maxAmt, this.txMaxAmount) : this.maxAmt
-        return BN.max(amt, new BN(0))
-    }
-
-    @Watch('sourceChain')
-    @Watch('targetChain')
-    @Watch('balanceBN')
-    @Watch('feeBN')
-    @Watch('wallet')
-    updateMaxTxSize() {
-        if (this.sourceChain !== 'P' || this.targetChain === 'P') {
-            this.txMaxAmount = undefined
-            return
+                const totFeeWei = baseFee.value.mul(new BN(fee))
+                return bnToBigAvaxC(totFeeWei)
+            }
         }
 
-        const utxoSet = this.wallet.getPlatformUTXOSet()
-        const sortedSet = sortUTxoSetP(utxoSet, false)
+        const importFee = computed((): Big => {
+            return getFee(targetChain.value, false)
+        })
 
-        const pChangeAddr = this.wallet.getCurrentAddressPlatform()
-        const fromAddrs = this.wallet.getAllAddressesP()
+        /**
+         * Returns the import fee in nAVAX
+         */
+        const importFeeBN = computed((): BN => {
+            return bigToBN(importFee.value, 9)
+        })
 
-        const destinationAddr =
-            this.targetChain === 'C'
-                ? this.wallet.getEvmAddressBech()
-                : this.wallet.getCurrentAddressAvm()
+        const exportFee = computed((): Big => {
+            return getFee(sourceChain.value, true)
+        })
 
-        const res = selectMaxUtxoForExportP(sortedSet.getAllUTXOs())
-        // The maximum form amount is = max possible export amount - export and import fees
-        this.txMaxAmount = res.amount.sub(this.feeBN)
-    }
+        const exportFeeBN = computed((): BN => {
+            return bigToBN(exportFee.value, 9)
+        })
 
-    onFormChange(data: ChainSwapFormData) {
-        this.amt = data.amount
-        this.sourceChain = data.sourceChain
-        this.targetChain = data.destinationChain
-    }
+        /**
+         * User's spendable balance minus total fees
+         */
+        const maxAmt = computed((): BN => {
+            let max = balanceBN.value.sub(feeBN.value)
 
-    confirm() {
-        this.formAmt = this.amt.clone()
-        this.isConfirm = true
-    }
+            if (max.isNeg() || max.isZero()) {
+                return new BN(0)
+            } else {
+                return max
+            }
+        })
 
-    cancelConfirm() {
-        this.isConfirm = false
-        this.formAmt = new BN(0)
-    }
+        /**
+         * Maximum amount that fits into a valid transaction (excluding export fee)
+         */
+        const formMaxAmt = computed(() => {
+            const amt = txMaxAmount.value ? BN.min(maxAmt.value, txMaxAmount.value) : maxAmt.value
+        watch([sourceChain, targetChain, balanceBN, feeBN, wallet], () => {
+            updateMaxTxSize()
+        })
 
-    get wallet() {
-        let wallet: WalletType = this.$store.state.activeWallet
-        return wallet
-    }
+        const updateMaxTxSize = () => {
+            if (sourceChain.value !== 'P' || targetChain.value === 'P') {
+                txMaxAmount.value = undefined
+                return
+            }
 
-    async updateBaseFee() {
-        this.baseFee = await GasHelper.getBaseFeeRecommended()
-    }
+            const utxoSet = wallet.value.getPlatformUTXOSet()
+            const sortedSet = sortUTxoSetP(utxoSet, false)
 
-    async submit() {
-        this.err = ''
-        this.isLoading = true
-        this.isImportErr = false
+            const pChangeAddr = wallet.value.getCurrentAddressPlatform()
+            const fromAddrs = wallet.value.getAllAddressesP()
 
-        try {
-            this.chainExport(this.formAmt, this.sourceChain, this.targetChain).catch((e) => {
-                this.onerror(e)
-            })
-        } catch (err) {
-            this.onerror(err)
+            const destinationAddr =
+                targetChain.value === 'C'
+                    ? wallet.value.getEvmAddressBech()
+                    : wallet.value.getCurrentAddressAvm()
+
+            const res = selectMaxUtxoForExportP(sortedSet.getAllUTXOs())
+            // The maximum form amount is = max possible export amount - export and import fees
+            txMaxAmount.value = res.amount.sub(feeBN.value)
+        }
+
+        const onFormChange = (data: ChainSwapFormData) => {
+            amt.value = data.amount
+            sourceChain.value = data.sourceChain
+            targetChain.value = data.destinationChain
+        }
+
+        const confirm = () => {
+            formAmt.value = amt.value.clone()
+            isConfirm.value = true
+        }
+
+        const cancelConfirm = () => {
+            isConfirm.value = false
+            formAmt.value = new BN(0)
+        }
+
+        const wallet = computed(() => {
+            let wallet: WalletType = store.state.activeWallet
+            return wallet
+        })
+
+        const updateBaseFee = async () => {
+            baseFee.value = await GasHelper.getBaseFeeRecommended()
+        }
+
+        const submit = async () => {
+            err.value = ''
+            isLoading.value = true
+            isImportErr.value = false
+
+            try {
+                chainExport(formAmt.value, sourceChain.value, targetChain.value).catch((e) => {
+                    onerror(e)
+                })
+            } catch (err) {
+                onerror(err)
         }
     }
 

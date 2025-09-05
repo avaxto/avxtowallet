@@ -3,13 +3,7 @@
         <div class="form">
             <slot></slot>
             <div class="table_title">
-<script lang="ts">
-import { defineComponent, ref, computed, onMounted, onUnmounted, onActivated } from 'vue'
-import { useStore } from 'vuex'
-import { useRoute } from 'vue-router'
-import { useI18n } from 'vue-i18n'
-
-import AvaxInput from '@/components/misc/AvaxInput.vue'             <p>{{ $t('transfer.tx_list.amount') }}</p>
+                <p>{{ $t('transfer.tx_list.amount') }}</p>
                 <p>{{ $t('transfer.tx_list.token') }}</p>
             </div>
             <div class="list_item">
@@ -130,7 +124,9 @@ import AvaxInput from '@/components/misc/AvaxInput.vue'             <p>{{ $t('tr
     </div>
 </template>
 <script lang="ts">
-import { Vue, Component } from 'vue-property-decorator'
+import { defineComponent, computed, ref, onMounted, onBeforeUnmount } from 'vue'
+import { useStore } from 'vuex'
+import { useI18n } from 'vue-i18n'
 import AvaxInput from '@/components/misc/AvaxInput.vue'
 import { priceDict } from '@/store/types'
 import { WalletType } from '@/js/wallets/types'
@@ -188,6 +184,27 @@ export default defineComponent({
         // Template refs
         const token_in = ref<InstanceType<typeof EVMInputDropdown> | null>(null)
 
+        const updateGasPrice = async () => {
+            gasPrice.value = await GasHelper.getAdjustedGasPrice()
+        }
+
+        // Lifecycle methods
+        onMounted(() => {
+            // Update gas price automatically
+            updateGasPrice()
+            gasPriceInterval.value = setInterval(() => {
+                if (!isConfirm.value) {
+                    updateGasPrice()
+                }
+            }, 15000)
+        })
+
+        onBeforeUnmount(() => {
+            if (gasPriceInterval.value) {
+                clearInterval(gasPriceInterval.value)
+            }
+        })
+
         // Continue with rest of component logic...
         return {
             isConfirm,
@@ -205,323 +222,11 @@ export default defineComponent({
             isCollectible,
             formCollectible,
             txHash,
-            token_in
+            token_in,
+            updateGasPrice
         }
     }
 })
-
-    created() {
-        // Update gas price automatically
-        this.updateGasPrice()
-        this.gasPriceInterval = setInterval(() => {
-            if (!this.isConfirm) {
-                this.updateGasPrice()
-            }
-        }, 15000)
-    }
-
-    destroyed() {
-        if (this.gasPriceInterval) {
-            clearInterval(this.gasPriceInterval)
-        }
-    }
-
-    get gasPriceNumber() {
-        return bnToBigAvaxX(this.gasPrice).toFixed(0)
-    }
-
-    async updateGasPrice() {
-        this.gasPrice = await GasHelper.getAdjustedGasPrice()
-    }
-
-    onAmountChange(val: BN) {
-        this.amountIn = val
-    }
-
-    onTokenChange(token: Erc20Token | 'native') {
-        this.formToken = token
-        this.isCollectible = false
-    }
-
-    onCollectibleChange(val: iErc721SelectInput) {
-        this.isCollectible = true
-        this.formCollectible = val
-    }
-
-    get wallet(): WalletType | null {
-        return this.$store.state.activeWallet
-    }
-
-    get priceDict(): priceDict {
-        return this.$store.state.prices
-    }
-
-    get denomination(): number {
-        if (this.formToken === 'native') {
-            return 9
-        } else {
-            return parseInt(this.formToken.data.decimals as string)
-        }
-    }
-
-    get symbol(): string {
-        if (this.formToken === 'native') return 'AVAX'
-        return this.formToken.data.symbol
-    }
-
-    get totalUSD(): Big | null {
-        if (this.formToken !== 'native') {
-            return null
-        }
-
-        let bigAmt = bnToBig(this.amountIn, 18)
-        let usdPrice = this.priceDict.usd
-        let bigFee = bnToBig(this.maxFee, 18)
-        let usdBig = bigAmt.add(bigFee).times(usdPrice)
-        return usdBig
-    }
-
-    validateAddress(addr: string) {
-        if (addr.substring(0, 4) !== 'C-0x' && addr.substring(0, 2) !== '0x') {
-            return false
-        }
-
-        return true
-    }
-
-    validate(): boolean {
-        this.err = ''
-
-        let addr = this.addressIn
-
-        if (!this.validateAddress(addr)) {
-            this.err = 'Invalid C Chain address. Make sure your address begins with "0x" or "C-0x"'
-            return false
-        }
-
-        if (addr.substring(0, 2) === 'C-') {
-            let hexStr = addr.substring(2)
-            if (!web3.utils.isAddress(hexStr)) {
-                this.err = 'Not a valid C chain address.'
-                return false
-            }
-        } else {
-            if (!web3.utils.isAddress(addr)) {
-                this.err = 'Not a valid C chain address.'
-                return false
-            }
-        }
-
-        return true
-    }
-
-    get maxFee(): BN {
-        let res = this.gasPrice.mul(new BN(this.gasLimit))
-        return res
-    }
-
-    get maxFeeUSD() {
-        return bnToBigAvaxC(this.maxFee).times(this.priceDict.usd)
-    }
-
-    get maxFeeText(): string {
-        return bnToAvaxC(this.maxFee)
-    }
-
-    // balance - (gas * price)
-    // get maxAmt() {
-    //     // let priceWei = new BN(this.gasPrice).mul(new BN(Math.pow(10, 9)))
-    //     // let res = priceWei.mul(new BN(this.gasLimit))
-    //     let res = this.rawBalance.sub(this.maxFee)
-    //     return res.divRound(new BN(Math.pow(10, 9)))
-    // }
-
-    async estimateGas() {
-        if (!this.wallet) return
-
-        if (!this.isCollectible) {
-            if (this.formToken === 'native') {
-                // For AVAX Transfers
-                let gasLimit = await TxHelper.estimateAvaxGas(
-                    this.wallet.getEvmAddress(),
-                    this.formAddress,
-                    this.formAmount,
-                    this.gasPrice
-                )
-                this.gasLimit = gasLimit
-            } else {
-                // For ERC20 tokens
-                let tx = (this.formToken as Erc20Token).createTransferTx(
-                    this.formAddress,
-                    this.formAmount
-                )
-                let estGas = await WalletHelper.estimateTxGas(this.wallet, tx)
-                this.gasLimit = estGas
-            }
-        }
-
-        // For erc721 transfers
-        if (this.isCollectible && this.formCollectible) {
-            let fromAddr = '0x' + this.wallet.getEvmAddress()
-            let toAddr = this.formAddress
-            let tx = this.formCollectible.token.createTransferTx(
-                fromAddr,
-                toAddr,
-                this.formCollectible.id
-            )
-            let estGas = await WalletHelper.estimateTxGas(this.wallet, tx)
-            this.gasLimit = estGas
-        }
-    }
-
-    confirm() {
-        if (!this.wallet) return
-        if (!this.validate()) return
-        this.formAddress = this.addressIn
-        this.formAmount = this.amountIn.clone()
-        this.isConfirm = true
-
-        this.estimateGas()
-    }
-
-    get formAmountBig() {
-        return bnToBig(this.formAmount, this.denomination)
-    }
-
-    cancel() {
-        this.err = ''
-        this.isConfirm = false
-    }
-
-    startAgain() {
-        this.isConfirm = false
-        this.isSuccess = false
-        this.err = ''
-
-        this.$refs.token_in.clear()
-
-        this.amountIn = new BN(0)
-        this.gasLimit = 21000
-        this.addressIn = ''
-    }
-
-    activated() {
-        this.startAgain()
-
-        let tokenAddr = this.$route.query.token
-        let tokenId = this.$route.query.tokenId
-
-        if (tokenAddr) {
-            if (tokenAddr === 'native') {
-                this.$refs.token_in.setToken(tokenAddr)
-            } else {
-                let token = this.$store.getters['Assets/findErc20'](tokenAddr)
-                let erc721 = this.$store.getters['Assets/ERC721/find'](tokenAddr)
-                if (token) {
-                    this.$refs.token_in.setToken(token)
-                } else if (erc721 && tokenId) {
-                    this.$refs.token_in.setErc721Token(erc721, tokenId as string)
-                }
-            }
-        }
-    }
-
-    get canConfirm() {
-        if (!this.isCollectible) {
-            if (this.amountIn.isZero()) return false
-            if (this.gasLimit <= 0 && this.formToken == 'native') return false
-        }
-
-        // if (this.gasPrice <= 0) return false
-        if (this.addressIn.length < 6) return false
-
-        return true
-    }
-
-    async submit() {
-        if (!this.wallet) return
-        this.isLoading = true
-        // convert base 9 to 18
-
-        let gasPriceWei = this.gasPrice
-        let toAddress = this.formAddress
-
-        if (toAddress.substring(0, 2) === 'C-') {
-            toAddress = toAddress.substring(2)
-        }
-
-        try {
-            if (!this.isCollectible) {
-                if (this.formToken === 'native') {
-                    let formAmt = this.formAmount
-
-                    let txHash = await this.wallet.sendEth(
-                        toAddress,
-                        formAmt,
-                        gasPriceWei,
-                        this.gasLimit
-                    )
-                    this.onSuccess(txHash)
-                } else {
-                    let txHash = await this.wallet.sendERC20(
-                        toAddress,
-                        this.formAmount,
-                        gasPriceWei,
-                        this.gasLimit,
-                        this.formToken
-                    )
-                    this.onSuccess(txHash)
-                }
-            } else {
-                if (!this.formCollectible) throw 'No collectible selected.'
-                let txHash = await WalletHelper.sendErc721(
-                    this.wallet,
-                    toAddress,
-                    gasPriceWei,
-                    this.gasLimit,
-                    this.formCollectible.token,
-                    this.formCollectible.id
-                )
-                this.onSuccess(txHash)
-            }
-        } catch (e) {
-            this.onError(e)
-        }
-    }
-
-    onSuccess(txId: string) {
-        this.isLoading = false
-        this.isSuccess = true
-        this.txHash = txId
-
-        this.$store.dispatch('Notifications/add', {
-            title: this.$t('transfer.success_title'),
-            message: this.$t('transfer.success_msg'),
-            type: 'success',
-        })
-
-        // Refresh UTXOs
-        this.canSendAgain = false
-        setTimeout(() => {
-            this.$store.dispatch('Assets/updateUTXOs')
-            this.$store.dispatch('History/updateTransactionHistory')
-            this.canSendAgain = true
-        }, 3000)
-    }
-
-    onError(err: any) {
-        this.err = err
-        this.isLoading = false
-
-        console.error(err)
-
-        this.$store.dispatch('Notifications/add', {
-            title: this.$t('transfer.error_title'),
-            message: this.$t('transfer.error_msg'),
-            type: 'error',
-        })
-    }
-}
 </script>
 <style scoped lang="scss">
 @use '../../../main';

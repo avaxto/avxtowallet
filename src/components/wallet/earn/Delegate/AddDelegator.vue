@@ -245,7 +245,7 @@ export default defineComponent({
         ConfirmPage,
         Expandable,
     },
-    setup() {
+    setup(_, { emit }) {
         const store = useStore()
         const { t } = useI18n()
 
@@ -280,375 +280,420 @@ export default defineComponent({
         const setEnd = (val: string) => {
             endDate.value = val
         }
-    }
 
-    onselect(val: ValidatorListItem) {
-        this.search = ''
-        this.selected = val
-    }
-
-    get wallet(): WalletType {
-        return this.$store.state.activeWallet
-    }
-
-    async submit() {
-        if (!this.formCheck()) {
-            return
-        }
-        this.isLoading = true
-        this.err = ''
-
-        let wallet: WalletType = this.$store.state.activeWallet
-
-        // Start delegation in 5 minutes
-        let startDate = new Date(Date.now() + 5 * MIN_MS)
-
-        try {
-            this.isLoading = false
-            let txId = await wallet.delegate(
-                this.formNodeID,
-                this.formAmt,
-                startDate,
-                this.formEnd,
-                this.formRewardAddr,
-                this.formUtxos
-            )
-            this.isSuccess = true
-            this.txId = txId
-            this.updateTxStatus(txId)
-        } catch (e) {
-            this.onerror(e)
-            this.isLoading = false
-        }
-    }
-
-    onsuccess(txId: string) {
-        this.$store.dispatch('Notifications/add', {
-            type: 'success',
-            title: 'Delegator Added',
-            message: 'Your tokens are now locked for staking.',
-        })
-
-        // Update History
-        setTimeout(() => {
-            this.$store.dispatch('Assets/updateUTXOs')
-            this.$store.dispatch('History/updateTransactionHistory')
-        }, 3000)
-    }
-
-    async updateTxStatus(txId: string) {
-        let res = await pChain.getTxStatus(txId)
-        let status
-        let reason = null
-        if (typeof res === 'string') {
-            status = res
-        } else {
-            status = res.status
-            reason = res.reason
+        const onselect = (val: ValidatorListItem) => {
+            search.value = ''
+            selected.value = val
         }
 
-        if (!status || status === 'Processing' || status === 'Unknown') {
-            setTimeout(() => {
-                this.updateTxStatus(txId)
-            }, 5000)
-        } else {
-            this.txStatus = status
-            this.txReason = reason
+        const submit = async () => {
+            if (!formCheck()) {
+                return
+            }
+            isLoading.value = true
+            err.value = ''
 
-            if (status === 'Committed') {
-                this.onsuccess(txId)
+            let wallet: WalletType = store.state.activeWallet
+
+            // Start delegation in 5 minutes
+            let startDate = new Date(Date.now() + 5 * MIN_MS)
+
+            try {
+                isLoading.value = false
+                let txId = await wallet.delegate(
+                    formNodeID.value,
+                    formAmt.value,
+                    startDate,
+                    formEnd.value,
+                    formRewardAddr.value,
+                    formUtxos.value
+                )
+                isSuccess.value = true
+                txId.value = txId
+                updateTxStatus(txId)
+            } catch (e) {
+                onerror(e)
+                isLoading.value = false
             }
         }
-    }
 
-    onerror(e: any) {
-        console.error(e)
-        let msg: string = e.message
+        const onsuccess = (txId: string) => {
+            store.dispatch('Notifications/add', {
+                type: 'success',
+                title: 'Delegator Added',
+                message: 'Your tokens are now locked for staking.',
+            })
 
-        if (msg.includes('startTime')) {
-            this.err = this.$t('earn.delegate.errs.start_end') as string
-            // this.err = "Start date must be in the future and end date must be after start date."
-        } else if (msg.includes('address format')) {
-            this.err = this.$t('earn.delegate.errs.invalid_addr') as string
-            // this.err = "Invalid address format. Your address must start with \"P-\"";
-        } else {
-            this.err = e.message
+            // Update History
+            setTimeout(() => {
+                store.dispatch('Assets/updateUTXOs')
+                store.dispatch('History/updateTransactionHistory')
+            }, 3000)
         }
-        this.$store.dispatch('Notifications/add', {
-            type: 'error',
-            title: 'Delegation Failed',
-            message: 'Failed to delegate tokens.',
+
+        const updateTxStatus = async (txId: string) => {
+            let res = await pChain.getTxStatus(txId)
+            let status
+            let reason = null
+            if (typeof res === 'string') {
+                status = res
+            } else {
+                status = res.status
+                reason = res.reason
+            }
+
+            if (!status || status === 'Processing' || status === 'Unknown') {
+                setTimeout(() => {
+                    updateTxStatus(txId)
+                }, 5000)
+            } else {
+                txStatus.value = status
+                txReason.value = reason
+
+                if (status === 'Committed') {
+                    onsuccess(txId)
+                }
+            }
+        }
+
+        const onerror = (e: any) => {
+            console.error(e)
+            let msg: string = e.message
+
+            if (msg.includes('startTime')) {
+                err.value = t('earn.delegate.errs.start_end') as string
+            } else if (msg.includes('address format')) {
+                err.value = t('earn.delegate.errs.invalid_addr') as string
+            } else {
+                err.value = e.message
+            }
+            store.dispatch('Notifications/add', {
+                type: 'error',
+                title: 'Delegation Failed',
+                message: 'Failed to delegate tokens.',
+            })
+        }
+
+        const estimatedReward = computed((): Big => {
+            let start = new Date(startDate.value)
+            let end = new Date(endDate.value)
+            let duration = end.getTime() - start.getTime() // in ms
+
+            let currentSupply = store.state.Platform.currentSupply
+
+            let estimation = calculateStakingReward(stakeAmt.value, duration / 1000, currentSupply)
+            let res = Big(estimation.toString()).div(Math.pow(10, 9))
+            return res
         })
-    }
 
-    get estimatedReward(): Big {
-        let start = new Date(this.startDate)
-        let end = new Date(this.endDate)
-        let duration = end.getTime() - start.getTime() // in ms
+        const estimatedRewardUSD = computed(() => {
+            return estimatedReward.value.times(avaxPrice.value)
+        })
 
-        let currentSupply = this.$store.state.Platform.currentSupply
+        const avaxPrice = computed((): Big => {
+            return Big(store.state.prices.usd)
+        })
 
-        let estimation = calculateStakingReward(this.stakeAmt, duration / 1000, currentSupply)
-        let res = Big(estimation.toString()).div(Math.pow(10, 9))
-        return res
-    }
+        const rewardSelect = (val: 'local' | 'custom') => {
+            if (val === 'local') {
+                rewardIn.value = rewardAddressLocal.value
+            } else {
+                rewardIn.value = ''
+            }
+            rewardDestination.value = val
+        const rewardAddressLocal = computed(() => {
+            let wallet: MnemonicWallet = store.state.activeWallet
+            return wallet.getPlatformRewardAddress()
+        })
 
-    get estimatedRewardUSD() {
-        return this.estimatedReward.times(this.avaxPrice)
-    }
+        const formCheck = (): boolean => {
+            err.value = ''
 
-    get avaxPrice(): Big {
-        return Big(this.$store.state.prices.usd)
-    }
+            if (!selected.value) {
+                err.value = t('earn.delegate.errs.no_node') as string
+                return false
+            }
 
-    rewardSelect(val: 'local' | 'custom') {
-        if (val === 'local') {
-            this.rewardIn = this.rewardAddressLocal
-        } else {
-            this.rewardIn = ''
-        }
-        this.rewardDestination = val
-    }
+            let startTime = new Date(startDate.value).getTime()
+            let endTime = new Date(endDate.value).getTime()
+            let now = Date.now()
+            let diffTime = endTime - startTime
 
-    get rewardAddressLocal() {
-        let wallet: MnemonicWallet = this.$store.state.activeWallet
-        return wallet.getPlatformRewardAddress()
-    }
+            if (startTime <= now) {
+                err.value = t('earn.delegate.errs.start_now') as string
+                return false
+            }
 
-    formCheck(): boolean {
-        this.err = ''
+            // TODO: UPDATE THIS WITH REAL VALUE
+            if (diffTime < DAY_MS * 14) {
+                err.value = t('earn.delegate.errs.min_dur') as string
+                return false
+            }
 
-        if (!this.selected) {
-            this.err = this.$t('earn.delegate.errs.no_node') as string
-            // this.err = "You must specify a validator."
-            return false
-        }
+            if (diffTime > DAY_MS * 365) {
+                err.value = t('earn.delegate.errs.max_dur') as string
+                return false
+            }
 
-        let startTime = new Date(this.startDate).getTime()
-        let endTime = new Date(this.endDate).getTime()
-        let now = Date.now()
-        let diffTime = endTime - startTime
+            let validatorEndtime = selected.value.endTime.getTime()
 
-        if (startTime <= now) {
-            this.err = this.$t('earn.delegate.errs.start_now') as string
-            return false
-        }
+            if (endTime > validatorEndtime) {
+                err.value = t('earn.delegate.errs.val_end') as string
+                return false
+            }
 
-        // TODO: UPDATE THIS WITH REAL VALUE
-        if (diffTime < DAY_MS * 14) {
-            this.err = this.$t('earn.delegate.errs.min_dur') as string
-            return false
-        }
+            // Reward address check
+            if (rewardDestination.value != 'local' && !rewardIn.value) {
+                err.value = t('earn.delegate.errs.no_addr') as string
+                return false
+            }
 
-        if (diffTime > DAY_MS * 365) {
-            this.err = this.$t('earn.delegate.errs.max_dur') as string
-            return false
-        }
+            // Validate reward address
+            try {
+                bintools.stringToAddress(rewardIn.value)
+            } catch (e) {
+                err.value = t('earn.delegate.errs.invalid_addr') as string
+                return false
+            }
 
-        let validatorEndtime = this.selected.endTime.getTime()
+            // Stake amount check
+            if (stakeAmt.value.lt(minStake.value)) {
+                let big = bnToBig(minStake.value, 9)
+                err.value = t('earn.delegate.errs.amt', [big.toLocaleString()]) as string
+                return false
+            }
 
-        if (endTime > validatorEndtime) {
-            this.err = this.$t('earn.delegate.errs.val_end') as string
-            return false
-        }
-
-        // Reward address check
-        if (this.rewardDestination != 'local' && !this.rewardIn) {
-            this.err = this.$t('earn.delegate.errs.no_addr') as string
-            return false
-        }
-
-        // Validate reward address
-        try {
-            bintools.stringToAddress(this.rewardIn)
-        } catch (e) {
-            this.err = this.$t('earn.delegate.errs.invalid_addr') as string
-            // this.err = "Invalid reward address."
-            return false
+            return true
         }
 
-        // Stake amount check
-        if (this.stakeAmt.lt(this.minStake)) {
-            let big = bnToBig(this.minStake, 9)
-            this.err = this.$t('earn.delegate.errs.amt', [big.toLocaleString()]) as string
-            return false
+        const updateFormData = () => {
+            formNodeID.value = selected.value!.nodeID
+            formAmt.value = stakeAmt.value
+            formEnd.value = new Date(endDate.value)
+            formRewardAddr.value = rewardIn.value
         }
 
-        return true
-    }
-
-    updateFormData() {
-        this.formNodeID = this.selected!.nodeID
-        this.formAmt = this.stakeAmt
-        this.formEnd = new Date(this.endDate)
-        this.formRewardAddr = this.rewardIn
-    }
-
-    confirm() {
-        if (!this.formCheck()) return
-        this.updateFormData()
-        this.isConfirm = true
-    }
-
-    cancelConfirm() {
-        this.isConfirm = false
-    }
-
-    get canSubmit(): boolean {
-        if (this.stakeAmt.isZero()) {
-            return false
+        const confirm = () => {
+            if (!formCheck()) return
+            updateFormData()
+            isConfirm.value = true
         }
-        return true
+
+        const cancelConfirm = () => {
+            isConfirm.value = false
+        }
+
+        const canSubmit = computed((): boolean => {
+            if (stakeAmt.value.isZero()) {
+                return false
+            }
+            return true
+        })
+
+        // Maximum end date is end of validator's staking duration
+        const endMaxDate = computed((): string | undefined => {
+            if (!selected.value) return undefined
+            return selected.value.endTime.toISOString()
+        })
+
+        const stakingDuration = computed((): number => {
+            let start = new Date(startDate.value)
+            let end = new Date(endDate.value)
+            let dur = end.getTime() - start.getTime()
+            return dur
+        })
+
+        const stakingDurationText = computed((): string => {
+            let dur = stakingDuration.value
+            let d = moment.duration(dur, 'milliseconds')
+            let days = Math.floor(d.asDays())
+            return `${days} days ${d.hours()} hours ${d.minutes()} minutes`
+        })
+
+        const minStake = computed((): BN => {
+            return store.state.Platform.minStakeDelegation
+        })
+
+        const delegationFee = computed((): number => {
+            if (!selected.value) return 0
+            return selected.value.fee
+        })
+
+        const totalFee = computed((): BN => {
+            let delegationFee = Big(delegationFee.value).div(Big(100))
+            let cut = estimatedReward.value.times(delegationFee)
+
+            let txFee: BN = pChain.getTxFee()
+            let cutBN = new BN(cut.times(Math.pow(10, 9)).toFixed(0))
+            let totFee = txFee.add(cutBN)
+            return totFee
+        })
+
+        const totalFeeBig = computed(() => {
+            return bnToBig(totalFee.value, 9)
+        })
+
+        const totalFeeUsdBig = computed(() => {
+            return totalFeeBig.value.times(avaxPrice.value)
+        })
+
+        const txFee = computed((): BN => {
+            return pChain.getTxFee()
+        })
+
+        const txFeeBig = computed((): Big => {
+            return bnToBig(txFee.value, 9)
+        })
+
+        const feeText = computed((): string => {
+            let big = totalFeeBig.value
+            return big.toLocaleString(0)
+        })
+
+        const minAmt = computed((): BN => {
+            return minStake.value.add(txFee.value)
+        })
+
+        const remainingAmt = computed((): BN => {
+            if (!selected.value) return new BN(0)
+            let nodeMaxStake: BN = store.getters['Platform/validatorMaxStake'](selected.value)
+
+            let totDel = selected.value.delegatedStake
+            let valAmt = selected.value.validatorStake
+            return nodeMaxStake.sub(totDel).sub(valAmt)
+        })
+
+        const remainingAmtText = computed(() => {
+            let bn = remainingAmt.value
+            return bnToBig(bn, 9).toLocaleString()
+        const utxosBalance = computed((): BN => {
+            return formUtxos.value.reduce((acc, val: UTXO) => {
+                let out = val.getOutput() as AmountOutput
+                return acc.add(out.getAmount())
+            }, new BN(0))
+        })
+
+        const utxosBalanceBig = computed((): Big => {
+            return bnToBig(utxosBalance.value, 9)
+        })
+
+        watch([formUtxos, maxAmt], () => {
+            // Amount of the biggest transaction that can be created with the selected UTXOs
+            const set = new UTXOSet()
+            set.addArray(formUtxos.value)
+
+            const fromAddresses = wallet.value.getAllAddressesP()
+            const changeAddress = wallet.value.getChangeAddressPlatform()
+            const sorted = sortUTxoSetP(set, false)
+            selectMaxUtxoForStaking(
+                sorted,
+                maxAmt.value,
+                fromAddresses,
+                changeAddress,
+                changeAddress,
+                changeAddress,
+                false
+            )
+                .then((res) => {
+                    maxTxSizeAmount.value = res.amount
+                })
+                .catch((e) => {
+                    maxTxSizeAmount.value = null
+                })
+        })
+
+        const maxTxSizeString = computed(() => {
+            return maxTxSizeAmount.value ? bnToAvaxP(maxTxSizeAmount.value) : false
+        })
+
+        const maxAmt = computed((): BN => {
+            let zero = new BN(0)
+
+            let totAvailable = utxosBalance.value
+
+            if (zero.gt(totAvailable)) return zero
+
+            if (totAvailable.gt(remainingAmt.value)) return remainingAmt.value
+
+            return totAvailable
+        })
+
+        const showMaxTxSizeWarning = computed(() => {
+            return maxTxSizeAmount.value && maxTxSizeAmount.value.lt(maxAmt.value)
+        })
+
+        const maxFormAmount = computed(() => {
+            return showMaxTxSizeWarning.value ? maxTxSizeAmount.value : maxAmt.value
+        })
+
+        // Go Back to earn
+        const cancel = () => {
+            emit('cancel')
+        }
+
+        return {
+            startDate,
+            endDate,
+            stakeAmt,
+            search,
+            selected,
+            isLoading,
+            err,
+            isSuccess,
+            txId,
+            isConfirm,
+            txStatus,
+            txReason,
+            rewardIn,
+            rewardDestination,
+            formNodeID,
+            formAmt,
+            formEnd,
+            formRewardAddr,
+            formUtxos,
+            maxTxSizeAmount,
+            setStart,
+            setEnd,
+            onselect,
+            wallet,
+            submit,
+            onsuccess,
+            updateTxStatus,
+            onerror,
+            estimatedReward,
+            estimatedRewardUSD,
+            avaxPrice,
+            rewardSelect,
+            rewardAddressLocal,
+            formCheck,
+            updateFormData,
+            confirm,
+            cancelConfirm,
+            canSubmit,
+            endMaxDate,
+            stakingDuration,
+            stakingDurationText,
+            minStake,
+            delegationFee,
+            totalFee,
+            totalFeeBig,
+            totalFeeUsdBig,
+            txFee,
+            txFeeBig,
+            feeText,
+            minAmt,
+            remainingAmt,
+            remainingAmtText,
+            utxosBalance,
+            utxosBalanceBig,
+            maxTxSizeString,
+            maxAmt,
+            showMaxTxSizeWarning,
+            maxFormAmount,
+            cancel
+        }
     }
-
-    // Maximum end date is end of validator's staking duration
-    get endMaxDate(): string | undefined {
-        if (!this.selected) return undefined
-
-        return this.selected.endTime.toISOString()
-    }
-
-    get stakingDuration(): number {
-        let start = new Date(this.startDate)
-        let end = new Date(this.endDate)
-        let dur = end.getTime() - start.getTime()
-        return dur
-    }
-
-    get stakingDurationText(): string {
-        let dur = this.stakingDuration
-        let d = moment.duration(dur, 'milliseconds')
-        // return d.humanize()
-        let days = Math.floor(d.asDays())
-        return `${days} days ${d.hours()} hours ${d.minutes()} minutes`
-    }
-
-    get minStake(): BN {
-        return this.$store.state.Platform.minStakeDelegation
-    }
-
-    get delegationFee(): number {
-        if (!this.selected) return 0
-        return this.selected.fee
-    }
-
-    get totalFee(): BN {
-        let delegationFee = Big(this.delegationFee).div(Big(100))
-        let cut = this.estimatedReward.times(delegationFee)
-
-        let txFee: BN = pChain.getTxFee()
-        let cutBN = new BN(cut.times(Math.pow(10, 9)).toFixed(0))
-        let totFee = txFee.add(cutBN)
-        return totFee
-    }
-
-    get totalFeeBig() {
-        return bnToBig(this.totalFee, 9)
-    }
-
-    get totalFeeUsdBig() {
-        return this.totalFeeBig.times(this.avaxPrice)
-    }
-
-    get txFee(): BN {
-        return pChain.getTxFee()
-    }
-
-    get txFeeBig(): Big {
-        return bnToBig(this.txFee, 9)
-    }
-
-    get feeText(): string {
-        let big = this.totalFeeBig
-        return big.toLocaleString(0)
-    }
-
-    get minAmt(): BN {
-        return this.minStake.add(this.txFee)
-    }
-
-    get remainingAmt(): BN {
-        if (!this.selected) return new BN(0)
-        // let totDel: BN = this.$store.getters["Platform/validatorTotalDelegated"](this.selected.nodeID);
-        let nodeMaxStake: BN = this.$store.getters['Platform/validatorMaxStake'](this.selected)
-
-        let totDel = this.selected.delegatedStake
-        let valAmt = this.selected.validatorStake
-        return nodeMaxStake.sub(totDel).sub(valAmt)
-    }
-
-    get remainingAmtText() {
-        let bn = this.remainingAmt
-        return bnToBig(bn, 9).toLocaleString()
-    }
-
-    get utxosBalance(): BN {
-        return this.formUtxos.reduce((acc, val: UTXO) => {
-            let out = val.getOutput() as AmountOutput
-            return acc.add(out.getAmount())
-        }, new BN(0))
-    }
-
-    get utxosBalanceBig(): Big {
-        return bnToBig(this.utxosBalance, 9)
-    }
-
-    @Watch('formUtxos')
-    @Watch('maxAmt')
-    onFormUtxosChange() {
-        // Amount of the biggest transaction that can be created with the selected UTXOs
-        const set = new UTXOSet()
-        set.addArray(this.formUtxos)
-
-        const fromAddresses = this.wallet.getAllAddressesP()
-        const changeAddress = this.wallet.getChangeAddressPlatform()
-        const sorted = sortUTxoSetP(set, false)
-        selectMaxUtxoForStaking(
-            sorted,
-            this.maxAmt,
-            fromAddresses,
-            changeAddress,
-            changeAddress,
-            changeAddress,
-            false
-        )
-            .then((res) => {
-                this.maxTxSizeAmount = res.amount
-            })
-            .catch((e) => {
-                this.maxTxSizeAmount = null
-            })
-    }
-
-    get maxTxSizeString() {
-        return this.maxTxSizeAmount ? bnToAvaxP(this.maxTxSizeAmount) : false
-    }
-
-    get maxAmt(): BN {
-        let zero = new BN(0)
-
-        let totAvailable = this.utxosBalance
-
-        if (zero.gt(totAvailable)) return zero
-
-        if (totAvailable.gt(this.remainingAmt)) return this.remainingAmt
-
-        return totAvailable
-    }
-
-    get showMaxTxSizeWarning() {
-        return this.maxTxSizeAmount && this.maxTxSizeAmount.lt(this.maxAmt)
-    }
-
-    get maxFormAmount() {
-        return this.showMaxTxSizeWarning ? this.maxTxSizeAmount : this.maxAmt
-    }
-
-    // Go Back to earn
-    cancel() {
-        this.$emit('cancel')
-    }
-}
+})
 </script>
 <style scoped lang="scss">
 @use "../../../../main";
