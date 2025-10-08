@@ -10,7 +10,7 @@
                 <NodeCard :node="selected"></NodeCard>
             </div>
             <transition-group name="fade" mode="out-in">
-                <div class="ins_col" key="form" v-show="!isConfirm">
+                <div class="ins_col" key="form">
                     <div style="margin-bottom: 30px">
                         <h4>{{ $t('earn.delegate.form.period.label') }}</h4>
                         <p class="desc">
@@ -281,6 +281,10 @@ export default defineComponent({
             endDate.value = val
         }
 
+        const setStart = (val: string) => {
+            startDate.value = val
+        }
+
         const onselect = (val: ValidatorListItem) => {
             search.value = ''
             selected.value = val
@@ -300,7 +304,7 @@ export default defineComponent({
 
             try {
                 isLoading.value = false
-                let txId = await wallet.delegate(
+                let delegationTxId = await wallet.delegate(
                     formNodeID.value,
                     formAmt.value,
                     startDate,
@@ -309,8 +313,8 @@ export default defineComponent({
                     formUtxos.value
                 )
                 isSuccess.value = true
-                txId.value = txId
-                updateTxStatus(txId)
+                txId.value = delegationTxId
+                updateTxStatus(delegationTxId)
             } catch (e) {
                 onerror(e)
                 isLoading.value = false
@@ -394,6 +398,11 @@ export default defineComponent({
             return Big(store.state.prices.usd)
         })
 
+        const rewardAddressLocal = computed(() => {
+            let wallet: MnemonicWallet = store.state.activeWallet
+            return wallet.getPlatformRewardAddress()
+        })
+
         const rewardSelect = (val: 'local' | 'custom') => {
             if (val === 'local') {
                 rewardIn.value = rewardAddressLocal.value
@@ -401,10 +410,7 @@ export default defineComponent({
                 rewardIn.value = ''
             }
             rewardDestination.value = val
-        const rewardAddressLocal = computed(() => {
-            let wallet: MnemonicWallet = store.state.activeWallet
-            return wallet.getPlatformRewardAddress()
-        })
+        }
 
         const formCheck = (): boolean => {
             err.value = ''
@@ -448,12 +454,14 @@ export default defineComponent({
                 return false
             }
 
-            // Validate reward address
-            try {
-                bintools.stringToAddress(rewardIn.value)
-            } catch (e) {
-                err.value = t('earn.delegate.errs.invalid_addr') as string
-                return false
+            // Validate reward address only when using custom address
+            if (rewardDestination.value != 'local' && rewardIn.value) {
+                try {
+                    bintools.stringToAddress(rewardIn.value)
+                } catch (e) {
+                    err.value = t('earn.delegate.errs.invalid_addr') as string
+                    return false
+                }
             }
 
             // Stake amount check
@@ -520,8 +528,8 @@ export default defineComponent({
         })
 
         const totalFee = computed((): BN => {
-            let delegationFee = Big(delegationFee.value).div(Big(100))
-            let cut = estimatedReward.value.times(delegationFee)
+            let feePct = Big(delegationFee.value).div(Big(100))
+            let cut = estimatedReward.value.times(feePct)
 
             let txFee: BN = pChain.getTxFee()
             let cutBN = new BN(cut.times(Math.pow(10, 9)).toFixed(0))
@@ -566,6 +574,8 @@ export default defineComponent({
         const remainingAmtText = computed(() => {
             let bn = remainingAmt.value
             return bnToBig(bn, 9).toLocaleString()
+        })
+
         const utxosBalance = computed((): BN => {
             return formUtxos.value.reduce((acc, val: UTXO) => {
                 let out = val.getOutput() as AmountOutput
@@ -759,10 +769,6 @@ label {
     padding: 4px 0;
     padding-left: 34px;
     padding-right: 14px;
-
-    .id_box {
-        //grid-column: 1/3;
-    }
 
     button {
         opacity: 0.4;

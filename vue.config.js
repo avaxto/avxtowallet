@@ -68,7 +68,11 @@ module.exports = defineConfig({
     },
     configureWebpack: {
         plugins: [
-            new VuetifyPlugin()
+            new VuetifyPlugin(),
+            new (require('webpack')).ProvidePlugin({
+                Buffer: ['buffer', 'Buffer'],
+                process: 'process/browser',
+            })
         ],
         optimization: {
             splitChunks: {
@@ -89,6 +93,7 @@ module.exports = defineConfig({
                 '@ledgerhq/evm-tools/selectors': '@ledgerhq/evm-tools/lib-es/selectors',
             },
             fallback: {
+                buffer: require.resolve('buffer/'),
                 crypto: require.resolve('crypto-browserify'),
                 stream: require.resolve('stream-browserify'),
                 http: require.resolve('stream-http'),

@@ -44,6 +44,28 @@ app.component('datetime', Datetime)
 // Configure app
 app.config.globalProperties.$productionTip = false
 
+// Global error handler for unhandled errors
+app.config.errorHandler = (err: any, instance, info) => {
+    console.error('Vue Error Handler:', err)
+    console.error('Component:', instance)
+    console.error('Error Info:', info)
+    
+    // Handle axios errors specifically
+    if (err.response) {
+        const status = err.response.status
+        if (status === 401) {
+            console.warn('Authentication error detected. This may be due to API changes or rate limiting.')
+        } else if (status === 429) {
+            console.warn('Rate limit exceeded. Please try again later.')
+        }
+    }
+    
+    // Prevent the error from propagating to the browser console in production
+    if (process.env.NODE_ENV === 'production') {
+        return false
+    }
+}
+
 // Mount the app
 const mountedApp = app.mount('#app')
 

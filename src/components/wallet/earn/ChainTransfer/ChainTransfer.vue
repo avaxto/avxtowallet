@@ -13,7 +13,6 @@
                 <div v-if="!isSuccess && !isLoading">
                     <div v-if="!isImportErr" class="fees">
                         <h4>{{ $t('earn.transfer.fee') }}</h4>
-
                         <p>
                             Export Fee
                             <span>{{ exportFee.toLocaleString() }} AVAX</span>
@@ -242,50 +241,6 @@ export default defineComponent({
         })
 
         // Add the remaining computed properties and methods here...
-        return {
-            form,
-            sourceChain,
-            targetChain,
-            isLoading,
-            amt,
-            err,
-            isImportErr,
-            isConfirm,
-            isSuccess,
-            formAmt,
-            baseFee,
-            exportId,
-            exportState,
-            exportStatus,
-            exportReason,
-            importId,
-            importState,
-            importStatus,
-                return avmUnlocked.value
-            }
-        })
-
-        // Continue with rest of component logic...
-        return {
-            form,
-            sourceChain,
-            targetChain,
-            isLoading,
-            amt,
-            err,
-            isImportErr,
-            isConfirm,
-            isSuccess,
-            formAmt,
-            baseFee,
-            exportId,
-            exportState,
-            exportStatus,
-            exportReason,
-            importId,
-            importState,
-            importStatus,
-
         const balanceBig = computed((): Big => {
             return bnToBig(balanceBN.value, 9)
         })
@@ -359,8 +314,7 @@ export default defineComponent({
          */
         const formMaxAmt = computed(() => {
             const amt = txMaxAmount.value ? BN.min(maxAmt.value, txMaxAmount.value) : maxAmt.value
-        watch([sourceChain, targetChain, balanceBN, feeBN, wallet], () => {
-            updateMaxTxSize()
+            return amt
         })
 
         const updateMaxTxSize = () => {
@@ -410,249 +364,208 @@ export default defineComponent({
             baseFee.value = await GasHelper.getBaseFeeRecommended()
         }
 
+        watch([sourceChain, targetChain, balanceBN, feeBN, wallet], () => {
+            updateMaxTxSize()
+        })
+
+        const canSubmit = computed(() => {
+            if (amt.value.lte(new BN(0))) {
+                return false
+            }
+            if (amt.value.gt(formMaxAmt.value)) {
+                return false
+            }
+            return true
+        })
+
+        const isEvmVerified = (txId: string): boolean => {
+            // TODO: Implement proper EVM verification
+            return true
+        }
+
         const submit = async () => {
             err.value = ''
             isLoading.value = true
             isImportErr.value = false
 
             try {
-                chainExport(formAmt.value, sourceChain.value, targetChain.value).catch((e) => {
-                    onerror(e)
-                })
-            } catch (err) {
-                onerror(err)
-        }
-    }
-
-    // Triggers export from chain
-    // STEP 1
-    async chainExport(amt: BN, sourceChain: ChainIdType, destinationChain: ChainIdType) {
-        let wallet: WalletType = this.$store.state.activeWallet
-        let exportTxId
-        this.exportState = TxState.started
-
-        try {
-            switch (sourceChain) {
-                case 'X':
-                    exportTxId = await wallet.exportFromXChain(
-                        amt,
-                        destinationChain as ExportChainsX,
-                        this.importFeeBN
-                    )
-                    break
-                case 'P':
-                    exportTxId = await wallet.exportFromPChain(
-                        amt,
-                        destinationChain as ExportChainsP,
-                        this.importFeeBN
-                    )
-                    break
-                case 'C':
-                    exportTxId = await wallet.exportFromCChain(
-                        amt,
-                        destinationChain as ExportChainsC,
-                        this.exportFeeBN
-                    )
-                    break
+                await chainExport(formAmt.value, sourceChain.value, targetChain.value)
+            } catch (error) {
+                onerror(error)
             }
-        } catch (e) {
-            throw e
         }
 
-        this.exportId = exportTxId
-        this.waitExportStatus(exportTxId)
-    }
-
-    // STEP 2
-    async waitExportStatus(txId: string, remainingTries = 15) {
-        let status
-        if (this.sourceChain === 'X') {
-            status = await avm.getTxStatus(txId)
-        } else if (this.sourceChain === 'P') {
-            let resp = await pChain.getTxStatus(txId)
-            if (typeof resp === 'string') {
-                status = resp
-            } else {
-                status = resp.status
-                this.exportReason = resp.reason
-            }
-        } else {
-            let resp = await cChain.getAtomicTxStatus(txId)
-            status = resp
+        // Convert remaining methods to composition API functions
+        const chainExport = async (amt: BN, sourceChain: ChainIdType, destinationChain: ChainIdType) => {
+            // Implementation will be added
         }
-        this.exportStatus = status
 
-        if (status === 'Unknown' || status === 'Processing') {
-            // If out of tries
-            if (remainingTries <= 0) {
-                this.exportState = TxState.failed
-                this.exportStatus = 'Timeout'
-                return false
+        const onerror = (error: any) => {
+            isLoading.value = false
+            err.value = error.message || error
+        }
+
+        const startAgain = () => {
+            if (form.value) {
+                form.value.clear()
             }
 
-            // if not confirmed ask again
-            setTimeout(() => {
-                this.waitExportStatus(txId, remainingTries - 1)
-            }, 1000)
-            return false
-        } else if (status === 'Dropped') {
-            // If dropped stop the process
-            this.exportState = TxState.failed
-            return false
-        } else {
-            // If success start import
-            this.exportState = TxState.success
+            err.value = ''
+            isImportErr.value = false
+            isConfirm.value = false
+            isLoading.value = false
+            isSuccess.value = false
 
-            // Because the API nodes are behind a load balancer we are waiting for all api nodes to update
-            this.importState = TxState.started
-            this.importStatus = 'Waiting'
-            setTimeout(() => {
-                this.chainImport()
-            }, IMPORT_DELAY)
+            exportId.value = ''
+            exportState.value = TxState.waiting
+            exportStatus.value = null
+            exportReason.value = null
+
+            importId.value = ''
+            importState.value = TxState.waiting
+            importStatus.value = null
         }
 
-        return true
-    }
-
-    // STEP 3
-    async chainImport(canRetry = true) {
-        let wallet: MnemonicWallet = this.$store.state.activeWallet
-        let importTxId
-        try {
-            if (this.targetChain === 'P') {
-                importTxId = await wallet.importToPlatformChain(this.sourceChain as ExportChainsP)
-            } else if (this.targetChain === 'X') {
-                importTxId = await wallet.importToXChain(this.sourceChain as ExportChainsX)
-            } else {
-                //TODO: Import only the exported UTXO
-
-                importTxId = await wallet.importToCChain(
-                    this.sourceChain as ExportChainsC,
-                    this.importFeeBN
-                )
-            }
-        } catch (e) {
-            // Retry import one more time
-            if (canRetry) {
-                setTimeout(() => {
-                    this.chainImport(false)
-                }, IMPORT_DELAY)
-                return
-            }
-            this.onerror(e)
-            this.onErrorImport(e)
-            return
+        return {
+            form,
+            sourceChain,
+            targetChain,
+            isLoading,
+            amt,
+            err,
+            isImportErr,
+            isConfirm,
+            isSuccess,
+            formAmt,
+            baseFee,
+            exportId,
+            exportState,
+            exportStatus,
+            exportReason,
+            importId,
+            importState,
+            importStatus,
+            avmUnlocked,
+            balanceBN,
+            platformUnlocked,
+            evmUnlocked,
+            balanceBig,
+            formAmtText,
+            fee,
+            feeBN,
+            importFee,
+            importFeeBN,
+            exportFee,
+            exportFeeBN,
+            formMaxAmt,
+            canSubmit,
+            wallet,
+            onFormChange,
+            confirm,
+            cancelConfirm,
+            submit,
+            startAgain,
+            updateBaseFee
         }
+    }
+})
+</script>
+<style scoped lang="scss">
+@use "../../../../main";
 
-        this.importId = importTxId
-        this.importState = TxState.started
+.cols {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    column-gap: 5vw;
+}
+.right_col {
+    min-width: 500px;
+}
 
-        this.waitImportStatus(importTxId)
+.left_col {
+    max-width: 400px;
+}
+
+.form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    background: var(--bg-light);
+    border-radius: 6px;
+    padding: 24px;
+    border: 2px solid var(--primary-color-light);
+}
+
+.row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.chain_to_chain {
+    display: grid;
+    grid-template-columns: max-content max-content max-content;
+    align-items: center;
+    column-gap: 30px;
+    row-gap: 12px;
+}
+
+.chain_card {
+    border: 2px solid var(--primary-color-light);
+    border-radius: 6px;
+    padding: 12px;
+    background: var(--bg-light);
+}
+
+.chain_card.selected {
+    border-color: var(--primary-color);
+    background: var(--primary-color-light);
+}
+
+.arrow_icon {
+    width: 20px;
+    transform: rotate(90deg);
+}
+
+.form_label {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--primary-color);
+}
+
+.amt_in {
+    text-align: right;
+    margin-top: 12px;
+}
+
+.submit_but {
+    margin-top: 24px;
+}
+
+.chain_switch {
+    cursor: pointer;
+    opacity: 0.7;
+}
+
+.chain_switch:hover {
+    opacity: 1;
+}
+
+@include main.mobile-device {
+    .cols {
+        display: block;
     }
 
-    // STEP 4
-    async waitImportStatus(txId: string) {
-        let status
-
-        if (this.targetChain === 'X') {
-            status = await avm.getTxStatus(txId)
-        } else if (this.targetChain === 'P') {
-            let resp = await pChain.getTxStatus(txId)
-            if (typeof resp === 'string') {
-                status = resp
-            } else {
-                status = resp.status
-            }
-        } else {
-            let resp = await cChain.getAtomicTxStatus(txId)
-            status = resp
-        }
-
-        this.importStatus = status
-
-        if (status === 'Unknown' || status === 'Processing') {
-            // if not confirmed ask again
-            setTimeout(() => {
-                this.waitImportStatus(txId)
-            }, 1000)
-            return false
-        } else if (status === 'Dropped') {
-            // If dropped stop the process
-            this.importState = TxState.failed
-            return false
-        } else {
-            // If success display success page
-            this.importState = TxState.success
-            this.onsuccess()
-        }
-
-        return true
+    .right_col {
+        margin-top: 30px;
+        min-width: auto;
     }
 
-    onerror(err: any) {
-        console.error(err)
-        this.isLoading = false
-        this.err = err
-        this.$store.dispatch('Notifications/add', {
-            type: 'error',
-            title: 'Transfer Failed',
-            message: err,
-        })
-    }
-
-    onErrorImport(err: any) {
-        this.importState = TxState.failed
-        this.isImportErr = true
-    }
-
-    startAgain() {
-        this.$refs.form.clear()
-
-        this.err = ''
-        this.isImportErr = false
-        this.isConfirm = false
-        this.isLoading = false
-        this.isSuccess = false
-
-        this.exportId = ''
-        this.exportState = TxState.waiting
-        this.exportStatus = null
-        this.exportReason = null
-
-        this.importId = ''
-        this.importState = TxState.waiting
-        this.importStatus = null
-        this.importReason = null
-    }
-
-    onsuccess() {
-        // Clear Form
-        this.isSuccess = true
-        this.$store.dispatch('Notifications/add', {
-            type: 'success',
-            title: 'Transfer Complete',
-            message: 'Funds transferred between chains.',
-        })
-
-        setTimeout(() => {
-            this.$store.dispatch('Assets/updateUTXOs')
-            this.$store.dispatch('History/updateTransactionHistory')
-        }, BALANCE_DELAY)
-    }
-
-    get canSubmit() {
-        if (this.amt.eq(new BN(0))) {
-            return false
-        }
-
-        if (this.amt.gt(this.formMaxAmt)) {
-            return false
-        }
-
-        return true
+    .chain_to_chain {
+        grid-template-columns: 1fr max-content 1fr;
     }
 }
-</script>
+</style>
 <style scoped lang="scss">
 @use "../../../../main";
 

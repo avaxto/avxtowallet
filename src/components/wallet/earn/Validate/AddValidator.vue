@@ -263,8 +263,9 @@
     </div>
 </template>
 <script lang="ts">
-import 'reflect-metadata'
-import { Vue, Component, Prop, Watch } from 'vue-property-decorator'
+import { defineComponent, ref, computed, watch, onMounted } from 'vue'
+import { useStore } from 'vuex'
+import { useI18n } from 'vue-i18n'
 //@ts-ignore
 import AvaxInput from '@/components/misc/AvaxInput.vue'
 import { BN } from 'avalanche'
@@ -297,8 +298,7 @@ const DAY_MS = HOUR_MS * 24
 const MIN_STAKE_DURATION = DAY_MS * 14
 const MAX_STAKE_DURATION = DAY_MS * 365
 
-@Component({
-    methods: { bnToAvaxP },
+export default defineComponent({
     name: 'add_validator',
     components: {
         Tooltip,
@@ -311,510 +311,585 @@ const MAX_STAKE_DURATION = DAY_MS * 365
         Expandable,
         UtxoSelectForm,
     },
-})
-export default class AddValidator extends Vue {
-    startDate: string = new Date(Date.now() + MIN_MS * 15).toISOString()
-    endDate: string = new Date().toISOString()
-    delegationFee: string = '2.0'
-    nodeId = ''
-    rewardIn: string = ''
-    rewardDestination = 'local' // local || custom
-    isLoading = false
-    isConfirm = false
-    err: string = ''
-    stakeAmt: BN = new BN(0)
+    emits: ['cancel'],
+    setup(props, { emit }) {
+        const store = useStore()
+        const { t } = useI18n()
 
-    // BLS fields for ACP-62 compliance
-    blsPublicKey = ''
-    blsSignature = ''
-    blsPublicKeyError = ''
-    blsSignatureError = ''
+        // Reactive state
+        const startDate = ref(new Date(Date.now() + MIN_MS * 15).toISOString())
+        const endDate = ref(new Date().toISOString())
+        const delegationFee = ref('2.0')
+        const nodeId = ref('')
+        const rewardIn = ref('')
+        const rewardDestination = ref('local') // local || custom
+        const isLoading = ref(false)
+        const isConfirm = ref(false)
+        const err = ref('')
+        const stakeAmt = ref(new BN(0))
 
-    minFee = 2
+        // BLS fields for ACP-62 compliance
+        const blsPublicKey = ref('')
+        const blsSignature = ref('')
+        const blsPublicKeyError = ref('')
+        const blsSignatureError = ref('')
 
-    formNodeId = ''
-    formAmt: BN = new BN(0)
-    formEnd: Date = new Date()
-    formFee: number = 0
-    formRewardAddr = ''
-    formUtxos: UTXO[] = []
-    formBlsPublicKey = ''
-    formBlsSignature = ''
+        const minFee = ref(2)
 
-    txId = ''
-    txStatus: string | null = null
-    txReason: null | string = null
+        const formNodeId = ref('')
+        const formAmt = ref(new BN(0))
+        const formEnd = ref(new Date())
+        const formFee = ref(0)
+        const formRewardAddr = ref('')
+        const formUtxos = ref<UTXO[]>([])
+        const formBlsPublicKey = ref('')
+        const formBlsSignature = ref('')
 
-    isSuccess = false
+        const txId = ref('')
+        const txStatus = ref<string | null>(null)
+        const txReason = ref<null | string>(null)
 
-    currency_type = 'AVAX'
+        const isSuccess = ref(false)
+        const currency_type = ref('AVAX')
+        const maxTxSizeAmount = ref(new BN(0))
 
-    maxTxSizeAmount = new BN(0)
+        // Computed properties
+        const wallet = computed((): WalletType => {
+            return store.state.activeWallet
+        })
 
-    mounted() {
-        this.rewardSelect('local')
-    }
+        const rewardAddressLocal = computed(() => {
+            const w: MnemonicWallet = store.state.activeWallet
+            return w.getPlatformRewardAddress()
+        })
 
-    onFeeChange() {
-        let num = parseFloat(this.delegationFee)
-        if (num < this.minFee) {
-            this.delegationFee = this.minFee.toString()
-        } else if (num > 100) {
-            this.delegationFee = '100'
-        }
-    }
+        const platformUnlocked = computed((): BN => {
+            return store.getters['Assets/walletPlatformBalance'].available
+        })
 
-    setEnd(val: string) {
-        this.endDate = val
-    }
+        const platformLockedStakeable = computed((): BN => {
+            return store.getters['Assets/walletPlatformBalanceLockedStakeable']
+        })
 
-    get rewardAddressLocal() {
-        let wallet: MnemonicWallet = this.$store.state.activeWallet
-        return wallet.getPlatformRewardAddress()
-    }
+        const feeAmt = computed((): BN => {
+            return pChain.getTxFee()
+        })
 
-    rewardSelect(val: 'local' | 'custom') {
-        if (val === 'local') {
-            this.rewardIn = this.rewardAddressLocal
-        } else {
-            this.rewardIn = ''
-        }
-        this.rewardDestination = val
-    }
+        const utxosBalance = computed((): BN => {
+            return formUtxos.value.reduce((acc, val: UTXO) => {
+                const out = val.getOutput() as AmountOutput
+                return acc.add(out.getAmount())
+            }, new BN(0))
+        })
 
-    // BLS key validation and generation methods
-    validateBlsPublicKey() {
-        this.blsPublicKeyError = ''
-        if (!this.blsPublicKey) {
-            this.blsPublicKeyError = 'BLS public key is required for validator registration.'
+        const maxAmt = computed((): BN => {
+            const pAmt = utxosBalance.value
+
+            // absolute max stake
+            const mult = new BN(10).pow(new BN(6 + 9))
+            const absMaxStake = new BN(3).mul(mult)
+
+            // If above stake limit
+            if (pAmt.gt(absMaxStake)) {
+                return absMaxStake
+            }
+
+            const ZERO = new BN('0')
+            if (pAmt.gt(ZERO)) {
+                return pAmt
+            } else {
+                return ZERO
+            }
+        })
+
+        const showMaxTxSizeWarning = computed(() => {
+            return maxTxSizeAmount.value.lt(maxAmt.value)
+        })
+
+        const maxFormAmount = computed(() => {
+            return showMaxTxSizeWarning.value ? maxTxSizeAmount.value : maxAmt.value
+        })
+
+        const stakeDuration = computed((): number => {
+            const start = new Date(startDate.value)
+            let end = new Date(endDate.value)
+
+            if (isConfirm.value) {
+                end = formEnd.value
+            }
+
+            const diff = end.getTime() - start.getTime()
+            return diff
+        })
+
+        const warnShortDuration = computed((): boolean => {
+            const dur = stakeDuration.value
+
+            // If duration is less than 16 days give a warning
+            if (dur <= DAY_MS * 16) {
+                return true
+            }
             return false
-        }
-        
-        const clean = this.blsPublicKey.startsWith('0x') ? this.blsPublicKey.slice(2) : this.blsPublicKey
-        if (clean.length !== 96 || !/^[0-9a-fA-F]+$/.test(clean)) {
-            this.blsPublicKeyError = 'Invalid BLS public key format. Must be 48 bytes (96 hex characters).'
-            return false
-        }
-        return true
-    }
+        })
 
-    validateBlsSignature() {
-        this.blsSignatureError = ''
-        if (!this.blsSignature) {
-            this.blsSignatureError = 'BLS signature is required for validator registration.'
-            return false
-        }
-        
-        const clean = this.blsSignature.startsWith('0x') ? this.blsSignature.slice(2) : this.blsSignature
-        if (clean.length !== 192 || !/^[0-9a-fA-F]+$/.test(clean)) {
-            this.blsSignatureError = 'Invalid BLS signature format. Must be 96 bytes (192 hex characters).'
-            return false
-        }
-        return true
-    }
+        const durationText = computed(() => {
+            const d = moment.duration(stakeDuration.value, 'milliseconds')
+            const days = Math.floor(d.asDays())
+            return `${days} days ${d.hours()} hours ${d.minutes()} minutes`
+        })
 
-    async generateBlsKeys() {
-        try {
-            // Generate keys deterministically from wallet
-            const wallet: WalletType = this.$store.state.activeWallet
-            const seed = wallet.getCurrentAddressPlatform() + this.nodeId
-            const keyPair = generateBlsKeyPair(seed)
-            
-            // Generate proof of possession
-            const message = generateProofOfPossessionMessage(this.nodeId, keyPair.publicKey)
-            const signature = signBlsMessage(keyPair.privateKey, message)
-            
-            this.blsPublicKey = '0x' + keyPair.publicKey
-            this.blsSignature = '0x' + signature.signature
-            
-            // Validate the generated keys
-            this.validateBlsPublicKey()
-            this.validateBlsSignature()
-            
-            this.$store.dispatch('Notifications/add', {
-                type: 'info',
-                title: 'BLS Keys Generated',
-                message: 'BLS public key and signature have been generated for your validator.'
-            })
-        } catch (error) {
-            console.error('Failed to generate BLS keys:', error)
-            this.$store.dispatch('Notifications/add', {
-                type: 'error',
-                title: 'BLS Generation Failed',
-                message: 'Failed to generate BLS keys. Please enter them manually.'
-            })
+        const denomination = computed(() => {
+            return 9
+        })
+
+        const maxDelegationAmt = computed((): BN => {
+            const stakeAmtVal = stakeAmt.value
+            const maxRelative = stakeAmtVal.mul(new BN(5))
+
+            // absolute max stake
+            const mult = new BN(10).pow(new BN(6 + 9))
+            const absMaxStake = new BN(3).mul(mult)
+
+            let res
+            if (maxRelative.lt(absMaxStake)) {
+                res = maxRelative.sub(stakeAmtVal)
+            } else {
+                res = absMaxStake.sub(stakeAmtVal)
+            }
+
+            return BN.max(res, new BN(0))
+        })
+
+        const maxDelegationText = computed(() => {
+            return bnToBig(maxDelegationAmt.value, 9).toLocaleString(9)
+        })
+
+        const maxDelegationUsdText = computed(() => {
+            const big = bnToBig(maxDelegationAmt.value, 9)
+            const res = big.times(avaxPrice.value)
+            return res.toLocaleString(2)
+        })
+
+        const avaxPrice = computed((): Big => {
+            return Big(store.state.prices.usd)
+        })
+
+        const estimatedReward = computed((): Big => {
+            const start = new Date(startDate.value)
+            const end = new Date(endDate.value)
+            const duration = end.getTime() - start.getTime() // in ms
+
+            const currentSupply = store.state.Platform.currentSupply
+            const estimation = calculateStakingReward(stakeAmt.value, duration / 1000, currentSupply)
+            const res = bnToBig(estimation, 9)
+
+            return res
+        })
+
+        const estimatedRewardUSD = computed(() => {
+            return estimatedReward.value.times(avaxPrice.value)
+        })
+
+        const minStakeAmt = computed((): BN => {
+            return store.state.Platform.minStake
+        })
+
+        const canSubmit = computed(() => {
+            if (!nodeId.value) {
+                return false
+            }
+
+            if (stakeAmt.value.isZero()) {
+                return false
+            }
+
+            if (!rewardIn.value) {
+                return false
+            }
+
+            return true
+        })
+
+        // Methods
+        const onFeeChange = () => {
+            let num = parseFloat(delegationFee.value)
+            if (num < minFee.value) {
+                delegationFee.value = minFee.value.toString()
+            } else if (num > 100) {
+                delegationFee.value = '100'
+            }
         }
-    }
 
-    // Returns true to show a warning about short validation periods that can not take any delegators
-    get warnShortDuration(): boolean {
-        let dur = this.stakeDuration
+        const setEnd = (val: string) => {
+            endDate.value = val
+        }
 
-        // If duration is less than 16 days give a warning
-        if (dur <= DAY_MS * 16) {
+        const rewardSelect = (val: 'local' | 'custom') => {
+            if (val === 'local') {
+                rewardIn.value = rewardAddressLocal.value
+            } else {
+                rewardIn.value = ''
+            }
+            rewardDestination.value = val
+        }
+
+        // BLS key validation and generation methods
+        const validateBlsPublicKey = () => {
+            blsPublicKeyError.value = ''
+            if (!blsPublicKey.value) {
+                blsPublicKeyError.value = 'BLS public key is required for validator registration.'
+                return false
+            }
+            
+            const clean = blsPublicKey.value.startsWith('0x') ? blsPublicKey.value.slice(2) : blsPublicKey.value
+            if (clean.length !== 96 || !/^[0-9a-fA-F]+$/.test(clean)) {
+                blsPublicKeyError.value = 'Invalid BLS public key format. Must be 48 bytes (96 hex characters).'
+                return false
+            }
             return true
         }
-        return false
-    }
 
-    get stakeDuration(): number {
-        let start = new Date(this.startDate)
-        let end = new Date(this.endDate)
-
-        if (this.isConfirm) {
-            end = this.formEnd
-        }
-
-        let diff = end.getTime() - start.getTime()
-        return diff
-    }
-
-    get durationText() {
-        let d = moment.duration(this.stakeDuration, 'milliseconds')
-        let days = Math.floor(d.asDays())
-        return `${days} days ${d.hours()} hours ${d.minutes()} minutes`
-    }
-
-    get denomination() {
-        return 9
-    }
-
-    get platformUnlocked(): BN {
-        return this.$store.getters['Assets/walletPlatformBalance'].available
-    }
-
-    get platformLockedStakeable(): BN {
-        return this.$store.getters['Assets/walletPlatformBalanceLockedStakeable']
-    }
-
-    get feeAmt(): BN {
-        return pChain.getTxFee()
-    }
-
-    get utxosBalance(): BN {
-        return this.formUtxos.reduce((acc, val: UTXO) => {
-            let out = val.getOutput() as AmountOutput
-            return acc.add(out.getAmount())
-        }, new BN(0))
-    }
-
-    get maxAmt(): BN {
-        let pAmt = this.utxosBalance
-
-        // absolute max stake
-        let mult = new BN(10).pow(new BN(6 + 9))
-        let absMaxStake = new BN(3).mul(mult)
-
-        // If above stake limit
-        if (pAmt.gt(absMaxStake)) {
-            return absMaxStake
-        }
-
-        // let res = pAmt.sub(fee);
-        const ZERO = new BN('0')
-        if (pAmt.gt(ZERO)) {
-            return pAmt
-        } else {
-            return ZERO
-        }
-    }
-
-    get wallet(): WalletType {
-        return this.$store.state.activeWallet
-    }
-
-    @Watch('formUtxos')
-    @Watch('maxAmt')
-    onFormUtxosChange() {
-        // Amount of the biggest transaction that can be created with the selected UTXOs
-        const set = new UTXOSet()
-        set.addArray(this.formUtxos)
-
-        const fromAddresses = this.wallet.getAllAddressesP()
-        const changeAddress = this.wallet.getChangeAddressPlatform()
-        const sorted = sortUTxoSetP(set, false)
-        selectMaxUtxoForStaking(
-            sorted,
-            this.maxAmt,
-            fromAddresses,
-            changeAddress,
-            changeAddress,
-            changeAddress,
-            true
-        ).then((res) => {
-            this.maxTxSizeAmount = res.amount
-        })
-    }
-
-    get showMaxTxSizeWarning() {
-        return this.maxTxSizeAmount.lt(this.maxAmt)
-    }
-
-    get maxFormAmount() {
-        return this.showMaxTxSizeWarning ? this.maxTxSizeAmount : this.maxAmt
-    }
-
-    get maxDelegationAmt(): BN {
-        let stakeAmt = this.stakeAmt
-
-        let maxRelative = stakeAmt.mul(new BN(5))
-
-        // absolute max stake
-        let mult = new BN(10).pow(new BN(6 + 9))
-        let absMaxStake = new BN(3).mul(mult)
-
-        let res
-        if (maxRelative.lt(absMaxStake)) {
-            res = maxRelative.sub(stakeAmt)
-        } else {
-            res = absMaxStake.sub(stakeAmt)
-        }
-
-        return BN.max(res, new BN(0))
-    }
-
-    get maxDelegationText() {
-        return bnToBig(this.maxDelegationAmt, 9).toLocaleString(9)
-    }
-
-    get maxDelegationUsdText() {
-        let big = bnToBig(this.maxDelegationAmt, 9)
-        let res = big.times(this.avaxPrice)
-        return res.toLocaleString(2)
-    }
-
-    get avaxPrice(): Big {
-        return Big(this.$store.state.prices.usd)
-    }
-
-    get estimatedReward(): Big {
-        let start = new Date(this.startDate)
-        let end = new Date(this.endDate)
-        let duration = end.getTime() - start.getTime() // in ms
-
-        let currentSupply = this.$store.state.Platform.currentSupply
-        let estimation = calculateStakingReward(this.stakeAmt, duration / 1000, currentSupply)
-        let res = bnToBig(estimation, 9)
-
-        return res
-    }
-
-    get estimatedRewardUSD() {
-        return this.estimatedReward.times(this.avaxPrice)
-    }
-
-    updateFormData() {
-        this.formNodeId = this.nodeId.trim()
-        this.formAmt = this.stakeAmt
-        this.formEnd = new Date(this.endDate)
-        this.formRewardAddr = this.rewardIn
-        this.formFee = parseFloat(this.delegationFee)
-        this.formBlsPublicKey = this.blsPublicKey.trim()
-        this.formBlsSignature = this.blsSignature.trim()
-    }
-
-    confirm() {
-        if (!this.formCheck()) return
-        this.updateFormData()
-        this.isConfirm = true
-    }
-    cancelConfirm() {
-        this.isConfirm = false
-    }
-
-    cancel() {
-        this.$emit('cancel')
-    }
-
-    get canSubmit() {
-        if (!this.nodeId) {
-            return false
-        }
-
-        if (this.stakeAmt.isZero()) {
-            return false
-        }
-
-        if (!this.rewardIn) {
-            return false
-        }
-
-        return true
-    }
-
-    formCheck(): boolean {
-        this.err = ''
-
-        // BLS validation for ACP-62 compliance
-        if (!this.validateBlsPublicKey()) {
-            this.err = this.blsPublicKeyError
-            return false
-        }
-
-        if (!this.validateBlsSignature()) {
-            this.err = this.blsSignatureError
-            return false
-        }
-
-        // Reward Address
-        if (this.rewardDestination !== 'local') {
-            let rewardAddr = this.rewardIn
-
-            // If it doesnt start with P
-            if (rewardAddr[0] !== 'P') {
-                this.err = this.$t('earn.validate.errs.address') as string
+        const validateBlsSignature = () => {
+            blsSignatureError.value = ''
+            if (!blsSignature.value) {
+                blsSignatureError.value = 'BLS signature is required for validator registration.'
                 return false
             }
+            
+            const clean = blsSignature.value.startsWith('0x') ? blsSignature.value.slice(2) : blsSignature.value
+            if (clean.length !== 192 || !/^[0-9a-fA-F]+$/.test(clean)) {
+                blsSignatureError.value = 'Invalid BLS signature format. Must be 96 bytes (192 hex characters).'
+                return false
+            }
+            return true
+        }
 
-            // not a valid address
+        const generateBlsKeys = async () => {
             try {
-                bintools.stringToAddress(rewardAddr)
-            } catch (e) {
-                this.err = this.$t('earn.validate.errs.address') as string
+                // Generate keys deterministically from wallet
+                const w: WalletType = store.state.activeWallet
+                const seed = w.getCurrentAddressPlatform() + nodeId.value
+                const keyPair = generateBlsKeyPair(seed)
+                
+                // Generate proof of possession
+                const message = generateProofOfPossessionMessage(nodeId.value, keyPair.publicKey)
+                const signature = signBlsMessage(keyPair.privateKey, message)
+                
+                blsPublicKey.value = '0x' + keyPair.publicKey
+                blsSignature.value = '0x' + signature.signature
+                
+                // Validate the generated keys
+                validateBlsPublicKey()
+                validateBlsSignature()
+                
+                store.dispatch('Notifications/add', {
+                    type: 'info',
+                    title: 'BLS Keys Generated',
+                    message: 'BLS public key and signature have been generated for your validator.'
+                })
+            } catch (error) {
+                console.error('Failed to generate BLS keys:', error)
+                store.dispatch('Notifications/add', {
+                    type: 'error',
+                    title: 'BLS Generation Failed',
+                    message: 'Failed to generate BLS keys. Please enter them manually.'
+                })
+            }
+        }
+
+        const updateFormData = () => {
+            formNodeId.value = nodeId.value.trim()
+            formAmt.value = stakeAmt.value
+            formEnd.value = new Date(endDate.value)
+            formRewardAddr.value = rewardIn.value
+            formFee.value = parseFloat(delegationFee.value)
+            formBlsPublicKey.value = blsPublicKey.value.trim()
+            formBlsSignature.value = blsSignature.value.trim()
+        }
+
+        const formCheck = (): boolean => {
+            err.value = ''
+
+            // BLS validation for ACP-62 compliance
+            if (!validateBlsPublicKey()) {
+                err.value = blsPublicKeyError.value
                 return false
             }
+
+            if (!validateBlsSignature()) {
+                err.value = blsSignatureError.value
+                return false
+            }
+
+            // Reward Address
+            if (rewardDestination.value !== 'local') {
+                const rewardAddr = rewardIn.value
+
+                // If it doesnt start with P
+                if (rewardAddr[0] !== 'P') {
+                    err.value = t('earn.validate.errs.address') as string
+                    return false
+                }
+
+                // not a valid address
+                try {
+                    bintools.stringToAddress(rewardAddr)
+                } catch (e) {
+                    err.value = t('earn.validate.errs.address') as string
+                    return false
+                }
+            }
+
+            // Not a valid Node ID
+            if (!nodeId.value.includes('NodeID-')) {
+                err.value = t('earn.validate.errs.id') as string
+                return false
+            }
+
+            // Delegation Fee
+            if (parseFloat(delegationFee.value) < minFee.value) {
+                err.value = t('earn.validate.errs.fee', [minFee.value]) as string
+                return false
+            }
+
+            // Stake amount
+            if (stakeAmt.value.lt(minStakeAmt.value)) {
+                const big = Big(minStakeAmt.value.toString()).div(Math.pow(10, 9))
+                err.value = t('earn.validate.errs.amount', [big.toLocaleString()]) as string
+                return false
+            }
+
+            return true
         }
 
-        // Not a valid Node ID
-        if (!this.nodeId.includes('NodeID-')) {
-            this.err = this.$t('earn.validate.errs.id') as string
-            return false
+        const confirm = () => {
+            if (!formCheck()) return
+            updateFormData()
+            isConfirm.value = true
         }
 
-        // Delegation Fee
-        if (parseFloat(this.delegationFee) < this.minFee) {
-            this.err = this.$t('earn.validate.errs.fee', [this.minFee]) as string
-            return false
+        const cancelConfirm = () => {
+            isConfirm.value = false
         }
 
-        // Stake amount
-        if (this.stakeAmt.lt(this.minStakeAmt)) {
-            let big = Big(this.minStakeAmt.toString()).div(Math.pow(10, 9))
-            this.err = this.$t('earn.validate.errs.amount', [big.toLocaleString()]) as string
-            return false
+        const cancel = () => {
+            emit('cancel')
         }
 
-        return true
-    }
+        const onsuccess = () => {
+            store.dispatch('Notifications/add', {
+                type: 'success',
+                title: 'Validator Added',
+                message: 'Your tokens are now locked to stake.',
+            })
 
-    async submit() {
-        if (!this.formCheck()) return
-        let wallet: WalletType = this.$store.state.activeWallet
-
-        // Start delegation in 5 minutes
-        let startDate = new Date(Date.now() + 5 * MIN_MS)
-        let endMs = this.formEnd.getTime()
-        let startMs = startDate.getTime()
-
-        // If End date - start date is greater than max stake duration, adjust start date
-        if (endMs - startMs > MAX_STAKE_DURATION) {
-            startDate = new Date(endMs - MAX_STAKE_DURATION)
-        }
-
-        try {
-            this.isLoading = true
-            this.err = ''
-            let txId = await wallet.validate(
-                this.formNodeId,
-                this.formAmt,
-                startDate,
-                this.formEnd,
-                this.formFee,
-                this.formRewardAddr,
-                this.formUtxos,
-                this.formBlsPublicKey,
-                this.formBlsSignature
-            )
-            this.isLoading = false
-            this.onTxSubmit(txId)
-        } catch (err) {
-            this.isLoading = false
-            this.onerror(err)
-        }
-    }
-
-    onTxSubmit(txId: string) {
-        this.txId = txId
-        this.isSuccess = true
-        this.updateTxStatus(txId)
-    }
-
-    onsuccess() {
-        this.$store.dispatch('Notifications/add', {
-            type: 'success',
-            title: 'Validator Added',
-            message: 'Your tokens are now locked to stake.',
-        })
-
-        // Update History
-        setTimeout(() => {
-            this.$store.dispatch('Assets/updateUTXOs')
-            this.$store.dispatch('History/updateTransactionHistory')
-        }, 3000)
-    }
-
-    async updateTxStatus(txId: string) {
-        let res = await pChain.getTxStatus(txId)
-
-        let status
-        let reason = null
-        if (typeof res === 'string') {
-            status = res
-        } else {
-            status = res.status
-            reason = res.reason
-        }
-
-        if (!status || status === 'Processing' || status === 'Unknown') {
+            // Update History
             setTimeout(() => {
-                this.updateTxStatus(txId)
-            }, 5000)
-        } else {
-            this.txStatus = status
-            this.txReason = reason
+                store.dispatch('Assets/updateUTXOs')
+                store.dispatch('History/updateTransactionHistory')
+            }, 3000)
+        }
 
-            if (status === 'Committed') {
-                this.onsuccess()
+        const updateTxStatus = async (txIdVal: string) => {
+            const res = await pChain.getTxStatus(txIdVal)
+
+            let status
+            let reason = null
+            if (typeof res === 'string') {
+                status = res
+            } else {
+                status = res.status
+                reason = res.reason
+            }
+
+            if (!status || status === 'Processing' || status === 'Unknown') {
+                setTimeout(() => {
+                    updateTxStatus(txIdVal)
+                }, 5000)
+            } else {
+                txStatus.value = status
+                txReason.value = reason
+
+                if (status === 'Committed') {
+                    onsuccess()
+                }
             }
         }
-    }
 
-    get minStakeAmt(): BN {
-        return this.$store.state.Platform.minStake
-    }
-
-    onerror(err: any) {
-        let msg: string = err.message
-        console.error(err)
-
-        if (msg.includes('startTime')) {
-            this.err = this.$t('earn.validate.errs.date') as string
-        } else if (msg.includes('must be at least')) {
-            let minAmt = this.minStakeAmt
-            let big = Big(minAmt.toString()).div(Math.pow(10, 9))
-            this.err = this.$t('earn.validate.errs.amount', [big.toLocaleString()]) as string
-        } else if (msg.includes('nodeID')) {
-            this.err = this.$t('earn.validate.errs.id') as string
-        } else if (msg.includes('address format')) {
-            this.err = this.$t('earn.validate.errs.address') as string
-        } else {
-            this.err = err.message
+        const onTxSubmit = (txIdVal: string) => {
+            txId.value = txIdVal
+            isSuccess.value = true
+            updateTxStatus(txIdVal)
         }
 
-        this.$store.dispatch('Notifications/add', {
-            type: 'error',
-            title: 'Validation Failed',
-            message: 'Failed to add validator.',
+        const onerror = (error: any) => {
+            const msg: string = error.message
+            console.error(error)
+
+            if (msg.includes('startTime')) {
+                err.value = t('earn.validate.errs.date') as string
+            } else if (msg.includes('must be at least')) {
+                const minAmt = minStakeAmt.value
+                const big = Big(minAmt.toString()).div(Math.pow(10, 9))
+                err.value = t('earn.validate.errs.amount', [big.toLocaleString()]) as string
+            } else if (msg.includes('nodeID')) {
+                err.value = t('earn.validate.errs.id') as string
+            } else if (msg.includes('address format')) {
+                err.value = t('earn.validate.errs.address') as string
+            } else {
+                err.value = error.message
+            }
+
+            store.dispatch('Notifications/add', {
+                type: 'error',
+                title: 'Validation Failed',
+                message: 'Failed to add validator.',
+            })
+        }
+
+        const submit = async () => {
+            if (!formCheck()) return
+            const w: WalletType = store.state.activeWallet
+
+            // Start delegation in 5 minutes
+            let startDateVal = new Date(Date.now() + 5 * MIN_MS)
+            const endMs = formEnd.value.getTime()
+            const startMs = startDateVal.getTime()
+
+            // If End date - start date is greater than max stake duration, adjust start date
+            if (endMs - startMs > MAX_STAKE_DURATION) {
+                startDateVal = new Date(endMs - MAX_STAKE_DURATION)
+            }
+
+            try {
+                isLoading.value = true
+                err.value = ''
+                const txIdVal = await w.validate(
+                    formNodeId.value,
+                    formAmt.value,
+                    startDateVal,
+                    formEnd.value,
+                    formFee.value,
+                    formRewardAddr.value,
+                    formUtxos.value,
+                    formBlsPublicKey.value,
+                    formBlsSignature.value
+                )
+                isLoading.value = false
+                onTxSubmit(txIdVal)
+            } catch (error) {
+                isLoading.value = false
+                onerror(error)
+            }
+        }
+
+        // Watchers
+        const onFormUtxosChange = () => {
+            // Amount of the biggest transaction that can be created with the selected UTXOs
+            const set = new UTXOSet()
+            set.addArray(formUtxos.value)
+
+            const fromAddresses = wallet.value.getAllAddressesP()
+            const changeAddress = wallet.value.getChangeAddressPlatform()
+            const sorted = sortUTxoSetP(set, false)
+            selectMaxUtxoForStaking(
+                sorted,
+                maxAmt.value,
+                fromAddresses,
+                changeAddress,
+                changeAddress,
+                changeAddress,
+                true
+            ).then((res) => {
+                maxTxSizeAmount.value = res.amount
+            })
+        }
+
+        watch([formUtxos, maxAmt], onFormUtxosChange)
+
+        // Lifecycle
+        onMounted(() => {
+            rewardSelect('local')
         })
+
+        return {
+            // State
+            startDate,
+            endDate,
+            delegationFee,
+            nodeId,
+            rewardIn,
+            rewardDestination,
+            isLoading,
+            isConfirm,
+            err,
+            stakeAmt,
+            blsPublicKey,
+            blsSignature,
+            blsPublicKeyError,
+            blsSignatureError,
+            minFee,
+            formNodeId,
+            formAmt,
+            formEnd,
+            formFee,
+            formRewardAddr,
+            formUtxos,
+            formBlsPublicKey,
+            formBlsSignature,
+            txId,
+            txStatus,
+            txReason,
+            isSuccess,
+            currency_type,
+            maxTxSizeAmount,
+            // Computed
+            wallet,
+            rewardAddressLocal,
+            platformUnlocked,
+            platformLockedStakeable,
+            feeAmt,
+            utxosBalance,
+            maxAmt,
+            showMaxTxSizeWarning,
+            maxFormAmount,
+            stakeDuration,
+            warnShortDuration,
+            durationText,
+            denomination,
+            maxDelegationAmt,
+            maxDelegationText,
+            maxDelegationUsdText,
+            avaxPrice,
+            estimatedReward,
+            estimatedRewardUSD,
+            minStakeAmt,
+            canSubmit,
+            // Methods
+            onFeeChange,
+            setEnd,
+            rewardSelect,
+            validateBlsPublicKey,
+            validateBlsSignature,
+            generateBlsKeys,
+            updateFormData,
+            formCheck,
+            confirm,
+            cancelConfirm,
+            cancel,
+            submit,
+            onsuccess,
+            updateTxStatus,
+            onTxSubmit,
+            onerror,
+            // External functions for template
+            bnToAvaxP,
+        }
     }
-}
+})
 </script>
 <style scoped lang="scss">
 @use "../../../../main";
-.cols {
-    /*display: grid;*/
-    /*grid-template-columns: 1fr 1fr;*/
-}
 
 form {
     display: grid;

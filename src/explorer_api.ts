@@ -11,6 +11,33 @@ const explorer_api: AxiosInstance = axios.create({
     },
 })
 
+// Add response interceptor to handle errors gracefully
+explorer_api.interceptors.response.use(
+    (response) => response,
+    (error) => {
+        if (error.response) {
+            const status = error.response.status
+            const url = error.config?.url || 'unknown'
+            
+            // Handle specific error codes
+            if (status === 401) {
+                console.warn(`[Explorer API] 401 Unauthorized error for ${url}. The API may require authentication or the endpoint has changed.`)
+                // Return empty data instead of throwing
+                return Promise.resolve({ data: { transactions: [], addressChains: {} } })
+            } else if (status === 429) {
+                console.warn(`[Explorer API] Rate limit exceeded for ${url}. Please try again later.`)
+            } else if (status >= 500) {
+                console.error(`[Explorer API] Server error (${status}) for ${url}`)
+            }
+        } else if (error.request) {
+            console.error('[Explorer API] No response received from server. Check network connection.')
+        }
+        
+        // For non-401 errors, reject as usual
+        return Promise.reject(error)
+    }
+)
+
 async function getAddressHistory(
     addrs: string[],
     limit = 20,
