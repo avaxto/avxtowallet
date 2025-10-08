@@ -31,7 +31,6 @@
             </v-btn>
         </div>
 
-        <!--   MOBILE MENU     -->
         <v-navigation-drawer
             ref="drawer"
             class="mobile_menu"
@@ -208,6 +207,10 @@ button {
     display: none;
 }
 
+.mobile_menu {
+    display: none;
+}
+
 .mobile_bottom {
     position: absolute;
     bottom: 30px;
@@ -248,6 +251,10 @@ button {
     }
 
     .mobile_right {
+        display: block;
+    }
+
+    .mobile_menu {
         display: block;
     }
 
