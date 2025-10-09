@@ -14,7 +14,6 @@ import {
     RootState,
 } from '@/store/types'
 import { ava, avm, bintools, cChain } from '@/AVA'
-import Vue from 'vue'
 import AvaAsset from '@/js/AvaAsset'
 import { WalletType } from '@/js/wallets/types'
 import { AvaNftFamily } from '@/js/AvaNftFamily'
@@ -66,14 +65,14 @@ const assets_module: Module<AssetsState, RootState> = {
                 return
             }
             state.assets.push(asset)
-            Vue.set(state.assetsDict, asset.id, asset)
+            state.assetsDict[asset.id] = asset
         },
         addNftFamily(state, family: AvaNftFamily) {
             if (state.nftFamsDict[family.id]) {
                 return
             }
             state.nftFams.push(family)
-            Vue.set(state.nftFamsDict, family.id, family)
+            state.nftFamsDict[family.id] = family
         },
         removeAllAssets(state) {
             state.assets = []

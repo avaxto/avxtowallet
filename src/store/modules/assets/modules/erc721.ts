@@ -5,7 +5,6 @@ import { Erc721ModuleState, ERC721TokenInput } from '@/store/modules/assets/modu
 import { RootState } from '@/store/types'
 import ERC721_TOKEN_LIST from '@/ERC721Tokenlist.json'
 import { WalletType } from '@/js/wallets/types'
-import Vue from 'vue'
 
 const erc721_module: Module<Erc721ModuleState, RootState> = {
     namespaced: true,
@@ -37,7 +36,7 @@ const erc721_module: Module<Erc721ModuleState, RootState> = {
         async removeCustom({ state, commit }, data: ERC721Token) {
             const index = state.erc721TokensCustom.indexOf(data)
             state.erc721TokensCustom.splice(index, 1)
-            Vue.delete(state.walletBalance, data.contractAddress)
+            delete state.walletBalance[data.contractAddress]
             commit('saveCustomContracts')
         },
 
@@ -84,7 +83,7 @@ const erc721_module: Module<Erc721ModuleState, RootState> = {
                 erc721
                     .getAllTokensIds(walletAddr)
                     .then((tokenIds: string[]) => {
-                        Vue.set(state.walletBalance, erc721.contractAddress, tokenIds)
+                        state.walletBalance[erc721.contractAddress] = tokenIds
                     })
                     .catch((err) => {
                         console.error(err)
