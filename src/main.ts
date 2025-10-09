@@ -7,14 +7,12 @@ import { createI18n } from 'vue-i18n'
 //@ts-ignore
 import { Datetime } from 'vue-datetime'
 import 'vue-datetime/dist/vue-datetime.css'
-
 import { createBootstrap } from 'bootstrap-vue-next'
 import vuetify from './plugins/vuetify'
 // @ts-ignore
 import i18nMessages from './plugins/i18n.js'
 // @ts-ignore
 import posthogPlugin from './plugins/posthog.js'
-
 import 'bootstrap/dist/css/bootstrap.css'
 import 'bootstrap-vue-next/dist/bootstrap-vue-next.css'
 
