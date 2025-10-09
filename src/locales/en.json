@@ -11,15 +11,15 @@
         "cookie_desc": "We use cookies to develop improvements and enhance your experience. To find out more, read our"
     },
     "home": {
-        "desc": "Welcome to AVXTO Wallet - The classic Avalanche experience!",
+        "desc": "Welcome to AVXTO - AVAX Toolbox and Wallet",
         "access": {
             "title": "Welcome Back!",
-            "desc": "Access your existing Avalanche wallet here.",
+            "desc": "Access your existing AVAX Toolbox wallet here.",
             "submit": "Access Wallet"
         },
         "create": {
-            "title": "New to Avalanche Wallet?",
-            "desc": "Create a new wallet to send, receive and swap Avalanche assets.",
+            "title": "New to AVAX Toolbox?",
+            "desc": "Create a new Toolbox wallet to send, receive and swap Avalanche assets.",
             "submit": "Create New Wallet"
         }
     },

@@ -116,4 +116,20 @@ module.exports = defineConfig({
             msTileImage: 'img/icons/mstile-150x150.png',
         },
     },
+    css: {
+        loaderOptions: {
+            sass: {
+                // Suppress deprecation warnings from node_modules (especially Bootstrap)
+                sassOptions: {
+                    quietDeps: true,
+                },
+            },
+            scss: {
+                // Suppress deprecation warnings from node_modules (especially Bootstrap)
+                sassOptions: {
+                    quietDeps: true,
+                },
+            },
+        },
+    },
 })

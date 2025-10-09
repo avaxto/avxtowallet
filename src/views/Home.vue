@@ -5,12 +5,7 @@
                 <b-col>
                     <div class="home_wrapper">
                         <h1>{{ $t('home.desc') }}</h1>
-                        <p style="text-align: center">
-                            <a href="https://telegram.me/collablandbot?start=VFBDI1RFTCNDT01NIy0xMDAxNzI5NTYxMjQw" target="_blank" style="font-weight: bold; text-decoration: none;">The $AVXTO community is developing a 100% free, open source wallet and toolbox for Avalanche AVAX</a>
-                        </p>
-                        <p style="text-align: center">
-                            <strong>At this stage, this is still experimental software, provided for community evaluation, audits and overall testing. Although we've taken care to stick to the original code as closely as possible, we did make significant changes to adapt to the new Avalanche standards.</strong>
-                        </p>
+                        
                         <div class="login_wrapper">
                             <div class="login_option">
                                 <header>

@@ -114,6 +114,12 @@ export default {
         min-height: calc(100vh - 80px);
         position: relative;
         padding: main.$container_padding_m;
+        
+        // Remove horizontal padding for home page to allow proper centering
+        &:has(.home) {
+            padding-left: 0;
+            padding-right: 0;
+        }
     }
 }
 
@@ -122,6 +128,12 @@ export default {
     position: relative;
     padding: main.$container_padding_m;
     overflow: auto;
+    
+    // Remove horizontal padding for home page to allow proper centering
+    &:has(.home) {
+        padding-left: 0;
+        padding-right: 0;
+    }
 }
 
 /*.panel {*/
@@ -144,6 +156,11 @@ body {
 
 p {
     margin: 0px !important;
+}
+
+// Remove default Vuetify v-main padding
+.v-main {
+    padding: 0 !important;
 }
 
 #app {

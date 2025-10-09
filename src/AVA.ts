@@ -14,7 +14,6 @@ const network_id: number = 2
 const chain_id: string = 'X'
 const bintools: BinTools = BinTools.getInstance()
 const ava: Avalanche = new Avalanche(ip, port, protocol, network_id, chain_id)
-
 const avm: AVMAPI = ava.XChain()
 const cChain: EVMAPI = ava.CChain()
 const pChain = ava.PChain()

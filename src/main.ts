@@ -15,7 +15,6 @@ import i18nMessages from './plugins/i18n.js'
 // @ts-ignore
 import posthogPlugin from './plugins/posthog.js'
 
-// Import Bootstrap CSS
 import 'bootstrap/dist/css/bootstrap.css'
 import 'bootstrap-vue-next/dist/bootstrap-vue-next.css'
 

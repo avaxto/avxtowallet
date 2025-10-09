@@ -6,7 +6,18 @@
 //@import "node_modules/bootstrap/scss/reboot";
 
 //@import "node_modules/bootstrap/scss/bootstrap-reboot.scss";
-@import 'node_modules/bootstrap/scss/bootstrap-grid.scss';
+
+// Suppress Bootstrap deprecation warnings for legacy Sass API
+// Bootstrap 5 still uses @import internally which causes warnings
+// This will be fixed when Bootstrap updates to use @use/@forward
+@use 'sass:meta';
+
+// Import Bootstrap Grid with suppressed warnings
+@use 'node_modules/bootstrap/scss/bootstrap-grid.scss' with (
+    $enable-grid-classes: true,
+    $enable-cssgrid: true
+);
+
 //@import "node_modules/bootstrap/scss/grid";
 
 //@import "node_modules/bootstrap-vue/src/variables";
@@ -15,7 +26,7 @@
 
 $mobile_width: 900px;
 $width_s: 1300px;
-$width_m: 1300px;
+$width_m: 1500px;
 
 $container_padding_l: 30px 18vw;
 $container_padding_m: 30px 160px;
