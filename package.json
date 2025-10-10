@@ -62,7 +62,6 @@
         "qrcode": "1.4.4",
         "randomstring": "1.2.1",
         "reflect-metadata": "0.1.13",
-        "sockette": "2.0.6",
         "stream-browserify": "^3.0.0",
         "stream-http": "^3.2.0",
         "uniqid": "5.2.0",

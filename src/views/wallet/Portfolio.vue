@@ -26,7 +26,7 @@
             </div>
         </div>
         <div class="pages">
-            <transition-group name="fade" mode="out-in">
+            <transition-group name="fade" mode="out-in" tag="div">
                 <fungibles
                     v-show="tab === `fungibles`"
                     key="fungibles"

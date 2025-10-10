@@ -2,10 +2,10 @@
     <div
         data-cy="network-switcher"
         class="network_menu"
-        :connected="status === 'connected'"
+        :connected="status === 'connected' ? '' : null"
         @keydown.esc="closeMenu"
     >
-        <div class="toggle_but" @click="toggleMenu" :testnet="isTestnet">
+        <div class="toggle_but" @click="toggleMenu" :testnet="isTestnet ? '' : null">
             <span
                 :style="{
                     backgroundColor: connectionColor,

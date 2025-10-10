@@ -114,9 +114,6 @@ class HdHelper {
 
         this.hdIndex = newIndex
 
-        // Update websocket addresses with the new one
-        updateFilterAddresses()
-
         return newIndex
     }
 

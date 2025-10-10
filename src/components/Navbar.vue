@@ -1,6 +1,6 @@
 <template>
     <div id="nav">
-        <ConfirmLogout ref="logout"></ConfirmLogout>
+        <ConfirmLogout ref="logoutRef"></ConfirmLogout>
         <router-link to="/" class="logo">
             <img v-if="$root.theme === 'day'" src="@/assets/avaxtowallet_logo.png" />
             <img v-else src="@/assets/avaxtowallet_logo_dark.png" />            
@@ -34,7 +34,8 @@
         <v-navigation-drawer
             ref="drawer"
             class="mobile_menu"
-            v-model="isDrawer"
+            :model-value="isDrawer"
+            @update:model-value="isDrawer = $event"
             fixed
             style="z-index: 999"
             hide-overlay
@@ -66,10 +67,7 @@
                     <!--                    <v-list-item to="/wallet/transfer">Transfer</v-list-item>-->
                     <!--                    <v-list-item @click="logout"><Log out/v-list-item>-->
                 </template>
-                <template v-else>
-                    <router-link to="/access">{{ $t('nav.access') }}</router-link>
-                    <router-link to="/create">{{ $t('nav.create') }}</router-link>
-                </template>
+
                 <div class="mobile_bottom">
                     <AccountMenu></AccountMenu>
                     <LanguageSelect class="lang_mobile"></LanguageSelect>
@@ -119,7 +117,7 @@ export default defineComponent({
         return {
             isDrawer,
             popupOpen,
-            logout: logoutRef,
+            logoutRef,
             isAuth,
             logout,
             togglePopup

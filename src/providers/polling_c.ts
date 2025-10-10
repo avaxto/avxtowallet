@@ -4,7 +4,7 @@ import { WalletType } from '@/js/wallets/types'
 
 /**
  * REST API equivalent of socket_c.ts  
- * Polls C-Chain for new blocks instead of using WebSocket
+ * Polls C-Chain for new blocks
  */
 
 let pollingTimer: ReturnType<typeof setInterval> | null = null
@@ -77,7 +77,7 @@ function updateWalletBalanceC() {
     const wallet: null | WalletType = store.state.activeWallet
     if (!wallet) return
     
-    // Refresh the wallet balance - same logic as WebSocket version
+    // Refresh the wallet balance
     wallet.getEthBalance()
 }
 

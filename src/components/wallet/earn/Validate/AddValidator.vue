@@ -2,7 +2,7 @@
     <div>
         <div class="cols">
             <form @submit.prevent="">
-                <transition-group name="fade" mode="out-in">
+                <transition-group name="fade" mode="out-in" tag="div">
                     <div v-show="!isConfirm" key="form" class="ins_col">
                         <div style="margin-bottom: 30px">
                             <h4>{{ $t('earn.validate.label_1') }}</h4>

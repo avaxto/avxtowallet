@@ -5,7 +5,7 @@ import { PROVIDER_CONFIG } from '@/providers/provider_config'
 
 /**
  * Polling Manager
- * Replaces WebSocket events with periodic REST API calls
+ * Periodic REST API calls polling
  */
 
 interface PollingConfig {
@@ -59,7 +59,7 @@ class PollingManager {
     }
 
     /**
-     * Start X-Chain polling (replaces socket_x WebSocket)
+     * Start X-Chain polling
      */
     private startXChainPolling() {
         if (!this.network) return
@@ -78,7 +78,7 @@ class PollingManager {
     }
 
     /**
-     * Start C-Chain polling (replaces socket_c WebSocket) 
+     * Start C-Chain polling
      */
     private startCChainPolling() {
         if (!this.network) return
@@ -169,7 +169,7 @@ class PollingManager {
         if (!wallet) return
 
         try {
-            // Refresh the wallet balance - same logic as WebSocket version
+            // Refresh the wallet balance
             await store.dispatch('Assets/updateUTXOsExternal')
             await store.dispatch('History/updateTransactionHistory')
         } catch (error) {
@@ -185,7 +185,7 @@ class PollingManager {
         if (!wallet) return
 
         try {
-            // Refresh the wallet balance - same logic as WebSocket version
+            // Refresh the wallet balance
             await wallet.getEthBalance()
         } catch (error) {
             console.warn('C-Chain balance update error:', error)

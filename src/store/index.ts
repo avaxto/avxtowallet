@@ -75,9 +75,6 @@ export default createStore({
             } else {
                 const addrNow = state.activeWallet.getCurrentAddressAvm()
                 state.address = addrNow
-
-                // Update the websocket addresses
-                updateFilterAddresses()
             }
         },
     },

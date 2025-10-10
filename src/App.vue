@@ -5,9 +5,11 @@
                 <navbar v-show="isNavbar"></navbar>
                 <div class="main_cols" :wallet_view="!isNavbar">
                     <UpgradeToAccountModal></UpgradeToAccountModal>
-                    <transition name="fade" mode="out-in">
-                        <router-view id="router_view" />
-                    </transition>
+                    <router-view id="router_view" v-slot="{ Component }">
+                        <transition name="fade" mode="out-in">
+                            <component :is="Component" />
+                        </transition>
+                    </router-view>
                 </div>
             </template>
         </v-main>

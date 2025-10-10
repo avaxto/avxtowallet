@@ -15,6 +15,8 @@ import i18nMessages from './plugins/i18n.js'
 import posthogPlugin from './plugins/posthog.js'
 import 'bootstrap/dist/css/bootstrap.css'
 import 'bootstrap-vue-next/dist/bootstrap-vue-next.css'
+// Import FontAwesome component
+import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
 
 // Create the Vue app
 const app = createApp(App)
@@ -37,6 +39,8 @@ app.use(createBootstrap())
 
 // Register global components
 app.component('datetime', Datetime)
+// Register FontAwesome component as 'fa' to match template usage
+app.component('fa', FontAwesomeIcon)
 
 // Configure app
 app.config.globalProperties.$productionTip = false
@@ -63,7 +67,6 @@ app.config.errorHandler = (err: any, instance, info) => {
     }
 }
 
-// Mount the app
 const mountedApp = app.mount('#app')
 
 // @ts-ignore

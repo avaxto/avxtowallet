@@ -1,6 +1,6 @@
 <template>
     <div class="notifications">
-        <transition-group name="list">
+        <transition-group name="list" tag="div">
             <div class="notif_item" v-for="notif in items" :key="notif.id">
                 <p
                     class="notif_title"

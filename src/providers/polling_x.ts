@@ -4,7 +4,7 @@ import { WalletType } from '@/js/wallets/types'
 
 /**
  * REST API equivalent of socket_x.ts
- * Polls X-Chain for updates instead of using WebSocket
+ * Polls X-Chain for updates
  */
 
 let pollingTimer: ReturnType<typeof setInterval> | null = null
@@ -69,7 +69,7 @@ function updateWalletBalanceX() {
     const wallet: null | WalletType = store.state.activeWallet
     if (!wallet) return
     
-    // Refresh the wallet balance - same logic as WebSocket version
+    // Refresh the wallet balance
     store.dispatch('Assets/updateUTXOsExternal').then(() => {
         store.dispatch('History/updateTransactionHistory')
     })

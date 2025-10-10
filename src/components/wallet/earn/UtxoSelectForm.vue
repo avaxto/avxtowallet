@@ -4,7 +4,7 @@
         <p class="desc">
             {{ $t('earn.shared.utxo_select.desc') }}
         </p>
-        <v-chip-group @change="onTypeChange" v-model="formType" mandatory>
+        <v-chip-group @change="onTypeChange" :model-value="formType" @update:model-value="formType = $event" mandatory>
             <v-chip value="all" small>{{ $t('earn.shared.utxo_select.all') }}</v-chip>
             <v-chip value="custom" small>{{ $t('earn.shared.utxo_select.custom') }}</v-chip>
         </v-chip-group>

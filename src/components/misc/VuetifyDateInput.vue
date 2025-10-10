@@ -1,17 +1,18 @@
 <template>
     <v-layout row wrap>
         <v-menu
-            v-model="fromDateMenu"
+            :model-value="fromDateMenu"
+            @update:model-value="fromDateMenu = $event"
             :close-on-content-click="false"
             transition="scale-transition"
             offset-y
         >
-            <template v-slot:activator="{ on }">
+            <template v-slot:activator="{ props: activatorProps }">
                 <v-text-field
                     :label="label"
                     readonly
                     :value="fromDateDisp"
-                    v-on="on"
+                    v-bind="filterProps(activatorProps)"
                     hide-details
                 ></v-text-field>
             </template>
@@ -19,7 +20,8 @@
                 locale="en-in"
                 :min="minDate"
                 :max="maxDate"
-                v-model="dateVal"
+                :model-value="dateVal"
+                @update:model-value="dateVal = $event"
                 no-title
                 @input="dateIn"
             ></v-date-picker>
@@ -54,6 +56,17 @@ export default {
             this.fromDateMenu = false
             // console.log(this.dateVal);
         },
+        filterProps(props) {
+            if (!props) return {}
+            // Filter out any numeric keys that could cause setAttribute errors
+            const filtered = {}
+            for (const key in props) {
+                if (!/^\d+$/.test(key)) {
+                    filtered[key] = props[key]
+                }
+            }
+            return filtered
+        }
     },
     watch: {
         dateVal(val) {

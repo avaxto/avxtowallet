@@ -34,7 +34,7 @@
                 <div class="type_sel">
                     <label>{{ $t('studio.mint.type_col.label1') }}</label>
                     <p>{{ $t('studio.mint.type_col.desc') }}</p>
-                    <v-chip-group mandatory v-model="nftFormType">
+                    <v-chip-group mandatory :model-value="nftFormType" @update:model-value="nftFormType = $event">
                         <v-chip value="generic" :disabled="isSuccess">
                             {{ $t('studio.mint.type_col.types.generic') }}
                         </v-chip>
@@ -45,7 +45,7 @@
 
                     <template v-if="nftFormType === 'custom'">
                         <label>{{ $t('studio.mint.type_col.label2') }}</label>
-                        <v-chip-group mandatory v-model="nftType">
+                        <v-chip-group mandatory :model-value="nftType" @update:model-value="nftType = $event">
                             <v-chip value="utf8" :disabled="isSuccess">UTF-8</v-chip>
                             <v-chip value="url" :disabled="isSuccess">URL</v-chip>
                             <v-chip value="json" :disabled="isSuccess">JSON</v-chip>

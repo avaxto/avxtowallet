@@ -9,7 +9,7 @@
                 </button>
                 <NodeCard :node="selected"></NodeCard>
             </div>
-            <transition-group name="fade" mode="out-in">
+            <transition-group name="fade" mode="out-in" tag="div">
                 <div class="ins_col" key="form">
                     <div style="margin-bottom: 30px">
                         <h4>{{ $t('earn.delegate.form.period.label') }}</h4>

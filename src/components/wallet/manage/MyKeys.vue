@@ -9,7 +9,7 @@
         ></key-row>
         <hr v-if="inactiveWallets.length > 0" />
         <p class="label" v-if="inactiveWallets.length > 0">Other Keys</p>
-        <transition-group name="fade">
+        <transition-group name="fade" tag="div">
             <key-row
                 v-for="wallet in inactiveWallets"
                 :wallet="wallet"
