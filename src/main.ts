@@ -8,7 +8,7 @@ import { createI18n } from 'vue-i18n'
 //@ts-ignore
 import { Datetime } from 'vue-datetime'
 import 'vue-datetime/dist/vue-datetime.css'
-import { createBootstrap } from 'bootstrap-vue-next'
+import { createBootstrap, BContainer, BRow, BCol } from 'bootstrap-vue-next'
 import vuetify from './plugins/vuetify'
 // @ts-ignore
 import i18nMessages from './plugins/i18n.js'
@@ -43,14 +43,16 @@ app.use(store)
 app.use(vuetify)
 app.use(i18n)
 app.use(posthogPlugin)
-app.use(createBootstrap())
-
-// Register global components
+app.use(createBootstrap({ components: true, directives: true }))
 app.component('datetime', Datetime)
-// Register FontAwesome component as 'fa' to match template usage
 app.component('fa', FontAwesomeIcon)
+app.component('b-container', BContainer)
+app.component('b-row', BRow)
+app.component('b-col', BCol)
 
-// Configure app
+
+
+
 app.config.globalProperties.$productionTip = false
 
 // Global error handler for unhandled errors

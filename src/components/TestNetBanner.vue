@@ -16,10 +16,10 @@ export default defineComponent({
         
         const isVisible = computed(() => {
             let network = store.state.Network.selectedNetwork
-            if (!network) return false
+            if (!network) return null
             let netId = parseInt(network.networkId)
 
-            if (netId == 1) return false
+            if (netId == 1) return null
             return true
         })
 
