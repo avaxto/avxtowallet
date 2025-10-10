@@ -3,7 +3,7 @@
         <v-main>
             <template>                
                 <navbar v-show="isNavbar"></navbar>
-                <div class="main_cols" :wallet_view="!isNavbar">
+                <div class="main_cols" :wallet_view="!isNavbar ? '' : null">
                     <UpgradeToAccountModal></UpgradeToAccountModal>
                     <router-view id="router_view" v-slot="{ Component }">
                         <transition name="fade" mode="out-in">

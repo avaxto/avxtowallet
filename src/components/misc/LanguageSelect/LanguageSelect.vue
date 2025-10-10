@@ -42,6 +42,10 @@ const FLAGS_OVERRIDE: FLAG_DICT = {
 
 export default defineComponent({
     name: 'LanguageSelect',
+    compatConfig: {
+        RENDER_FUNCTION: 'suppress-warning',
+        COMPONENT_FUNCTIONAL: 'suppress-warning'
+    },
     components: {
         CountryFlag,
     },

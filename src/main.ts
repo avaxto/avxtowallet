@@ -1,4 +1,5 @@
 import { createApp } from 'vue'
+import { configureCompat } from '@vue/compat'
 import VueMeta from 'vue-meta'
 import App from './App.vue'
 import router from './router'
@@ -17,6 +18,12 @@ import 'bootstrap/dist/css/bootstrap.css'
 import 'bootstrap-vue-next/dist/bootstrap-vue-next.css'
 // Import FontAwesome component
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
+
+// Configure Vue compatibility mode globally (suppresses warnings from third-party libs)
+configureCompat({
+    RENDER_FUNCTION: 'suppress-warning',
+    COMPONENT_FUNCTIONAL: 'suppress-warning'
+})
 
 // Create the Vue app
 const app = createApp(App)
