@@ -1,5 +1,6 @@
 const axios = require('axios')
 
+const CG_DAYS = 1
 const COIN_ID = 'avalanche-2'
 const COINGECKO_URL =
     'https://api.coingecko.com/api/v3/simple/price?ids=avalanche-2&vs_currencies=usd'
@@ -19,7 +20,7 @@ async function getPriceHistory() {
     const res = await coingeckoApi.get(`/coins/${COIN_ID}/market_chart`, {
         params: {
             vs_currency: 'usd',
-            days: 'max',
+            days: '' + CG_DAYS,
             interval: 'daily',
         },
     })
