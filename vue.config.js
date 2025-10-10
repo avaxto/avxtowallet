@@ -20,9 +20,8 @@ module.exports = defineConfig({
                     ...options,
                     compilerOptions: {
                         compatConfig: {
-                            MODE: 2, // Vue 2 compat mode - necessary when using @vue/compat
-                            // Suppress specific warnings for third-party library compatibility issues
-                            RENDER_FUNCTION: 'suppress-warning',
+                            MODE: 2, 
+                            RENDER_FUNCTION: false,
                             COMPONENT_FUNCTIONAL: 'suppress-warning'
                         }
                     }

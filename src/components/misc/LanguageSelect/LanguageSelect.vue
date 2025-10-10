@@ -1,6 +1,5 @@
 <template>
-    <div class="sel_locale">
-        <country-flag :country="flag" size="small" class="flag"></country-flag>
+    <div class="sel_locale">        
         <select v-model="locale">
             <option v-for="item in items" :key="item.code" :value="item.code">
                 {{ item.nativeName }}
@@ -14,8 +13,6 @@ import { useI18n } from 'vue-i18n'
 
 //@ts-ignore
 import langMap from '@/locales/lang_map'
-//@ts-ignore
-import CountryFlag from 'vue-country-flag'
 
 import { LanguageItem } from '@/components/misc/LanguageSelect/types'
 
@@ -43,11 +40,11 @@ const FLAGS_OVERRIDE: FLAG_DICT = {
 export default defineComponent({
     name: 'LanguageSelect',
     compatConfig: {
-        RENDER_FUNCTION: 'suppress-warning',
+        RENDER_FUNCTION: false,
         COMPONENT_FUNCTIONAL: 'suppress-warning'
     },
     components: {
-        CountryFlag,
+        
     },
     setup() {
         const { locale: i18nLocale, messages } = useI18n()
