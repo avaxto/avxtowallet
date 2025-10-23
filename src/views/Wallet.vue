@@ -6,13 +6,15 @@
         </transition>
         <div class="wallet_main">
             <top-info class="wallet_top"></top-info>
-            <transition name="page_fade" mode="out-in">
-                <keep-alive
-                    exclude="cross_chain,activity,advanced,earn,manage,studio"
-                >
-                    <router-view id="wallet_router" :key="$route.path"></router-view>
-                </keep-alive>
-            </transition>
+            <router-view id="wallet_router" v-slot="{ Component }">
+                <transition name="page_fade" mode="out-in">
+                    <keep-alive
+                        exclude="cross_chain,activity,advanced,earn,manage,studio"
+                    >
+                        <component :is="Component" :key="$route.path" />
+                    </keep-alive>
+                </transition>
+            </router-view>
         </div>
         <transition name="fade" mode="out-in">
             <main-panel class="panel"></main-panel>

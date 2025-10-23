@@ -119,6 +119,7 @@ module.exports = defineConfig({
         },
     },
     css: {
+
         loaderOptions: {
             sass: {
                 // Suppress deprecation warnings from node_modules (especially Bootstrap)

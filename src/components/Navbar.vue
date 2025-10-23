@@ -1,5 +1,6 @@
 <template>
     <div id="nav">
+
         <ConfirmLogout ref="logoutRef"></ConfirmLogout>
         <router-link to="/" class="logo">
             <img v-if="$root.theme === 'day'" src="@/assets/avaxtowallet_logo.png" />

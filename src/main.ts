@@ -1,6 +1,5 @@
 import { createApp } from 'vue'
 import { configureCompat } from '@vue/compat'
-import VueMeta from 'vue-meta'
 import App from './App.vue'
 import router from './router'
 import store from './store'
@@ -29,6 +28,7 @@ configureCompat({
 // Create the Vue app
 const app = createApp(App)
 
+
 // Create i18n instance
 const i18n = createI18n({
     legacy: false,
@@ -49,9 +49,6 @@ app.component('fa', FontAwesomeIcon)
 app.component('b-container', BContainer)
 app.component('b-row', BRow)
 app.component('b-col', BCol)
-
-
-
 
 app.config.globalProperties.$productionTip = false
 
@@ -90,7 +87,7 @@ if (window.Cypress) {
 app.mixin({
     mounted() {
         // Reveal app version
-        console.log(`App Version: ${process.env.VUE_APP_VERSION}`)
+        console.log(`AVAX Toolbox Version: ${process.env.VUE_APP_VERSION}`)
         // Hide loader once vue is initialized
         const loader = document.getElementById('app_loading')
         if (loader) {
