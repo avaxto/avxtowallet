@@ -17,6 +17,9 @@ import 'bootstrap/dist/css/bootstrap.css'
 import 'bootstrap-vue-next/dist/bootstrap-vue-next.css'
 // Import FontAwesome component
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
+// Import head management
+import { createUnhead } from '@unhead/vue'
+import { VueHeadMixin } from '@unhead/vue'
 
 
 configureCompat({
@@ -24,10 +27,8 @@ configureCompat({
     RENDER_FUNCTION: false
 })
 
-
 // Create the Vue app
 const app = createApp(App)
-
 
 // Create i18n instance
 const i18n = createI18n({
@@ -37,11 +38,21 @@ const i18n = createI18n({
     messages: i18nMessages
 })
 
+// Create head instance for managing document head
+const head = createUnhead()
+
 // Install plugins
 app.use(router)
 app.use(store)
 app.use(vuetify)
 app.use(i18n)
+// Install head plugin
+app.use({
+    install(app) {
+        app.config.globalProperties.$head = head
+        app.provide('usehead', head)
+    }
+})
 app.use(posthogPlugin)
 app.use(createBootstrap({ components: true, directives: true }))
 app.component('datetime', Datetime)

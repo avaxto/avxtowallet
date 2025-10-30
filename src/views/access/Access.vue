@@ -3,10 +3,12 @@
         <b-container>
             <b-row align-h="center">
                 <b-col md="12" lg="10">
-                    <router-view class="access_card"></router-view>
-                    <transition name="fade" mode="out-in">
-                        
-                    </transition>
+                    <router-view v-slot="{ Component }">
+                        <transition>
+                            <component :is="Component" />
+                        </transition>
+                    </router-view>
+                    
                 </b-col>
             </b-row>
         </b-container>

@@ -9,7 +9,7 @@ import { BN } from 'avalanche'
 import { getPreferredHRP } from 'avalanche/dist/utils'
 import router from '@/router'
 import { web3 } from '@/evm'
-import { setSocketNetwork } from '../../../providers'
+import { setCurrentNetwork } from '../../../providers'
 import { getConfigFromUrl, setNetworkAsync } from '@avalabs/avalanche-wallet-sdk'
 import { MainnetConfig, TestnetConfig } from '@/store/modules/network/constants'
 const network_module: Module<NetworkState, RootState> = {
@@ -139,8 +139,7 @@ const network_module: Module<NetworkState, RootState> = {
             const web3Provider = `${net.protocol}://${net.ip}:${net.port}/ext/bc/C/rpc`
             web3.setProvider(web3Provider)
 
-            // Set socket connections
-            setSocketNetwork(net)
+            setCurrentNetwork(net)
 
             commit('Assets/removeAllAssets', null, { root: true })
             await dispatch('Assets/updateAvaAsset', null, { root: true })

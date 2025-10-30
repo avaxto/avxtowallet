@@ -1,7 +1,7 @@
 import { AvaNetwork } from '../js/AvaNetwork'
 import { pollingManager } from '@/providers/polling_manager'
 
-export function setSocketNetwork(network: AvaNetwork) {
+export function setCurrentNetwork(network: AvaNetwork) {
         pollingManager.startPolling(network)    
 }
 

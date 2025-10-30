@@ -1,6 +1,6 @@
 # AVXTO Wallet
 
-This is a fork of the original frontend Avalanche Vue application for Avalanche $AVAX
+AVXTO - AVAX Toolbox Wallet is a fork of the original frontend Avalanche Vue application for Avalanche $AVAX
 
 # This Wallet is Part of AVAX Toolbox Project
 
