@@ -119,18 +119,35 @@ module.exports = defineConfig({
         },
     },
     css: {
-
         loaderOptions: {
             sass: {
                 // Suppress deprecation warnings from node_modules (especially Bootstrap)
                 sassOptions: {
                     quietDeps: true,
+                    logger: {
+                        warn: function(message) {
+                            // Suppress legacy-js-api warnings
+                            if (message.includes('legacy-js-api')) {
+                                return;
+                            }
+                            console.warn(message);
+                        }
+                    }
                 },
             },
             scss: {
                 // Suppress deprecation warnings from node_modules (especially Bootstrap)
                 sassOptions: {
                     quietDeps: true,
+                    logger: {
+                        warn: function(message) {
+                            // Suppress legacy-js-api warnings
+                            if (message.includes('legacy-js-api')) {
+                                return;
+                            }
+                            console.warn(message);
+                        }
+                    }
                 },
             },
         },
