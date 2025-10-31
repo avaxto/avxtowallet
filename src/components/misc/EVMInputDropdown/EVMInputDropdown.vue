@@ -41,7 +41,7 @@
 </template>
 <script lang="ts">
 import { defineComponent, ref, computed, nextTick } from 'vue'
-import { useStore } from 'vuex'
+import { useStore } from '@/stores'
 //@ts-ignore
 import { BigNumInput } from '@avalabs/vue_components'
 import { BN } from 'avalanche'

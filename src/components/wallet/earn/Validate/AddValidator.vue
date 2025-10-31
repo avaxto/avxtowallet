@@ -264,7 +264,7 @@
 </template>
 <script lang="ts">
 import { defineComponent, ref, computed, watch, onMounted } from 'vue'
-import { useStore } from 'vuex'
+import { useStore } from '@/stores'
 import { useI18n } from 'vue-i18n'
 //@ts-ignore
 import AvaxInput from '@/components/misc/AvaxInput.vue'

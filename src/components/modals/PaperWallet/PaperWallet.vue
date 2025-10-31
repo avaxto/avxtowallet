@@ -28,7 +28,7 @@
 </template>
 <script lang="ts">
 import { defineComponent, ref, computed, watch, onMounted } from 'vue'
-import { useStore } from 'vuex'
+import { useStore } from '@/stores'
 
 import Modal from '@/components/modals/Modal.vue'
 import MnemonicWallet from '@/js/wallets/MnemonicWallet'

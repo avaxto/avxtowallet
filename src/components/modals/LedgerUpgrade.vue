@@ -32,7 +32,7 @@
 </template>
 <script lang="ts">
 import { defineComponent, ref, computed, watch, onBeforeUnmount } from 'vue'
-import { useStore } from 'vuex'
+import { useStore } from '@/stores'
 import { WalletType } from '@/js/wallets/types'
 
 import Modal from './Modal.vue'

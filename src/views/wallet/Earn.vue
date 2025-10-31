@@ -98,7 +98,7 @@
 </template>
 <script lang="ts">
 import { defineComponent, ref, computed, onDeactivated, onUnmounted } from 'vue'
-import { useStore } from 'vuex'
+import { useStore } from '@/stores'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 

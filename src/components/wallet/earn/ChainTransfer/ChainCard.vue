@@ -19,7 +19,7 @@
 </template>
 <script lang="ts">
 import { defineComponent, computed, onMounted } from 'vue'
-import { useStore } from 'vuex'
+import { useStore } from '@/stores'
 import { UTXO } from 'avalanche/dist/apis/platformvm'
 import { ChainIdType } from '@/constants'
 import { BN } from 'avalanche'

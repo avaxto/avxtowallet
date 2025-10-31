@@ -1,6 +1,6 @@
 import { ava } from '@/AVA'
-import { isMainnetNetworkID } from '@/store/modules/network/isMainnetNetworkID'
-import { isTestnetNetworkID } from '@/store/modules/network/isTestnetNetworkID'
+import { isMainnetNetworkID } from '@/utils/network-utils'
+import { isTestnetNetworkID } from '@/utils/network-utils'
 import { ListStakingParams } from '@/js/Glacier/models'
 import { splitToParts } from '@/js/Glacier/utils'
 import { filterDuplicateGlacierTxs } from './filterDuplicateGlacierTxs'

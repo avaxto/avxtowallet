@@ -46,7 +46,7 @@
 </template>
 <script lang="ts">
 import { defineComponent, ref, computed } from 'vue'
-import { useStore } from 'vuex'
+import { useStore } from '@/stores'
 import { useI18n } from 'vue-i18n'
 
 import Modal from '../Modal.vue'

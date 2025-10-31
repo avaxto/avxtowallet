@@ -17,7 +17,7 @@ import Activity from '@/views/wallet/Activity.vue' // your vuex store
 import Account from '@/views/access/Account.vue' // your vuex store
 import Legal from '@/views/Legal.vue'
 
-import store from '../store/index'
+import { useStore } from '@/stores'
 import Studio from '@/views/wallet/Studio.vue'
 import Export from '@/views/wallet/CrossChain.vue'
 import Xpub from '@/views/access/Xpub.vue'
@@ -25,7 +25,8 @@ import WalletReadonly from '@/views/WalletReadonly.vue'
 import { PublicMnemonicWallet } from '@avalabs/avalanche-wallet-sdk'
 
 const ifNotAuthenticated = (to: RouteLocationNormalized, from: RouteLocationNormalized, next: NavigationGuardNext) => {
-    if (!store.state.isAuth) {
+    const store = useStore()
+    if (!store.state.isAuth.value) {
         next()
         return
     }
@@ -33,7 +34,8 @@ const ifNotAuthenticated = (to: RouteLocationNormalized, from: RouteLocationNorm
 }
 
 const ifAuthenticated = (to: RouteLocationNormalized, from: RouteLocationNormalized, next: NavigationGuardNext) => {
-    if (store.state.isAuth) {
+    const store = useStore()
+    if (store.state.isAuth.value) {
         next()
         return
     }

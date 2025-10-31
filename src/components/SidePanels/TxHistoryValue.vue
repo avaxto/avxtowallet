@@ -13,7 +13,7 @@
 </template>
 <script lang="ts">
 import { defineComponent, computed, type PropType } from 'vue'
-import { useStore } from 'vuex'
+import { useStore } from '@/stores'
 
 import Big from 'big.js'
 import { TransactionType } from '@/store/modules/history/types'

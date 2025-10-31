@@ -29,7 +29,7 @@
 </template>
 <script lang="ts">
 import { defineComponent, ref, computed } from 'vue'
-import { useStore } from 'vuex'
+import { useStore } from '@/stores'
 import FileInput from '@/components/misc/FileInput.vue'
 import { ImportKeyfileInput } from '@/store/types'
 import { AllKeyFileTypes } from '@/js/IKeystore'

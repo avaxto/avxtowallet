@@ -10,7 +10,7 @@
 </template>
 <script lang="ts">
 import { defineComponent, computed } from 'vue'
-import { useStore } from 'vuex'
+import { useStore } from '@/stores'
 
 import { IWalletNftMintDict } from '@/store/types'
 import { NftFamilyDict } from '@/store/modules/assets/types'

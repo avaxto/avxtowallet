@@ -1,5 +1,6 @@
 import { AvaNetwork } from '@/js/AvaNetwork'
-import store from '@/store'
+import { pinia } from '@/stores'
+import { useMainStore } from '@/stores'
 import { WalletType } from '@/js/wallets/types'
 
 /**
@@ -74,7 +75,8 @@ function blockHeaderCallback() {
 }
 
 function updateWalletBalanceC() {
-    const wallet: null | WalletType = store.state.activeWallet
+    const mainStore = useMainStore(pinia)
+    const wallet: null | WalletType = mainStore.activeWallet as WalletType | null
     if (!wallet) return
     
     // Refresh the wallet balance

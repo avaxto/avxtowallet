@@ -22,7 +22,7 @@
 </template>
 <script lang="ts">
 import { defineComponent, ref, computed } from 'vue'
-import { useStore } from 'vuex'
+import { useStore } from '@/stores'
 
 import BalancePopup from '@/components/misc/BalancePopup/BalancePopup.vue'
 import AvaAsset from '@/js/AvaAsset'

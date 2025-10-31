@@ -24,7 +24,7 @@
 </template>
 <script lang="ts">
 import { defineComponent, computed } from 'vue'
-import { useStore } from 'vuex'
+import { useStore } from '@/stores'
 import { AmountOutput, AVMConstants, UTXO as AVMUTXO } from 'avalanche/dist/apis/avm'
 import {
     PlatformVMConstants,

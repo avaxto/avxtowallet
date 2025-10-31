@@ -33,7 +33,7 @@
 </template>
 <script lang="ts">
 import { defineComponent, computed } from 'vue'
-import { useStore } from 'vuex'
+import { useStore } from '@/stores'
 import { AssetsDict, NftFamilyDict } from '@/store/modules/assets/types'
 import { PChainUtxo, Utxo } from '@avalabs/glacier-sdk'
 

@@ -37,7 +37,7 @@
 </template>
 <script lang="ts">
 import { defineComponent, ref, computed } from 'vue'
-import { useStore } from 'vuex'
+import { useStore } from '@/stores'
 import MyKeys from '@/components/wallet/manage/MyKeys.vue'
 import ImportKeys from '@/components/modals/ImportKeys.vue'
 import ExportKeys from '@/components/modals/ExportKeys.vue'

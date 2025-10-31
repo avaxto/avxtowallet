@@ -8,7 +8,7 @@
 <script lang="ts">
 import 'reflect-metadata'
 import { defineComponent, computed } from 'vue'
-import { useStore } from 'vuex'
+import { useStore } from '@/stores'
 import { ChainAlias, WalletType } from '@/js/wallets/types'
 
 export default defineComponent({

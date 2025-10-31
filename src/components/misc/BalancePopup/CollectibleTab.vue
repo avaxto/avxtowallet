@@ -16,7 +16,7 @@
 </template>
 <script lang="ts">
 import { defineComponent, computed } from 'vue'
-import { useStore } from 'vuex'
+import { useStore } from '@/stores'
 import { useI18n } from 'vue-i18n'
 import NftCard from '@/components/wallet/portfolio/NftCard.vue'
 import { NftFamilyDict } from '@/store/modules/assets/types'

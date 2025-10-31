@@ -8,7 +8,7 @@
 </template>
 <script lang="ts">
 import { defineComponent, computed } from 'vue'
-import { useStore } from 'vuex'
+import { useNetworkStore } from '@/stores'
 
 import Spinner from '@/components/misc/Spinner.vue'
 
@@ -18,10 +18,10 @@ export default defineComponent({
         Spinner,
     },
     setup() {
-        const store = useStore()
+        const networkStore = useNetworkStore()
 
         const networkLoading = computed(() => {
-            return store.state.Network.status === 'connecting'
+            return networkStore.status === 'connecting'
         })
 
         return {

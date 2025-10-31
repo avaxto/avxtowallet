@@ -28,7 +28,7 @@
 </template>
 <script lang="ts">
 import { defineComponent, ref, computed, watch, onMounted } from 'vue'
-import { useStore } from 'vuex'
+import { useStore } from '@/stores'
 import UtxoSelectModal from '@/components/modals/UtxoSelect/UtxoSelect.vue'
 import { AmountOutput, UTXO, UTXOSet } from 'avalanche/dist/apis/platformvm'
 import { WalletType } from '@/js/wallets/types'

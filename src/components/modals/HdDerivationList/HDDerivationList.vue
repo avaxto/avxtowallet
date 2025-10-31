@@ -36,7 +36,7 @@
 </template>
 <script lang="ts">
 import { defineComponent, ref, computed, watch } from 'vue'
-import { useStore } from 'vuex'
+import { useStore } from '@/stores'
 
 import MnemonicWallet from '@/js/wallets/MnemonicWallet'
 import { KeyPair as AVMKeyPair, UTXOSet as AVMUTXOSet } from 'avalanche/dist/apis/avm'

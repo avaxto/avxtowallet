@@ -49,7 +49,7 @@
 </template>
 <script lang="ts">
 import { defineComponent, computed } from 'vue'
-import { useStore } from 'vuex'
+import { useStore } from '@/stores'
 import { ValidatorListItem } from '@/store/modules/platform/types'
 import { bnToBig } from '@/helpers/helper'
 import { AvaNetwork } from '@/js/AvaNetwork'

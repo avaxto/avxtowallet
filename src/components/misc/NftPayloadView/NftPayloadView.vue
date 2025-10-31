@@ -22,7 +22,7 @@
 </template>
 <script lang="ts">
 import { defineComponent, ref, computed, watch, onMounted } from 'vue'
-import { useStore } from 'vuex'
+import { useStore } from '@/stores'
 import { PayloadBase } from 'avalanche/dist/utils'
 
 import UrlPayloadView from '@/components/misc/NftPayloadView/views/UrlPayloadView.vue'

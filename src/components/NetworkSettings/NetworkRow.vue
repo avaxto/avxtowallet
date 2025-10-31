@@ -27,7 +27,7 @@
 </template>
 <script lang="ts">
 import { defineComponent, computed, type PropType } from 'vue'
-import { useStore } from 'vuex'
+import { useStore } from '@/stores'
 import { AvaNetwork } from '@/js/AvaNetwork'
 
 export default defineComponent({

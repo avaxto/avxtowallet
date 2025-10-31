@@ -34,7 +34,7 @@
 </template>
 <script lang="ts">
 import { defineComponent, ref, computed } from 'vue'
-import { useStore } from 'vuex'
+import { useMainStore } from '@/stores'
 import { useI18n } from 'vue-i18n'
 
 import FileInput from '../../components/misc/FileInput.vue'
@@ -49,7 +49,7 @@ export default defineComponent({
         FileInput,
     },
     setup() {
-        const store = useStore()
+        const mainStore = useMainStore()
         const { t } = useI18n()
         
         const pass = ref<string>('')
@@ -98,8 +98,8 @@ export default defineComponent({
             isLoading.value = true
 
             setTimeout(() => {
-                store
-                    .dispatch('importKeyfile', data)
+                mainStore
+                    .importKeyfile(data)
                     .then((res) => {
                         isLoading.value = false
 

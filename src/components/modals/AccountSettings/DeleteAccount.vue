@@ -9,7 +9,7 @@
 </template>
 <script lang="ts">
 import { defineComponent, ref, computed } from 'vue'
-import { useStore } from 'vuex'
+import { useStore } from '@/stores'
 
 export default defineComponent({
     name: 'DeleteAccount',

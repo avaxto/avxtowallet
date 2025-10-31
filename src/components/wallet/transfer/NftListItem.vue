@@ -18,7 +18,7 @@
 </template>
 <script lang="ts">
 import { defineComponent, ref, computed, watch, onMounted } from 'vue'
-import { useStore } from 'vuex'
+import { useStore } from '@/stores'
 import { NFTTransferOutput, UTXO } from 'avalanche/dist/apis/avm'
 import NftPayloadView from '@/components/misc/NftPayloadView/NftPayloadView.vue'
 import { getPayloadFromUTXO } from '@/helpers/helper'

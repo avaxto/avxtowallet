@@ -3,7 +3,6 @@ import { configureCompat } from '@vue/compat'
 import App from './App.vue'
 import router from './router'
 import { pinia } from './stores'
-import store from './store'
 import { createI18n } from 'vue-i18n'
 //@ts-ignore
 import { Datetime } from 'vue-datetime'
@@ -45,7 +44,6 @@ const head = createUnhead()
 // Install plugins
 app.use(router)
 app.use(pinia)
-app.use(store)
 app.use(vuetify)
 app.use(i18n)
 // Install head plugin

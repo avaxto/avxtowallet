@@ -39,7 +39,7 @@
 </template>
 <script lang="ts">
 import { defineComponent, ref, computed } from 'vue'
-import { useStore } from 'vuex'
+import { useStore } from '@/stores'
 
 import Modal from '@/components/modals/Modal.vue'
 import {
@@ -60,7 +60,7 @@ import {
     getRewardOuts,
     getStakeAmount,
     createCSVContent,
-} from '@/store/modules/history/history_utils'
+} from '@/utils/history-utils'
 
 export default defineComponent({
     name: 'ExportCsvModal',

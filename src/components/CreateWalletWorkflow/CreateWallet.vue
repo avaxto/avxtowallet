@@ -125,7 +125,7 @@
 </template>
 <script lang="ts">
 import { defineComponent, ref, computed } from 'vue'
-import { useStore } from 'vuex'
+import { useStore } from '@/stores'
 import TextDisplayCopy from '@/components/misc/TextDisplayCopy.vue'
 import Spinner from '@/components/misc/Spinner.vue'
 // import TorusGoogle from "@/components/Torus/TorusGoogle.vue";

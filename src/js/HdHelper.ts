@@ -13,7 +13,7 @@ import {
     KeyChain as PlatformVMKeyChain,
     KeyPair as PlatformVMKeyPair,
 } from 'avalanche/dist/apis/platformvm'
-import store from '@/store'
+import { pinia, useMainStore } from '@/stores'
 
 import { AvaNetwork } from '@/js/AvaNetwork'
 import { ChainAlias } from './wallets/types'

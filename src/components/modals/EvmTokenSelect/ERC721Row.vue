@@ -19,7 +19,7 @@
 </template>
 <script lang="ts">
 import { defineComponent, computed } from 'vue'
-import { useStore } from 'vuex'
+import { useStore } from '@/stores'
 import ERC721Token from '@/js/ERC721Token'
 import ERC721View from '@/components/misc/ERC721View.vue'
 import { iErc721SelectInput } from '@/components/misc/EVMInputDropdown/types'

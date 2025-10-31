@@ -20,13 +20,13 @@
 </template>
 <script lang="ts">
 import { defineComponent, ref, computed } from 'vue'
-import { useStore } from 'vuex'
+import { useStore } from '@/stores'
 
 import Modal from '@/components/modals/Modal.vue'
 import { CsvRowAvaxTransferData, ITransactionData, UTXO } from '@/store/modules/history/types'
 import { bnToBig } from '@/helpers/helper'
 import { generate } from 'csv-generate'
-import { downloadCSVFile } from '@/store/modules/history/history_utils'
+import { downloadCSVFile } from '@/utils/history-utils'
 import { createCsvNormal, getHistoryForOwnedAddresses } from '@avalabs/avalanche-wallet-sdk'
 
 export default defineComponent({

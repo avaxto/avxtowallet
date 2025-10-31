@@ -74,7 +74,7 @@
 </template>
 <script lang="ts">
 import { defineComponent, ref, computed, watch } from 'vue'
-import { useStore } from 'vuex'
+import { useStore } from '@/stores'
 import { BN } from 'avalanche'
 import { pChain } from '@/AVA'
 import { bnToBig } from '@/helpers/helper'

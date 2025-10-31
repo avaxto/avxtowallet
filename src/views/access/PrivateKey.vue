@@ -30,7 +30,7 @@
 </template>
 <script lang="ts">
 import { defineComponent, ref, computed } from 'vue'
-import { useStore } from 'vuex'
+import { useMainStore } from '@/stores'
 import { useRouter } from 'vue-router'
 import { ImportKeyfileInput } from '@/store/types'
 import { SingletonWallet } from '@/js/wallets/SingletonWallet'
@@ -42,7 +42,7 @@ import { strip0x } from '@avalabs/avalanche-wallet-sdk'
 export default defineComponent({
     name: 'PrivateKey',
     setup() {
-        const store = useStore()
+        const mainStore = useMainStore()
         const router = useRouter()
         
         const privatekey = ref<string>('')
@@ -63,7 +63,7 @@ export default defineComponent({
             let key = strip0x(privatekey.value)
 
             try {
-                let res = await store.dispatch('accessWalletSingleton', key)
+                let res = await mainStore.accessWalletSingleton(key)
                 onsuccess()
             } catch (e) {
                 onerror('Invalid Private Key.')

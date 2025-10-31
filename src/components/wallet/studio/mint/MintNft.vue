@@ -9,7 +9,7 @@
 </template>
 <script lang="ts">
 import { defineComponent, ref, computed, onMounted } from 'vue'
-import { useStore } from 'vuex'
+import { useStore } from '@/stores'
 import { useRoute } from 'vue-router'
 import { pChain } from '@/AVA'
 import { bnToBig } from '@/helpers/helper'

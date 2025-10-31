@@ -21,7 +21,7 @@
 <script lang="ts">
 import 'reflect-metadata'
 import { defineComponent, computed, watch, ref } from 'vue'
-import { useStore } from 'vuex'
+import { useStore } from '@/stores'
 
 import Spinner from '@/components/misc/Spinner.vue'
 import Modal from './Modal.vue'

@@ -21,7 +21,7 @@
 </template>
 <script lang="ts">
 import { defineComponent, computed } from 'vue'
-import { useStore } from 'vuex'
+import { useStore } from '@/stores'
 import ERC721Token from '@/js/ERC721Token'
 import { WalletType } from '@/js/wallets/types'
 import ERC721View from '@/components/wallet/portfolio/ERC721Card.vue'

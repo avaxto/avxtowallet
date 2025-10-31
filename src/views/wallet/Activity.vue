@@ -86,7 +86,7 @@
 </template>
 <script lang="ts">
 import { defineComponent, ref, computed, onMounted, onUnmounted } from 'vue'
-import { useStore } from 'vuex'
+import { useStore } from '@/stores'
 import { useI18n } from 'vue-i18n'
 import {
     isTransactionC,
@@ -106,8 +106,8 @@ import ExportAvaxCsvModal from '@/components/modals/ExportAvaxCsvModal.vue'
 import { WalletType } from '@/js/wallets/types'
 import { BlockchainId } from '@avalabs/glacier-sdk'
 import ExportGlacierHistoryModal from '@/components/modals/ExportGlacierHistoryModal.vue'
-import { isMainnetNetworkID } from '@/store/modules/network/isMainnetNetworkID'
-import { isTestnetNetworkID } from '@/store/modules/network/isTestnetNetworkID'
+import { isMainnetNetworkID } from '@/utils/network-utils'
+import { isTestnetNetworkID } from '@/utils/network-utils'
 
 type FilterModeType = 'all' | 'transfer' | 'export_import' | 'stake'
 type ModeKeyType = 'all' | 'transfer' | 'swap' | 'stake'

@@ -76,7 +76,7 @@
 </template>
 <script lang="ts">
 import { defineComponent, ref, computed } from 'vue'
-import { useStore } from 'vuex'
+import { useStore } from '@/stores'
 
 import NetworkRow from './NetworkRow.vue'
 import CustomPage from './CustomPage.vue'

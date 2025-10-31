@@ -36,7 +36,7 @@
 </template>
 <script lang="ts">
 import { defineComponent, ref, computed, watch } from 'vue'
-import { useStore } from 'vuex'
+import { useStore } from '@/stores'
 
 import Modal from './Modal.vue'
 import { web3 } from '@/evm'

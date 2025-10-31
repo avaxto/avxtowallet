@@ -190,7 +190,7 @@
 <script lang="ts">
 import 'reflect-metadata'
 import { defineComponent, ref, computed, watch, onMounted } from 'vue'
-import { useStore } from 'vuex'
+import { useStore } from '@/stores'
 import { useI18n } from 'vue-i18n'
 
 import AvaxInput from '@/components/misc/AvaxInput.vue'

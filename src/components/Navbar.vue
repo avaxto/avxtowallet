@@ -79,7 +79,7 @@
 </template>
 <script lang="ts">
 import { defineComponent, ref, computed } from 'vue'
-import { useStore } from 'vuex'
+import { useMainStore } from '@/stores'
 import LanguageSelect from './misc/LanguageSelect/LanguageSelect.vue'
 
 import DayNightToggle from '@/components/misc/DayNightToggle.vue'
@@ -97,14 +97,14 @@ export default defineComponent({
         LanguageSelect,
     },
     setup() {
-        const store = useStore()
+        const mainStore = useMainStore()
 
         const isDrawer = ref(false)
         const popupOpen = ref(false)
         const logoutRef = ref<InstanceType<typeof ConfirmLogout>>()
 
         const isAuth = computed((): boolean => {
-            return store.state.isAuth
+            return mainStore.isAuth
         })
 
         const logout = (): void => {

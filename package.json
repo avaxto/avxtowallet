@@ -78,7 +78,6 @@
         "vue-router": "^4.2.4",
         "vue-virtual-scroll-list": "2.3.2",
         "vuetify": "^3.3.13",
-        "vuex": "^4.1.0",
         "web3": "1.7.4",
         "weekstart": "1.0.1"
     },

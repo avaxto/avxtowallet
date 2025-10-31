@@ -14,7 +14,7 @@
 </template>
 <script lang="ts">
 import { defineComponent, computed, reactive, onMounted } from 'vue'
-import { useStore } from 'vuex'
+import { useStore } from '@/stores'
 import { BaseTxAssetSummary, BaseTxNFTSummary } from '@/helpers/history_helper'
 import AvaAsset from '@/js/AvaAsset'
 import { bnToBig } from '@/helpers/helper'

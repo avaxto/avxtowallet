@@ -31,7 +31,7 @@
 <script lang="ts">
 import 'reflect-metadata'
 import { defineComponent, ref, onMounted } from 'vue'
-import { useStore } from 'vuex'
+import { useStore } from '@/stores'
 import { useI18n } from 'vue-i18n'
 import Modal from '@/components/modals/Modal.vue'
 import AddKeyFile from '@/components/wallet/manage/AddKeyFile.vue'

@@ -41,7 +41,7 @@
 <script lang="ts">
 import 'reflect-metadata'
 import { defineComponent, ref, computed } from 'vue'
-import { useStore } from 'vuex'
+import { useStore } from '@/stores'
 import MnemonicWallet from '@/js/wallets/MnemonicWallet'
 import { ExportWalletsInput } from '@/store/types'
 

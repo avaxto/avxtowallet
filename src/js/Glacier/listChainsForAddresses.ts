@@ -1,8 +1,8 @@
 import { ava } from '@/AVA'
 import { splitToParts } from '@/js/Glacier/utils'
 import Glacier from '@/js/Glacier/Glacier'
-import { isMainnetNetworkID } from '@/store/modules/network/isMainnetNetworkID'
-import { isTestnetNetworkID } from '@/store/modules/network/isTestnetNetworkID'
+import { isMainnetNetworkID } from '@/utils/network-utils'
+import { isTestnetNetworkID } from '@/utils/network-utils'
 import { Network } from '@avalabs/glacier-sdk'
 
 export async function listChainsForAddresses(addrs: string[]) {

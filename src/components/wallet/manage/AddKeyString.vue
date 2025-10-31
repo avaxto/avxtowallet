@@ -20,7 +20,7 @@
 <script lang="ts">
 import 'reflect-metadata'
 import { defineComponent, ref } from 'vue'
-import { useStore } from 'vuex'
+import { useStore } from '@/stores'
 import { useI18n } from 'vue-i18n'
 // @ts-ignore
 import { QrInput } from '@avalabs/vue_components'

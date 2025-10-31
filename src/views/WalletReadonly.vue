@@ -29,7 +29,7 @@
 <script lang="ts">
 import { defineComponent, ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { useStore } from 'vuex'
+import { useStore } from '@/stores'
 
 import {
     PublicMnemonicWallet,
@@ -46,7 +46,7 @@ import {
 import { UTXOSet as AVMUTXOSet } from 'avalanche/dist/apis/avm'
 import { UTXOSet as PlatformUTXOSet, TransferableOutput } from 'avalanche/dist/apis/platformvm'
 import Balances from '@/views/wallet_readonly/Balances.vue'
-import { downloadCSVFile } from '@/store/modules/history/history_utils'
+import { downloadCSVFile } from '@/utils/history-utils'
 import Addresses from '@/views/wallet_readonly/Addresses.vue'
 import Spinner from '@/components/misc/Spinner.vue'
 import { Network } from 'avalanche/dist/utils'

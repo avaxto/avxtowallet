@@ -30,7 +30,7 @@
 <script lang="ts">
 import 'reflect-metadata'
 import { defineComponent, ref, computed, watch, onActivated, onDeactivated } from 'vue'
-import { useStore } from 'vuex'
+import { useStore } from '@/stores'
 import { useRoute } from 'vue-router'
 import { v1 as uuidv1 } from 'uuid'
 import { BN } from 'avalanche'

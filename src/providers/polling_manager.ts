@@ -1,5 +1,6 @@
 import { AvaNetwork } from '@/js/AvaNetwork'
-import store from '@/store'
+import { pinia } from '@/stores'
+import { useNetworkStore, useMainStore } from '@/stores'
 import { WalletType } from '@/js/wallets/types'
 import { PROVIDER_CONFIG } from '@/providers/provider_config'
 
@@ -165,13 +166,14 @@ class PollingManager {
      * Update wallet balance for X-Chain (replaces xOnMessage functionality)
      */
     private async updateWalletBalanceX() {
-        const wallet: null | WalletType = store.state.activeWallet
+        const wallet: null | WalletType = useMainStore(pinia).activeWallet as WalletType | null
         if (!wallet) return
 
         try {
             // Refresh the wallet balance
-            await store.dispatch('Assets/updateUTXOsExternal')
-            await store.dispatch('History/updateTransactionHistory')
+            // TODO: Implement these in Pinia stores
+            // await store.dispatch('Assets/updateUTXOsExternal')
+            // await store.dispatch('History/updateTransactionHistory')
         } catch (error) {
             console.warn('X-Chain balance update error:', error)
         }
@@ -181,7 +183,7 @@ class PollingManager {
      * Update wallet balance for C-Chain (replaces blockHeaderCallback functionality)
      */
     private async updateWalletBalanceC() {
-        const wallet: null | WalletType = store.state.activeWallet
+        const wallet: null | WalletType = useMainStore(pinia).activeWallet as WalletType | null
         if (!wallet) return
 
         try {

@@ -48,7 +48,7 @@
 <script lang="ts">
 import 'reflect-metadata'
 import { defineComponent, ref, onMounted } from 'vue'
-import { useStore } from 'vuex'
+import { useStore } from '@/stores'
 
 import { AvaNetwork } from '@/js/AvaNetwork'
 import punycode from 'punycode'

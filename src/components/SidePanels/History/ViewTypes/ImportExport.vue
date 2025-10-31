@@ -16,7 +16,7 @@
 </template>
 <script lang="ts">
 import { defineComponent, computed } from 'vue'
-import { useStore } from 'vuex'
+import { useStore } from '@/stores'
 import { avm, cChain, pChain } from '@/AVA'
 import { BN } from 'avalanche'
 import { bnToBig } from '@/helpers/helper'

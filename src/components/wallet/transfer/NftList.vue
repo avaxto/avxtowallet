@@ -27,7 +27,7 @@
 </template>
 <script lang="ts">
 import { defineComponent, ref, computed, onActivated, onDeactivated } from 'vue'
-import { useStore } from 'vuex'
+import { useStore } from '@/stores'
 import { IWalletNftDict } from '../../../store/types'
 import { NftFamilyDict } from '../../../store/modules/assets/types'
 import BalancePopup from '@/components/misc/BalancePopup/BalancePopup.vue'

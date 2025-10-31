@@ -8,7 +8,7 @@
 </template>
 <script lang="ts">
 import { defineComponent, computed, onMounted, type PropType } from 'vue'
-import { useStore } from 'vuex'
+import { useStore } from '@/stores'
 
 import NftPayloadView from '@/components/misc/NftPayloadView/NftPayloadView.vue'
 import { PayloadBase } from 'avalanche/dist/utils'

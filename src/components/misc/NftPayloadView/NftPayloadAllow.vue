@@ -12,7 +12,7 @@
 </template>
 <script lang="ts">
 import { defineComponent } from 'vue'
-import { useStore } from 'vuex'
+import { useStore } from '@/stores'
 
 export default defineComponent({
     name: 'NftPayloadAllow',

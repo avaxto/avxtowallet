@@ -20,7 +20,7 @@
 </template>
 <script lang="ts">
 import { defineComponent, computed } from 'vue'
-import { useStore } from 'vuex'
+import { useStore } from '@/stores'
 import { AvaNftFamily } from '@/js/AvaNftFamily'
 import { IWalletNftDict } from '@/store/types'
 import { NFTTransferOutput, UTXO } from 'avalanche/dist/apis/avm'

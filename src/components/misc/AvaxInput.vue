@@ -31,7 +31,7 @@
 <script lang="ts">
 import 'reflect-metadata'
 import { defineComponent, ref, computed } from 'vue'
-import { useStore } from 'vuex'
+import { useStore } from '@/stores'
 import { Big, bnToBig } from '@avalabs/avalanche-wallet-sdk'
 //@ts-ignore
 import { BigNumInput } from '@avalabs/vue_components'

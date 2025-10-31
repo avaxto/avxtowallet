@@ -1,6 +1,6 @@
 import { isTransactionP, isTransactionX, TransactionType } from '@/js/Glacier/models'
-import { isMainnetNetworkID } from '@/store/modules/network/isMainnetNetworkID'
-import { isTestnetNetworkID } from '@/store/modules/network/isTestnetNetworkID'
+import { isMainnetNetworkID } from '@/utils/network-utils'
+import { isTestnetNetworkID } from '@/utils/network-utils'
 import { getTxURL } from '@/js/Glacier/getTxURL'
 
 /**

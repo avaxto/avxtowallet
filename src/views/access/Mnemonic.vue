@@ -32,7 +32,7 @@
 <script lang="ts">
 import 'reflect-metadata'
 import { defineComponent, ref, onBeforeUnmount } from 'vue'
-import { useStore } from 'vuex'
+import { useMainStore } from '@/stores'
 import { useI18n } from 'vue-i18n'
 
 import * as bip39 from 'bip39'
@@ -44,7 +44,7 @@ export default defineComponent({
         MnemonicPasswordInput,
     },
     setup() {
-        const store = useStore()
+        const mainStore = useMainStore()
         const { t } = useI18n()
         
         const isLoading = ref<boolean>(false)
@@ -106,7 +106,7 @@ export default defineComponent({
 
             setTimeout(async () => {
                 try {
-                    await store.dispatch('accessWallet', phrase)
+                    await mainStore.accessWallet(phrase)
                     isLoading.value = false
                 } catch (e) {
                     isLoading.value = false

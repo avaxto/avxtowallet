@@ -114,7 +114,7 @@
 </template>
 <script lang="ts">
 import { defineComponent, computed, ref } from 'vue'
-import { useStore } from 'vuex'
+import { useStore } from '@/stores'
 
 import { bintools, keyChain } from '@/AVA'
 import AvaAsset from '@/js/AvaAsset'

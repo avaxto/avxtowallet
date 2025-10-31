@@ -133,7 +133,7 @@
 </template>
 <script lang="ts">
 import { defineComponent, ref, computed, onActivated, onDeactivated } from 'vue'
-import { useStore } from 'vuex'
+import { useStore } from '@/stores'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 

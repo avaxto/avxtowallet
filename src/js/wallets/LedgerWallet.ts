@@ -15,7 +15,7 @@ import { ava, bintools } from '@/AVA'
 //@ts-ignore
 import bippath from 'bip32-path'
 import createHash from 'create-hash'
-import store from '@/store'
+import { pinia, useMainStore } from '@/stores'
 import { importPublic, publicToAddress, bnToRlp, rlp, BN as EthereumBN } from 'ethereumjs-util'
 import { UTXO as AVMUTXO } from 'avalanche/dist/apis/avm/utxos'
 import { AvaWalletCore } from '@/js/wallets/types'

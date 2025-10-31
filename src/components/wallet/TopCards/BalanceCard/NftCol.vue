@@ -18,7 +18,7 @@
 </template>
 <script lang="ts">
 import { defineComponent, computed } from 'vue'
-import { useStore } from 'vuex'
+import { useStore } from '@/stores'
 import { IWalletNftDict } from '@/store/types'
 import { NFTTransferOutput, UTXO } from 'avalanche/dist/apis/avm'
 import NftCard from '@/components/wallet/portfolio/NftCard.vue'

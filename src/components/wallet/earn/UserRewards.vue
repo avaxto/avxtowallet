@@ -33,7 +33,7 @@
 <script lang="ts">
 import 'reflect-metadata'
 import { defineComponent, ref, computed, onMounted, onBeforeUnmount } from 'vue'
-import { useStore } from 'vuex'
+import { useStore } from '@/stores'
 import { AvaWalletCore } from '../../../js/wallets/types'
 import UserRewardRow from '@/components/wallet/earn/UserRewardRow.vue'
 import { bnToBig } from '@/helpers/helper'

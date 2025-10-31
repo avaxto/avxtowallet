@@ -26,7 +26,7 @@
 </template>
 <script lang="ts">
 import { defineComponent, ref, computed, onDeactivated } from 'vue'
-import { useStore } from 'vuex'
+import { useStore } from '@/stores'
 import { WalletType } from '@/js/wallets/types'
 import SearchAddress from '@/components/wallet/advanced/SignMessage/SearchAddress.vue'
 import { SingletonWallet } from '@/js/wallets/SingletonWallet'

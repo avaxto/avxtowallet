@@ -17,7 +17,7 @@
 <script lang="ts">
 import 'reflect-metadata'
 import { defineComponent, ref, computed, onUnmounted } from 'vue'
-import { useStore } from 'vuex'
+import { useStore } from '@/stores'
 import TransportU2F from '@ledgerhq/hw-transport-u2f'
 //@ts-ignore
 import TransportWebUSB from '@ledgerhq/hw-transport-webusb'
@@ -31,7 +31,7 @@ import Spinner from '@/components/misc/Spinner.vue'
 import LedgerBlock from '@/components/modals/LedgerBlock.vue'
 import { LedgerWallet } from '@/js/wallets/LedgerWallet'
 import { AVA_ACCOUNT_PATH, LEDGER_ETH_ACCOUNT_PATH } from '@/js/wallets/MnemonicWallet'
-import { LEDGER_EXCHANGE_TIMEOUT } from '@/store/modules/ledger/types'
+import { LEDGER_EXCHANGE_TIMEOUT } from '@/utils/ledger-constants'
 import ImageDayNight from '@/components/misc/ImageDayNight.vue'
 import { getLedgerProvider } from '@avalabs/avalanche-wallet-sdk'
 import { MIN_LEDGER_V } from '@/js/wallets/constants'

@@ -21,7 +21,7 @@
 <script lang="ts">
 import 'reflect-metadata'
 import { defineComponent, ref } from 'vue'
-import { useStore } from 'vuex'
+import { useStore } from '@/stores'
 
 import Modal from '@/components/modals/Modal.vue'
 import CopyText from '@/components/misc/CopyText.vue'

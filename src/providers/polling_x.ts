@@ -1,5 +1,7 @@
 import { AvaNetwork } from '@/js/AvaNetwork'
-import store from '@/store'
+import { pinia } from '@/stores'
+import { useMainStore, useAssetsStore } from '@/stores'
+import { bnToBig } from '@/helpers/helper'
 import { WalletType } from '@/js/wallets/types'
 
 /**
@@ -66,13 +68,15 @@ async function checkForXChainUpdates() {
 }
 
 function updateWalletBalanceX() {
-    const wallet: null | WalletType = store.state.activeWallet
+    const mainStore = useMainStore(pinia)
+    const wallet: null | WalletType = mainStore.activeWallet as WalletType | null
     if (!wallet) return
     
     // Refresh the wallet balance
-    store.dispatch('Assets/updateUTXOsExternal').then(() => {
-        store.dispatch('History/updateTransactionHistory')
-    })
+    // TODO: Implement updateUTXOsExternal in AssetsStore
+    // assetsStore.updateUTXOsExternal().then(() => {
+    //     historyStore.updateTransactionHistory()
+    // })
 }
 
 /**
@@ -82,7 +86,8 @@ function updateWalletBalanceX() {
 export function updatePollingFilterAddresses(): void {
     // In REST mode, we don't need to maintain address filters
     // We simply poll for updates and let the wallet update logic handle filtering
-    const wallet: null | WalletType = store.state.activeWallet
+    const mainStore = useMainStore(pinia)
+    const wallet: null | WalletType = mainStore.activeWallet as WalletType | null
     if (!wallet || !currentNetwork) {
         return
     }
