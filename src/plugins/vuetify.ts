@@ -132,9 +132,16 @@ library.add(
     faGlasses
 )
 
-// For now, create a simple Vuetify 3 instance
-// Full FontAwesome integration will be updated in next phase
+// Import Vuetify components
+import * as components from 'vuetify/components'
+import * as directives from 'vuetify/directives'
+
+// Create Vuetify 3 instance with all components
 export default createVuetify({
+    // Import all components and directives
+    components,
+    directives,
+    
     theme: {
         themes: {
             light: {
