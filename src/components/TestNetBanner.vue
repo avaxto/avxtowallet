@@ -7,20 +7,17 @@
 import { AvaNetwork } from '@/js/AvaNetwork'
 import 'reflect-metadata'
 import { defineComponent, computed } from 'vue'
-import { useStore } from 'vuex'
+import { useNetworkStore } from '@/stores'
 
 export default defineComponent({
     name: 'TestNetBanner',
     setup() {
-        const store = useStore()
+        const networkStore = useNetworkStore()
         
         const isVisible = computed(() => {
-            let network = store.state.Network.selectedNetwork
-            if (!network) return null
-            let netId = parseInt(network.networkId)
-
-            if (netId == 1) return null
-            return true
+            // For now, using placeholder logic - will be implemented when network store is completed
+            console.log('TestNetBanner: checking network visibility (placeholder)')
+            return null
         })
 
         return {

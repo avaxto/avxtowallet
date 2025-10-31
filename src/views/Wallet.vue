@@ -24,7 +24,7 @@
 
 <script lang="ts">
 import { defineComponent, ref, computed, onMounted, onBeforeUnmount, onUnmounted } from 'vue'
-import { useStore } from 'vuex'
+import { useMainStore } from '@/stores'
 import { useRouter } from 'vue-router'
 import TopInfo from '@/components/wallet/TopInfo.vue'
 import Sidebar from '@/components/wallet/Sidebar.vue'
@@ -43,7 +43,7 @@ export default defineComponent({
         UpdateKeystoreModal,
     },
     setup() {
-        const store = useStore()
+        const store = useMainStore()
         const router = useRouter()
         
         const wallet_view = ref<HTMLDivElement>()
@@ -52,14 +52,14 @@ export default defineComponent({
         const isLogOut = ref<boolean>(false)
 
         const isManageWarning = computed((): boolean => {
-            if (store.state.warnUpdateKeyfile) {
+            if (store.warnUpdateKeyfile) {
                 return true
             }
             return false
         })
 
         const hasVolatileWallets = computed(() => {
-            return store.state.volatileWallets.length > 0
+            return store.volatileWallets.length > 0
         })
 
         // Set the logout timestamp to now + TIMEOUT_DUR_MS
@@ -73,7 +73,7 @@ export default defineComponent({
             // Logout if current time is passed the logout timestamp
             if (now >= logoutTimestamp.value && !isLogOut.value) {
                 isLogOut.value = true
-                store.dispatch('timeoutLogout')
+                store.timeoutLogout()
             }
         }
 

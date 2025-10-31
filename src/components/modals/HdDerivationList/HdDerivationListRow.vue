@@ -21,7 +21,7 @@
 </template>
 <script lang="ts">
 import { defineComponent, computed } from 'vue'
-import { useStore } from 'vuex'
+import { useMainStore, useAssetsStore } from '@/stores'
 import { useI18n } from 'vue-i18n'
 import Big from 'big.js'
 import { DerivationListBalanceDict } from '@/components/modals/HdDerivationList/types'
@@ -53,7 +53,8 @@ export default defineComponent({
         }
     },
     setup(props) {
-        const store = useStore()
+        const mainStore = useMainStore()
+        const assetsStore = useAssetsStore()
         const { t } = useI18n()
 
         const cleanBalance = computed((): DerivationListBalanceDict => {
@@ -72,11 +73,13 @@ export default defineComponent({
         })
 
         const assetsDict = computed(() => {
-            return store.state.Assets.assetsDict
+            // Placeholder - will be implemented when assets store is completed
+            console.log('HdDerivationListRow: accessing assetsDict (placeholder)')
+            return {}
         })
 
         const wallet = computed(() => {
-            return store.state.activeWallet as WalletType
+            return mainStore.activeWallet as WalletType
         })
 
         const walletType = computed(() => {
