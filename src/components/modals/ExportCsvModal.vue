@@ -50,7 +50,7 @@ import {
 } from '@/store/modules/history/types'
 import { bnToBig } from '@/helpers/helper'
 import { getPriceAtUnixTime } from '@/helpers/price_helper'
-const generate = require('csv-generate')
+import { generate } from 'csv-generate'
 import moment from 'moment'
 import {
     stakingDataToCsvRow,

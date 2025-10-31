@@ -5,8 +5,8 @@
     </div>
 </template>
 <script>
-import BalanceCard from './TopCards/BalanceCard/BalanceCard'
-import AddressCard from './TopCards/AddressCard/AddressCard'
+import BalanceCard from './TopCards/BalanceCard/BalanceCard.vue'
+import AddressCard from './TopCards/AddressCard/AddressCard.vue'
 
 export default {
     components: {

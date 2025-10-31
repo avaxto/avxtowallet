@@ -67,8 +67,8 @@
     </div>
 </template>
 <script>
-import LanguageSelect from '@/components/misc/LanguageSelect/LanguageSelect'
-import AccountMenu from '@/components/wallet/sidebar/AccountMenu'
+import LanguageSelect from '@/components/misc/LanguageSelect/LanguageSelect.vue'
+import AccountMenu from '@/components/wallet/sidebar/AccountMenu.vue'
 
 export default {
     components: {

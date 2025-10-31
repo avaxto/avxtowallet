@@ -2,7 +2,7 @@
  * Configuration for provider mode
  */
 
-import AVXTOConf from '@/avxto/AVXTOConf'
+import { X_CHAIN_POLLING_INTERVAL, C_CHAIN_POLLING_INTERVAL } from '@/avxto/AVXTOConf'
 
 export interface ProviderConfig {
     pollingIntervals: {
@@ -14,14 +14,14 @@ export interface ProviderConfig {
 
 export const DEFAULT_CONFIG: ProviderConfig = {    
     pollingIntervals: {
-        xChain: AVXTOConf.X_CHAIN_POLLING_INTERVAL,  // 10 seconds for X-Chain
-        cChain: AVXTOConf.C_CHAIN_POLLING_INTERVAL,  // 10 seconds for C-Chain (EVM blocks are faster)
+        xChain: X_CHAIN_POLLING_INTERVAL,  // 10 seconds for X-Chain
+        cChain: C_CHAIN_POLLING_INTERVAL,  // 10 seconds for C-Chain (EVM blocks are faster)
     }
 }
 
 export const PROVIDER_CONFIG: ProviderConfig = {
     pollingIntervals: {
-        xChain: AVXTOConf.X_CHAIN_POLLING_INTERVAL,
-        cChain: AVXTOConf.C_CHAIN_POLLING_INTERVAL,
+        xChain: X_CHAIN_POLLING_INTERVAL,
+        cChain: C_CHAIN_POLLING_INTERVAL,
     }
 }

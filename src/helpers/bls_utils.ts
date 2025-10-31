@@ -1,4 +1,5 @@
 import { Buffer } from 'avalanche'
+import crypto from 'crypto'
 
 /**
  * BLS Utilities for ACP-62 Compliance
@@ -88,7 +89,7 @@ export function generateBlsKeyPair(seed?: string): BlsKeyPair {
     
     // Generate deterministic fake keys for development
     const fakeSeed = seed || 'default-seed'
-    const hash = require('crypto').createHash('sha256').update(fakeSeed).digest('hex')
+    const hash = crypto.createHash('sha256').update(fakeSeed).digest('hex')
     
     return {
         privateKey: hash, // 32 bytes
@@ -108,7 +109,7 @@ export function signBlsMessage(privateKey: string, message: string): BlsSignatur
     
     console.warn('signBlsMessage: Using placeholder implementation. Replace with proper BLS library.')
     
-    const hash = require('crypto').createHash('sha256').update(message + privateKey).digest('hex')
+    const hash = crypto.createHash('sha256').update(message + privateKey).digest('hex')
     
     return {
         signature: hash + hash + hash, // 96 bytes (fake)

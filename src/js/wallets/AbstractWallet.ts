@@ -36,8 +36,7 @@ import {
     PrimaryNetworkOptions,
 } from '@avalabs/glacier-sdk'
 import { toChecksumAddress } from 'ethereumjs-util'
-
-const uniqid = require('uniqid')
+import uniqid from 'uniqid'
 
 abstract class AbstractWallet {
     id: string

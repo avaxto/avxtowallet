@@ -392,7 +392,7 @@ export default defineComponent({
         })
 
         const faucetLink = computed(() => {
-            let link = process.env.VUE_APP_FAUCET_LINK
+            let link = process.env.VITE_APP_FAUCET_LINK
             if (link) return link
             return null
         })

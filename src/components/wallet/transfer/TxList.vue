@@ -32,9 +32,7 @@ import 'reflect-metadata'
 import { defineComponent, ref, computed, watch, onActivated, onDeactivated } from 'vue'
 import { useStore } from 'vuex'
 import { useRoute } from 'vue-router'
-
-const uuidv1 = require('uuid/v1')
-
+import { v1 as uuidv1 } from 'uuid'
 import { BN } from 'avalanche'
 import CurrencyInputDropdown from '@/components/misc/CurrencyInputDropdown.vue'
 import AvaAsset from '@/js/AvaAsset'

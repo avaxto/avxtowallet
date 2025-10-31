@@ -25,7 +25,7 @@ import { useStore } from 'vuex'
 import Modal from '@/components/modals/Modal.vue'
 import { CsvRowAvaxTransferData, ITransactionData, UTXO } from '@/store/modules/history/types'
 import { bnToBig } from '@/helpers/helper'
-const generate = require('csv-generate')
+import { generate } from 'csv-generate'
 import { downloadCSVFile } from '@/store/modules/history/history_utils'
 import { createCsvNormal, getHistoryForOwnedAddresses } from '@avalabs/avalanche-wallet-sdk'
 

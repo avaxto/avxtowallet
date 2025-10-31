@@ -1,4 +1,4 @@
-const axios = require('axios')
+import axios from 'axios'
 
 const CG_DAYS = 1
 const COIN_ID = 'avalanche-2'

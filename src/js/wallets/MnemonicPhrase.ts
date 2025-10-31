@@ -1,6 +1,6 @@
 import CryptoJS from 'crypto-js/core'
 import AES from 'crypto-js/aes'
-const randomstring = require('randomstring')
+import randomstring from 'randomstring'
 import * as bip39 from 'bip39'
 
 // The purpose of this class is for obfuscation only rather than secure encryption

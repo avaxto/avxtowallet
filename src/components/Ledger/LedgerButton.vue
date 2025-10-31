@@ -35,7 +35,7 @@ import { LEDGER_EXCHANGE_TIMEOUT } from '@/store/modules/ledger/types'
 import ImageDayNight from '@/components/misc/ImageDayNight.vue'
 import { getLedgerProvider } from '@avalabs/avalanche-wallet-sdk'
 import { MIN_LEDGER_V } from '@/js/wallets/constants'
-const { detect } = require('detect-browser')
+import { detect } from 'detect-browser'
 
 const UnsupportedBrowsers = ['firefox', 'safari']
 

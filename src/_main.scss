@@ -13,7 +13,7 @@
 @use 'sass:meta';
 
 // Import Bootstrap Grid with suppressed warnings
-@use 'node_modules/bootstrap/scss/bootstrap-grid.scss' with (
+@use 'bootstrap/scss/bootstrap-grid' with (
     $enable-grid-classes: true,
     $enable-cssgrid: true
 );

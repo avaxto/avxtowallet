@@ -22,15 +22,15 @@
     </v-app>
 </template>
 <script>
-import Notifications from '@/components/Notifications'
-import Navbar from './components/Navbar'
-import SaveAccountModal from '@/components/modals/SaveAccount/SaveAccountModal'
-import LedgerBlock from '@/components/modals/LedgerBlock'
-import LedgerUpgrade from '@/components/modals/LedgerUpgrade'
-import TestNetBanner from '@/components/TestNetBanner'
-import NetworkLoadingBlock from '@/components/misc/NetworkLoadingBlock'
-import UpgradeToAccountModal from '@/components/modals/SaveAccount/UpgradeToAccountModal'
-import LedgerWalletLoading from '@/components/modals/LedgerWalletLoading'
+import Notifications from '@/components/Notifications.vue'
+import Navbar from './components/Navbar.vue'
+import SaveAccountModal from '@/components/modals/SaveAccount/SaveAccountModal.vue'
+import LedgerBlock from '@/components/modals/LedgerBlock.vue'
+import LedgerUpgrade from '@/components/modals/LedgerUpgrade.vue'
+import TestNetBanner from '@/components/TestNetBanner.vue'
+import NetworkLoadingBlock from '@/components/misc/NetworkLoadingBlock.vue'
+import UpgradeToAccountModal from '@/components/modals/SaveAccount/UpgradeToAccountModal.vue'
+import LedgerWalletLoading from '@/components/modals/LedgerWalletLoading.vue'
 
 export default {
     components: {

@@ -98,7 +98,7 @@ if (window.Cypress) {
 app.mixin({
     mounted() {
         // Reveal app version
-        console.log(`AVAX Toolbox Version: ${process.env.VUE_APP_VERSION}`)
+        console.log(`AVAX Toolbox Version: ${process.env.VITE_APP_VERSION}`)
         // Hide loader once vue is initialized
         const loader = document.getElementById('app_loading')
         if (loader) {

@@ -43,8 +43,8 @@
 </template>
 <script lang="ts">
 import { defineComponent, ref, watch } from 'vue'
-import Fungibles from '@/components/wallet/portfolio/Fungibles'
-import Collectibles from '@/components/wallet/portfolio/Collectibles'
+import Fungibles from '@/components/wallet/portfolio/Fungibles.vue'
+import Collectibles from '@/components/wallet/portfolio/Collectibles.vue'
 
 export default defineComponent({
     name: 'WalletHome',

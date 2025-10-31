@@ -2,7 +2,5 @@
 AVXTO - AVAX Toolbox Global Configuration File
 */
 
-namespace AVXTOConf {
-    export const X_CHAIN_POLLING_INTERVAL = 10000
-    export const C_CHAIN_POLLING_INTERVAL = 10000
-}
+export const X_CHAIN_POLLING_INTERVAL = 10000
+export const C_CHAIN_POLLING_INTERVAL = 10000
