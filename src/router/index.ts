@@ -51,7 +51,7 @@ const routes = [
         path: '/access',
         children: [
             {
-                path: '/',
+                path: '',
                 name: 'access',
                 component: Menu,
             },

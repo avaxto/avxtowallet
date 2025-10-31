@@ -3,6 +3,7 @@
         <b-container>
             <b-row align-h="center">
                 <b-col md="12" lg="10">
+                    
                     <router-view v-slot="{ Component }">
                         <transition>
                             <component :is="Component" />
