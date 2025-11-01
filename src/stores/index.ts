@@ -108,7 +108,29 @@ export function useStore() {
             }
         },
 
-        // Getters (Pinia computed properties work as getters)
-        getters: {},
+        // Getters method - maps to Pinia computed properties
+        getters(path: string) {
+            if (path.includes('/')) {
+                const [module, getterName] = path.split('/')
+                const storeMap: Record<string, any> = {
+                    'Assets': assetsStore,
+                    'Network': networkStore,
+                    'Notifications': notificationsStore,
+                    'History': historyStore,
+                    'Platform': platformStore,
+                    'Ledger': ledgerStore,
+                    'Accounts': accountsStore,
+                    'Earn': earnStore,
+                }
+                
+                const store = storeMap[module]
+                if (store && store[getterName] !== undefined) {
+                    // Return the computed value if it's a computed property
+                    return typeof store[getterName] === 'function' ? store[getterName]() : store[getterName]
+                }
+            }
+            
+            return undefined
+        },
     }
 }

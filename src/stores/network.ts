@@ -17,6 +17,50 @@ export const useNetworkStore = defineStore('network', () => {
     })
     
     // Actions
+    const init = async () => {
+        // Create default networks
+        const mainnet = new AvaNetwork(
+            'Mainnet',
+            'https://api.avax.network:443',
+            1, // Network ID for mainnet
+            'https://avascan.info/blockchain/c/address',
+            'https://avascan.info'
+        )
+        
+        const fuji = new AvaNetwork(
+            'Fuji',
+            'https://api.avax-test.network:443',
+            5, // Network ID for fuji testnet
+            'https://testnet.avascan.info/blockchain/c/address',
+            'https://testnet.avascan.info'
+        )
+        
+        networks.value = [mainnet, fuji]
+        
+        // Load custom networks from localStorage
+        load()
+        
+        // Try to load the selected network from localStorage
+        const loaded = await loadSelectedNetwork()
+        if (!loaded) {
+            // If no network was saved, default to mainnet
+            selectedNetwork.value = mainnet
+            saveSelectedNetwork()
+        }
+    }
+    
+    const setNetwork = async (net: AvaNetwork) => {
+        selectedNetwork.value = net
+        saveSelectedNetwork()
+        status.value = 'connecting'
+        
+        // TODO: Add actual network connection logic here
+        // For now, just set status to connected
+        status.value = 'connected'
+        
+        return true
+    }
+    
     const addNetwork = (net: AvaNetwork) => {
         networks.value.push(net)
     }
@@ -55,7 +99,7 @@ export const useNetworkStore = defineStore('network', () => {
             for (let i = 0; i < nets.length; i++) {
                 const net = nets[i]
                 if (JSON.stringify(net.url) === data) {
-                    // Note: setNetwork action would need to be implemented
+                    selectedNetwork.value = net
                     return true
                 }
             }
@@ -105,6 +149,8 @@ export const useNetworkStore = defineStore('network', () => {
         allNetworks,
         
         // Actions
+        init,
+        setNetwork,
         addNetwork,
         addCustomNetwork,
         removeCustomNetwork,
