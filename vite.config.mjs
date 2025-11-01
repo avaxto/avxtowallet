@@ -4,7 +4,7 @@ import { resolve } from 'path'
 import { nodePolyfills } from 'vite-plugin-node-polyfills'
 
 // Set version environment variable
-process.env.VITE_APP_VERSION = process.env.npm_package_version
+process.env.VITE_APP_VERSION = 0.01
 
 export default defineConfig({
   plugins: [

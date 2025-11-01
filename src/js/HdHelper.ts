@@ -13,7 +13,7 @@ import {
     KeyChain as PlatformVMKeyChain,
     KeyPair as PlatformVMKeyPair,
 } from 'avalanche/dist/apis/platformvm'
-import { pinia, useMainStore } from '@/stores'
+import { pinia, useMainStore, useNetworkStore } from '@/stores'
 
 import { AvaNetwork } from '@/js/AvaNetwork'
 import { ChainAlias } from './wallets/types'
@@ -120,9 +120,9 @@ class HdHelper {
     async findHdIndex() {
         // Check if explorer is available
 
-        // @ts-ignore
-        const network: AvaNetwork = store.state.Network.selectedNetwork
-        const explorerUrl = network.explorerUrl
+        const networkStore = useNetworkStore(pinia)
+        const network: AvaNetwork | null = networkStore.selectedNetwork
+        const explorerUrl = network?.explorerUrl
 
         if (explorerUrl) {
             this.hdIndex = await this.findAvailableIndexExplorer()

@@ -14,14 +14,14 @@
             />
             <div class="button_container">
                 <p class="err" v-if="err">{{ err }}</p>
-                <v-btn
+                <button
                     class="ava_button but_primary button_primary access"
                     @click="access"
-                    depressed
-                    :loading="isLoading"
+                    :disabled="isLoading"
                 >
-                    {{ $t('access.mnemonic.submit') }}
-                </v-btn>
+                    <span v-if="isLoading">Loading...</span>
+                    <span v-else>{{ $t('access.mnemonic.submit') }}</span>
+                </button>
                 <router-link to="/access" class="link">
                     {{ $t('access.mnemonic.cancel') }}
                 </router-link>
@@ -94,9 +94,12 @@ export default defineComponent({
         }
 
         const access = async () => {
+            console.log('🔵 Access button clicked!')
+            
             err.value = ''
             const phrase = getMnemonic()
-
+            console.log('🔵 Phrase:', phrase ? 'exists' : 'empty')
+            
             isLoading.value = true
 
             if (!errCheck()) {
