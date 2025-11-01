@@ -9,6 +9,14 @@
 </template>
 <script>
 export default {
+    setup() {
+        const { useStore } = require('@/stores')
+        const store = useStore()
+        
+        return {
+            store
+        }
+    },
     computed: {
         faucetLink() {
             let link = process.env.VITE_APP_FAUCET_LINK
@@ -16,7 +24,7 @@ export default {
             return null
         },
         selectedAddress() {
-            return this.$store.state.address
+            return this.store.state.address
         },
     },
 }

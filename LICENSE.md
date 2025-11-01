@@ -1,5 +1,6 @@
 BSD 3-Clause License
 
+Copyright (c) 2025, AVAX Toolbox
 Copyright (c) 2020, Ava Labs, Inc.
 All rights reserved.
 

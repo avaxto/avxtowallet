@@ -44,6 +44,14 @@ export default {
         Notifications,
         TestNetBanner,
     },
+    setup() {
+        const { useStore } = require('@/stores')
+        const store = useStore()
+        
+        return {
+            store
+        }
+    },
     async created() {
         // Init language preference
         let locale = localStorage.getItem('lang')
@@ -51,13 +59,13 @@ export default {
             this.$root.$i18n.locale = locale
         }
 
-        await this.$store.dispatch('Network/init')
-        this.$store.commit('Accounts/loadAccounts')
-        this.$store.dispatch('Assets/initErc20List')
-        this.$store.dispatch('Assets/ERC721/init')
-        this.$store.dispatch('updateAvaxPrice')
+        await this.store.dispatch('Network/init')
+        this.store.commit('Accounts/loadAccounts')
+        this.store.dispatch('Assets/initErc20List')
+        this.store.dispatch('Assets/ERC721/init')
+        this.store.dispatch('updateAvaxPrice')
 
-        if (this.$store.state.Accounts.accounts.length > 0) {
+        if (this.store.state.Accounts.accounts.length > 0) {
             // Do not route for legal pages
             if (this.$route.name !== 'legal') {
                 this.$router.push('/access')

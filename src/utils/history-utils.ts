@@ -1,6 +1,5 @@
 /**
  * History and CSV export utility functions
- * These were previously in the Vuex store modules/history
  */
 
 import { BN } from 'avalanche'

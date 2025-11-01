@@ -14,6 +14,14 @@ export default {
     props: {
         value: String,
     },
+    setup() {
+        const { useStore } = require('@/stores')
+        const store = useStore()
+        
+        return {
+            store
+        }
+    },
     methods: {
         copy() {
             let copytext = this.$refs.copytext
@@ -21,7 +29,7 @@ export default {
             copytext.setSelectionRange(0, 99999)
 
             document.execCommand('copy')
-            this.$store.dispatch('Notifications/add', {
+            this.store.dispatch('Notifications/add', {
                 title: ' Copied',
                 message: 'Copied to clipboard.',
             })

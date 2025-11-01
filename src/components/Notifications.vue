@@ -16,12 +16,16 @@
     </div>
 </template>
 <script>
+import { useNotificationsStore } from '@/stores'
+
 export default {
-    computed: {
-        items() {
-            return this.$store.state.Notifications.items
-        },
-    },
+    setup() {
+        const notificationsStore = useNotificationsStore()
+        
+        return {
+            items: notificationsStore.items
+        }
+    }
 }
 </script>
 <style scoped>

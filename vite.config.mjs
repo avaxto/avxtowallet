@@ -52,9 +52,8 @@ export default defineConfig({
     sourcemap: false,
     rollupOptions: {
       output: {
-        manualChunks: {
-          // Split vendor chunks similar to webpack config
-          vendor: ['vue', 'vue-router', 'vuex', 'vuetify'],
+        manualChunks: {          
+          vendor: ['vue', 'vue-router', 'pinia', 'vuetify'],
           crypto: ['crypto-browserify', 'buffer', 'stream-browserify', 'ethers', 'web3'],
           avalanche: ['avalanche', '@avalabs/avalanche-wallet-sdk'],
           ledger: ['@ledgerhq/hw-app-eth', '@ledgerhq/hw-transport', '@ledgerhq/hw-transport-webhid', '@ledgerhq/hw-transport-webusb'],
@@ -86,7 +85,7 @@ export default defineConfig({
     include: [
       'vue',
       'vue-router',
-      'vuex',
+      'pinia',
       '@vue/compat',
       'vuetify',
       'bootstrap-vue-next',

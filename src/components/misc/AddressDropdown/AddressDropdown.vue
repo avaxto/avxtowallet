@@ -68,9 +68,17 @@ export default {
             value: [],
         }
     },
+    setup() {
+        const { useStore } = require('@/stores')
+        const store = useStore()
+        
+        return {
+            store
+        }
+    },
     computed: {
         items() {
-            return this.$store.state.addresses
+            return this.store.state.addresses
         },
     },
     methods: {

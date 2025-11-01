@@ -18,9 +18,17 @@ export default {
             required: true,
         },
     },
+    setup() {
+        const { useStore } = require('@/stores')
+        const store = useStore()
+        
+        return {
+            store
+        }
+    },
     methods: {
         oncopy(val) {
-            this.$store.dispatch('Notifications/add', {
+            this.store.dispatch('Notifications/add', {
                 title: 'Copy',
                 message: 'Copied to clipboard.',
             })

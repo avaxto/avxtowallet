@@ -1,22 +1,10 @@
 import { createPinia } from 'pinia'
+import { computed } from 'vue'
 
-// Create the pinia instance
+// Create Pinia instance
 export const pinia = createPinia()
 
-// Export individual stores
-export { useMainStore } from './main'
-export { useAssetsStore } from './assets'
-export { useNetworkStore } from './network'
-export { useNotificationsStore } from './notifications'
-export { useHistoryStore } from './history'
-export { usePlatformStore } from './platform'
-export { useLedgerStore } from './ledger'
-export { useAccountsStore } from './accounts'
-export { useEarnStore } from './earn'
-
-// Vuex compatibility: useStore now returns the combined store state
-// Components can access stores via: const store = useStore()
-// Then use: store.state.xxx or store.dispatch()
+// Store imports
 import { useMainStore } from './main'
 import { useAssetsStore } from './assets'
 import { useNetworkStore } from './network'
@@ -26,7 +14,17 @@ import { usePlatformStore } from './platform'
 import { useLedgerStore } from './ledger'
 import { useAccountsStore } from './accounts'
 import { useEarnStore } from './earn'
-import { computed } from 'vue'
+
+// Export all stores for direct Pinia usage
+export { useMainStore } from './main'
+export { useAssetsStore } from './assets'
+export { useNetworkStore } from './network'
+export { useNotificationsStore } from './notifications'
+export { useHistoryStore } from './history'
+export { usePlatformStore } from './platform'
+export { useLedgerStore } from './ledger'
+export { useAccountsStore } from './accounts'
+export { useEarnStore } from './earn'
 
 export function useStore() {
     const mainStore = useMainStore()
@@ -41,16 +39,15 @@ export function useStore() {
 
     return {
         state: {
-            // Main store state
             isAuth: computed(() => mainStore.isAuth),
             activeWallet: computed(() => mainStore.activeWallet),
             address: computed(() => mainStore.address),
+            addresses: computed(() => mainStore.addresses || []),
             wallets: computed(() => mainStore.wallets),
             volatileWallets: computed(() => mainStore.volatileWallets),
             warnUpdateKeyfile: computed(() => mainStore.warnUpdateKeyfile),
             prices: computed(() => mainStore.prices),
 
-            // Module stores (Vuex-style namespaced access)
             Assets: assetsStore,
             Network: networkStore,
             Notifications: notificationsStore,
@@ -62,7 +59,6 @@ export function useStore() {
         },
         
         dispatch(action: string, payload?: any): any {
-            // Map Vuex-style dispatch calls to Pinia actions
             if (action.includes('/')) {
                 const [module, actionName] = action.split('/')
                 const storeMap: Record<string, any> = {
@@ -75,24 +71,46 @@ export function useStore() {
                     'Accounts': accountsStore,
                     'Earn': earnStore,
                 }
+                
                 const store = storeMap[module]
                 if (store && typeof store[actionName] === 'function') {
                     return store[actionName](payload)
                 }
             } else {
-                // Root-level actions go to mainStore
+                // Root-level actions
                 if (typeof (mainStore as any)[action] === 'function') {
                     return (mainStore as any)[action](payload)
                 }
             }
-            console.warn(`Action not found: ${action}`)
+            
             return Promise.resolve()
         },
 
-        getters: {},
-        commit() {
-            // Pinia doesn't use commits, mutations are direct
-            console.warn('commit() is deprecated with Pinia - use direct state mutations')
+        // Commit method - maps to Pinia actions (no mutations needed in Pinia)
+        commit(mutation: string, payload?: any) {
+            switch (mutation) {
+                case 'Ledger/openModal':
+                    return ledgerStore.openModal(payload)
+                case 'Ledger/closeModal':
+                    return ledgerStore.closeModal()
+                case 'Notifications/add':
+                    return notificationsStore.add(payload)
+                case 'Notifications/remove':
+                    return notificationsStore.remove(payload)
+                case 'Accounts/loadAccounts':
+                    // TODO: Implement loadAccounts in accounts store
+                    console.log('Accounts/loadAccounts - implement when accounts store is ready')
+                    return Promise.resolve()
+                default:
+                    // Try to find matching action in stores
+                    if (mutation.includes('/')) {
+                        return this.dispatch(mutation, payload)
+                    }
+                    break
+            }
         },
+
+        // Getters (Pinia computed properties work as getters)
+        getters: {},
     }
 }
