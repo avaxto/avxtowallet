@@ -32,6 +32,8 @@
 </template>
 <script>
 // import ListItem from './ListItem';
+import { useStore } from '@/stores'
+
 export default {
     components: {
         // ListItem
@@ -69,7 +71,6 @@ export default {
         }
     },
     setup() {
-        const { useStore } = require('@/stores')
         const store = useStore()
         
         return {

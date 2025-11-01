@@ -98,9 +98,7 @@ export function useStore() {
                 case 'Notifications/remove':
                     return notificationsStore.remove(payload)
                 case 'Accounts/loadAccounts':
-                    // TODO: Implement loadAccounts in accounts store
-                    console.log('Accounts/loadAccounts - implement when accounts store is ready')
-                    return Promise.resolve()
+                    return accountsStore.loadAccounts()
                 default:
                     // Try to find matching action in stores
                     if (mutation.includes('/')) {

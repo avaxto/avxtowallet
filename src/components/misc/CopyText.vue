@@ -10,12 +10,13 @@
     </div>
 </template>
 <script>
+import { useStore } from '@/stores'
+
 export default {
     props: {
         value: String,
     },
     setup() {
-        const { useStore } = require('@/stores')
         const store = useStore()
         
         return {

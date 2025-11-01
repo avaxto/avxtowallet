@@ -8,6 +8,8 @@
 </template>
 <script>
 import { CopyText } from '@avalabs/vue_components'
+import { useStore } from '@/stores'
+
 export default {
     components: {
         CopyText,
@@ -19,7 +21,6 @@ export default {
         },
     },
     setup() {
-        const { useStore } = require('@/stores')
         const store = useStore()
         
         return {

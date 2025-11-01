@@ -8,9 +8,10 @@
     </div>
 </template>
 <script>
+import { useStore } from '@/stores'
+
 export default {
     setup() {
-        const { useStore } = require('@/stores')
         const store = useStore()
         
         return {

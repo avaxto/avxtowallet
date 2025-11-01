@@ -31,6 +31,7 @@ import TestNetBanner from '@/components/TestNetBanner.vue'
 import NetworkLoadingBlock from '@/components/misc/NetworkLoadingBlock.vue'
 import UpgradeToAccountModal from '@/components/modals/SaveAccount/UpgradeToAccountModal.vue'
 import LedgerWalletLoading from '@/components/modals/LedgerWalletLoading.vue'
+import { useStore } from '@/stores'
 
 export default {
     components: {
@@ -45,7 +46,6 @@ export default {
         TestNetBanner,
     },
     setup() {
-        const { useStore } = require('@/stores')
         const store = useStore()
         
         return {
@@ -53,7 +53,7 @@ export default {
         }
     },
     async created() {
-        // Init language preference
+        
         let locale = localStorage.getItem('lang')
         if (locale) {
             this.$root.$i18n.locale = locale
