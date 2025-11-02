@@ -14,6 +14,7 @@ import { usePlatformStore } from './platform'
 import { useLedgerStore } from './ledger'
 import { useAccountsStore } from './accounts'
 import { useEarnStore } from './earn'
+import { useErc721Store } from './erc721'
 
 // Export all stores for direct Pinia usage
 export { useMainStore } from './main'
@@ -25,6 +26,7 @@ export { usePlatformStore } from './platform'
 export { useLedgerStore } from './ledger'
 export { useAccountsStore } from './accounts'
 export { useEarnStore } from './earn'
+export { useErc721Store } from './erc721'
 
 export function useStore() {
     const mainStore = useMainStore()
@@ -36,6 +38,7 @@ export function useStore() {
     const ledgerStore = useLedgerStore()
     const accountsStore = useAccountsStore()
     const earnStore = useEarnStore()
+    const erc721Store = useErc721Store()
 
     return {
         state: {
@@ -56,28 +59,47 @@ export function useStore() {
             Ledger: ledgerStore,
             Accounts: accountsStore,
             Earn: earnStore,
+            ERC721: erc721Store,
         },
         
         dispatch(action: string, payload?: any): any {
             if (action.includes('/')) {
-                const [module, actionName] = action.split('/')
-                const storeMap: Record<string, any> = {
-                    'Assets': assetsStore,
-                    'Network': networkStore,
-                    'Notifications': notificationsStore,
-                    'History': historyStore,
-                    'Platform': platformStore,
-                    'Ledger': ledgerStore,
-                    'Accounts': accountsStore,
-                    'Earn': earnStore,
-                }
+                const parts = action.split('/')
                 
-                const store = storeMap[module]
-                if (store && typeof store[actionName] === 'function') {
-                    return store[actionName](payload)
-                } else {
-                    console.warn(`❌ Store action not found: ${module}.${actionName}`)
-                    return Promise.resolve()
+                // Handle nested actions like Assets/ERC721/init
+                if (parts.length === 3) {
+                    const [module, subModule, actionName] = parts
+                    
+                    if (module === 'Assets' && subModule === 'ERC721') {
+                        if (typeof erc721Store[actionName] === 'function') {
+                            return erc721Store[actionName](payload)
+                        } else {
+                            console.warn(`❌ Store action not found: ${module}/${subModule}.${actionName}`)
+                            return Promise.resolve()
+                        }
+                    }
+                } else if (parts.length === 2) {
+                    // Handle regular module actions
+                    const [module, actionName] = parts
+                    const storeMap: Record<string, any> = {
+                        'Assets': assetsStore,
+                        'Network': networkStore,
+                        'Notifications': notificationsStore,
+                        'History': historyStore,
+                        'Platform': platformStore,
+                        'Ledger': ledgerStore,
+                        'Accounts': accountsStore,
+                        'Earn': earnStore,
+                        'ERC721': erc721Store,
+                    }
+                    
+                    const store = storeMap[module]
+                    if (store && typeof store[actionName] === 'function') {
+                        return store[actionName](payload)
+                    } else {
+                        console.warn(`❌ Store action not found: ${module}.${actionName}`)
+                        return Promise.resolve()
+                    }
                 }
             } else {
                 // Root-level actions
@@ -114,22 +136,37 @@ export function useStore() {
         // Getters method - maps to Pinia computed properties
         getters(path: string) {
             if (path.includes('/')) {
-                const [module, getterName] = path.split('/')
-                const storeMap: Record<string, any> = {
-                    'Assets': assetsStore,
-                    'Network': networkStore,
-                    'Notifications': notificationsStore,
-                    'History': historyStore,
-                    'Platform': platformStore,
-                    'Ledger': ledgerStore,
-                    'Accounts': accountsStore,
-                    'Earn': earnStore,
-                }
+                const parts = path.split('/')
                 
-                const store = storeMap[module]
-                if (store && store[getterName] !== undefined) {
-                    // Return the computed value if it's a computed property
-                    return typeof store[getterName] === 'function' ? store[getterName]() : store[getterName]
+                // Handle nested getters like Assets/ERC721/networkContracts
+                if (parts.length === 3) {
+                    const [module, subModule, getterName] = parts
+                    
+                    if (module === 'Assets' && subModule === 'ERC721') {
+                        if (erc721Store[getterName] !== undefined) {
+                            return typeof erc721Store[getterName] === 'function' ? erc721Store[getterName]() : erc721Store[getterName]
+                        }
+                    }
+                } else if (parts.length === 2) {
+                    // Handle regular module getters
+                    const [module, getterName] = parts
+                    const storeMap: Record<string, any> = {
+                        'Assets': assetsStore,
+                        'Network': networkStore,
+                        'Notifications': notificationsStore,
+                        'History': historyStore,
+                        'Platform': platformStore,
+                        'Ledger': ledgerStore,
+                        'Accounts': accountsStore,
+                        'Earn': earnStore,
+                        'ERC721': erc721Store,
+                    }
+                    
+                    const store = storeMap[module]
+                    if (store && store[getterName] !== undefined) {
+                        // Return the computed value if it's a computed property
+                        return typeof store[getterName] === 'function' ? store[getterName]() : store[getterName]
+                    }
                 }
             }
             

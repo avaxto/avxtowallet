@@ -20,6 +20,7 @@ import { getPayloadFromUTXO } from '@/helpers/helper'
 import { isUrlBanned } from '@/components/misc/NftPayloadView/blacklist'
 import localTokenList from '@/ERC20Tokenlist.json'
 import { useMainStore } from './main'
+import { useErc721Store } from './erc721'
 
 // Types (inline definitions to avoid circular imports)
 export interface TokenListToken {
@@ -420,7 +421,11 @@ export const useAssetsStore = defineStore('assets', () => {
         await wallet.getUTXOs()
         await onUtxosUpdated()
         await updateERC20Balances()
-        // dispatch('ERC721/updateWalletBalance') - TODO: implement ERC721 module
+        
+        // Update ERC721 balances
+        const erc721Store = useErc721Store()
+        erc721Store.updateWalletBalance()
+        
         // commit('updateActiveAddress', null, { root: true }) - handled by main store
     }
 
