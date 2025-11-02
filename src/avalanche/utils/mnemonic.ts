@@ -6,8 +6,8 @@
 import { Buffer } from "buffer/"
 import { Wordlist } from "ethers"
 import { InvalidEntropy } from "./errors"
-const bip39: any = require("bip39")
-const randomBytes: any = require("randombytes")
+import * as bip39 from "bip39"
+import randomBytes from "randombytes"
 
 /**
  * BIP39 Mnemonic code for generating deterministic keys.
@@ -16,7 +16,7 @@ const randomBytes: any = require("randombytes")
 export default class Mnemonic {
   private static instance: Mnemonic
   private constructor() {}
-  protected wordlists: string[] = bip39.wordlists
+  protected wordlists: { [key: string]: string[] } = bip39.wordlists
 
   /**
    * Retrieves the Mnemonic singleton.
@@ -35,7 +35,7 @@ export default class Mnemonic {
    *
    * @returns A [[Wordlist]] object or array of strings
    */
-  getWordlists(language?: string): string[] | Wordlist {
+  getWordlists(language?: string): string[] | Wordlist | { [key: string]: string[] } {
     if (language !== undefined) {
       return this.wordlists[`${language}`]
     } else {
@@ -98,13 +98,13 @@ export default class Mnemonic {
 
   /**
    * Validates a mnemonic
-   11*
+   *
    * @param mnemonic the mnemonic as a string
    * @param wordlist Optional the wordlist as an array of strings
    *
-   * @returns A string
+   * @returns A boolean
    */
-  validateMnemonic(mnemonic: string, wordlist?: string[]): string {
+  validateMnemonic(mnemonic: string, wordlist?: string[]): boolean {
     return bip39.validateMnemonic(mnemonic, wordlist)
   }
 

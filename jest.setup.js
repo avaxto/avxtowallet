@@ -1,5 +1,5 @@
-const util = require('util')
-const crypto = require('crypto')
+import util from 'util'
+import crypto from 'crypto'
 window.crypto = crypto.webcrypto
 
 window.TextEncoder = util.TextEncoder

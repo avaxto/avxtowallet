@@ -1,4 +1,4 @@
-var isoLangs = {
+const isoLangs = {
     ab: {
         name: 'Abkhaz',
         nativeName: 'аҧсуа',
