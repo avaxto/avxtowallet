@@ -2,6 +2,9 @@ import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import { resolve } from 'path'
 import { nodePolyfills } from 'vite-plugin-node-polyfills'
+import wasm from "vite-plugin-wasm";
+import topLevelAwait from "vite-plugin-top-level-await";
+
 
 // Set version environment variable
 process.env.VITE_APP_VERSION = 0.01
@@ -28,6 +31,8 @@ export default defineConfig({
         process: true,
       },
     }),
+    wasm(),
+    topLevelAwait()
   ],
   resolve: {
     alias: {

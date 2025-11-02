@@ -45,14 +45,14 @@
 <script lang="ts">
 import { defineComponent, ref, computed, type PropType } from 'vue'
 import { useRouter } from 'vue-router'
-import { PayloadTypes, PayloadBase } from 'avalanche/dist/utils'
+import { PayloadTypes, PayloadBase } from '@/avalanche/utils'
 
 const payloadtypes = PayloadTypes.getInstance()
 
 import Tooltip from '@/components/misc/Tooltip.vue'
 import NftPayloadView from '@/components/misc/NftPayloadView/NftPayloadView.vue'
 import NFTViewModal from '@/components/modals/NFTViewModal.vue'
-import { UTXO } from 'avalanche/dist/apis/avm'
+import { UTXO } from '@/avalanche/apis/avm'
 
 export default defineComponent({
     name: 'NftCard',

@@ -6,7 +6,7 @@ import MnemonicWallet from '@/js/wallets/MnemonicWallet'
 import { LedgerWallet } from '@/js/wallets/LedgerWallet'
 import { SingletonWallet } from '@/js/wallets/SingletonWallet'
 import { WalletType } from '@/js/wallets/types'
-import { Buffer } from 'avalanche'
+import { Buffer } from '@/avalanche'
 import { privateToAddress } from 'ethereumjs-util'
 import { updateFilterAddresses } from '../providers'
 import { getAvaxPriceUSD } from '@/helpers/price_helper'
@@ -64,7 +64,13 @@ export const useMainStore = defineStore('main', () => {
     // Used in home page to access a user's wallet
     // Used to access wallet with a single key
     const accessWallet = async (mnemonic: string): Promise<MnemonicWallet> => {
+        console.log('Before:')
         const wallet: MnemonicWallet = await addWalletMnemonic(mnemonic)
+
+        // TODO
+        console.log('Accessed wallet:')
+        console.log(wallet)
+
         await activateWallet(wallet)
 
         onAccess()

@@ -67,7 +67,7 @@ import CopyText from '@/components/misc/CopyText.vue'
 import QRModal from '@/components/modals/QRModal.vue'
 import PaperWallet from '@/components/modals/PaperWallet/PaperWallet.vue'
 import QRCode from 'qrcode'
-import { KeyPair as AVMKeyPair } from 'avalanche/dist/apis/avm'
+import { KeyPair as AVMKeyPair } from '@/avalanche/apis/avm'
 import { WalletType, WalletNameType } from '@/js/wallets/types'
 
 import MnemonicWallet, {
@@ -79,7 +79,7 @@ import { LedgerWallet } from '@/js/wallets/LedgerWallet'
 import ChainSelect from '@/components/wallet/TopCards/AddressCard/ChainSelect.vue'
 import { ChainIdType } from '@/constants'
 import { ava } from '@/AVA'
-import { getPreferredHRP } from 'avalanche/dist/utils'
+import { getPreferredHRP } from '@/avalanche/utils'
 
 export default defineComponent({
     name: 'AddressCard',

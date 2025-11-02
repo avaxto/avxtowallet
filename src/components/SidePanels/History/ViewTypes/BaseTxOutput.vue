@@ -17,7 +17,7 @@ import { useStore } from '@/stores'
 import { BaseTxAssetSummary } from '@/helpers/history_helper'
 import AvaAsset from '@/js/AvaAsset'
 import { bnToBig } from '@/helpers/helper'
-import { BN } from 'avalanche'
+import { BN } from '@/avalanche'
 
 interface Props {
     assetID: string

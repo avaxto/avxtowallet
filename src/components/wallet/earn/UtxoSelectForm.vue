@@ -30,13 +30,13 @@
 import { defineComponent, ref, computed, watch, onMounted } from 'vue'
 import { useStore } from '@/stores'
 import UtxoSelectModal from '@/components/modals/UtxoSelect/UtxoSelect.vue'
-import { AmountOutput, UTXO, UTXOSet } from 'avalanche/dist/apis/platformvm'
+import { AmountOutput, UTXO, UTXOSet } from '@/avalanche/apis/platformvm'
 import { WalletType } from '@/js/wallets/types'
 
 import { CurrencyType } from '@/components/misc/CurrencySelect/types'
-import { BN } from 'avalanche'
+import { BN } from '@/avalanche'
 import { bnToBig } from '@/helpers/helper'
-import { UnixNow } from 'avalanche/dist/utils'
+import { UnixNow } from '@/avalanche/utils'
 
 export default defineComponent({
     name: 'UtxoSelectForm',

@@ -48,11 +48,11 @@ import {
     StakeableLockOut,
     UTXO,
     UTXOSet,
-} from 'avalanche/dist/apis/platformvm'
+} from '@/avalanche/apis/platformvm'
 
 import UtxoRow from '@/components/modals/UtxoSelect/UtxoRow.vue'
-import { BN } from 'avalanche'
-import { UnixNow } from 'avalanche/dist/utils'
+import { BN } from '@/avalanche'
+import { UnixNow } from '@/avalanche/utils'
 import { bnToBig } from '@/helpers/helper'
 
 export default defineComponent({

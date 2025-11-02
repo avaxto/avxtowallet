@@ -15,8 +15,8 @@
 <script lang="ts">
 import { defineComponent, computed } from 'vue'
 import { Utxo } from '@avalabs/glacier-sdk'
-import { BN } from 'avalanche'
-import { bnToLocaleString } from '@avalabs/avalanche-wallet-sdk'
+import { BN } from '@/avalanche'
+import { bnToLocaleString } from '@/avalanche-wallet-sdk'
 
 interface Props {
     utxo: Utxo

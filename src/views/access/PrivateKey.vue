@@ -36,8 +36,8 @@ import { ImportKeyfileInput } from '@/store/types'
 import { SingletonWallet } from '@/js/wallets/SingletonWallet'
 import { privateToAddress } from 'ethereumjs-util'
 import { bintools } from '@/AVA'
-import { Buffer } from 'avalanche'
-import { strip0x } from '@avalabs/avalanche-wallet-sdk'
+import { Buffer } from '@/avalanche'
+import { strip0x } from '@/avalanche-wallet-sdk'
 
 export default defineComponent({
     name: 'PrivateKey',

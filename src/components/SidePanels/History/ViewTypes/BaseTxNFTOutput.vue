@@ -18,7 +18,7 @@ import { useStore } from '@/stores'
 import { BaseTxAssetSummary, BaseTxNFTSummary } from '@/helpers/history_helper'
 import AvaAsset from '@/js/AvaAsset'
 import { bnToBig } from '@/helpers/helper'
-import { BN } from 'avalanche'
+import { BN } from '@/avalanche'
 import { UTXO } from '@/store/modules/history/types'
 import TxHistoryNftFamilyGroup from '@/components/SidePanels/TxHistoryNftFamilyGroup.vue'
 

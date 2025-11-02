@@ -1,19 +1,19 @@
-import { KeyChain as AVMKeyChain, AVMAPI } from 'avalanche/dist/apis/avm'
-import { InfoAPI } from 'avalanche/dist/apis/info'
-import Avalanche from 'avalanche'
+import { KeyChain as AVMKeyChain, AVMAPI } from '@/avalanche/apis/avm'
+import { InfoAPI } from '@/avalanche/apis/info'
+import Avalanche from '@/avalanche'
 //@ts-ignore
-import BinTools from 'avalanche/dist/utils/bintools'
-import { EVMAPI } from 'avalanche/dist/apis/evm'
+import BinTools from '@/avalanche/utils/bintools'
+import { EVMAPI } from '@/avalanche/apis/evm'
 
-// Connect to TestNet by default
-// Doesn't really matter how we initialize, it will get changed by the network module later
 const ip: string = 'api.avax.network'
 const port: number = 443
+const defaultHrp = 'avax'
 const protocol: string = 'https'
 const network_id: number = 2
 const chain_id: string = 'X'
 const bintools: BinTools = BinTools.getInstance()
 const ava: Avalanche = new Avalanche(ip, port, protocol, network_id, chain_id)
+
 const avm: AVMAPI = ava.XChain()
 const cChain: EVMAPI = ava.CChain()
 const pChain = ava.PChain()

@@ -18,11 +18,11 @@ import {
     PlatformVMConstants,
     AmountOutput,
     StakeableLockOut,
-} from 'avalanche/dist/apis/platformvm'
+} from '@/avalanche/apis/platformvm'
 import { bnToBig } from '@/helpers/helper'
 import Big from 'big.js'
-import { UnixNow } from 'avalanche/dist/utils'
-import { BN } from 'avalanche'
+import { UnixNow } from '@/avalanche/utils'
+import { BN } from '@/avalanche'
 
 interface Props {
     utxo: UTXO

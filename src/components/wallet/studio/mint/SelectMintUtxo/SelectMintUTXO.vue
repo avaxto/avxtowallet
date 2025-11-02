@@ -14,7 +14,7 @@ import { useStore } from '@/stores'
 
 import { IWalletNftMintDict } from '@/store/types'
 import { NftFamilyDict } from '@/store/modules/assets/types'
-import { UTXO } from 'avalanche/dist/apis/avm'
+import { UTXO } from '@/avalanche/apis/avm'
 import FamilyRow from '@/components/wallet/studio/mint/SelectMintUtxo/FamilyRow.vue'
 
 export default defineComponent({

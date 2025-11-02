@@ -45,7 +45,7 @@ import { defineComponent, ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 
 import Form from '@/components/wallet/earn/ChainTransfer/Form.vue'
-import { PublicMnemonicWallet, getEthAddressKeyFromAccountKey } from '@avalabs/avalanche-wallet-sdk'
+import { PublicMnemonicWallet, getEthAddressKeyFromAccountKey } from '@/avalanche-wallet-sdk'
 import WalletReadonly from '@/views/WalletReadonly.vue'
 import { ethers } from 'ethers'
 

@@ -18,7 +18,7 @@
 import { defineComponent, computed } from 'vue'
 import { useStore } from '@/stores'
 import { avm, cChain, pChain } from '@/AVA'
-import { BN } from 'avalanche'
+import { BN } from '@/avalanche'
 import { bnToBig } from '@/helpers/helper'
 import {
     isTransactionP,

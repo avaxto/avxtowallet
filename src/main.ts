@@ -13,6 +13,8 @@ import vuetify from './plugins/vuetify'
 import i18nMessages from './plugins/i18n.js'
 // @ts-ignore
 import posthogPlugin from './plugins/posthog.js'
+// @ts-ignore
+import {AVAX_TOOLBOX_VERSION} from './avxto/AVXTOConf'
 import 'bootstrap/dist/css/bootstrap.css'
 import 'bootstrap-vue-next/dist/bootstrap-vue-next.css'
 // Import FontAwesome component
@@ -98,7 +100,7 @@ if (window.Cypress) {
 app.mixin({
     mounted() {
         // Reveal app version
-        console.log(`AVAX Toolbox Version: ${process.env.VITE_APP_VERSION}`)
+        console.log(`AVAX Toolbox Version: ${AVAX_TOOLBOX_VERSION}`)
         // Hide loader once vue is initialized
         const loader = document.getElementById('app_loading')
         if (loader) {

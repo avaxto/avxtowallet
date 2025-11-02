@@ -123,7 +123,7 @@ import { useI18n } from 'vue-i18n'
 import Dropdown from '@/components/misc/Dropdown.vue'
 import AvaxInput from '@/components/misc/AvaxInput.vue'
 import AvaAsset from '@/js/AvaAsset'
-import { BN } from 'avalanche'
+import { BN } from '@/avalanche'
 import { avm, cChain, pChain } from '@/AVA'
 import MnemonicWallet from '@/js/wallets/MnemonicWallet'
 import Spinner from '@/components/misc/Spinner.vue'
@@ -148,7 +148,7 @@ import {
     bigToBN,
     avaxCtoX,
     bnToAvaxP,
-} from '@avalabs/avalanche-wallet-sdk'
+} from '@/avalanche-wallet-sdk'
 import { sortUTxoSetP } from '@/helpers/sortUTXOs'
 import { selectMaxUtxoForExportP } from '@/helpers/utxoSelection/selectMaxUtxoForExportP'
 

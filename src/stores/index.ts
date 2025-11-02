@@ -75,6 +75,9 @@ export function useStore() {
                 const store = storeMap[module]
                 if (store && typeof store[actionName] === 'function') {
                     return store[actionName](payload)
+                } else {
+                    console.warn(`❌ Store action not found: ${module}.${actionName}`)
+                    return Promise.resolve()
                 }
             } else {
                 // Root-level actions

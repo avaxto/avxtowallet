@@ -32,6 +32,8 @@ import NetworkLoadingBlock from '@/components/misc/NetworkLoadingBlock.vue'
 import UpgradeToAccountModal from '@/components/modals/SaveAccount/UpgradeToAccountModal.vue'
 import LedgerWalletLoading from '@/components/modals/LedgerWalletLoading.vue'
 import { useStore } from '@/stores'
+import { onMounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 
 export default {
     components: {
@@ -47,29 +49,38 @@ export default {
     },
     setup() {
         const store = useStore()
+        const route = useRoute()
+        const router = useRouter()
+        
+        // Use onMounted for initialization in Vue 3
+        onMounted(async () => {
+            // Init language preference
+            let locale = localStorage.getItem('lang')
+            if (locale) {
+                // Note: this.$root.$i18n.locale setting needs to be handled differently in Composition API
+                // For now, we'll skip this until i18n is properly set up
+            }
+
+            // Initialize network
+            await store.dispatch('Network/init')
+            
+            // Load accounts and initialize other stores
+            store.commit('Accounts/loadAccounts')
+            store.dispatch('Assets/initErc20List')
+            store.dispatch('Assets/ERC721/init')
+            store.dispatch('updateAvaxPrice')
+
+            // Route to access page if accounts exist
+            if (store.state.Accounts.accounts.length > 0) {
+                // Do not route for legal pages
+                if (route.name !== 'legal') {
+                    router.push('/access')
+                }
+            }
+        })
         
         return {
             store
-        }
-    },
-    async created() {
-        
-        let locale = localStorage.getItem('lang')
-        if (locale) {
-            this.$root.$i18n.locale = locale
-        }
-
-        await this.store.dispatch('Network/init')
-        this.store.commit('Accounts/loadAccounts')
-        this.store.dispatch('Assets/initErc20List')
-        this.store.dispatch('Assets/ERC721/init')
-        this.store.dispatch('updateAvaxPrice')
-
-        if (this.store.state.Accounts.accounts.length > 0) {
-            // Do not route for legal pages
-            if (this.$route.name !== 'legal') {
-                this.$router.push('/access')
-            }
         }
     },
     computed: {

@@ -65,7 +65,7 @@ import {
     Big,
     bnToBigAvaxX,
     bnToBigAvaxC,
-} from '@avalabs/avalanche-wallet-sdk'
+} from '@/avalanche-wallet-sdk'
 
 export default defineComponent({
     name: 'Balances',

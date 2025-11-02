@@ -30,7 +30,7 @@
 import 'reflect-metadata'
 import { defineComponent, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { BN } from 'avalanche'
+import { BN } from '@/avalanche'
 import Big from 'big.js'
 
 export default defineComponent({

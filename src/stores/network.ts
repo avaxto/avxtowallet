@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { AvaNetwork } from '@/js/AvaNetwork'
-import { BN } from 'avalanche'
+import { BN } from '@/avalanche'
 
 export const useNetworkStore = defineStore('network', () => {
     // State
@@ -18,6 +18,7 @@ export const useNetworkStore = defineStore('network', () => {
     
     // Actions
     const init = async () => {
+        
         // Create default networks
         const mainnet = new AvaNetwork(
             'Mainnet',
@@ -47,6 +48,8 @@ export const useNetworkStore = defineStore('network', () => {
             selectedNetwork.value = mainnet
             saveSelectedNetwork()
         }
+        
+        return selectedNetwork.value
     }
     
     const setNetwork = async (net: AvaNetwork) => {

@@ -36,7 +36,7 @@
 import { defineComponent, ref, computed, watch, onMounted } from 'vue'
 import { useStore } from '@/stores'
 
-import { BN } from 'avalanche'
+import { BN } from '@/avalanche'
 // import Big from 'big.js';
 import Dropdown from '@/components/misc/Dropdown.vue'
 // import BigNumInput from "@/components/misc/BigNumInput";

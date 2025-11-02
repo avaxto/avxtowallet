@@ -9,7 +9,7 @@ import { Transaction } from '@ethereumjs/tx'
 
 import Transport from '@ledgerhq/hw-transport'
 import moment from 'moment'
-import { Buffer as BufferAvax, BN } from 'avalanche'
+import { Buffer as BufferAvax, BN } from '@/avalanche'
 import HDKey from 'hdkey'
 import { ava, bintools } from '@/AVA'
 //@ts-ignore
@@ -17,7 +17,7 @@ import bippath from 'bip32-path'
 import createHash from 'create-hash'
 import { pinia, useMainStore, useStore } from '@/stores'
 import { importPublic, publicToAddress, bnToRlp, rlp, BN as EthereumBN } from 'ethereumjs-util'
-import { UTXO as AVMUTXO } from 'avalanche/dist/apis/avm/utxos'
+import { UTXO as AVMUTXO } from '@/avalanche/apis/avm/utxos'
 import { AvaWalletCore } from '@/js/wallets/types'
 import { ITransaction } from '@/components/wallet/transfer/types'
 import {
@@ -28,7 +28,7 @@ import {
     Tx as AVMTx,
     UnsignedTx as AVMUnsignedTx,
     ImportTx as AVMImportTx,
-} from 'avalanche/dist/apis/avm'
+} from '@/avalanche/apis/avm'
 
 import {
     ImportTx as PlatformImportTx,
@@ -40,7 +40,7 @@ import {
     SelectCredentialClass as PlatformSelectCredentialClass,
     AddDelegatorTx,
     AddValidatorTx,
-} from 'avalanche/dist/apis/platformvm'
+} from '@/avalanche/apis/platformvm'
 
 import {
     UnsignedTx as EVMUnsignedTx,
@@ -50,10 +50,10 @@ import {
     EVMConstants,
     EVMInput,
     SelectCredentialClass as EVMSelectCredentialClass,
-} from 'avalanche/dist/apis/evm'
+} from '@/avalanche/apis/evm'
 
-import { Credential, SigIdx, Signature, UTXOResponse, Address } from 'avalanche/dist/common'
-import { getPreferredHRP, PayloadBase } from 'avalanche/dist/utils'
+import { Credential, SigIdx, Signature, UTXOResponse, Address } from '@/avalanche/common'
+import { getPreferredHRP, PayloadBase } from '@/avalanche/utils'
 import { AbstractHdWallet } from '@/js/wallets/AbstractHdWallet'
 import { WalletNameType } from '@/js/wallets/types'
 import { AbiParsed, decodeTxData } from '@/js/AbiDecoder'
@@ -70,7 +70,7 @@ import {
     chainIdFromAlias,
     getLedgerProvider,
     LedgerProvider,
-} from '@avalabs/avalanche-wallet-sdk'
+} from '@/avalanche-wallet-sdk'
 import { getTxOutputAddresses } from '@/utils/getAddressFromTx'
 
 

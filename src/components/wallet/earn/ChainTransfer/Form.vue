@@ -50,7 +50,7 @@
 import { defineComponent, ref, computed, watch, onMounted } from 'vue'
 import { useStore } from '@/stores'
 import AvaxInput from '@/components/misc/AvaxInput.vue'
-import { BN } from 'avalanche'
+import { BN } from '@/avalanche'
 import Big from 'big.js'
 import { bnToBig } from '@/helpers/helper'
 import { ChainIdType } from '@/constants'

@@ -6,7 +6,7 @@
 </template>
 <script lang="ts">
 import { defineComponent, ref, computed, watch, onMounted, type PropType } from 'vue'
-import { JSONPayload } from 'avalanche/dist/utils'
+import { JSONPayload } from '@/avalanche/utils'
 
 import GenericPayloadViewSmall from '@/components/misc/NftPayloadView/views_small/GenericPayloadView.vue'
 

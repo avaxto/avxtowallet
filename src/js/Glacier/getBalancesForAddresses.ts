@@ -1,6 +1,6 @@
 import { GetBalancesParams } from '@/js/Glacier/models'
 import Glacier from '@/js/Glacier/Glacier'
-import { BN } from 'avalanche'
+import { BN } from '@/avalanche'
 import { splitToParts } from '@/js/Glacier/utils'
 import {
     ListPChainBalancesResponse,

@@ -11,8 +11,8 @@
 </template>
 <script lang="ts">
 import { defineComponent, ref, computed } from 'vue'
-import { UTXOSet } from 'avalanche/dist/apis/platformvm'
-import { UnixNow } from 'avalanche/dist/utils'
+import { UTXOSet } from '@/avalanche/apis/platformvm'
+import { UnixNow } from '@/avalanche/utils'
 
 type Selection = 'all' | 'unlocked' | 'locked'
 

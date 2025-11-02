@@ -17,7 +17,7 @@
 import { defineComponent, ref, computed } from 'vue'
 import { useStore } from '@/stores'
 import Modal from '@/components/modals/Modal.vue'
-import { UTXO } from 'avalanche/dist/apis/avm'
+import { UTXO } from '@/avalanche/apis/avm'
 import { NftFamilyDict } from '@/store/modules/assets/types'
 import CollectibleFamily from '@/components/misc/BalancePopup/CollectibleFamily.vue'
 

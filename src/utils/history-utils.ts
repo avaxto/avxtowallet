@@ -2,7 +2,7 @@
  * History and CSV export utility functions
  */
 
-import { BN } from 'avalanche'
+import { BN } from '@/avalanche'
 import { bnToBig } from '@/helpers/helper'
 
 /**

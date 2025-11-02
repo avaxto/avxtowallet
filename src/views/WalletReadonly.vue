@@ -42,14 +42,14 @@ import {
     parseStakingTxs,
     HistoryItemType,
     isHistoryStakingTx,
-} from '@avalabs/avalanche-wallet-sdk'
-import { UTXOSet as AVMUTXOSet } from 'avalanche/dist/apis/avm'
-import { UTXOSet as PlatformUTXOSet, TransferableOutput } from 'avalanche/dist/apis/platformvm'
+} from '@/avalanche-wallet-sdk'
+import { UTXOSet as AVMUTXOSet } from '@/avalanche/apis/avm'
+import { UTXOSet as PlatformUTXOSet, TransferableOutput } from '@/avalanche/apis/platformvm'
 import Balances from '@/views/wallet_readonly/Balances.vue'
 import { downloadCSVFile } from '@/utils/history-utils'
 import Addresses from '@/views/wallet_readonly/Addresses.vue'
 import Spinner from '@/components/misc/Spinner.vue'
-import { Network } from 'avalanche/dist/utils'
+import { Network } from '@/avalanche/utils'
 import { getPriceAtUnixTime } from '@/helpers/price_helper'
 
 export default defineComponent({

@@ -30,8 +30,8 @@
 import 'reflect-metadata'
 import { defineComponent, computed } from 'vue'
 import { ITransaction } from './types'
-import { UTXO } from 'avalanche/dist/apis/avm'
-import { BN } from 'avalanche'
+import { UTXO } from '@/avalanche/apis/avm'
+import { BN } from '@/avalanche'
 import { bnToBig, getPayloadFromUTXO } from '@/helpers/helper'
 import NftPayloadView from '@/components/misc/NftPayloadView/NftPayloadView.vue'
 

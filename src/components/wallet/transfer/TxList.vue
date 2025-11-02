@@ -33,7 +33,7 @@ import { defineComponent, ref, computed, watch, onActivated, onDeactivated } fro
 import { useStore } from '@/stores'
 import { useRoute } from 'vue-router'
 import { v1 as uuidv1 } from 'uuid'
-import { BN } from 'avalanche'
+import { BN } from '@/avalanche'
 import CurrencyInputDropdown from '@/components/misc/CurrencyInputDropdown.vue'
 import AvaAsset from '@/js/AvaAsset'
 import { AssetsDict } from '@/store/modules/assets/types'

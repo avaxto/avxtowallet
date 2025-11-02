@@ -20,7 +20,7 @@ import { useStore } from '@/stores'
 import { useI18n } from 'vue-i18n'
 import NftCard from '@/components/wallet/portfolio/NftCard.vue'
 import { NftFamilyDict } from '@/store/modules/assets/types'
-import { UTXO } from 'avalanche/dist/apis/avm'
+import { UTXO } from '@/avalanche/apis/avm'
 
 import CollectibleFamily from '@/components/misc/BalancePopup/CollectibleFamily.vue'
 

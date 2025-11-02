@@ -5,7 +5,7 @@
 </template>
 <script lang="ts">
 import { defineComponent, computed } from 'vue'
-import { UTF8Payload } from 'avalanche/dist/utils'
+import { UTF8Payload } from '@/avalanche/utils'
 
 export default defineComponent({
     name: 'UtfPayloadView',

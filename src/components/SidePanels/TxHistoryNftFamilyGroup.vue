@@ -11,9 +11,9 @@ import { defineComponent, computed, onMounted, type PropType } from 'vue'
 import { useStore } from '@/stores'
 
 import NftPayloadView from '@/components/misc/NftPayloadView/NftPayloadView.vue'
-import { PayloadBase } from 'avalanche/dist/utils'
-import { Buffer } from 'avalanche'
-import { PayloadTypes } from 'avalanche/dist/utils'
+import { PayloadBase } from '@/avalanche/utils'
+import { Buffer } from '@/avalanche'
+import { PayloadTypes } from '@/avalanche/utils'
 import { UTXO } from '@/store/modules/history/types'
 
 const payloadtypes = PayloadTypes.getInstance()

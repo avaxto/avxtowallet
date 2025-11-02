@@ -14,7 +14,7 @@
 <script lang="ts">
 import { defineComponent, computed } from 'vue'
 import moment from 'moment'
-import { BN } from 'avalanche'
+import { BN } from '@/avalanche'
 import { bnToBig } from '@/helpers/helper'
 import { ValidatorListItem } from '@/store/modules/platform/types'
 

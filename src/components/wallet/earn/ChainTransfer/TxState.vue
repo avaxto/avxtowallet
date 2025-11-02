@@ -33,9 +33,9 @@
 <script lang="ts">
 import { defineComponent } from 'vue'
 import Spinner from '@/components/misc/Spinner.vue'
-import { UTXO } from 'avalanche/dist/apis/platformvm'
+import { UTXO } from '@/avalanche/apis/platformvm'
 import { ChainIdType } from '@/constants'
-import { BN } from 'avalanche'
+import { BN } from '@/avalanche'
 import AvaAsset from '@/js/AvaAsset'
 import MnemonicWallet from '@/js/wallets/MnemonicWallet'
 import { WalletType } from '@/js/wallets/types'

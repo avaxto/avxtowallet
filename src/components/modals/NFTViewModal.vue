@@ -9,7 +9,7 @@
 import { defineComponent, ref } from 'vue'
 import Modal from '@/components/modals/Modal.vue'
 import NftPayloadView from '@/components/misc/NftPayloadView/NftPayloadView.vue'
-import { PayloadBase } from 'avalanche/dist/utils'
+import { PayloadBase } from '@/avalanche/utils'
 
 interface Props {
     payload: PayloadBase

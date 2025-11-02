@@ -75,7 +75,7 @@
 <script lang="ts">
 import { defineComponent, ref, computed, watch } from 'vue'
 import { useStore } from '@/stores'
-import { BN } from 'avalanche'
+import { BN } from '@/avalanche'
 import { pChain } from '@/AVA'
 import { bnToBig } from '@/helpers/helper'
 import Big from 'big.js'

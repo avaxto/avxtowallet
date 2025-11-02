@@ -32,10 +32,10 @@
 import 'reflect-metadata'
 import { defineComponent, ref, computed } from 'vue'
 import { useStore } from '@/stores'
-import { Big, bnToBig } from '@avalabs/avalanche-wallet-sdk'
+import { Big, bnToBig } from '@/avalanche-wallet-sdk'
 //@ts-ignore
 import { BigNumInput } from '@avalabs/vue_components'
-import { BN } from 'avalanche'
+import { BN } from '@/avalanche'
 import { priceDict } from '../../store/types'
 
 interface Props {

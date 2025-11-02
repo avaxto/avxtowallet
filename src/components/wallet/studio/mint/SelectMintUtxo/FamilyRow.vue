@@ -26,7 +26,7 @@ import { defineComponent, ref, computed } from 'vue'
 import { useStore } from '@/stores'
 import { AvaNftFamily } from '../../../../../js/AvaNftFamily'
 import { IWalletNftMintDict } from '@/store/types'
-import { NFTTransferOutput, UTXO } from 'avalanche/dist/apis/avm'
+import { NFTTransferOutput, UTXO } from '@/avalanche/apis/avm'
 import NftPayloadView from '@/components/misc/NftPayloadView/NftPayloadView.vue'
 import NftFamilyCardsPreview from '@/components/misc/NftFamilyCardsPreview.vue'
 

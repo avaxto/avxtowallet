@@ -32,9 +32,9 @@
 <script lang="ts">
 import 'reflect-metadata'
 import { defineComponent, computed } from 'vue'
-import { PayloadBase } from 'avalanche/dist/utils'
+import { PayloadBase } from '@/avalanche/utils'
 import BaseNftCard from '@/components/NftCards/BaseNftCard.vue'
-import { UTXO } from 'avalanche/dist/apis/avm'
+import { UTXO } from '@/avalanche/apis/avm'
 import UrlPayloadView from '@/components/misc/NftPayloadView/views/UrlPayloadView.vue'
 
 interface Props {

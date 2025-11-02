@@ -14,7 +14,7 @@ import { useI18n } from 'vue-i18n'
 import Modal from './Modal.vue'
 import CopyText from '../misc/CopyText.vue'
 import QRCode from 'qrcode'
-import { KeyPair as AVMKeyPair } from 'avalanche/dist/apis/avm'
+import { KeyPair as AVMKeyPair } from '@/avalanche/apis/avm'
 import MnemonicWallet from '@/js/wallets/MnemonicWallet'
 import { LedgerWallet } from '@/js/wallets/LedgerWallet'
 

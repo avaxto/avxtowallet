@@ -31,9 +31,9 @@
 <script lang="ts">
 import 'reflect-metadata'
 import { defineComponent, ref, computed, onMounted, onUnmounted } from 'vue'
-import { BN } from 'avalanche'
+import { BN } from '@/avalanche'
 import Big from 'big.js'
-import { bnToBigAvaxP } from '@avalabs/avalanche-wallet-sdk'
+import { bnToBigAvaxP } from '@/avalanche-wallet-sdk'
 import { PChainTransaction } from '@avalabs/glacier-sdk'
 
 interface Props {

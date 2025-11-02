@@ -28,7 +28,7 @@
 </template>
 <script lang="ts">
 import { defineComponent, ref, computed, watch, onMounted } from 'vue'
-import { JSONPayload } from 'avalanche/dist/utils'
+import { JSONPayload } from '@/avalanche/utils'
 import { IGenericNft } from '@/components/wallet/studio/mint/types'
 
 export default defineComponent({

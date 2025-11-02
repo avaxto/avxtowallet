@@ -36,7 +36,7 @@ import { defineComponent, ref } from 'vue'
 import AvaAsset from '@/js/AvaAsset'
 import BalanceRow from './BalanceRow.vue'
 import CollectibleTab from './CollectibleTab.vue'
-import { UTXO } from 'avalanche/dist/apis/avm'
+import { UTXO } from '@/avalanche/apis/avm'
 
 interface Props {
     assets: AvaAsset[]

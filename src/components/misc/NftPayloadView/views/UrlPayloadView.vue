@@ -21,7 +21,7 @@
 </template>
 <script lang="ts">
 import { defineComponent, ref, computed } from 'vue'
-import { URLPayload } from 'avalanche/dist/utils'
+import { URLPayload } from '@/avalanche/utils'
 
 export default defineComponent({
     name: 'UrlPayloadView',

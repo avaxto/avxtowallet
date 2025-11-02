@@ -44,14 +44,14 @@ import { useStore } from '@/stores'
 
 import Spinner from '@/components/misc/Spinner.vue'
 import { WalletType } from '@/js/wallets/types'
-import { BN } from 'avalanche'
+import { BN } from '@/avalanche'
 import {
     avaxCtoX,
     ExportChainsC,
     ExportChainsP,
     ExportChainsX,
     GasHelper,
-} from '@avalabs/avalanche-wallet-sdk'
+} from '@/avalanche-wallet-sdk'
 
 export default defineComponent({
     name: 'ChainImport',

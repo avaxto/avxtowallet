@@ -23,7 +23,7 @@
 <script lang="ts">
 import { defineComponent, ref, computed, watch, onMounted } from 'vue'
 import { useStore } from '@/stores'
-import { PayloadBase } from 'avalanche/dist/utils'
+import { PayloadBase } from '@/avalanche/utils'
 
 import UrlPayloadView from '@/components/misc/NftPayloadView/views/UrlPayloadView.vue'
 import UtfPayloadView from '@/components/misc/NftPayloadView/views/UtfPayloadView.vue'

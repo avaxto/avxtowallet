@@ -1,11 +1,11 @@
 import {
     UnsignedTx as UnsignedTxX,
     TransferableInput as TransferableInputX,
-} from 'avalanche/dist/apis/avm'
+} from '@/avalanche/apis/avm'
 import {
     UnsignedTx as UnsignedTxP,
     TransferableInput as TransferableInputP,
-} from 'avalanche/dist/apis/platformvm'
+} from '@/avalanche/apis/platformvm'
 import { getCredentialBytes } from '@/helpers/utxoSelection/getCredentialBytes'
 import { bintools } from '@/AVA'
 

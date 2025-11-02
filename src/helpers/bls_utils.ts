@@ -1,4 +1,4 @@
-import { Buffer } from 'avalanche'
+import { Buffer } from '@/avalanche'
 import crypto from 'crypto'
 
 /**

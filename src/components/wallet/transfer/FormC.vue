@@ -136,12 +136,12 @@ import {
     bnToBigAvaxX,
     bnToBigAvaxC,
     bnToAvaxC,
-} from '@avalabs/avalanche-wallet-sdk'
+} from '@/avalanche-wallet-sdk'
 
 // @ts-ignore
 import { QrInput } from '@avalabs/vue_components'
 import Big from 'big.js'
-import { BN } from 'avalanche'
+import { BN } from '@/avalanche'
 import { bnToBig } from '@/helpers/helper'
 import { web3 } from '@/evm'
 import EVMInputDropdown from '@/components/misc/EVMInputDropdown/EVMInputDropdown.vue'

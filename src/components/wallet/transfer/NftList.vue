@@ -33,7 +33,7 @@ import { NftFamilyDict } from '../../../store/modules/assets/types'
 import BalancePopup from '@/components/misc/BalancePopup/BalancePopup.vue'
 
 import 'reflect-metadata'
-import { NFTTransferOutput, UTXO } from 'avalanche/dist/apis/avm'
+import { NFTTransferOutput, UTXO } from '@/avalanche/apis/avm'
 import { getPayloadFromUTXO } from '@/helpers/helper'
 import NftListItem from '@/components/wallet/transfer/NftListItem.vue'
 import { IGroupDict, IGroupQuantity } from '@/components/wallet/studio/mint/types'

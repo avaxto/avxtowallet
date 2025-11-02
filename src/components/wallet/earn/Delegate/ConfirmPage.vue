@@ -25,7 +25,7 @@
 <script lang="ts">
 import 'reflect-metadata'
 import { defineComponent, computed } from 'vue'
-import { BN } from 'avalanche/dist'
+import { BN } from '@/avalanche'
 import Big from 'big.js'
 
 export default defineComponent({

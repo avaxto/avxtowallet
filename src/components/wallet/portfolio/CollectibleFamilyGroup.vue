@@ -10,11 +10,11 @@
 </template>
 <script lang="ts">
 import { defineComponent, computed, ref } from 'vue'
-import { NFTTransferOutput, UTXO } from 'avalanche/dist/apis/avm'
+import { NFTTransferOutput, UTXO } from '@/avalanche/apis/avm'
 import NftPayloadView from '@/components/misc/NftPayloadView/NftPayloadView.vue'
-import { PayloadBase } from 'avalanche/dist/utils'
-import { Buffer } from 'avalanche'
-import { PayloadTypes } from 'avalanche/dist/utils'
+import { PayloadBase } from '@/avalanche/utils'
+import { Buffer } from '@/avalanche'
+import { PayloadTypes } from '@/avalanche/utils'
 import Tooltip from '@/components/misc/Tooltip.vue'
 import NFTViewModal from '@/components/modals/NFTViewModal.vue'
 import NftCard from '@/components/wallet/portfolio/NftCard.vue'

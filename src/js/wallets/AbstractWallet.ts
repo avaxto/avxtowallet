@@ -1,9 +1,9 @@
 /*
 The base wallet class used for common functionality
 */
-import { BN } from 'avalanche'
-import { UTXOSet as AVMUTXOSet } from 'avalanche/dist/apis/avm'
-import { UTXOSet as PlatformUTXOSet } from 'avalanche/dist/apis/platformvm'
+import { BN } from '@/avalanche'
+import { UTXOSet as AVMUTXOSet } from '@/avalanche/apis/avm'
+import { UTXOSet as PlatformUTXOSet } from '@/avalanche/apis/platformvm'
 import {
     ExportChainsC,
     ExportChainsP,
@@ -12,15 +12,15 @@ import {
     TxHelper,
     GasHelper,
     chainIdFromAlias,
-} from '@avalabs/avalanche-wallet-sdk'
+} from '@/avalanche-wallet-sdk'
 import { ava, avm, bintools, cChain, pChain } from '@/AVA'
-import { UTXOSet as EVMUTXOSet } from 'avalanche/dist/apis/evm/utxos'
-import { Tx as EVMTx, UnsignedTx as EVMUnsignedTx } from 'avalanche/dist/apis/evm/tx'
+import { UTXOSet as EVMUTXOSet } from '@/avalanche/apis/evm/utxos'
+import { Tx as EVMTx, UnsignedTx as EVMUnsignedTx } from '@/avalanche/apis/evm/tx'
 import {
     Tx as PlatformTx,
     UnsignedTx as PlatformUnsignedTx,
-} from 'avalanche/dist/apis/platformvm/tx'
-import { Tx as AVMTx, UnsignedTx as AVMUnsignedTx } from 'avalanche/dist/apis/avm/tx'
+} from '@/avalanche/apis/platformvm/tx'
+import { Tx as AVMTx, UnsignedTx as AVMUnsignedTx } from '@/avalanche/apis/avm/tx'
 import { AvmImportChainType, WalletType } from '@/js/wallets/types'
 import { issueC, issueP, issueX } from '@/helpers/issueTx'
 import { sortUTxoSetP } from '@/helpers/sortUTXOs'
@@ -29,7 +29,7 @@ import glacier from '@/js/Glacier/Glacier'
 import { isMainnetNetworkID } from '@/utils/network-utils'
 import { isTestnetNetworkID } from '@/utils/network-utils'
 import { web3 } from '@/evm'
-import { UTXO as PlatformUTXO } from 'avalanche/dist/apis/platformvm/utxos'
+import { UTXO as PlatformUTXO } from '@/avalanche/apis/platformvm/utxos'
 import {
     BlockchainId,
     CreatePrimaryNetworkTransactionExportRequest,

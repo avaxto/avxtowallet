@@ -39,15 +39,15 @@ import { defineComponent, ref, computed, watch } from 'vue'
 import { useStore } from '@/stores'
 
 import MnemonicWallet from '@/js/wallets/MnemonicWallet'
-import { KeyPair as AVMKeyPair, UTXOSet as AVMUTXOSet } from 'avalanche/dist/apis/avm'
-import { UTXOSet as PlatformUTXOSet } from 'avalanche/dist/apis/platformvm'
+import { KeyPair as AVMKeyPair, UTXOSet as AVMUTXOSet } from '@/avalanche/apis/avm'
+import { UTXOSet as PlatformUTXOSet } from '@/avalanche/apis/platformvm'
 import { ava, bintools } from '@/AVA'
 import Big from 'big.js'
 import AvaAsset from '@/js/AvaAsset'
 import { DerivationListBalanceDict } from '@/components/modals/HdDerivationList/types'
 import { LedgerWallet } from '../../../js/wallets/LedgerWallet'
 import { bnToBig } from '@/helpers/helper'
-import { BN } from 'avalanche'
+import { BN } from '@/avalanche'
 import HdChainTable from '@/components/modals/HdDerivationList/HdChainTable.vue'
 
 export default defineComponent({

@@ -20,9 +20,9 @@
 <script lang="ts">
 import { defineComponent, computed, onMounted } from 'vue'
 import { useStore } from '@/stores'
-import { UTXO } from 'avalanche/dist/apis/platformvm'
+import { UTXO } from '@/avalanche/apis/platformvm'
 import { ChainIdType } from '@/constants'
-import { BN } from 'avalanche'
+import { BN } from '@/avalanche'
 import AvaAsset from '@/js/AvaAsset'
 import MnemonicWallet from '@/js/wallets/MnemonicWallet'
 import { WalletType } from '@/js/wallets/types'

@@ -27,7 +27,7 @@ import { CsvRowAvaxTransferData, ITransactionData, UTXO } from '@/store/modules/
 import { bnToBig } from '@/helpers/helper'
 import { generate } from 'csv-generate'
 import { downloadCSVFile } from '@/utils/history-utils'
-import { createCsvNormal, getHistoryForOwnedAddresses } from '@avalabs/avalanche-wallet-sdk'
+import { createCsvNormal, getHistoryForOwnedAddresses } from '@/avalanche-wallet-sdk'
 
 export default defineComponent({
     name: 'ExportAvaxCsvModal',

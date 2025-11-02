@@ -2,17 +2,17 @@ import {
     KeyChain as AVMKeyChain,
     KeyPair as AVMKeyPair,
     UTXOSet as AVMUTXOSet,
-} from 'avalanche/dist/apis/avm'
+} from '@/avalanche/apis/avm'
 
-import { UTXOSet as PlatformUTXOSet } from 'avalanche/dist/apis/platformvm'
-import { getPreferredHRP } from 'avalanche/dist/utils'
+import { UTXOSet as PlatformUTXOSet } from '@/avalanche/apis/platformvm'
+import { getPreferredHRP } from '@/avalanche/utils'
 import { ava, avm, bintools, pChain } from '@/AVA'
 import HDKey from 'hdkey'
-import { Buffer } from 'avalanche'
+import { Buffer } from '@/avalanche'
 import {
     KeyChain as PlatformVMKeyChain,
     KeyPair as PlatformVMKeyPair,
-} from 'avalanche/dist/apis/platformvm'
+} from '@/avalanche/apis/platformvm'
 import { pinia, useMainStore, useNetworkStore } from '@/stores'
 
 import { AvaNetwork } from '@/js/AvaNetwork'

@@ -133,7 +133,7 @@ import JsonForm from '@/components/wallet/studio/mint/forms/JsonForm.vue'
 import GenericForm from '@/components/wallet/studio/mint/forms/GenericForm.vue'
 import NftPayloadView from '@/components/misc/NftPayloadView/NftPayloadView.vue'
 
-import { NFTMintOutput, NFTTransferOutput, UTXO } from 'avalanche/dist/apis/avm'
+import { NFTMintOutput, NFTTransferOutput, UTXO } from '@/avalanche/apis/avm'
 import { NftFamilyDict } from '@/store/modules/assets/types'
 import { avm, bintools, pChain } from '@/AVA'
 import {
@@ -143,7 +143,7 @@ import {
     UrlFormType,
     UtfFormType,
 } from '@/components/wallet/studio/mint/types'
-import { PayloadBase, URLPayload, UTF8Payload, JSONPayload } from 'avalanche/dist/utils'
+import { PayloadBase, URLPayload, UTF8Payload, JSONPayload } from '@/avalanche/utils'
 import Big from 'big.js'
 import { bnToBig } from '@/helpers/helper'
 import NftFamilyCardsPreview from '@/components/misc/NftFamilyCardsPreview.vue'

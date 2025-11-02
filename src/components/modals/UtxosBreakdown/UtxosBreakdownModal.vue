@@ -54,13 +54,13 @@ import { useStore } from '@/stores'
 import Modal from '@/components/modals/Modal.vue'
 import { WalletType } from '@/js/wallets/types'
 
-import { UTXOSet as AVMUTXOSet, UTXO as AVMUTXO, AVMConstants } from 'avalanche/dist/apis/avm'
+import { UTXOSet as AVMUTXOSet, UTXO as AVMUTXO, AVMConstants } from '@/avalanche/apis/avm'
 import {
     UTXOSet as PlatformUTXOSet,
     UTXO as PlatformUTXO,
     PlatformVMConstants,
     StakeableLockOut,
-} from 'avalanche/dist/apis/platformvm'
+} from '@/avalanche/apis/platformvm'
 import UTXORow from '@/components/modals/UtxosBreakdown/AVMUTXORow.vue'
 
 export default defineComponent({

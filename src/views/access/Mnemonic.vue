@@ -71,7 +71,7 @@ export default defineComponent({
 
         const errCheck = () => {
             let phrase = getMnemonic()
-
+            
             if (!phrase) {
                 return
             }
@@ -85,6 +85,7 @@ export default defineComponent({
             }
 
             let isValid = bip39.validateMnemonic(phrase)
+            console.log('isValid:', isValid)
             if (!isValid) {
                 err.value = 'Invalid mnemonic phrase. Make sure your mnemonic is all lowercase.'
                 return false
