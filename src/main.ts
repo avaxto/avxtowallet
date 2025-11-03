@@ -23,7 +23,7 @@ import { createUnhead } from '@unhead/vue'
 import { VueHeadMixin } from '@unhead/vue'
 // Import Vue 2 components library (will register globally)
 // @ts-ignore
-import '@avalabs/vue_components'
+import '@/vue_components'
 
 
 // Vue compat configuration removed - now using native Vue 3

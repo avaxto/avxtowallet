@@ -23,7 +23,7 @@ import { defineComponent, ref } from 'vue'
 import { useStore } from '@/stores'
 import { useI18n } from 'vue-i18n'
 // @ts-ignore
-import { QrInput } from '@avalabs/vue_components'
+import { QrInput } from '@/vue_components'
 import Spinner from '@/components/misc/Spinner.vue'
 
 export default defineComponent({

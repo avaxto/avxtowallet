@@ -14,75 +14,97 @@
         </div>
     </div>
 </template>
-<script>
-    // import { BrowserQRCodeReader } from '@zxing/library';
-    import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
-    import { faSpinner,faTimes } from '@fortawesome/free-solid-svg-icons'
+<script lang="ts">
+import { defineComponent, ref, onMounted } from 'vue'
+import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
+import { faSpinner, faTimes } from '@fortawesome/free-solid-svg-icons'
+import { BrowserQRCodeReader } from '@zxing/library'
 
-    import {BrowserQRCodeReader} from '@zxing/library';
+const QrReader = defineComponent({
+    name: 'QrReader',
+    components: {
+        FontAwesomeIcon
+    },
+    props: {
+        disabled: {
+            type: Boolean,
+            default: false
+        }
+    },
+    emits: ['change'],
+    setup(props, { emit }) {
+        const scanner = ref<BrowserQRCodeReader | null>(null)
+        const camera = ref<MediaDeviceInfo | null>(null)
+        const isActive = ref(false)
+        const preview = ref<HTMLVideoElement>()
+        const fa_spinner = faSpinner
+        const fa_times = faTimes
 
-    export default {
-        components:{
-            FontAwesomeIcon
-        },
-        data(){
-            return {
-                scanner: null,
-                isActive: false,
-                fa_spinner: faSpinner,
-                fa_times: faTimes,
+        const start = () => {
+            if (props.disabled) return
+            
+            if (!camera.value) {
+                alert("No Cameras Found")
+                return
             }
-        },
-        props:{
-            disabled: {
-                type: Boolean,
-                default: false
-            }
-        },
-        methods: {
-            start(){
-                if(this.disabled) return;
-                let camera = this.camera;
-                if(!camera){
-                    alert("No Cameras Found");
-                    return;
-                }
 
-                this.isActive = true;
-                this.scanner
-                    .decodeFromInputVideoDevice(this.camera.deviceId, this.$refs.preview)
-                    .then(this.onscan)
-            },
-            onscan(result){
-                this.$emit("change", result.text);
-                this.stop();
-            },
-            stop(){
-                if(this.scanner){
-                    this.scanner.reset();
-                }
-                this.isActive = false;
+            isActive.value = true
+            
+            if (scanner.value && preview.value) {
+                scanner.value
+                    .decodeFromInputVideoDevice(camera.value.deviceId, preview.value)
+                    .then(onscan)
+                    .catch((err) => {
+                        console.error('QR Scanner error:', err)
+                        stop()
+                    })
             }
-        },
-        mounted(){
-            let parent = this;
+        }
 
-            const codeReader = new BrowserQRCodeReader();
+        const onscan = (result: any) => {
+            emit("change", result.text)
+            stop()
+        }
+
+        const stop = () => {
+            if (scanner.value) {
+                scanner.value.reset()
+            }
+            isActive.value = false
+        }
+
+        onMounted(() => {
+            const codeReader = new BrowserQRCodeReader()
+            
             codeReader
                 .listVideoInputDevices()
-                .then(videoInputDevices => {
-                    if(videoInputDevices.length > 0){
-                        let camera = videoInputDevices[0];
-                        parent.camera = camera;
-                    }else{
-                        // console.error('No Cameras Found');
+                .then((videoInputDevices) => {
+                    if (videoInputDevices.length > 0) {
+                        camera.value = videoInputDevices[0]
                     }
                 })
-                .catch();
+                .catch((err) => {
+                    console.error('Failed to list video devices:', err)
+                })
 
-            this.scanner = codeReader;
+            scanner.value = codeReader
+        })
+
+        return {
+            scanner,
+            camera,
+            isActive,
+            preview,
+            fa_spinner,
+            fa_times,
+            start,
+            stop
         }
     }
+})
+
+export { QrReader }
+export default QrReader
 </script>
 <style scoped>
     .qr_reader{
@@ -183,11 +205,7 @@
         font-size: 12px;
         margin: 0;
         color: #fff;
-
         border-radius: 3px;
-    }
-    .v-progress-circular{
-
     }
 
     @keyframes spin {

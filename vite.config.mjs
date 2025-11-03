@@ -85,7 +85,6 @@ export default defineConfig({
       '@unhead/vue',
     ],
     exclude: [
-      '@avalabs/vue_components' // Vue 2 library incompatible with Vue 3
     ],
     // Force optimization for problematic packages
     force: true,

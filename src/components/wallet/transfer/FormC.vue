@@ -138,7 +138,7 @@ import {
     bnToAvaxC,
 } from '@/avalanche-wallet-sdk'
 
-// QrInput component is globally registered by @avalabs/vue_components
+import { QrInput } from '@/vue_components'
 import Big from 'big.js'
 import { BN } from '@/avalanche'
 import { bnToBig } from '@/helpers/helper'
@@ -153,7 +153,7 @@ export default defineComponent({
     components: {
         EVMInputDropdown,
         AvaxInput,
-        // QrInput is globally registered by @avalabs/vue_components
+        QrInput,
     },
     setup() {
         const store = useStore()

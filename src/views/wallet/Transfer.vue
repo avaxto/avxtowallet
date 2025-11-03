@@ -141,8 +141,9 @@ import TxList from '@/components/wallet/transfer/TxList.vue'
 import Big from 'big.js'
 
 import NftList from '@/components/wallet/transfer/NftList.vue'
+import { QrInput } from '@/vue_components'
 
-// QrInput component is globally registered by @avalabs/vue_components
+// QrInput component imported from vue_components
 import { ava, avm, isValidAddress } from '../../AVA'
 import FaucetLink from '@/components/misc/FaucetLink.vue'
 import { ITransaction } from '@/components/wallet/transfer/types'
@@ -689,9 +690,6 @@ h4 {
 
 .fees span {
     float: right;
-}
-
-.to_address {
 }
 
 label {

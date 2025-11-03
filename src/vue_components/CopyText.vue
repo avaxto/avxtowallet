@@ -4,21 +4,39 @@
         <input ref="copytext" :value="value">
     </div>
 </template>
-<script>
-    export default {
-        props: {
-            value: String,
+<script lang="ts">
+import { defineComponent, ref } from 'vue'
+
+const CopyText = defineComponent({
+    name: 'CopyText',
+    props: {
+        value: {
+            type: String,
+            required: true
         },
-        methods: {
-            copy(){
-                let copytext = this.$refs.copytext;
-                copytext.select();
-                copytext.setSelectionRange(0, 99999);
-                document.execCommand("copy");
-                this.$emit('copy', this.value);
-            }
+    },
+    emits: ['copy'],
+    setup(props, { emit }) {
+        const copytext = ref<HTMLInputElement>()
+
+        const copy = () => {
+            if (!copytext.value) return
+            
+            copytext.value.select()
+            copytext.value.setSelectionRange(0, 99999)
+            document.execCommand("copy")
+            emit('copy', props.value)
+        }
+
+        return {
+            copytext,
+            copy
         }
     }
+})
+
+export { CopyText }
+export default CopyText
 </script>
 <style scoped>
     .copyBut{

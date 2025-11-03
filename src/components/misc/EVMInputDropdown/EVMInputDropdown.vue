@@ -44,7 +44,7 @@
 import { defineComponent, ref, computed, nextTick } from 'vue'
 import { useStore } from '@/stores'
 //@ts-ignore
-import { BigNumInput } from '@avalabs/vue_components'
+import { BigNumInput } from '@/vue_components'
 import { BN } from '@/avalanche'
 import EVMAssetDropdown from '@/components/misc/EVMInputDropdown/EVMAssetDropdown.vue'
 import Erc20Token from '@/js/Erc20Token'

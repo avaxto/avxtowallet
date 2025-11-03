@@ -270,7 +270,8 @@ import { useI18n } from 'vue-i18n'
 import AvaxInput from '@/components/misc/AvaxInput.vue'
 import { BN } from '@/avalanche'
 import Big from 'big.js'
-// QrInput component is globally registered by @avalabs/vue_components
+import Modal from '@/components/modals/Modal.vue'
+import { QrReader } from '@/vue_components'
 import { bintools, pChain } from '@/AVA'
 import MnemonicWallet from '@/js/wallets/MnemonicWallet'
 import ConfirmPage from '@/components/wallet/earn/Validate/ConfirmPage.vue'
@@ -301,10 +302,7 @@ export default defineComponent({
     name: 'add_validator',
     components: {
         Modal,
-        // QrInput is globally registered by @avalabs/vue_components
         QrReader,
-        LoaderText,
-        BalanceDisplayBig,
     },
     emits: ['cancel'],
     setup(props, { emit }) {

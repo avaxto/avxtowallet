@@ -8,7 +8,7 @@
 </template>
 <script>
 //@ts-ignore
-import VueComponents from '@avalabs/vue_components'
+import VueComponents from '@/vue_components'
 //@ts-ignore
 const { CopyText } = VueComponents
 import { useStore } from '@/stores'

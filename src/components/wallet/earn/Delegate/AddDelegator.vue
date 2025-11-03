@@ -195,7 +195,7 @@ import { useI18n } from 'vue-i18n'
 
 import AvaxInput from '@/components/misc/AvaxInput.vue'
 //@ts-ignore
-import VueComponents from '@avalabs/vue_components'
+import VueComponents from '@/vue_components'
 //@ts-ignore
 const { QrInput } = VueComponents
 import ValidatorsList from '@/components/misc/ValidatorList/ValidatorsList.vue'

@@ -99,7 +99,7 @@ import TxRow from '@/components/wallet/activity/TxRow.vue'
 import RadioButtons from '@/components/misc/RadioButtons.vue'
 import Spinner from '@/components/misc/Spinner.vue'
 //@ts-ignore
-import VirtualList from 'vue-virtual-scroll-list'
+import VirtualList from 'vue3-virtual-scroll-list'
 import { AvaNetwork } from '@/js/AvaNetwork'
 import ExportCsvModal from '@/components/modals/ExportCsvModal.vue'
 import ExportAvaxCsvModal from '@/components/modals/ExportAvaxCsvModal.vue'

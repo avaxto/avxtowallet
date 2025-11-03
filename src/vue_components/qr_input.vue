@@ -1,62 +1,78 @@
 <template>
     <div class="qr_input">
-        <QRReader class="readerIn" @change="change" :disabled="disabled"><button>
-            <fa :icon="fa_camera"></fa>
-        </button></QRReader>
+        <QRReader class="readerIn" @change="change" :disabled="disabled">
+            <button>
+                <fa :icon="fa_camera"></fa>
+            </button>
+        </QRReader>
         <input type="text" class="pk_in" :placeholder="placeholder"
                v-model="pk" @input="oninput" :disabled="disabled">
     </div>
 </template>
-<script>
-    import QRReader from "./qr_reader";
-    import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
-    import { faCamera } from '@fortawesome/free-solid-svg-icons'
+<script lang="ts">
+import { defineComponent, ref, watch, onMounted } from 'vue'
+import QRReader from "./qr_reader.vue"
+import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
+import { faCamera } from '@fortawesome/free-solid-svg-icons'
 
-    export default {
-        components: {
-            QRReader,
-            fa: FontAwesomeIcon
+const QrInput = defineComponent({
+    name: 'QrInput',
+    components: {
+        QRReader,
+        fa: FontAwesomeIcon
+    },
+    props: {
+        placeholder: {
+            type: String,
+            default: ''
         },
-        data(){
-            return {
-                pk: "",
-                fa_camera: faCamera
-            }
+        modelValue: {
+            type: String,
+            default: ''
         },
-        props: {
-            placeholder: String,
-            value: String,
-            disabled: {
-                type: Boolean,
-                default: false
-            }
-        },
-        watch: {
-            value(val){
-                this.pk = val;
-            }
-        },
-        model:{
-            prop: 'value',
-            event: 'change',
-        },
-        mounted() {
-            this.pk = this.value;
-        },
-        methods: {
-            change(val){
-                this.pk = val;
-                this.emit();
-            },
-            oninput(){
-                this.pk = this.pk.trim();
-                this.emit();
-            },
-            emit(){
-                this.$emit('change', this.pk);
-            }
+        disabled: {
+            type: Boolean,
+            default: false
+        }
+    },
+    emits: ['update:modelValue'],
+    setup(props, { emit }) {
+        const pk = ref("")
+        const fa_camera = faCamera
+
+        watch(() => props.modelValue, (val) => {
+            pk.value = val
+        })
+
+        onMounted(() => {
+            pk.value = props.modelValue
+        })
+
+        const change = (val: string) => {
+            pk.value = val
+            emitValue()
+        }
+
+        const oninput = () => {
+            pk.value = pk.value.trim()
+            emitValue()
+        }
+
+        const emitValue = () => {
+            emit('update:modelValue', pk.value)
+        }
+
+        return {
+            pk,
+            fa_camera,
+            change,
+            oninput
         }
     }
+})
+
+export { QrInput }
+export default QrInput
 </script>
 <style scoped>
     .qr_input{

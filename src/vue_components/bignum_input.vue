@@ -1,125 +1,155 @@
 <template>
-    <input type="number" inputmode="decimal" :placeholder="placeholder" v-model="val" :min="min" :max="maxNumString" :step="stepNum" @change="onChange">
+    <input 
+        type="number" 
+        inputmode="decimal" 
+        :placeholder="placeholder" 
+        v-model="val" 
+        :min="min" 
+        :max="maxNumString" 
+        :step="stepNum" 
+        @change="onChange"
+    >
 </template>
-<script>
-    import {Utils, BN, Big} from '@/avalanche-wallet-sdk'
+<script lang="ts">
+import { defineComponent, ref, computed, watch } from 'vue'
+import { bnToBig, stringToBN, bigToBN, BN, Big } from '@/avalanche-wallet-sdk'
 
-    export default {
-        data(){
-            return {
-                // Val is a string
-                val: null,
+const BigNumInput = defineComponent({
+    name: 'BigNumInput',
+    props: {
+        denomination: {
+            type: Number,
+            default: 0
+        },
+        max: {
+            default: null,
+            type: [BN, Object] as any,
+        },
+        min: {
+            type: Number,
+            default: 0,
+        },
+        step: {
+            type: [BN, Object] as any,
+            default: null,
+        },
+        placeholder: {
+            type: String,
+            default: ''
+        },
+        modelValue: {
+            type: [BN, Object] as any,
+            default: () => new BN(0)
+        }
+    },
+    emits: ['update:modelValue'],
+    setup(props, { emit }) {
+        // Val is a string
+        const val = ref<string | null>(null)
+
+        const maxNumBN = computed(() => props.max)
+
+        const maxNumString = computed(() => {
+            return bnToString(maxNumBN.value)
+        })
+
+        const stepNum = computed(() => {
+            if (!props.step) {
+                if (props.denomination >= 2) {
+                    return 0.01
+                } else {
+                    return Math.pow(10, -props.denomination)
+                }
             }
-        },
-        computed: {
-            maxNumString(){
-              return this.bnToString(this.maxNumBN)
-            },
-            maxNumBN(){
-                return this.max
-            },
-            stepNum(){
-                if(!this.step) {
-                    if(this.denomination >= 2){
-                        return 0.01
-                    }else{
-                        return Math.pow(10, -this.denomination)
-                    }
-                }
-                try{
-                    return this.bnToString(this.step)
-                }catch (e){
-                    console.error(e)
-                    return '0.01'
-                }
-
+            try {
+                return bnToString(props.step)
+            } catch (e) {
+                console.error(e)
+                return '0.01'
             }
-        },
-        props: {
-            denomination:{
-                type: Number,
-                default: 0
-            },
-            max: {
-                default: null,
-                type: [BN, Object],
-            },
-            min: {
-                type: Number,
-                default: 0,
-            },
-            step: {
-                type: [BN, Object],
-                default: null,
-            },
-            placeholder: String,
-            value: BN
-        },
-        model: {
-            prop: 'value',
-            event: 'change'
-        },
-        watch: {
-            val(val){
-                if(!val){
-                    this.$emit('change', new BN(0));
-                    return
-                }
+        })
 
-                try{
-                    let splitVal = val.toString().split('.')
-                    let wholeVal = splitVal[0]
-                    let denomVal = splitVal[1]
-                    if(denomVal){
-                        if(denomVal.length > this.denomination){
-                            let newDenom = denomVal.substring(0,this.denomination)
-                            this.val = `${wholeVal}.${newDenom}`
-                            return
-                        }
-                    }
-                }catch (e){
-                    console.log(e)
-                }
+        const bnToString = (bnVal: BN) => {
+            if (!bnVal) return '0'
+            return bnToBig(bnVal, props.denomination).toString()
+        }
 
-                if(parseFloat(val) < this.min){
-                    this.val = this.min.toString()
-                    return
-                }
+        const stringToBn = (strVal: string) => {
+            return stringToBN(strVal, props.denomination)
+        }
 
-                let valBn = this.stringToBN(val)
-                this.$emit('change', valBn);
-            },
-            value(valBn){
-                this.val = this.bnToString(valBn)
+        const maxout = () => {
+            if (maxNumBN.value != null) {
+                val.value = bnToString(maxNumBN.value)
             }
-        },
-        methods: {
-            bnToString(val){
-                return Utils.bnToBig(val, this.denomination).toString()
-            },
-            stringToBN(strVal){
-                return Utils.stringToBN(strVal,this.denomination)
-            },
-            maxout(){
-                if(this.maxNumBN != null){
-                    this.val = this.bnToString(this.maxNumBN)
-                }
-            },
-            clear(){
-                this.val = undefined
-            },
-            onChange(){
-                // If number is above max amount, correct it
-                const valBig = Big(this.val || '0')
-                const valBN = Utils.bigToBN(valBig,this.denomination)
-                if(this.maxNumBN != null){
-                    if(valBN.gt(this.maxNumBN)){
-                        this.val = this.bnToString(this.maxNumBN)
-                    }
+        }
+
+        const clear = () => {
+            val.value = null
+        }
+
+        const onChange = () => {
+            // If number is above max amount, correct it
+            const valBig = Big(val.value || '0')
+            const valBN = bigToBN(valBig, props.denomination)
+            
+            if (maxNumBN.value != null) {
+                if (valBN.gt(maxNumBN.value)) {
+                    val.value = bnToString(maxNumBN.value)
                 }
             }
         }
+
+        // Watch val changes and emit
+        watch(val, (newVal) => {
+            if (!newVal) {
+                emit('update:modelValue', new BN(0))
+                return
+            }
+
+            try {
+                let splitVal = newVal.toString().split('.')
+                let wholeVal = splitVal[0]
+                let denomVal = splitVal[1]
+                
+                if (denomVal) {
+                    if (denomVal.length > props.denomination) {
+                        let newDenom = denomVal.substring(0, props.denomination)
+                        val.value = `${wholeVal}.${newDenom}`
+                        return
+                    }
+                }
+            } catch (e) {
+                console.log(e)
+            }
+
+            if (parseFloat(newVal) < props.min) {
+                val.value = props.min.toString()
+                return
+            }
+
+            let valBn = stringToBn(newVal)
+            emit('update:modelValue', valBn)
+        })
+
+        // Watch modelValue prop changes
+        watch(() => props.modelValue, (valBn) => {
+            val.value = bnToString(valBn)
+        })
+
+        return {
+            val,
+            maxNumString,
+            stepNum,
+            onChange,
+            maxout,
+            clear
+        }
     }
+})
+
+export { BigNumInput }
+export default BigNumInput
 </script>
 <style scoped>
     input{
@@ -136,5 +166,6 @@
     /* Firefox */
     input[type=number] {
         -moz-appearance: textfield;
+        appearance: textfield;
     }
 </style>
