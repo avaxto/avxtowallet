@@ -24,6 +24,7 @@
 <script lang="ts">
 import { defineComponent, computed } from 'vue'
 import { useStore } from '@/stores'
+import { useMainStore } from '@/stores/main'
 import { useI18n } from 'vue-i18n'
 
 import KeyRow from '@/components/wallet/manage/KeyRow.vue'
@@ -38,6 +39,7 @@ export default defineComponent({
     },
     setup() {
         const store = useStore()
+        const mainStore = useMainStore()
         const { t } = useI18n()
 
         const selectWallet = (wallet: WalletType) => {
@@ -64,9 +66,9 @@ export default defineComponent({
         }
 
         const inactiveWallets = computed((): WalletType[] => {
-            let wallets = store.state.wallets
+            const wallets = mainStore.wallets as WalletType[]
 
-            let res = wallets.filter((wallet: WalletType) => {
+            const res = wallets.filter((wallet: WalletType) => {
                 if (activeWallet.value === wallet) return false
                 return true
             })
@@ -75,11 +77,11 @@ export default defineComponent({
         })
 
         const wallets = computed((): WalletType[] => {
-            return store.state.wallets
+            return mainStore.wallets as WalletType[]
         })
 
         const activeWallet = computed((): WalletType => {
-            return store.state.activeWallet
+            return mainStore.activeWallet as WalletType
         })
 
         return {

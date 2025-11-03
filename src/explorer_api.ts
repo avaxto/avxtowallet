@@ -68,7 +68,6 @@ async function getAddressHistory(
     }
 
     if (endTime) {
-        console.log('Setting endtime')
         //@ts-ignore
         req.endTime = [endTime]
     }

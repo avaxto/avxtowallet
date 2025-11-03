@@ -1,41 +1,46 @@
 <template>
     <div class="chain_select">
-        <button @click="setChain('X')" :active="chain === 'X'">X</button>
-        <button @click="setChain('P')" :active="chain === 'P'">P</button>
-        <button @click="setChain('C')" :active="chain === 'C'" v-if="isEVMSupported">C</button>
+        <button @click="setChain('X')" :active="modelValue === 'X' ? true : undefined">X</button>
+        <button @click="setChain('P')" :active="modelValue === 'P' ? true : undefined">P</button>
+        <button @click="setChain('C')" :active="modelValue === 'C' ? true : undefined" v-if="isEVMSupported">C</button>
     </div>
 </template>
 <script lang="ts">
 import 'reflect-metadata'
-import { defineComponent, computed } from 'vue'
+import { defineComponent, computed, toRefs } from 'vue'
 import { useStore } from '@/stores'
-import { ChainAlias, WalletType } from '@/js/wallets/types'
+import { useMainStore } from '@/stores/main'
+import { WalletType } from '@/js/wallets/types'
+import { ChainIdType } from '@/constants'
 
 export default defineComponent({
     name: 'ChainSelect',
     props: {
-        chain: {
-            type: String as () => ChainAlias,
+        modelValue: {
+            type: String as () => ChainIdType,
             required: true
         }
     },
-    emits: ['change'],
+    emits: ['update:modelValue'],
     setup(props, { emit }) {
         const store = useStore()
+        const mainStore = useMainStore()
+        const { modelValue } = toRefs(props)
 
         const isEVMSupported = computed(() => {
-            let wallet: WalletType | null = store.state.activeWallet
+            const wallet: WalletType | null = mainStore.activeWallet as WalletType | null
             if (!wallet) return false
             return wallet.ethAddress
         })
 
-        const setChain = (val: ChainAlias) => {
-            emit('change', val)
+        const setChain = (val: ChainIdType) => {
+            emit('update:modelValue', val)
         }
 
         return {
             isEVMSupported,
-            setChain
+            setChain,
+            modelValue
         }
     }
 })

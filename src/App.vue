@@ -60,9 +60,9 @@ export default {
                 // Note: this.$root.$i18n.locale setting needs to be handled differently in Composition API
                 // For now, we'll skip this until i18n is properly set up
             }
-
+            
             // Initialize network
-            await store.dispatch('Network/init')
+            const aka = await store.dispatch('Network/init')
             
             // Load accounts and initialize other stores
             store.commit('Accounts/loadAccounts')

@@ -16,9 +16,14 @@ export const useNetworkStore = defineStore('network', () => {
         return networks.value.concat(networksCustom.value)
     })
     
+    const currentNetwork = computed(() => {
+        return selectedNetwork.value
+    })
+    
     // Actions
     const init = async () => {
         
+                
         // Create default networks
         const mainnet = new AvaNetwork(
             'Mainnet',
@@ -150,6 +155,7 @@ export const useNetworkStore = defineStore('network', () => {
         
         // Getters
         allNetworks,
+        currentNetwork,
         
         // Actions
         init,

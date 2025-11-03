@@ -60,11 +60,11 @@ export default defineComponent({
         })
 
         const isUpdating = computed((): boolean => {
-            return store.state.History.isUpdating
+            return store.state.History.isUpdating ?? false
         })
 
         const transactions = computed((): TransactionType[] => {
-            return store.state.History.recentTransactions
+            return store.state.History.recentTransactions ?? []
         })
 
         const isActivityPage = computed(() => {
@@ -75,8 +75,10 @@ export default defineComponent({
         })
 
         const explorerUrl = computed((): string => {
-            const addr = store.state.address.split('-')[1]
-            return `https://explorer.avax.network/address/${addr}`
+            const addr = store.state.address?.value
+            if (!addr) return ''
+            const addressPart = addr.split('-')[1]
+            return `https://explorer.avax.network/address/${addressPart}`
         })
 
         return {

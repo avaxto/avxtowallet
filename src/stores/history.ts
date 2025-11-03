@@ -1,17 +1,34 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
+import { TransactionType } from '@/js/Glacier/models'
 
 export const useHistoryStore = defineStore('history', () => {
-    // Placeholder store - will be fully implemented later
+    // State
+    const isUpdating = ref<boolean>(false)
+    const recentTransactions = ref<TransactionType[]>([])
     
-    // Actions (temporary stubs)
+    // Actions
     const updateTransactionHistory = () => {
-        // TODO: Implement
+        // TODO: Implement full transaction history functionality
         console.log('TODO: Implement updateTransactionHistory')
     }
 
+    const setIsUpdating = (value: boolean) => {
+        isUpdating.value = value
+    }
+
+    const setRecentTransactions = (transactions: TransactionType[]) => {
+        recentTransactions.value = transactions
+    }
+
     return {
+        // State
+        isUpdating,
+        recentTransactions,
+        
         // Actions
         updateTransactionHistory,
+        setIsUpdating,
+        setRecentTransactions,
     }
 })

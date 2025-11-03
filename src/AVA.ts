@@ -4,15 +4,10 @@ import Avalanche from '@/avalanche'
 //@ts-ignore
 import BinTools from '@/avalanche/utils/bintools'
 import { EVMAPI } from '@/avalanche/apis/evm'
+import { avalanche } from '@/avalanche-wallet-sdk/Network/network'
 
-const ip: string = 'api.avax.network'
-const port: number = 443
-const defaultHrp = 'avax'
-const protocol: string = 'https'
-const network_id: number = 2
-const chain_id: string = 'X'
 const bintools: BinTools = BinTools.getInstance()
-const ava: Avalanche = new Avalanche(ip, port, protocol, network_id, chain_id)
+const ava: Avalanche = avalanche
 
 const avm: AVMAPI = ava.XChain()
 const cChain: EVMAPI = ava.CChain()

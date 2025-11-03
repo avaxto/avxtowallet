@@ -180,7 +180,7 @@ export default defineComponent({
         })
 
         const totalBalanceBig = computed((): Big => {
-            if (ava_asset.value) {
+            if (ava_asset.value && ava_asset.value.denomination !== undefined) {
                 let denom = ava_asset.value.denomination
                 let bigTot = bnToBig(totalBalance.value, denom)
                 return bigTot
@@ -204,7 +204,7 @@ export default defineComponent({
         })
 
         const balanceText = computed((): string => {
-            if (ava_asset.value !== null) {
+            if (ava_asset.value && ava_asset.value.denomination !== undefined) {
                 let denom = ava_asset.value.denomination
                 return totalBalanceBig.value.toLocaleString(denom)
             } else {
@@ -235,7 +235,7 @@ export default defineComponent({
         const balanceTextLocked = computed((): string => {
             if (isUpdateBalance.value) return '--'
 
-            if (ava_asset.value !== null) {
+            if (ava_asset.value && ava_asset.value.denomination !== undefined) {
                 let denom = ava_asset.value.denomination
                 let tot = platformLocked.value.add(platformLockedStakeable.value)
                 let pLocked = Big(tot.toString()).div(Math.pow(10, denom))
@@ -251,7 +251,7 @@ export default defineComponent({
         const balanceTextMultisig = computed(() => {
             if (isUpdateBalance.value) return '--'
 
-            if (ava_asset.value !== null) {
+            if (ava_asset.value && ava_asset.value.denomination !== undefined) {
                 let denom = ava_asset.value.denomination
                 return bnToBig(avmMultisig.value.add(platformMultisig.value), denom).toLocaleString()
             } else {
@@ -290,7 +290,7 @@ export default defineComponent({
         const unlockedText = computed(() => {
             if (isUpdateBalance.value) return '--'
 
-            if (ava_asset.value) {
+            if (ava_asset.value && ava_asset.value.denomination !== undefined) {
                 let xUnlocked = ava_asset.value.amount
                 let pUnlocked = platformUnlocked.value
 
@@ -307,7 +307,7 @@ export default defineComponent({
         })
 
         const pBalanceText = computed(() => {
-            if (!ava_asset.value) return '--'
+            if (!ava_asset.value || ava_asset.value.denomination === undefined) return '--'
             if (isUpdateBalance.value) return '--'
 
             let denom = ava_asset.value.denomination

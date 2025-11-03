@@ -61,15 +61,10 @@ export const useMainStore = defineStore('main', () => {
         }
     }
 
-    // Used in home page to access a user's wallet
-    // Used to access wallet with a single key
+    // Called from Mnemonic.vue when accessing wallet
     const accessWallet = async (mnemonic: string): Promise<MnemonicWallet> => {
-        console.log('Before:')
+        
         const wallet: MnemonicWallet = await addWalletMnemonic(mnemonic)
-
-        // TODO
-        console.log('Accessed wallet:')
-        console.log(wallet)
 
         await activateWallet(wallet)
 
@@ -239,6 +234,9 @@ export const useMainStore = defineStore('main', () => {
         }
     }
 
+    /*
+        Called from accessWallet
+    */
     const activateWallet = async (wallet: WalletType) => {
         activeWallet.value = wallet
 

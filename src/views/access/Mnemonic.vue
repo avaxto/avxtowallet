@@ -38,6 +38,8 @@ import { useI18n } from 'vue-i18n'
 import * as bip39 from 'bip39'
 import MnemonicPasswordInput from '@/components/misc/MnemonicPasswordInput.vue'
 
+const WALLET_LOADING_TIMEOUT = 500
+
 export default defineComponent({
     name: 'Mnemonic',
     components: {
@@ -85,7 +87,7 @@ export default defineComponent({
             }
 
             let isValid = bip39.validateMnemonic(phrase)
-            console.log('isValid:', isValid)
+            
             if (!isValid) {
                 err.value = 'Invalid mnemonic phrase. Make sure your mnemonic is all lowercase.'
                 return false
@@ -95,11 +97,9 @@ export default defineComponent({
         }
 
         const access = async () => {
-            console.log('🔵 Access button clicked!')
             
             err.value = ''
             const phrase = getMnemonic()
-            console.log('🔵 Phrase:', phrase ? 'exists' : 'empty')
             
             isLoading.value = true
 
@@ -108,15 +108,15 @@ export default defineComponent({
                 return
             }
 
-            setTimeout(async () => {
-                try {
-                    await mainStore.accessWallet(phrase)
-                    isLoading.value = false
-                } catch (e) {
-                    isLoading.value = false
-                    err.value = `${t('access.mnemonic.error')}`
-                }
-            }, 500)
+            
+            try {
+                await mainStore.accessWallet(phrase)
+                isLoading.value = false
+            } catch (e) {
+                isLoading.value = false
+                err.value = `${t('access.mnemonic.error')}`
+            }
+            
         }
 
         return {

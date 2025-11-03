@@ -59,7 +59,7 @@ export const useErc721Store = defineStore('erc721', () => {
         for (let i = 0; i < tokens.length; i++) {
             const t = tokens[i]
             if (data.address === t.data.address && data.chainId === t.data.chainId) {
-                console.log('ERC721 Token already added.')
+                //console.log('ERC721 Token already added.')
                 return
             }
         }

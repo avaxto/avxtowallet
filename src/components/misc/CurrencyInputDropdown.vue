@@ -160,7 +160,7 @@ export default defineComponent({
         }
 
         const onfocus = () => {
-            console.log('focus')
+            //console.log('focus')
         }
 
         const amountUSD = computed((): Big => {

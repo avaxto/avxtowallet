@@ -61,6 +61,7 @@
 import 'reflect-metadata'
 import { defineComponent, ref, computed, watch, onMounted } from 'vue'
 import { useStore } from '@/stores'
+import { useMainStore } from '@/stores/main'
 import { useI18n } from 'vue-i18n'
 
 import CopyText from '@/components/misc/CopyText.vue'
@@ -91,6 +92,7 @@ export default defineComponent({
     },
     setup() {
         const store = useStore()
+        const mainStore = useMainStore()
         const { t } = useI18n()
         
         const qrModalRef = ref<QRModal>()
@@ -103,14 +105,17 @@ export default defineComponent({
         const showBech = ref(false)
 
         const activeWallet = computed((): WalletType | null => {
-            return store.state.activeWallet
+            return mainStore.activeWallet as WalletType | null
         })
 
         const address = computed(() => {
             const wallet = activeWallet.value
+
             if (!wallet) {
                 return '-'
             }
+            console.log('Current wallet:')
+            console.log(wallet)
             return wallet.getCurrentAddressAvm()
         })
 
@@ -259,16 +264,17 @@ export default defineComponent({
             updateQR()
         })
 
-        watch(() => store.state.theme, (val: string) => {
-            if (val === 'night') {
-                colorDark.value = '#E5E5E5'
-                colorLight.value = '#242729'
-            } else {
-                colorDark.value = '#242729'
-                colorLight.value = '#FFF'
-            }
-            updateQR()
-        }, { immediate: true })
+        // TODO: Add theme store for theme watching
+        // watch(() => mainStore.theme, (val: string) => {
+        //     if (val === 'night') {
+        //         colorDark.value = '#E5E5E5'
+        //         colorLight.value = '#242729'
+        //     } else {
+        //         colorDark.value = '#242729'
+        //         colorLight.value = '#FFF'
+        //     }
+        //     updateQR()
+        // }, { immediate: true })
 
         watch(chainNow, (val: ChainIdType) => {
             if (val !== 'C') {
