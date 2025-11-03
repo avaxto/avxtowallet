@@ -115,6 +115,7 @@
 <script lang="ts">
 import { defineComponent, computed, ref } from 'vue'
 import { useStore } from '@/stores'
+import { useMainStore } from '@/stores/main'
 
 import { bintools, keyChain } from '@/AVA'
 import AvaAsset from '@/js/AvaAsset'
@@ -161,6 +162,7 @@ export default defineComponent({
     emits: ['remove', 'select'],
     setup(props, { emit }) {
         const store = useStore()
+        const mainStore = useMainStore()
         
         const export_wallet = ref<InstanceType<typeof ExportKeys>>()
         const modal = ref<InstanceType<typeof MnemonicPhraseModal>>()
@@ -170,7 +172,8 @@ export default defineComponent({
         const modal_xpub = ref<InstanceType<typeof XpubModal>>()
 
         const isVolatile = computed(() => {
-            return store.state.volatileWallets.includes(props.wallet)
+            const volatileWallets = mainStore.volatileWallets as WalletType[]
+            return volatileWallets.includes(props.wallet)
         })
 
         const walletTitle = computed(() => {

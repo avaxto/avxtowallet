@@ -53,7 +53,7 @@
             </div>
         </div>
         <div class="bottom_tabs">
-            <ChainSelect v-model="chainNow"></ChainSelect>
+            <ChainSelect :modelValue="chainNow" @update:modelValue="chainNow = $event"></ChainSelect>
         </div>
     </div>
 </template>
@@ -84,6 +84,9 @@ import { getPreferredHRP } from '@/avalanche/utils'
 
 export default defineComponent({
     name: 'AddressCard',
+    compatConfig: {
+        MODE: 3 // Use Vue 3 mode for this component
+    },
     components: {
         CopyText,
         PaperWallet,
@@ -103,7 +106,7 @@ export default defineComponent({
         const colorDark = ref('#242729')
         const chainNow = ref<ChainIdType>('X')
         const showBech = ref(false)
-
+        
         const activeWallet = computed((): WalletType | null => {
             return mainStore.activeWallet as WalletType | null
         })
@@ -114,8 +117,6 @@ export default defineComponent({
             if (!wallet) {
                 return '-'
             }
-            console.log('Current wallet:')
-            console.log(wallet)
             return wallet.getCurrentAddressAvm()
         })
 

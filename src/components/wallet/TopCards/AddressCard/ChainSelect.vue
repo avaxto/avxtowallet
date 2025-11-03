@@ -13,8 +13,12 @@ import { useMainStore } from '@/stores/main'
 import { WalletType } from '@/js/wallets/types'
 import { ChainIdType } from '@/constants'
 
+
 export default defineComponent({
     name: 'ChainSelect',
+    compatConfig: {
+        MODE: 3 // Use Vue 3 mode for this component
+    },
     props: {
         modelValue: {
             type: String as () => ChainIdType,
