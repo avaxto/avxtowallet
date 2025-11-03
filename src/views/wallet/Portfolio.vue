@@ -20,7 +20,7 @@
             </div>
             <div style="flex-grow: 1"></div>
             <div class="search hover_border">
-                <img v-if="$root.theme === 'day'" src="@/assets/search.png" />
+                <img v-if="isDay" src="@/assets/search.png" />
                 <img v-else src="@/assets/search_night.svg" />
                 <input :placeholder="$t('portfolio.search')" v-model="search" />
             </div>
@@ -43,6 +43,7 @@
 </template>
 <script lang="ts">
 import { defineComponent, ref, watch } from 'vue'
+import { useTheme } from '@/composables/useTheme'
 import Fungibles from '@/components/wallet/portfolio/Fungibles.vue'
 import Collectibles from '@/components/wallet/portfolio/Collectibles.vue'
 
@@ -53,6 +54,7 @@ export default defineComponent({
         Collectibles,
     },
     setup() {
+        const { isDay } = useTheme()
         const search = ref<string>('')
         const tab = ref<string>('fungibles')
 
@@ -61,6 +63,7 @@ export default defineComponent({
         })
 
         return {
+            isDay,
             search,
             tab
         }

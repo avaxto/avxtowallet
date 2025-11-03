@@ -1,5 +1,5 @@
 <template>
-    <div class="evm_input_dropdown">
+    <div class="evm_input_dropdow">
         <div class="col_in hover_border" :disabled="disabled">
             <template v-if="!isCollectible">
                 <button class="max_but" @click="maxOut" :disabled="disabled">MAX</button>
@@ -40,6 +40,7 @@
     </div>
 </template>
 <script lang="ts">
+
 import { defineComponent, ref, computed, nextTick } from 'vue'
 import { useStore } from '@/stores'
 //@ts-ignore

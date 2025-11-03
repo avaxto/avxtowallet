@@ -84,9 +84,6 @@ import { getPreferredHRP } from '@/avalanche/utils'
 
 export default defineComponent({
     name: 'AddressCard',
-    compatConfig: {
-        MODE: 3 // Use Vue 3 mode for this component
-    },
     components: {
         CopyText,
         PaperWallet,

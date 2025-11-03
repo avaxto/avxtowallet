@@ -7,7 +7,10 @@
     </div>
 </template>
 <script>
-import { CopyText } from '@avalabs/vue_components'
+//@ts-ignore
+import VueComponents from '@avalabs/vue_components'
+//@ts-ignore
+const { CopyText } = VueComponents
 import { useStore } from '@/stores'
 
 export default {

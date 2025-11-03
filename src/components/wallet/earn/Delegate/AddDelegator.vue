@@ -195,7 +195,9 @@ import { useI18n } from 'vue-i18n'
 
 import AvaxInput from '@/components/misc/AvaxInput.vue'
 //@ts-ignore
-import { QrInput } from '@avalabs/vue_components'
+import VueComponents from '@avalabs/vue_components'
+//@ts-ignore
+const { QrInput } = VueComponents
 import ValidatorsList from '@/components/misc/ValidatorList/ValidatorsList.vue'
 import { ValidatorRaw } from '@/components/misc/ValidatorList/types'
 import StakingCalculator from '@/components/wallet/earn/StakingCalculator.vue'

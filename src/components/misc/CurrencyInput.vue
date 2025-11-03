@@ -8,13 +8,16 @@
             placeholder="0.00"
             :value="value"
             @input="handleInput"
-            ref="in"
+            ref="inputRef"
         />
         <p>{{ currency }}</p>
     </div>
 </template>
-<script>
-export default {
+<script lang="ts">
+import { defineComponent, computed, ref } from 'vue'
+
+export default defineComponent({
+    name: 'CurrencyInput',
     props: {
         currency: {
             type: String,
@@ -22,6 +25,7 @@ export default {
         },
         value: {
             type: Number,
+            default: 0
         },
         disabled: {
             type: Boolean,
@@ -40,44 +44,46 @@ export default {
             default: null,
         },
     },
-    model: {
-        prop: 'value',
-        event: 'change',
-    },
-    methods: {
-        handleInput() {
-            let val = parseFloat(this.$refs.in.value)
+    emits: ['change'],
+    setup(props, { emit }) {
+        const inputRef = ref<HTMLInputElement>()
 
-            if (this.canMax) {
-                let max = this.maxVal
+        const canMax = computed(() => {
+            return props.maxVal != null
+        })
+
+        const minVal = computed(() => {
+            if (props.tick_size) return props.tick_size
+            return 0
+        })
+
+        const handleInput = () => {
+            if (!inputRef.value) return
+            let val = parseFloat(inputRef.value.value)
+
+            if (canMax.value && props.maxVal) {
+                let max = props.maxVal
                 if (val > max && max != 0) {
                     val = max
                 }
             }
 
-            this.$emit('change', val)
-        },
-        maxOut() {
-            this.$emit('change', this.maxVal)
-        },
-    },
-    computed: {
-        // currency(){
-        //     if(!this.balanceItem) return '';
-        //     return this.balanceItem.id;
-        // },
-        // max(){
-        //     return this.balanceItem.data.availableBalance;
-        // },
-        canMax() {
-            return this.maxVal != null
-        },
-        minVal() {
-            if (this.tick_size) return this.tick_size
-            return 0
-        },
-    },
-}
+            emit('change', val)
+        }
+
+        const maxOut = () => {
+            emit('change', props.maxVal)
+        }
+
+        return {
+            inputRef,
+            canMax,
+            minVal,
+            handleInput,
+            maxOut
+        }
+    }
+})
 </script>
 <style scoped>
 .curr_in[disabled] {

@@ -3,7 +3,7 @@
 
         <ConfirmLogout ref="logoutRef"></ConfirmLogout>
         <router-link to="/" class="logo">
-            <img v-if="$root.theme === 'day'" src="@/assets/avaxtowallet_logo.png" />
+            <img v-if="isDay" src="@/assets/avaxtowallet_logo.png" />
             <img v-else src="@/assets/avaxtowallet_logo_dark.png" />            
         </router-link>
         <v-spacer></v-spacer>
@@ -43,7 +43,7 @@
         >
             <v-list dense nav>
                 <div style="display: flex; justify-content: space-between; padding: 4px 8px">
-                    <img v-if="$root.theme === 'day'" src="@/assets/wallet_logo.svg" />
+                    <img v-if="isDay" src="@/assets/wallet_logo.svg" />
                     <img v-else src="@/assets/wallet_logo_dark.svg" />
                     <DayNightToggle class="action_but"></DayNightToggle>
                 </div>
@@ -80,6 +80,7 @@
 <script lang="ts">
 import { defineComponent, ref, computed } from 'vue'
 import { useMainStore } from '@/stores'
+import { useTheme } from '@/composables/useTheme'
 import LanguageSelect from './misc/LanguageSelect/LanguageSelect.vue'
 
 import DayNightToggle from '@/components/misc/DayNightToggle.vue'
@@ -98,6 +99,7 @@ export default defineComponent({
     },
     setup() {
         const mainStore = useMainStore()
+        const { isDay } = useTheme()
 
         const isDrawer = ref(false)
         const popupOpen = ref(false)
@@ -120,6 +122,7 @@ export default defineComponent({
             popupOpen,
             logoutRef,
             isAuth,
+            isDay,
             logout,
             togglePopup
         }

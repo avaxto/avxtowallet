@@ -1,7 +1,7 @@
 <template>
     <div class="copyBut" @click="copy">
         <!--        <fa icon="copy"></fa>-->
-        <img v-if="$root.theme === 'day'" src="/img/copy_icon.png" />
+        <img v-if="isDay" src="/img/copy_icon.png" />
         <img v-else src="/img/copy_night.svg" />
         <p class="text">
             <slot></slot>
@@ -9,34 +9,44 @@
         <input ref="copytext" :value="value" />
     </div>
 </template>
-<script>
+<script lang="ts">
+import { defineComponent, ref } from 'vue'
 import { useStore } from '@/stores'
+import { useTheme } from '@/composables/useTheme'
 
-export default {
+export default defineComponent({
+    name: 'CopyText',
     props: {
-        value: String,
-    },
-    setup() {
-        const store = useStore()
-        
-        return {
-            store
-        }
-    },
-    methods: {
-        copy() {
-            let copytext = this.$refs.copytext
-            copytext.select()
-            copytext.setSelectionRange(0, 99999)
-
-            document.execCommand('copy')
-            this.store.dispatch('Notifications/add', {
-                title: ' Copied',
-                message: 'Copied to clipboard.',
-            })
+        value: {
+            type: String,
+            required: true
         },
     },
-}
+    setup(props) {
+        const store = useStore()
+        const { isDay } = useTheme()
+        const copytext = ref<HTMLInputElement>()
+        
+        const copy = () => {
+            if (copytext.value) {
+                copytext.value.select()
+                copytext.value.setSelectionRange(0, 99999)
+
+                document.execCommand('copy')
+                store.dispatch('Notifications/add', {
+                    title: ' Copied',
+                    message: 'Copied to clipboard.',
+                })
+            }
+        }
+
+        return {
+            isDay,
+            copytext,
+            copy
+        }
+    }
+})
 </script>
 <style scoped lang="scss">
 .copyBut {

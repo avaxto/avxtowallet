@@ -28,38 +28,45 @@
         </v-menu>
     </v-layout>
 </template>
-<script>
-export default {
-    props: {
-        label: String,
-        minDate: String,
-        maxDate: String,
-    },
-    data() {
-        return {
-            fromDateMenu: false,
-            dateVal: null,
+<script lang="ts">
+import { defineComponent, ref, computed, watch } from 'vue'
 
-            // minDate: "2019-07-04",
-            // maxDate: "2019-08-30",
-        }
+export default defineComponent({
+    name: 'VuetifyDateInput',
+    props: {
+        label: {
+            type: String,
+            default: ''
+        },
+        minDate: {
+            type: String,
+            default: ''
+        },
+        maxDate: {
+            type: String,
+            default: ''
+        },
     },
-    computed: {
-        fromDateDisp() {
-            return this.dateVal
+    emits: ['change'],
+    setup(props, { emit }) {
+        const fromDateMenu = ref(false)
+        const dateVal = ref<string | null>(null)
+
+        const fromDateDisp = computed(() => {
+            return dateVal.value
             // format date, apply validations, etc. Example below.
-            // return this.fromDateVal ? this.formatDate(this.fromDateVal) : "";
-        },
-    },
-    methods: {
-        dateIn() {
-            this.fromDateMenu = false
-            // console.log(this.dateVal);
-        },
-        filterProps(props) {
+            // return dateVal.value ? formatDate(dateVal.value) : "";
+        })
+
+        const dateIn = () => {
+            fromDateMenu.value = false
+            // console.log(dateVal.value);
+        }
+
+        const filterProps = (props: any) => {
             if (!props) return {}
             // Filter out any numeric keys that could cause setAttribute errors
-            const filtered = {}
+            const filtered: any = {}
             for (const key in props) {
                 if (!/^\d+$/.test(key)) {
                     filtered[key] = props[key]
@@ -67,14 +74,21 @@ export default {
             }
             return filtered
         }
-    },
-    watch: {
-        dateVal(val) {
+
+        watch(dateVal, (val) => {
             // console.log(val);
-            this.$emit('change', val)
-        },
-    },
-}
+            emit('change', val)
+        })
+
+        return {
+            fromDateMenu,
+            dateVal,
+            fromDateDisp,
+            dateIn,
+            filterProps
+        }
+    }
+})
 </script>
 <style scoped lang="scss">
 .layout {

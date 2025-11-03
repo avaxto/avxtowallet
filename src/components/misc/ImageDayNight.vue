@@ -3,7 +3,8 @@
     <img v-else :src="night" />
 </template>
 <script lang="ts">
-import { defineComponent, computed, getCurrentInstance } from 'vue'
+import { defineComponent } from 'vue'
+import { useTheme } from '@/composables/useTheme'
 
 interface Props {
     day: string
@@ -23,12 +24,7 @@ export default defineComponent({
         }
     },
     setup(props: Props) {
-        const instance = getCurrentInstance()
-
-        const isDay = computed(() => {
-            //@ts-ignore
-            return instance?.proxy?.$root.theme === 'day'
-        })
+        const { isDay } = useTheme()
 
         return {
             isDay

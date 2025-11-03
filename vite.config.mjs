@@ -11,17 +11,7 @@ process.env.VITE_APP_VERSION = 0.01
 
 export default defineConfig({
   plugins: [
-    vue({
-      template: {
-        compilerOptions: {
-          compatConfig: {
-            MODE: 2, // Vue 2 compat mode - necessary when using @vue/compat
-            RENDER_FUNCTION: false,
-            COMPONENT_FUNCTIONAL: 'suppress-warning'
-          }
-        }
-      }
-    }),
+    vue(),
     // Node.js polyfills for browser compatibility
     nodePolyfills({
       include: ['buffer', 'process', 'util', 'crypto', 'stream', 'http', 'https', 'os', 'vm'],
@@ -37,8 +27,7 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': resolve(__dirname, 'src'),
-      // Vue 3 compatibility
-      'vue': '@vue/compat',
+      // Vue 3 native
       // Ledger aliases from vue.config.js
       '@ledgerhq/cryptoassets-evm-signatures/data/evm': '@ledgerhq/cryptoassets-evm-signatures/lib-es/data/evm',
       '@ledgerhq/cryptoassets-evm-signatures/data/eip712': '@ledgerhq/cryptoassets-evm-signatures/lib-es/data/eip712',
@@ -91,10 +80,12 @@ export default defineConfig({
       'vue',
       'vue-router',
       'pinia',
-      '@vue/compat',
       'vuetify',
       'bootstrap-vue-next',
       '@unhead/vue',
+    ],
+    exclude: [
+      '@avalabs/vue_components' // Vue 2 library incompatible with Vue 3
     ],
     // Force optimization for problematic packages
     force: true,

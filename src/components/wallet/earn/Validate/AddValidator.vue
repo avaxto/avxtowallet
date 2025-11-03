@@ -270,8 +270,7 @@ import { useI18n } from 'vue-i18n'
 import AvaxInput from '@/components/misc/AvaxInput.vue'
 import { BN } from '@/avalanche'
 import Big from 'big.js'
-//@ts-ignore
-import { QrInput } from '@avalabs/vue_components'
+// QrInput component is globally registered by @avalabs/vue_components
 import { bintools, pChain } from '@/AVA'
 import MnemonicWallet from '@/js/wallets/MnemonicWallet'
 import ConfirmPage from '@/components/wallet/earn/Validate/ConfirmPage.vue'
@@ -301,15 +300,11 @@ const MAX_STAKE_DURATION = DAY_MS * 365
 export default defineComponent({
     name: 'add_validator',
     components: {
-        Tooltip,
-        AvaxInput,
-        QrInput,
-        ConfirmPage,
-        CurrencySelect,
-        Spinner,
-        DateForm,
-        Expandable,
-        UtxoSelectForm,
+        Modal,
+        // QrInput is globally registered by @avalabs/vue_components
+        QrReader,
+        LoaderText,
+        BalanceDisplayBig,
     },
     emits: ['cancel'],
     setup(props, { emit }) {

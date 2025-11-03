@@ -35,7 +35,6 @@
         "@obsidiansystems/hw-app-avalanche": "^0.2.2",
         "@openzeppelin/contracts": "4.9.2",
         "@unhead/vue": "^2.0.14",
-        "@vue/compat": "^3.3.4",
         "axios": "0.21.2",
         "big.js": "5.2.2",
         "bip32": "^5.0.0",

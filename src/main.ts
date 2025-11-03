@@ -1,5 +1,4 @@
 import { createApp } from 'vue'
-import { configureCompat } from '@vue/compat'
 import App from './App.vue'
 import router from './router'
 import { pinia } from './stores'
@@ -22,15 +21,28 @@ import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
 // Import head management
 import { createUnhead } from '@unhead/vue'
 import { VueHeadMixin } from '@unhead/vue'
+// Import Vue 2 components library (will register globally)
+// @ts-ignore
+import '@avalabs/vue_components'
 
 
-configureCompat({
-    COMPONENT_FUNCTIONAL: 'suppress-warning',
-    RENDER_FUNCTION: false
-})
+// Vue compat configuration removed - now using native Vue 3
 
 // Create the Vue app
 const app = createApp(App)
+
+// Create compatibility layer for @avalabs/vue_components (Vue 2 library)
+// @ts-ignore
+window.Vue = {
+    component: (name: string, component: any) => {
+        // Register components globally with Vue 3 app
+        app.component(name, component)
+        return component
+    },
+    config: { productionTip: false }
+}
+
+// Vue 2 components library imported above - components registered via Vue compatibility shim
 
 // Create i18n instance
 const i18n = createI18n({
@@ -46,6 +58,12 @@ const head = createUnhead()
 // Install plugins
 app.use(router)
 app.use(pinia)
+
+// Initialize theme store
+import { useThemeStore } from './stores/theme'
+const themeStore = useThemeStore()
+themeStore.initTheme()
+
 app.use(vuetify)
 app.use(i18n)
 // Install head plugin

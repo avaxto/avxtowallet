@@ -1,5 +1,7 @@
 <template>
-    <div class="avax_input">
+    <div class="avax_inp// Load Vue 2 components dynamically - no static import needed
+// Components will be globally registered by the library
+const BigNumInput = 'big-num-input' // Use string name for globally registered component">
         <div class="col1 hover_border">
             <button class="max_but" @click="maxOut" v-if="max">MAX</button>
             <BigNumInput
@@ -34,7 +36,7 @@ import { defineComponent, ref, computed } from 'vue'
 import { useStore } from '@/stores'
 import { Big, bnToBig } from '@/avalanche-wallet-sdk'
 //@ts-ignore
-import { BigNumInput } from '@avalabs/vue_components'
+import { BigNumInput } from '@/vue_components/bignum_input.vue'
 import { BN } from '@/avalanche'
 import { priceDict } from '../../store/types'
 

@@ -2,7 +2,7 @@
     <div class="wallet_sidebar">
         <div class="stick">
             <div class="brand">
-                <img v-if="$root.theme === 'day'" src="@/assets/avaxtowallet_logo.png" />
+                <img v-if="isDay" src="@/assets/avaxtowallet_logo.png" />
                 <img v-else src="@/assets/avaxtowallet_logo_dark.png" />
             </div>
             <div class="links">
@@ -16,12 +16,12 @@
                     <strong>$AVXTO Support</strong>
                 </a>
                 <router-link to="/wallet" class="wallet_link">
-                    <img v-if="$root.theme === 'day'" src="@/assets/sidebar/portfolio_nav.png" />
+                    <img v-if="isDay" src="@/assets/sidebar/portfolio_nav.png" />
                     <img v-else src="@/assets/sidebar/portfolio_nav_night.png" />
                     {{ $t('wallet.sidebar.portfolio') }}
                 </router-link>
                 <router-link to="/wallet/transfer" data-cy="wallet_transfer" class="wallet_link">
-                    <img v-if="$root.theme === 'day'" src="@/assets/sidebar/transfer_nav.png" />
+                    <img v-if="isDay" src="@/assets/sidebar/transfer_nav.png" />
                     <img v-else src="@/assets/sidebar/transfer_nav_night.svg" />
                     {{ $t('wallet.sidebar.send') }}
                 </router-link>
@@ -34,27 +34,27 @@
                     {{ $t('wallet.sidebar.export') }}
                 </router-link>
                 <router-link to="/wallet/earn" data-cy="wallet_earn" class="wallet_link">
-                    <img v-if="$root.theme === 'day'" src="@/assets/sidebar/earn_nav.png" />
+                    <img v-if="isDay" src="@/assets/sidebar/earn_nav.png" />
                     <img v-else src="@/assets/sidebar/earn_nav_night.png" />
                     {{ $t('wallet.sidebar.earn') }}
                 </router-link>
                 <router-link to="/wallet/studio" data-cy="wallet_studio" class="wallet_link">
-                    <img v-if="$root.theme === 'day'" src="@/assets/sidebar/studio_nav.svg" />
+                    <img v-if="isDay" src="@/assets/sidebar/studio_nav.svg" />
                     <img v-else src="@/assets/sidebar/studio_nav_night.svg" />
                     {{ $t('wallet.sidebar.studio') }}
                 </router-link>
                 <router-link to="/wallet/activity" data-cy="wallet_activity" class="wallet_link">
-                    <img v-if="$root.theme === 'day'" src="@/assets/sidebar/activity_nav.svg" />
+                    <img v-if="isDay" src="@/assets/sidebar/activity_nav.svg" />
                     <img v-else src="@/assets/sidebar/activity_nav_night.svg" />
                     {{ $t('wallet.sidebar.activity') }}
                 </router-link>
                 <router-link to="/wallet/keys" data-cy="wallet_manage" class="wallet_link">
-                    <img v-if="$root.theme === 'day'" src="@/assets/sidebar/manage_nav.png" />
+                    <img v-if="isDay" src="@/assets/sidebar/manage_nav.png" />
                     <img v-else src="@/assets/sidebar/manage_nav_night.svg" />
                     {{ $t('wallet.sidebar.manage') }}
                 </router-link>
                 <router-link to="/wallet/advanced" data-cy="wallet_advanced" class="wallet_link">
-                    <img v-if="$root.theme === 'day'" src="@/assets/sidebar/advanced_nav.png" />
+                    <img v-if="isDay" src="@/assets/sidebar/advanced_nav.png" />
                     <img v-else src="@/assets/sidebar/advanced_nav_night.png" />
                     {{ $t('wallet.sidebar.advanced') }}
                 </router-link>
@@ -67,15 +67,25 @@
     </div>
 </template>
 <script>
+import { defineComponent } from 'vue'
+import { useTheme } from '@/composables/useTheme'
 import LanguageSelect from '@/components/misc/LanguageSelect/LanguageSelect.vue'
 import AccountMenu from '@/components/wallet/sidebar/AccountMenu.vue'
 
-export default {
+export default defineComponent({
+    name: 'Sidebar',
     components: {
         AccountMenu,
         LanguageSelect,
     },
-}
+    setup() {
+        const { isDay } = useTheme()
+
+        return {
+            isDay
+        }
+    }
+})
 </script>
 <style lang="scss" scoped>
 @use "../../main";
