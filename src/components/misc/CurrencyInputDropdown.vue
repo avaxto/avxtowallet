@@ -41,7 +41,6 @@ import { BN } from '@/avalanche'
 import Dropdown from '@/components/misc/Dropdown.vue'
 // import BigNumInput from "@/components/misc/BigNumInput";
 
-// Load Vue 2 components dynamically - no static import needed
 // Components will be globally registered by the library
 const BigNumInput = 'big-num-input' // Use string name for globally registered component
 import AvaAsset from '@/js/AvaAsset'

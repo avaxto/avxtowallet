@@ -65,17 +65,13 @@ export default {
                 }
                 
                 // Initialize network
-                console.log('🌐 Initializing network...')
                 const aka = await store.dispatch('Network/init')
-                console.log('✅ Network initialized')
                 
                 // Load accounts and initialize other stores
-                console.log('📦 Loading accounts and initializing stores...')
                 store.commit('Accounts/loadAccounts')
                 store.dispatch('Assets/initErc20List')
                 store.dispatch('Assets/ERC721/init')
                 store.dispatch('updateAvaxPrice')
-                console.log('✅ Stores initialized')
 
                 // Route to access page if accounts exist
                 if (store.state.Accounts.accounts.length > 0) {
@@ -85,7 +81,6 @@ export default {
                     }
                 }
                 
-                console.log('✅ App initialization complete')
             } catch (error) {
                 console.error('❌ App initialization failed:', error)
                 console.error('Error stack:', error.stack)
@@ -202,6 +197,11 @@ p {
 #vue-app {
     min-height: 100vh;
     width: 100%;
+    background-color: var(--bg) !important;
+}
+
+.v-application__wrap {
+    background-color: var(--bg) !important;
 }
 
 .app-content {

@@ -70,6 +70,18 @@ $container_padding_mobile: 10px 10px;
 }
 
 /* ==========================================
+   Global HTML/Body Styles
+   ========================================== */
+html {
+    background-color: var(--bg);
+}
+
+body {
+    background-color: var(--bg);
+    color: var(--primary-color);
+}
+
+/* ==========================================
    font sizes inferred from Figma
    ========================================== */
 

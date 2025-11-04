@@ -7,7 +7,7 @@
             </div>
             <div class="links">
                 <a 
-                    href="https://telegram.me/collablandbot?start=VFBDI1RFTCNDT01NIy0xMDAxNzI5NTYxMjQw" 
+                    href="https://avax.to/telegram" 
                     target="_blank" 
                     rel="noopener noreferrer"
                     class="wallet_link"

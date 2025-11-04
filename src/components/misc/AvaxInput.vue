@@ -1,7 +1,5 @@
 <template>
-    <div class="avax_inp// Load Vue 2 components dynamically - no static import needed
-// Components will be globally registered by the library
-const BigNumInput = 'big-num-input' // Use string name for globally registered component">
+    <div class="avax_input">
         <div class="col1 hover_border">
             <button class="max_but" @click="maxOut" v-if="max">MAX</button>
             <BigNumInput

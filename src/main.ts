@@ -21,19 +21,11 @@ import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
 // Import head management
 import { createUnhead } from '@unhead/vue'
 import { VueHeadMixin } from '@unhead/vue'
-// Import Vue 2 components library (will register globally)
 // @ts-ignore
 import '@/vue_components'
 
-
-// Vue compat configuration removed - now using native Vue 3
-
-// Create the Vue app
 const app = createApp(App)
 
-console.log('✅ Vue app created')
-
-// Create compatibility layer for @avalabs/vue_components (Vue 2 library)
 // @ts-ignore
 window.Vue = {
     component: (name: string, component: any) => {
@@ -44,8 +36,6 @@ window.Vue = {
     config: { productionTip: false }
 }
 
-// Vue 2 components library imported above - components registered via Vue compatibility shim
-
 // Create i18n instance
 const i18n = createI18n({
     legacy: false,
@@ -54,19 +44,15 @@ const i18n = createI18n({
     messages: i18nMessages
 })
 
-// Create head instance for managing document head
 const head = createUnhead()
 
-// Install plugins
 app.use(router)
 app.use(pinia)
 
-// Initialize theme store
 import { useThemeStore } from './stores/theme'
 const themeStore = useThemeStore()
 themeStore.initTheme()
 
-// Make theme globally available for Vue 2 compatibility
 app.config.globalProperties.$root = {
     get theme() {
         return themeStore.theme
@@ -75,7 +61,7 @@ app.config.globalProperties.$root = {
 
 app.use(vuetify)
 app.use(i18n)
-// Install head plugin
+
 app.use({
     install(app) {
         app.config.globalProperties.$head = head
@@ -92,19 +78,14 @@ app.component('b-col', BCol)
 
 app.config.globalProperties.$productionTip = false
 
-console.log('🔧 Plugins installed')
-
 // App lifecycle - equivalent to mounted hook  
 // Register mixin BEFORE mounting
 app.mixin({
     mounted() {
-        // Reveal app version
         console.log(`AVAX Toolbox Version: ${AVAX_TOOLBOX_VERSION}`)
-        // Hide loader once vue is initialized
         const loader = document.getElementById('app_loading')
         if (loader) {
             loader.style.display = 'none'
-            console.log('🎨 Loading screen hidden')
         }
     }
 })
@@ -131,9 +112,7 @@ app.config.errorHandler = (err: any, instance, info) => {
     }
 }
 
-console.log('📱 Mounting app...')
 const mountedApp = app.mount('#app')
-console.log('✅ App mounted successfully')
 
 // @ts-ignore
 if (window.Cypress) {
