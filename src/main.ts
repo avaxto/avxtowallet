@@ -31,6 +31,8 @@ import '@/vue_components'
 // Create the Vue app
 const app = createApp(App)
 
+console.log('✅ Vue app created')
+
 // Create compatibility layer for @avalabs/vue_components (Vue 2 library)
 // @ts-ignore
 window.Vue = {
@@ -64,6 +66,13 @@ import { useThemeStore } from './stores/theme'
 const themeStore = useThemeStore()
 themeStore.initTheme()
 
+// Make theme globally available for Vue 2 compatibility
+app.config.globalProperties.$root = {
+    get theme() {
+        return themeStore.theme
+    }
+}
+
 app.use(vuetify)
 app.use(i18n)
 // Install head plugin
@@ -82,6 +91,23 @@ app.component('b-row', BRow)
 app.component('b-col', BCol)
 
 app.config.globalProperties.$productionTip = false
+
+console.log('🔧 Plugins installed')
+
+// App lifecycle - equivalent to mounted hook  
+// Register mixin BEFORE mounting
+app.mixin({
+    mounted() {
+        // Reveal app version
+        console.log(`AVAX Toolbox Version: ${AVAX_TOOLBOX_VERSION}`)
+        // Hide loader once vue is initialized
+        const loader = document.getElementById('app_loading')
+        if (loader) {
+            loader.style.display = 'none'
+            console.log('🎨 Loading screen hidden')
+        }
+    }
+})
 
 // Global error handler for unhandled errors
 app.config.errorHandler = (err: any, instance, info) => {
@@ -105,7 +131,9 @@ app.config.errorHandler = (err: any, instance, info) => {
     }
 }
 
+console.log('📱 Mounting app...')
 const mountedApp = app.mount('#app')
+console.log('✅ App mounted successfully')
 
 // @ts-ignore
 if (window.Cypress) {
@@ -113,19 +141,6 @@ if (window.Cypress) {
     // @ts-ignore
     window.app = mountedApp
 }
-
-// App lifecycle - equivalent to mounted hook
-app.mixin({
-    mounted() {
-        // Reveal app version
-        console.log(`AVAX Toolbox Version: ${AVAX_TOOLBOX_VERSION}`)
-        // Hide loader once vue is initialized
-        const loader = document.getElementById('app_loading')
-        if (loader) {
-            loader.style.display = 'none'
-        }
-    }
-})
 
 // Extending Big.js with a helper function
 import Big from 'big.js'

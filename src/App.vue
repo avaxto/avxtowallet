@@ -1,7 +1,7 @@
 <template>
-    <v-app>
+    <v-app id="vue-app">
         <v-main>
-            <template>                
+            <div class="app-content">
                 <navbar v-show="isNavbar"></navbar>
                 <div class="main_cols" :wallet_view="!isNavbar ? '' : null">
                     <UpgradeToAccountModal></UpgradeToAccountModal>
@@ -11,7 +11,7 @@
                         </transition>
                     </router-view>
                 </div>
-            </template>
+            </div>
         </v-main>
         <LedgerBlock ref="ledger_block"></LedgerBlock>
         <LedgerUpgrade></LedgerUpgrade>
@@ -54,28 +54,41 @@ export default {
         
         // Use onMounted for initialization in Vue 3
         onMounted(async () => {
-            // Init language preference
-            let locale = localStorage.getItem('lang')
-            if (locale) {
-                // Note: this.$root.$i18n.locale setting needs to be handled differently in Composition API
-                // For now, we'll skip this until i18n is properly set up
-            }
-            
-            // Initialize network
-            const aka = await store.dispatch('Network/init')
-            
-            // Load accounts and initialize other stores
-            store.commit('Accounts/loadAccounts')
-            store.dispatch('Assets/initErc20List')
-            store.dispatch('Assets/ERC721/init')
-            store.dispatch('updateAvaxPrice')
-
-            // Route to access page if accounts exist
-            if (store.state.Accounts.accounts.length > 0) {
-                // Do not route for legal pages
-                if (route.name !== 'legal') {
-                    router.push('/access')
+            try {
+                console.log('🚀 App initialization started')
+                
+                // Init language preference
+                let locale = localStorage.getItem('lang')
+                if (locale) {
+                    // Note: this.$root.$i18n.locale setting needs to be handled differently in Composition API
+                    // For now, we'll skip this until i18n is properly set up
                 }
+                
+                // Initialize network
+                console.log('🌐 Initializing network...')
+                const aka = await store.dispatch('Network/init')
+                console.log('✅ Network initialized')
+                
+                // Load accounts and initialize other stores
+                console.log('📦 Loading accounts and initializing stores...')
+                store.commit('Accounts/loadAccounts')
+                store.dispatch('Assets/initErc20List')
+                store.dispatch('Assets/ERC721/init')
+                store.dispatch('updateAvaxPrice')
+                console.log('✅ Stores initialized')
+
+                // Route to access page if accounts exist
+                if (store.state.Accounts.accounts.length > 0) {
+                    // Do not route for legal pages
+                    if (route.name !== 'legal') {
+                        router.push('/access')
+                    }
+                }
+                
+                console.log('✅ App initialization complete')
+            } catch (error) {
+                console.error('❌ App initialization failed:', error)
+                console.error('Error stack:', error.stack)
             }
         })
         
@@ -182,6 +195,17 @@ p {
 // Remove default Vuetify v-main padding
 .v-main {
     padding: 0 !important;
+}
+
+// Ensure v-app takes full height
+.v-application,
+#vue-app {
+    min-height: 100vh;
+    width: 100%;
+}
+
+.app-content {
+    min-height: 100vh;
 }
 
 #app {

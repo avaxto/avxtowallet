@@ -11,11 +11,11 @@
                                 <header>
                                     <div class="img_container">
                                         <img
-                                            v-if="$root.theme === 'day'"
+                                            v-if="theme === 'day'"
                                             src="@/assets/diamond-primary.svg"
-                                            alt
+                                            alt=""
                                         />
-                                        <img v-else src="@/assets/diamond-primary-night.svg" alt />
+                                        <img v-else src="@/assets/diamond-primary-night.svg" alt="" />
                                     </div>
                                     <h2>{{ $t('home.access.title') }}</h2>
                                     <p>{{ $t('home.access.desc') }}</p>
@@ -34,14 +34,14 @@
                                 <header>
                                     <div class="img_container">
                                         <img
-                                            v-if="$root.theme === 'day'"
+                                            v-if="theme === 'day'"
                                             src="@/assets/diamond-secondary.png"
-                                            alt
+                                            alt=""
                                         />
                                         <img
                                             v-else
                                             src="@/assets/diamond-secondary-night.svg"
-                                            alt
+                                            alt=""
                                         />
                                     </div>
                                     <h2>{{ $t('home.create.title') }}</h2>
@@ -68,11 +68,24 @@
 
 <script lang="ts">
 import { defineComponent } from 'vue'
+import { useThemeStore } from '@/stores/theme'
 import ToS from '@/components/misc/ToS.vue'
 
 export default defineComponent({
     name: 'Home',
     components: { ToS },
+    setup() {
+        const themeStore = useThemeStore()
+        
+        return {
+            themeStore
+        }
+    },
+    computed: {
+        theme() {
+            return this.themeStore.theme
+        }
+    }
 })
 </script>
 
