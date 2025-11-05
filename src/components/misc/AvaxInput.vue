@@ -36,7 +36,8 @@ import { Big, bnToBig } from '@/avalanche-wallet-sdk'
 //@ts-ignore
 import { BigNumInput } from '@/vue_components/bignum_input.vue'
 import { BN } from '@/avalanche'
-import { priceDict } from '../../store/types'
+// Type for price data
+type priceDict = { usd: number }
 
 interface Props {
     amount: BN
@@ -69,11 +70,14 @@ export default defineComponent({
         const amtIn = ref<InstanceType<typeof BigNumInput>>()
 
         const priceDict = computed((): priceDict => {
-            return store.state.prices
+            return store.state.prices.value
         })
 
         const amountUSD = computed((): Big => {
             let usdPrice = priceDict.value.usd
+            if (typeof usdPrice !== 'number' || isNaN(usdPrice)) {
+                return Big(0)
+            }
             let amount = bnToBig(props.amount, 9)
             let usdBig = amount.times(usdPrice)
             return usdBig

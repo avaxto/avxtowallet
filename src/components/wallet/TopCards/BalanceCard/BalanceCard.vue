@@ -112,7 +112,8 @@ import Big from 'big.js'
 import { BN } from '@/avalanche'
 import { ONEAVAX } from '@/avalanche/utils'
 import { bnToBig } from '@/helpers/helper'
-import { priceDict } from '@/store/types'
+// Type for price data
+type priceDict = { usd: number }
 import { WalletType } from '@/js/wallets/types'
 import UtxosBreakdownModal from '@/components/modals/UtxosBreakdown/UtxosBreakdownModal.vue'
 
@@ -194,6 +195,9 @@ export default defineComponent({
 
         const totalBalanceUSD = computed((): Big => {
             let usdPrice = priceDict.value.usd
+            if (typeof usdPrice !== 'number' || isNaN(usdPrice)) {
+                return Big(0)
+            }
             let usdBig = totalBalanceBig.value.times(Big(usdPrice))
             return usdBig
         })
@@ -343,7 +347,7 @@ export default defineComponent({
         })
 
         const wallet = computed((): WalletType | null => {
-            return store.state.activeWallet
+            return store.state.activeWallet.value as WalletType | null
         })
 
         const isUpdateBalance = computed((): boolean => {
@@ -352,7 +356,7 @@ export default defineComponent({
         })
 
         const priceDict = computed((): priceDict => {
-            return store.state.prices
+            return store.state.prices.value
         })
 
         const hasLocked = computed((): boolean => {
@@ -605,8 +609,7 @@ h4 {
         font-size: 2em !important;
     }
 
-    .where_info {
-    }
+    /* .where_info styles removed - empty ruleset */
 
     .alt_info {
         > div {

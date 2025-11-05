@@ -100,7 +100,10 @@ export default defineComponent({
         const usd_val = computed((): Big => {
             if (token.value != 'native') return Big(0)
 
-            let price = store.state.prices.usd
+            let price = store.state.prices.value.usd
+            if (typeof price !== 'number' || isNaN(price)) {
+                return Big(0)
+            }
             let big = bnToBig(amt.value, 18)
             return big.mul(Big(price))
         })

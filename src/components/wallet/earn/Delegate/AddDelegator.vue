@@ -397,7 +397,11 @@ export default defineComponent({
         })
 
         const avaxPrice = computed((): Big => {
-            return Big(store.state.prices.usd)
+            const usdPrice = store.state.prices.value.usd
+            if (typeof usdPrice !== 'number' || isNaN(usdPrice)) {
+                return Big(0)
+            }
+            return Big(usdPrice)
         })
 
         const rewardAddressLocal = computed(() => {

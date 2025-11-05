@@ -150,7 +150,9 @@ import { ITransaction } from '@/components/wallet/transfer/types'
 import { UTXO } from '@/avalanche/apis/avm'
 import { Buffer, BN } from '@/avalanche'
 import TxSummary from '@/components/wallet/transfer/TxSummary.vue'
-import { priceDict, IssueBatchTxInput } from '@/store/types'
+import { IssueBatchTxInput } from '@/store/types'
+// Type for price data
+type priceDict = { usd: number }
 import { WalletType } from '@/js/wallets/types'
 import { bnToBig } from '@/helpers/helper'
 import * as bip39 from 'bip39'
@@ -166,7 +168,7 @@ export default defineComponent({
     components: {
         FaucetLink,
         TxList,
-        QrInput,
+        // QrInput is globally registered by @avalabs/vue_components
         NftList,
         TxSummary,
         FormC,
@@ -441,7 +443,7 @@ export default defineComponent({
         })
 
         const wallet = computed((): WalletType => {
-            return store.state.activeWallet
+            return store.state.activeWallet.value as WalletType
         })
 
         const txFee = computed((): Big => {
@@ -453,6 +455,9 @@ export default defineComponent({
             let totalAsset = avaxTxSize.value.add(avm.getTxFee())
             let bigAmt = bnToBig(totalAsset, 9)
             let usdPrice = priceDict.value.usd
+            if (typeof usdPrice !== 'number' || isNaN(usdPrice)) {
+                return Big(0)
+            }
             let usdBig = bigAmt.times(usdPrice)
             return usdBig
         })
@@ -462,7 +467,7 @@ export default defineComponent({
         })
 
         const priceDict = computed((): priceDict => {
-            return store.state.prices
+            return store.state.prices.value
         })
 
         const nftUTXOs = computed((): UTXO[] => {
