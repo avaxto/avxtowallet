@@ -55,7 +55,6 @@ export default {
         // Use onMounted for initialization in Vue 3
         onMounted(async () => {
             try {
-                console.log('🚀 App initialization started')
                 
                 // Init language preference
                 let locale = localStorage.getItem('lang')

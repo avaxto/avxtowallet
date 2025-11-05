@@ -82,7 +82,6 @@ app.config.globalProperties.$productionTip = false
 // Register mixin BEFORE mounting
 app.mixin({
     mounted() {
-        console.log(`AVAX Toolbox Version: ${AVAX_TOOLBOX_VERSION}`)
         const loader = document.getElementById('app_loading')
         if (loader) {
             loader.style.display = 'none'
@@ -113,6 +112,8 @@ app.config.errorHandler = (err: any, instance, info) => {
 }
 
 const mountedApp = app.mount('#app')
+console.log(`AVAX Toolbox Version: ${AVAX_TOOLBOX_VERSION}`)
+
 
 // @ts-ignore
 if (window.Cypress) {

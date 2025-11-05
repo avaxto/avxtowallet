@@ -16,7 +16,6 @@ export default defineComponent({
         
         const isVisible = computed(() => {
             // For now, using placeholder logic - will be implemented when network store is completed
-            console.log('TestNetBanner: checking network visibility (placeholder)')
             return null
         })
 
