@@ -102,6 +102,7 @@
 <script lang="ts">
 import { defineComponent, ref, computed } from 'vue'
 import { useStore } from '@/stores'
+import { useAssetsStore } from '@/stores'
 import AvaAsset from '@/js/AvaAsset'
 import MnemonicWallet from '@/js/wallets/MnemonicWallet'
 import Spinner from '@/components/misc/Spinner.vue'
@@ -127,6 +128,7 @@ export default defineComponent({
     },
     setup() {
         const store = useStore()
+        const assetsStore = useAssetsStore()
 
         const isBreakdown = ref(true)
         const utxos_modal = ref<InstanceType<typeof UtxosBreakdownModal>>()
@@ -150,8 +152,7 @@ export default defineComponent({
         }
 
         const ava_asset = computed((): AvaAsset | null => {
-            let ava = store.getters['Assets/AssetAVA']
-            return ava
+            return assetsStore.AssetAVA
         })
 
         const avmUnlocked = computed((): BN => {
@@ -272,7 +273,7 @@ export default defineComponent({
         })
 
         const platformBalance = computed(() => {
-            return store.getters['Assets/walletPlatformBalance']
+            return assetsStore.walletPlatformBalance
         })
 
         const platformUnlocked = computed((): BN => {
@@ -327,7 +328,7 @@ export default defineComponent({
         })
 
         const stakingAmount = computed((): BN => {
-            return store.getters['Assets/walletStakingBalance']
+            return assetsStore.walletStakingBalance
         })
 
         const stakingText = computed(() => {
