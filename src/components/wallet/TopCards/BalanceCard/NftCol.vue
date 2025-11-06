@@ -6,7 +6,7 @@
             <p>{{ statusText }}</p>
             <div class="nft_list">
                 <div class="nft_item" v-for="(utxo, i) in nftArray" :key="utxo.getUTXOID()">
-                    <NftPayloadView :payload="nftPayloads[i]" small="true"></NftPayloadView>
+                    <NftPayloadView :payload="nftPayloads[i]" :small="true"></NftPayloadView>
                 </div>
                 <div class="nft_item" v-for="item in erc721BalanceArray" :key="item.id">
                     <ERC721View :token="item.token" :index="item.id"></ERC721View>
@@ -19,7 +19,7 @@
 <script lang="ts">
 import { defineComponent, computed } from 'vue'
 import { useStore } from '@/stores'
-import { IWalletNftDict } from '@/store/types'
+import { useAssetsStore, useErc721Store } from '@/stores'
 import { NFTTransferOutput, UTXO } from '@/avalanche/apis/avm'
 import NftCard from '@/components/wallet/portfolio/NftCard.vue'
 import NftPayloadView from '@/components/misc/NftPayloadView/NftPayloadView.vue'
@@ -28,7 +28,7 @@ import { Buffer } from '@/avalanche'
 import { PayloadTypes } from '@/avalanche/utils'
 import { bintools } from '@/AVA'
 import NftFamilyCardsPreview from '@/components/misc/NftFamilyCardsPreview.vue'
-import { ERC721WalletBalance } from '@/store/modules/assets/modules/types'
+import { ERC721WalletBalance } from '@/stores/erc721'
 import ERC721View from '@/components/misc/ERC721View.vue'
 
 const NFT_COUNT = 15
@@ -45,17 +45,21 @@ export default defineComponent({
     },
     setup() {
         const store = useStore()
+        const assetsStore = useAssetsStore()
+        const erc721Store = useErc721Store()
 
         const isEmpty = computed((): boolean => {
-            return nftArray.value.length + erc721BalanceArray.value.length === 0
+            const nftLen = nftArray.value?.length || 0
+            const erc721Len = erc721BalanceArray.value?.length || 0
+            return nftLen + erc721Len === 0
         })
 
-        const nftDict = computed((): IWalletNftDict => {
-            return store.getters['Assets/walletNftDict']
+        const nftDict = computed(() => {
+            return assetsStore.walletNftDict
         })
 
         const nftArray = computed((): UTXO[] => {
-            let utxos: UTXO[] = store.state.Assets.nftUTXOs
+            let utxos: UTXO[] = (assetsStore.nftUTXOs || []) as UTXO[]
 
             let ids: string[] = []
             // Filter same groups
@@ -90,16 +94,17 @@ export default defineComponent({
         })
 
         const erc721Balance = computed((): ERC721WalletBalance => {
-            return store.state.Assets.ERC721.walletBalance
+            return erc721Store.walletBalance
         })
 
         const erc721BalanceArray = computed(() => {
             // TODO: Remove after ledger support
-            if (store.state.activeWallet.type === 'ledger') return []
+            const wallet = store.state.activeWallet.value
+            if (wallet && wallet.type === 'ledger') return []
 
             let res = []
             for (var tokenAddr in erc721Balance.value) {
-                let erc721Token = store.getters['Assets/ERC721/find'](tokenAddr)
+                let erc721Token = erc721Store.find(tokenAddr)
                 let tokenIds = erc721Balance.value[tokenAddr]
                 let tokens = tokenIds.map((id) => {
                     return {
@@ -109,22 +114,24 @@ export default defineComponent({
                 })
                 res.push(...tokens)
             }
-            return res.slice(0, NFT_COUNT - nftArray.value.length)
+            return res.slice(0, NFT_COUNT - (nftArray.value?.length || 0))
         })
 
         const dummyAmt = computed((): number => {
-            return NFT_COUNT - (nftArray.value.length + erc721BalanceArray.value.length)
+            const nftLen = nftArray.value?.length || 0
+            const erc721Len = erc721BalanceArray.value?.length || 0
+            return NFT_COUNT - (nftLen + erc721Len)
         })
 
         const collectedAmt = computed((): number => {
-            let avmAmt = store.state.Assets.nftUTXOs.length
-            let evmAmt = store.getters['Assets/ERC721/totalOwned']
+            let avmAmt = assetsStore.nftUTXOs?.length || 0
+            let evmAmt = erc721Store.totalOwned
             return avmAmt + evmAmt
         })
 
         const collectionAmt = computed((): number => {
-            let avmFamsAmt = store.state.Assets.nftFams.length
-            let evmFamsAmt = store.getters['Assets/ERC721/totalCollectionsOwned']
+            let avmFamsAmt = assetsStore.nftFams?.length || 0
+            let evmFamsAmt = erc721Store.totalCollectionsOwned
             return avmFamsAmt + evmFamsAmt
         })
 
