@@ -8,12 +8,12 @@
         "desc": "Welcome to AVXTO - AVAX Toolbox and Wallet",
         "access": {
             "title": "Welcome Back!",
-            "desc": "Access your existing AVAX Toolbox wallet here.",
+            "desc": "Access your existing AVAX Toolbox wallet",
             "submit": "Access Wallet"
         },
         "create": {
             "title": "New to AVAX Toolbox?",
-            "desc": "Create a new Toolbox wallet to send, receive and swap Avalanche assets.",
+            "desc": "Create a new Toolbox wallet to send, receive and swap Avalanche assets",
             "submit": "Create New Wallet"
         }
     },

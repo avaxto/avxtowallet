@@ -1,11 +1,11 @@
-<template>
+<template>    
     <v-app id="vue-app">
         <v-main>
-            <div class="app-content">
+            <div class="app-content">                
                 <navbar v-show="isNavbar"></navbar>
                 <div class="main_cols" :wallet_view="!isNavbar ? '' : null">
                     <UpgradeToAccountModal></UpgradeToAccountModal>
-                    <router-view id="router_view" v-slot="{ Component }">
+                    <router-view id="router_view" v-slot="{ Component }">                        
                         <transition name="fade" mode="out-in">
                             <component :is="Component" />
                         </transition>
@@ -51,8 +51,7 @@ export default {
         const store = useStore()
         const route = useRoute()
         const router = useRouter()
-        
-        // Use onMounted for initialization in Vue 3
+                
         onMounted(async () => {
             try {
                 

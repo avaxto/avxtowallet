@@ -19,6 +19,7 @@
                                     </div>
                                     <h2>{{ $t('home.access.title') }}</h2>
                                     <p>{{ $t('home.access.desc') }}</p>
+                                    
                                 </header>
                                 <div>
                                     <router-link
