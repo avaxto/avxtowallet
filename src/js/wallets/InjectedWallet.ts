@@ -113,7 +113,7 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
         const provider = getInjectedProvider()
         if (!provider) {
             throw new Error(
-                'No injected wallet provider found. Please install MetaMask or Core App.'
+                'No wallet provider found. Please install MetaMask or Core App extension.'
             )
         }
 

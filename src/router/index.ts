@@ -80,7 +80,7 @@ const routes = [
                 component: Xpub,
             },
             {
-                path: 'injected',
+                path: 'ext',
                 component: Injected,
             },
         ],

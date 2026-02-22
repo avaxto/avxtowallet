@@ -5,6 +5,23 @@
         <div class="menus">
             <AccountsFound class="accounts_menu"></AccountsFound>
             <div class="options">
+                
+                <router-link to="/access/ext" class="menu_option button_primary">
+                    {{ $t('access.but_connect_wallet') }}
+                    <ImageDayNight
+                        day="/img/coreapp.svg"
+                        night="/img/coreapp.svg"
+                    ></ImageDayNight>
+                </router-link>                
+                <LedgerButton class="menu_option button_primary"></LedgerButton>                
+                 <router-link to="/access/mnemonic" class="menu_option button_primary">
+                    {{ $t('access.but_mnemonic') }}
+                    <ImageDayNight
+                        day="/img/access_icons/day/mnemonic.svg"
+                        night="/img/access_icons/night/mnemonic.svg"
+                    ></ImageDayNight>
+                </router-link>
+ 
                 <router-link to="/access/privatekey" class="menu_option button_primary">
                     {{ $t('access.but_private_key') }}
                     <ImageDayNight
@@ -12,33 +29,20 @@
                         night="/img/access_icons/night/privatekey.svg"
                     ></ImageDayNight>
                 </router-link>
-                <router-link to="/access/mnemonic" class="menu_option button_primary">
-                    {{ $t('access.but_mnemonic') }}
-                    <ImageDayNight
-                        day="/img/access_icons/day/mnemonic.svg"
-                        night="/img/access_icons/night/mnemonic.svg"
-                    ></ImageDayNight>
-                </router-link>
-                <router-link to="/access/keystore" class="menu_option button_primary">
+               <router-link to="/access/keystore" class="menu_option button_primary">
                     {{ $t('access.but_keystore') }}
                     <ImageDayNight
                         day="/img/access_icons/day/keystore.svg"
                         night="/img/access_icons/night/keystore.svg"
                     ></ImageDayNight>
                 </router-link>
-                <LedgerButton class="menu_option button_primary"></LedgerButton>
+                
                 <router-link to="/access/xpub" class="menu_option button_primary">
                     XPUB (Readonly)
                     <span><fa icon="glasses"></fa></span>
                 </router-link>
-                <router-link to="/access/injected" class="menu_option button_primary">
-                    {{ $t('access.but_connect_wallet') }}
-                    <ImageDayNight
-                        day="/img/coreapp.svg"
-                        night="/img/coreapp.svg"
-                    ></ImageDayNight>
-                </router-link>
-                <!--            <TorusGoogle class="option button_primary" text="Google"></TorusGoogle>-->
+
+                
             </div>
         </div>
 
