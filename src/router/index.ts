@@ -21,6 +21,7 @@ import { useStore } from '@/stores'
 import Studio from '@/views/wallet/Studio.vue'
 import Export from '@/views/wallet/CrossChain.vue'
 import Xpub from '@/views/access/Xpub.vue'
+import Injected from '@/views/access/Injected.vue'
 import WalletReadonly from '@/views/WalletReadonly.vue'
 import { PublicMnemonicWallet } from '@/avalanche-wallet-sdk'
 
@@ -77,6 +78,10 @@ const routes = [
             {
                 path: 'xpub',
                 component: Xpub,
+            },
+            {
+                path: 'injected',
+                component: Injected,
             },
         ],
         component: Access,

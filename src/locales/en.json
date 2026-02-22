@@ -59,7 +59,17 @@
             "cancel": "Cancel",
             "error": "Invalid key phrase. Your phrase must be 24 words separated by a single space."
         },
-        "accounts_found": "Accounts found on your device"
+        "accounts_found": "Accounts found on your device",
+        "but_connect_wallet": "Connect Wallet",
+        "injected": {
+            "title": "Connect Wallet",
+            "desc": "Connect using MetaMask, Core App, or another browser wallet.",
+            "submit": "Connect",
+            "cancel": "Cancel",
+            "error": "Failed to connect wallet. Make sure you have MetaMask or Core App installed.",
+            "waiting": "Waiting for wallet connection...",
+            "no_provider": "No injected wallet provider found. Please install MetaMask or Core App."
+        }
     },
     "wallet": {
         "sidebar": {

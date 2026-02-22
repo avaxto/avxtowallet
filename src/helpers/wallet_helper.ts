@@ -5,6 +5,7 @@ import {
 } from '@/avalanche/apis/platformvm/utxos'
 import { UTXO as AVMUTXO } from '@/avalanche/apis/avm/utxos'
 import { WalletType } from '@/js/wallets/types'
+import { InjectedWallet } from '@/js/wallets/InjectedWallet'
 
 import { BN, Buffer } from '@/avalanche'
 import {
@@ -97,6 +98,11 @@ class WalletHelper {
         gasPrice: BN,
         gasLimit: number
     ) {
+        // Injected wallets handle sending directly via the provider
+        if (wallet.type === 'injected') {
+            return await (wallet as InjectedWallet).sendEth(to, amount, gasPrice, gasLimit)
+        }
+
         const fromAddr = '0x' + wallet.getEvmAddress()
 
         const tx = await buildEvmTransferNativeTx(fromAddr, to, amount, gasPrice, gasLimit)
@@ -116,6 +122,11 @@ class WalletHelper {
         gasLimit: number,
         token: Erc20Token
     ) {
+        // Injected wallets handle sending directly via the provider
+        if (wallet.type === 'injected') {
+            return await (wallet as InjectedWallet).sendERC20(to, amount, gasPrice, gasLimit, token)
+        }
+
         const fromAddr = '0x' + wallet.getEvmAddress()
         const tx = await buildEvmTransferErc20Tx(fromAddr, to, amount, gasPrice, gasLimit, token)
 
@@ -133,6 +144,38 @@ class WalletHelper {
         token: ERC721Token,
         tokenId: string
     ) {
+        // Injected wallets: build and send ERC721 transfer via the provider
+        if (wallet.type === 'injected') {
+            const injectedWallet = wallet as InjectedWallet
+            const fromAddr = ('0x' + wallet.getEvmAddress()) as `0x${string}`
+            const tokenAddr = token.data.address as `0x${string}`
+            const toAddr = to as `0x${string}`
+
+            // ERC721 transferFrom(address,address,uint256)
+            const transferFnSelector = '0x23b872dd'
+            const encodedFrom = fromAddr.replace('0x', '').padStart(64, '0')
+            const encodedTo = toAddr.replace('0x', '').padStart(64, '0')
+            const encodedTokenId = BigInt(tokenId).toString(16).padStart(64, '0')
+            const data = (transferFnSelector + encodedFrom + encodedTo + encodedTokenId) as `0x${string}`
+
+            const { createWalletClient, custom, publicActions } = await import('viem')
+            const provider = (injectedWallet as any).provider
+            const walletClient = createWalletClient({
+                transport: custom(provider),
+            }).extend(publicActions)
+
+            const hash = await walletClient.sendTransaction({
+                account: fromAddr,
+                to: tokenAddr,
+                data: data,
+                gasPrice: BigInt(gasPrice.toString()),
+                gas: BigInt(gasLimit),
+                chain: null,
+            } as any)
+
+            return hash
+        }
+
         const fromAddr = '0x' + wallet.getEvmAddress()
         const tx = await buildEvmTransferErc721Tx(fromAddr, to, gasPrice, gasLimit, token, tokenId)
         const signedTx = await wallet.signEvm(tx)

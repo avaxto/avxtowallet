@@ -31,6 +31,13 @@
                     XPUB (Readonly)
                     <span><fa icon="glasses"></fa></span>
                 </router-link>
+                <router-link to="/access/injected" class="menu_option button_primary">
+                    {{ $t('access.but_connect_wallet') }}
+                    <ImageDayNight
+                        day="/img/coreapp.svg"
+                        night="/img/coreapp.svg"
+                    ></ImageDayNight>
+                </router-link>
                 <!--            <TorusGoogle class="option button_primary" text="Google"></TorusGoogle>-->
             </div>
         </div>

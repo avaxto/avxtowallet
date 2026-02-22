@@ -31,6 +31,7 @@ import { Transaction } from '@ethereumjs/tx'
 import MnemonicWallet from '@/js/wallets/MnemonicWallet'
 import { LedgerWallet } from '@/js/wallets/LedgerWallet'
 import { SingletonWallet } from '@/js/wallets/SingletonWallet'
+import { InjectedWallet } from '@/js/wallets/InjectedWallet'
 import { ExportChainsC, ExportChainsP, ExportChainsX } from '@/avalanche-wallet-sdk'
 import { UTXOSet as EVMUTXOSet } from '@/avalanche/apis/evm/utxos'
 
@@ -42,8 +43,8 @@ export type ChainAlias = 'X' | 'P'
 export type AvmImportChainType = 'P' | 'C'
 export type AvmExportChainType = 'P' | 'C'
 
-export type WalletNameType = 'mnemonic' | 'ledger' | 'singleton'
-export type WalletType = MnemonicWallet | LedgerWallet | SingletonWallet
+export type WalletNameType = 'mnemonic' | 'ledger' | 'singleton' | 'injected'
+export type WalletType = MnemonicWallet | LedgerWallet | SingletonWallet | InjectedWallet
 
 interface IAddressManager {
     getCurrentAddressAvm(): string

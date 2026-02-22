@@ -5,6 +5,7 @@ import { ava, avm, bintools } from '@/AVA'
 import MnemonicWallet from '@/js/wallets/MnemonicWallet'
 import { LedgerWallet } from '@/js/wallets/LedgerWallet'
 import { SingletonWallet } from '@/js/wallets/SingletonWallet'
+import { InjectedWallet } from '@/js/wallets/InjectedWallet'
 import { WalletType } from '@/js/wallets/types'
 import { Buffer } from '@/avalanche'
 import { privateToAddress } from 'ethereumjs-util'
@@ -108,6 +109,16 @@ export const useMainStore = defineStore('main', () => {
 
     const accessWalletSingleton = async (key: string) => {
         const wallet = await addWalletSingleton(key)
+        await activateWallet(wallet)
+
+        onAccess()
+    }
+
+    const accessWalletInjected = async () => {
+        const wallet = await InjectedWallet.connect()
+        wallets.value = [wallet]
+        volatileWallets.value = [wallet]
+
         await activateWallet(wallet)
 
         onAccess()
@@ -363,6 +374,7 @@ export const useMainStore = defineStore('main', () => {
         accessWalletMultiple,
         accessWalletLedger,
         accessWalletSingleton,
+        accessWalletInjected,
         onAccess,
         timeoutLogout,
         logout,
