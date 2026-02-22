@@ -5,15 +5,7 @@
                 <img v-if="isDay" src="@/assets/avaxtowallet_logo.png" />
                 <img v-else src="@/assets/avaxtowallet_logo_dark.png" />
             </div>
-            <div class="links">
-                <a 
-                    href="https://avax.to/telegram" 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    class="wallet_link"
-                    style="color: #e03030; font-size: 1.1rem;">                    
-                    <strong>$AVXTO Support</strong>
-                </a>
+            <div class="links">                
                 <router-link to="/wallet" class="wallet_link">
                     <img v-if="isDay" src="@/assets/sidebar/portfolio_nav.png" />
                     <img v-else src="@/assets/sidebar/portfolio_nav_night.png" />
@@ -59,8 +51,18 @@
                 </router-link>
             </div>
             <div class="bottom">
-                <AccountMenu class="wallet_link"></AccountMenu>
                 <LanguageSelect></LanguageSelect>                
+                <AccountMenu class="wallet_link"></AccountMenu>
+                <a 
+                    href="https://avax.to/telegram" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    class="wallet_link"
+                    style="color: var(--primary-color); font-size: 1.1rem;">                    
+                    <strong>Get Support</strong>
+                </a>
+                
+                
             </div>
         </div>
     </div>
@@ -90,6 +92,8 @@ export default defineComponent({
 @use "../../main";
 
 .wallet_sidebar {
+    border-right: 1px solid #d3d3d3;
+
     .stick {
         display: flex;
         flex-direction: column;

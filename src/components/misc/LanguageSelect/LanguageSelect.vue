@@ -93,7 +93,7 @@ export default defineComponent({
     display: flex;
     flex-direction: row;
     align-items: center;
-    padding: 4px 12px;
+    font-weight: bold;
     border: 1px solid transparent;
     border-radius: 3px;
     position: relative;
@@ -109,7 +109,7 @@ export default defineComponent({
 }
 .sel_locale p.selected {
     margin: 0;
-    padding-left: 8px;
+    
     color: var(--primary-color);
 }
 
@@ -125,7 +125,6 @@ export default defineComponent({
 select {
     outline: none;
     flex-grow: 1;
-    margin-left: 10px;
     color: var(--primary-color);
     cursor: pointer;
     //font-size: 13px;

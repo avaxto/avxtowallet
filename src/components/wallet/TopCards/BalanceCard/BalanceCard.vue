@@ -51,31 +51,33 @@
                 <div class="alt_non_breakdown" v-if="!isBreakdown">
                     <div>
                         <label>{{ $t('top.balance.available') }}</label>
-                        <p>{{ unlockedText }} AVAX</p>
+                        <p>{{ isInjected ? cleanAvaxBN(evmUnlocked) : unlockedText }} AVAX</p>
                     </div>
-                    <div v-if="hasLocked">
+                    <div v-if="hasLocked && !isInjected">
                         <label>{{ $t('top.locked') }}</label>
                         <p>{{ balanceTextLocked }} AVAX</p>
                     </div>
-                    <div v-if="hasMultisig">
+                    <div v-if="hasMultisig && !isInjected">
                         <label>Multisig</label>
                         <p>{{ balanceTextMultisig }} AVAX</p>
                     </div>
-                    <div>
+                    <div v-if="!isInjected">
                         <label>{{ $t('top.balance.stake') }}</label>
                         <p>{{ stakingText }} AVAX</p>
                     </div>
                 </div>
                 <div class="alt_breakdown" v-else>
                     <div>
-                        <label>{{ $t('top.balance.available') }} (X)</label>
-                        <p>{{ cleanAvaxBN(avmUnlocked) }} AVAX</p>
-                        <label>{{ $t('top.balance.available') }} (P)</label>
-                        <p>{{ cleanAvaxBN(platformUnlocked) }} AVAX</p>
+                        <template v-if="!isInjected">
+                            <label>{{ $t('top.balance.available') }} (X)</label>
+                            <p>{{ cleanAvaxBN(avmUnlocked) }} AVAX</p>
+                            <label>{{ $t('top.balance.available') }} (P)</label>
+                            <p>{{ cleanAvaxBN(platformUnlocked) }} AVAX</p>
+                        </template>
                         <label>{{ $t('top.balance.available') }} (C)</label>
                         <p>{{ cleanAvaxBN(evmUnlocked) }} AVAX</p>
                     </div>
-                    <div v-if="hasLocked">
+                    <div v-if="hasLocked && !isInjected">
                         <label>{{ $t('top.balance.locked') }} (X)</label>
                         <p>{{ cleanAvaxBN(avmLocked) }} AVAX</p>
                         <label>{{ $t('top.balance.locked') }} (P)</label>
@@ -83,13 +85,13 @@
                         <label>{{ $t('top.balance.locked_stake') }} (P)</label>
                         <p>{{ cleanAvaxBN(platformLockedStakeable) }} AVAX</p>
                     </div>
-                    <div v-if="hasMultisig">
+                    <div v-if="hasMultisig && !isInjected">
                         <label>Multisig (X)</label>
                         <p>{{ cleanAvaxBN(avmMultisig) }} AVAX</p>
                         <label>Multisig (P)</label>
                         <p>{{ cleanAvaxBN(platformMultisig) }} AVAX</p>
                     </div>
-                    <div>
+                    <div v-if="!isInjected">
                         <label>{{ $t('top.balance.stake') }}</label>
                         <p>{{ stakingText }} AVAX</p>
                     </div>
@@ -351,6 +353,11 @@ export default defineComponent({
             return store.state.activeWallet.value as WalletType | null
         })
 
+        const isInjected = computed((): boolean => {
+            if (!wallet.value) return false
+            return wallet.value.type === 'injected'
+        })
+
         const isUpdateBalance = computed((): boolean => {
             if (!wallet.value) return true
             return wallet.value.isFetchUtxos
@@ -404,6 +411,7 @@ export default defineComponent({
             stakingAmount,
             stakingText,
             wallet,
+            isInjected,
             isUpdateBalance,
             priceDict,
             hasLocked,
@@ -459,7 +467,7 @@ h4 {
     font-size: 2.4em;
     white-space: normal;
     /*font-weight: bold;*/
-    font-family: Rubik !important;
+    font-family: sans-serif !important;
 
     span {
         font-size: 0.8em;

@@ -1,7 +1,7 @@
 <template>
-    <div class="chain_select">
-        <button @click="setChain('X')" :active="modelValue === 'X' ? true : undefined">X</button>
-        <button @click="setChain('P')" :active="modelValue === 'P' ? true : undefined">P</button>
+    <div class="chain_select" :class="{ 'c_only': isInjected }">
+        <button v-if="!isInjected" @click="setChain('X')" :active="modelValue === 'X' ? true : undefined">X</button>
+        <button v-if="!isInjected" @click="setChain('P')" :active="modelValue === 'P' ? true : undefined">P</button>
         <button @click="setChain('C')" :active="modelValue === 'C' ? true : undefined" v-if="isEVMSupported">C</button>
     </div>
 </template>
@@ -34,12 +34,19 @@ export default defineComponent({
             return wallet.ethAddress
         })
 
+        const isInjected = computed(() => {
+            const wallet: WalletType | null = mainStore.activeWallet as WalletType | null
+            if (!wallet) return false
+            return wallet.type === 'injected'
+        })
+
         const setChain = (val: ChainIdType) => {
             emit('update:modelValue', val)
         }
 
         return {
             isEVMSupported,
+            isInjected,
             setChain,
             modelValue
         }
@@ -51,6 +58,10 @@ export default defineComponent({
     display: grid;
     grid-template-columns: 1fr 1fr 1fr;
     font-size: 13px;
+
+    &.c_only {
+        grid-template-columns: 1fr;
+    }
     color: var(--primary-color-light);
     background-color: var(--bg-wallet);
 }

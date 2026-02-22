@@ -82,7 +82,7 @@ export default {
 
 .balance {
     font-size: 24px !important;
-    font-family: Rubik !important;
+    font-family: sans-serif !important;
 }
 
 .top_card .buts {

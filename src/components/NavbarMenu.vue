@@ -76,5 +76,13 @@ export default defineComponent({
 
 .menu-btn {
     font-weight: bold;
+    box-shadow: none !important;
+    color: var(--primary-color) !important;
+
+    &:hover,
+    &:focus-visible,
+    &:active {
+        background-color: rgba(0, 0, 0, 0.05) !important;
+    }
 }
 </style>
