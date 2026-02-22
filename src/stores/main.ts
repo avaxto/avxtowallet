@@ -45,6 +45,13 @@ export const useMainStore = defineStore('main', () => {
         usd: 0,
     })
 
+    // Cookie consent: null = not yet decided, true = accepted, false = rejected
+    const cookiesAccepted = ref<boolean | null>(
+        localStorage.getItem('cookiesAccepted') === null
+            ? null
+            : localStorage.getItem('cookiesAccepted') === 'true'
+    )
+
     // Getters
     const addresses = computed((): string[] => {
         const wallet = activeWallet.value
@@ -364,6 +371,16 @@ export const useMainStore = defineStore('main', () => {
         }
     }
 
+    const acceptCookies = () => {
+        cookiesAccepted.value = true
+        localStorage.setItem('cookiesAccepted', 'true')
+    }
+
+    const rejectCookies = () => {
+        cookiesAccepted.value = false
+        localStorage.setItem('cookiesAccepted', 'false')
+    }
+
     return {
         // State
         isAuth,
@@ -373,6 +390,7 @@ export const useMainStore = defineStore('main', () => {
         volatileWallets,
         warnUpdateKeyfile,
         prices,
+        cookiesAccepted,
 
         // Getters
         addresses,
@@ -396,5 +414,7 @@ export const useMainStore = defineStore('main', () => {
         exportWallets,
         importKeyfile,
         updateAvaxPrice,
+        acceptCookies,
+        rejectCookies,
     }
 })

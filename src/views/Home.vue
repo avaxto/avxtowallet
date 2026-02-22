@@ -65,6 +65,7 @@
                 </b-col>
             </b-row>
         </b-container>
+        <CookieConsent></CookieConsent>
     </div>
 </template>
 
@@ -72,10 +73,11 @@
 import { defineComponent } from 'vue'
 import { useThemeStore } from '@/stores/theme'
 import ToS from '@/components/misc/ToS.vue'
+import CookieConsent from '@/components/misc/CookieConsent.vue'
 
 export default defineComponent({
     name: 'Home',
-    components: { ToS },
+    components: { ToS, CookieConsent },
     setup() {
         const themeStore = useThemeStore()
         
