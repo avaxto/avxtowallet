@@ -4,17 +4,23 @@
         <transition name="fade" mode="out-in">
             <sidebar class="panel sidenav"></sidebar>
         </transition>
-        <div class="wallet_main">
-            <top-info class="wallet_top"></top-info>
-            <router-view id="wallet_router" v-slot="{ Component }">
-                <transition name="page_fade" mode="out-in">
-                    <keep-alive
-                        exclude="cross_chain,activity,advanced,earn,manage,studio"
-                    >
-                        <component :is="Component" :key="$route.path" />
-                    </keep-alive>
-                </transition>
-            </router-view>
+        <div class="wallet_main">            
+            <div>
+                <NavbarMenu></NavbarMenu>
+            </div>
+            <div>
+                <top-info class="wallet_to  p"></top-info>            
+                <router-view id="wallet_router" v-slot="{ Component }">
+                    <transition name="page_fade" mode="out-in">
+                        <keep-alive
+                            exclude="cross_chain,activity,advanced,earn,manage,studio"
+                        >
+                            <component :is="Component" :key="$route.path" />
+                        </keep-alive>
+                    </transition>
+                </router-view>
+            </div>
+            
         </div>
         <transition name="fade" mode="out-in">
             <main-panel class="panel"></main-panel>
@@ -30,6 +36,7 @@ import TopInfo from '@/components/wallet/TopInfo.vue'
 import Sidebar from '@/components/wallet/Sidebar.vue'
 import MainPanel from '@/components/SidePanels/MainPanel.vue'
 import UpdateKeystoreModal from '@/components/modals/UpdateKeystore/UpdateKeystoreModal.vue'
+import NavbarMenu from '@/components/NavbarMenu.vue'
 
 const TIMEOUT_DURATION = 60 * 7 // in seconds
 const TIMEOUT_DUR_MS = TIMEOUT_DURATION * 1000
@@ -41,6 +48,7 @@ export default defineComponent({
         MainPanel,
         TopInfo,
         UpdateKeystoreModal,
+        NavbarMenu
     },
     setup() {
         const store = useMainStore()

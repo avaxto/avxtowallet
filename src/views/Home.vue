@@ -4,7 +4,8 @@
             <b-row>
                 <b-col>
                     <div class="home_wrapper">
-                        <h1>{{ $t('home.desc') }}</h1>
+
+                        <h1 class="homeh1">{{ $t('home.desc') }}</h1>
                         
                         <div class="login_wrapper">
                             <div class="login_option">
@@ -59,7 +60,7 @@
                                 </div>
                             </div>
                         </div>
-                        <ToS class="tos" style="align-self: center; margin: 30px !important"></ToS>
+                        <ToS class="tos" style="align-self: left; margin: 30px !important"></ToS>
                     </div>
                 </b-col>
             </b-row>
@@ -93,6 +94,10 @@ export default defineComponent({
 <style scoped lang="scss">
 @use "../main";
 
+.homeh1 {
+    margin-left: main.$container-padding;
+}
+
 .home {
     padding-top: 100px;
     /*background-color: #fff;*/
@@ -114,9 +119,10 @@ export default defineComponent({
         justify-content: center;
 
         h1 {
-            text-align: center;
+            text-align: left;
             font-size: 22px;
             font-weight: 400;
+
         }
 
         .login_wrapper {

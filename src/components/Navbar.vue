@@ -95,7 +95,7 @@ export default defineComponent({
         NetworkMenu,
         DayNightToggle,
         ConfirmLogout,        
-        LanguageSelect,
+        LanguageSelect
     },
     setup() {
         const mainStore = useMainStore()
@@ -170,6 +170,7 @@ button {
 }
 
 #nav {
+    border-bottom: 1px solid #d3d3d3;
     .logo {
         display: flex;
         align-items: center;

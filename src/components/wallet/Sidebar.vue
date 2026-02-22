@@ -11,8 +11,7 @@
                     target="_blank" 
                     rel="noopener noreferrer"
                     class="wallet_link"
-                    style="color: #e03030; font-size: 1.1rem;"
-                >                    
+                    style="color: #e03030; font-size: 1.1rem;">                    
                     <strong>$AVXTO Support</strong>
                 </a>
                 <router-link to="/wallet" class="wallet_link">

@@ -10,6 +10,7 @@
 p {
     color: var(--primary-color-light);
     font-size: 13px;
+    
 }
 a {
     color: var(--primary-color) !important;
