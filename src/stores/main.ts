@@ -31,6 +31,7 @@ import type {
 import { useAssetsStore } from './assets'
 import { useNotificationsStore } from './notifications'
 import { useHistoryStore } from './history'
+import { useAvxtoStore } from './avxto'
 
 export const useMainStore = defineStore('main', () => {
     // State
@@ -131,6 +132,10 @@ export const useMainStore = defineStore('main', () => {
         assetsStore.updateAvaAsset()
         router.push('/wallet')
         assetsStore.updateUTXOs()
+
+        // Start periodic AVXTO token balance check
+        const avxtoStore = useAvxtoStore()
+        avxtoStore.startPolling()
     }
 
     // TODO: Parts can be shared with the logout function below
@@ -147,6 +152,10 @@ export const useMainStore = defineStore('main', () => {
     }
 
     const logout = async () => {
+        // Stop AVXTO balance polling
+        const avxtoStore = useAvxtoStore()
+        avxtoStore.stopPolling()
+
         localStorage.removeItem('w')
         // Go to the base URL with GET request not router
         // This clears all state and resets the app

@@ -15,6 +15,7 @@ import { useLedgerStore } from './ledger'
 import { useAccountsStore } from './accounts'
 import { useEarnStore } from './earn'
 import { useErc721Store } from './erc721'
+import { useAvxtoStore } from './avxto'
 
 // Export all stores for direct Pinia usage
 export { useMainStore } from './main'
@@ -27,6 +28,7 @@ export { useLedgerStore } from './ledger'
 export { useAccountsStore } from './accounts'
 export { useEarnStore } from './earn'
 export { useErc721Store } from './erc721'
+export { useAvxtoStore } from './avxto'
 
 export function useStore() {
     const mainStore = useMainStore()

@@ -10,6 +10,9 @@
 
         <div class="buts_right">
             <DayNightToggle class="action_but"></DayNightToggle>
+            <router-link to="/access/injected" class="action_but" data-cy="connect_wallet">
+                {{ $t('access.but_connect_wallet') }}
+            </router-link>
             <template v-if="isAuth">
                 <button @click="logout">{{ $t('logout.button') }}</button>
             </template>
