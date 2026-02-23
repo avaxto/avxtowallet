@@ -15,8 +15,6 @@ import Earn from '@/views/wallet/Earn.vue'
 import Advanced from '@/views/wallet/Advanced.vue'
 import Activity from '@/views/wallet/Activity.vue'
 import Account from '@/views/access/Account.vue'
-import Legal from '@/views/Legal.vue'
-
 import { useStore } from '@/stores'
 import Studio from '@/views/wallet/Studio.vue'
 import Export from '@/views/wallet/CrossChain.vue'
@@ -86,11 +84,6 @@ const routes = [
         ],
         component: Access,
         beforeEnter: ifNotAuthenticated,
-    },
-    {
-        path: '/legal',
-        name: 'legal',
-        component: Legal,
     },
     {
         path: '/create',
