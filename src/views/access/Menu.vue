@@ -6,13 +6,19 @@
             <AccountsFound class="accounts_menu"></AccountsFound>
             <div class="options">
                 
-                <router-link to="/access/ext" class="menu_option button_primary">
-                    {{ $t('access.but_connect_wallet') }}
+                <button
+                    class="menu_option button_primary"
+                    @click="connectWallet"
+                    :disabled="isConnecting"
+                >
+                    <span v-if="isConnecting">{{ $t('access.injected.waiting') }}</span>
+                    <span v-else>{{ $t('access.but_connect_wallet') }}</span>
                     <ImageDayNight
                         day="/img/coreapp.svg"
                         night="/img/coreapp.svg"
                     ></ImageDayNight>
-                </router-link>                
+                </button>
+                <p v-if="connectError" class="connect_error">{{ connectError }}</p>                
                 <LedgerButton class="menu_option button_primary"></LedgerButton>                
                  <router-link to="/access/mnemonic" class="menu_option button_primary">
                     {{ $t('access.but_mnemonic') }}
@@ -52,7 +58,8 @@
 </template>
 
 <script lang="ts">
-import { defineComponent } from 'vue'
+import { defineComponent, ref } from 'vue'
+import { useMainStore } from '@/stores'
 import LedgerButton from '@/components/Ledger/LedgerButton.vue'
 import AccountsFound from '@/components/Access/AccountsFound.vue'
 import ToS from '@/components/misc/ToS.vue'
@@ -65,6 +72,25 @@ export default defineComponent({
         ToS,
         LedgerButton,
         AccountsFound,
+    },
+    setup() {
+        const mainStore = useMainStore()
+        const isConnecting = ref(false)
+        const connectError = ref('')
+
+        const connectWallet = async () => {
+            if (isConnecting.value) return
+            connectError.value = ''
+            isConnecting.value = true
+            try {
+                await mainStore.accessWalletInjected()
+            } catch (e: any) {
+                connectError.value = e.message || 'Failed to connect wallet.'
+                isConnecting.value = false
+            }
+        }
+
+        return { isConnecting, connectError, connectWallet }
     },
 })
 </script>
@@ -116,6 +142,12 @@ hr {
         margin: 0;
         object-fit: contain;
     }
+}
+
+.connect_error {
+    font-size: 13px;
+    color: var(--error);
+    margin: 6px 0 0;
 }
 
 .menus {

@@ -1,7 +1,6 @@
 <template>
     <div id="nav">
-
-        <ConfirmLogout ref="logoutRef"></ConfirmLogout>
+        
         <router-link to="/" class="logo">
             <img v-if="isDay" src="@/assets/avaxtowallet_logo.png" />
             <img v-else src="@/assets/avaxtowallet_logo_dark.png" />            
@@ -10,13 +9,16 @@
 
         <div class="buts_right">
             <DayNightToggle class="action_but"></DayNightToggle>
-            <router-link to="/access/ext" class="action_but" data-cy="connect_wallet">
-                {{ $t('access.but_connect_wallet') }}
-            </router-link>
-            <template v-if="isAuth">
-                <button @click="logout">{{ $t('logout.button') }}</button>
-            </template>
-            <template v-else>
+            <button
+                class="action_but connect_but"
+                data-cy="connect_wallet"
+                @click="connectWallet"
+                :disabled="isConnecting"
+            >
+                <span class="connect_span" v-if="isConnecting">{{ $t('access.injected.waiting') }}</span>
+                <span class="connect_span" v-else>{{ $t('access.but_connect_wallet') }}</span>
+            </button>
+            <template v-if="!isAuth">
                 <router-link to="/access" class="action_but" data-cy="access">
                     {{ $t('nav.access') }}
                 </router-link>
@@ -62,14 +64,7 @@
                     <router-link to="/wallet/advanced" data-cy="wallet_advanced">
                         {{ $t('wallet.sidebar.advanced') }}
                     </router-link>
-                    <button class="logout" @click="logout">
-                        {{ $t('logout.button') }}
-                    </button>
-
-                    <!--                    <v-list-item to="/wallet/">Home</v-list-item>-->
-                    <!--                    <v-list-item to="/wallet/keys">Manage Keys</v-list-item>-->
-                    <!--                    <v-list-item to="/wallet/transfer">Transfer</v-list-item>-->
-                    <!--                    <v-list-item @click="logout"><Log out/v-list-item>-->
+                                        
                 </template>
 
                 <div class="mobile_bottom">
@@ -88,7 +83,7 @@ import LanguageSelect from './misc/LanguageSelect/LanguageSelect.vue'
 
 import DayNightToggle from '@/components/misc/DayNightToggle.vue'
 import NetworkMenu from './NetworkSettings/NetworkMenu.vue'
-import ConfirmLogout from '@/components/modals/ConfirmLogout.vue'
+
 import AccountMenu from '@/components/wallet/sidebar/AccountMenu.vue'
 
 export default defineComponent({
@@ -97,7 +92,6 @@ export default defineComponent({
         AccountMenu,
         NetworkMenu,
         DayNightToggle,
-        ConfirmLogout,        
         LanguageSelect
     },
     setup() {
@@ -106,28 +100,36 @@ export default defineComponent({
 
         const isDrawer = ref(false)
         const popupOpen = ref(false)
-        const logoutRef = ref<InstanceType<typeof ConfirmLogout>>()
+        const isConnecting = ref(false)
 
         const isAuth = computed((): boolean => {
             return mainStore.isAuth
-        })
-
-        const logout = (): void => {
-            logoutRef.value?.open()
-        }
+        })        
 
         const togglePopup = (): void => {
             popupOpen.value = !popupOpen.value
         }
 
+        const connectWallet = async () => {
+            if (isConnecting.value) return
+            isConnecting.value = true
+            try {
+                await mainStore.accessWalletInjected()
+            } catch (e) {
+                // silently fail; user can retry
+            } finally {
+                isConnecting.value = false
+            }
+        }
+
         return {
             isDrawer,
             popupOpen,
-            logoutRef,
             isAuth,
             isDay,
-            logout,
-            togglePopup
+            isConnecting,
+            togglePopup,
+            connectWallet,
         }
     }
 })
@@ -170,6 +172,11 @@ button {
 
 .daynight {
     margin-right: 15px;
+}
+
+.connect_span {
+    color: var(--primary-color);
+    font-size: var(--bs-body-font-size);
 }
 
 #nav {
@@ -267,10 +274,6 @@ button {
     .mobile_drawer {
         color: var(--primary-color) !important;
     }
-
-    .logout {
-        margin-top: 40px;
-    }
 }
 </style>
 <style lang="scss">
@@ -287,8 +290,7 @@ button {
         color: var(--primary-color) !important;
     }
 
-    a,
-    .logout {
+    a {
         display: block;
         padding: 8px 8px;
         color: var(--primary-color-light) !important;

@@ -16,13 +16,12 @@ import posthogPlugin from './plugins/posthog.js'
 import {AVAX_TOOLBOX_VERSION} from './avxto/AVXTOConf'
 import 'bootstrap/dist/css/bootstrap.css'
 import 'bootstrap-vue-next/dist/bootstrap-vue-next.css'
-// Import FontAwesome component
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
-// Import head management
 import { createUnhead } from '@unhead/vue'
 import { VueHeadMixin } from '@unhead/vue'
 // @ts-ignore
 import '@/vue_components'
+import Big from 'big.js'
 
 const app = createApp(App)
 
@@ -120,9 +119,6 @@ if (window.Cypress) {
     // @ts-ignore
     window.app = mountedApp
 }
-
-// Extending Big.js with a helper function
-import Big from 'big.js'
 
 declare module 'big.js' {
     interface Big {

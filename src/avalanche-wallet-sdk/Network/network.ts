@@ -6,7 +6,6 @@ import Web3 from 'web3';
 import { DefaultConfig } from './constants';
 import { NetworkConfig, NetworkConfigRpc, NetworkProtocolType } from './types';
 import { getRpcC, getRpcP, getRpcX } from './helpers/rpcFromConfig';
-import URL from 'url';
 import { bintools } from '@/avalanche-wallet-sdk/common';
 import {
     canUseCredentials,
@@ -105,7 +104,7 @@ export function setRpcNetwork(conf: NetworkConfig, credentials = true): void {
  * @param url A string including protocol, base domain, and ports (if any). Ex: `http://localhost:9650`
  */
 export async function getConfigFromUrl(url: string): Promise<NetworkConfig> {
-    let urlObj = URL.parse(url);
+    let urlObj = new URL(url);
     let portStr = urlObj.port;
     if (!urlObj.hostname || !urlObj.protocol) throw new Error('Invalid url.');
 

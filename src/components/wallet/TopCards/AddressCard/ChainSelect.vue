@@ -1,8 +1,8 @@
 <template>
-    <div class="chain_select" :class="{ 'c_only': isInjected }">
-        <button v-if="!isInjected" @click="setChain('X')" :active="modelValue === 'X' ? true : undefined">X</button>
-        <button v-if="!isInjected" @click="setChain('P')" :active="modelValue === 'P' ? true : undefined">P</button>
+    <div v-if="!isInjected" class="chain_select" :class="{ 'c_only': isInjected }">
         <button @click="setChain('C')" :active="modelValue === 'C' ? true : undefined" v-if="isEVMSupported">C</button>
+        <button v-if="!isInjected" @click="setChain('X')" :active="modelValue === 'X' ? true : undefined">X</button>
+        <button v-if="!isInjected" @click="setChain('P')" :active="modelValue === 'P' ? true : undefined">P</button>        
     </div>
 </template>
 <script lang="ts">

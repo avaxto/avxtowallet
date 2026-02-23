@@ -4,27 +4,22 @@
         <transition name="fade" mode="out-in">
             <sidebar class="panel sidenav"></sidebar>
         </transition>
-        <div class="wallet_main">            
+        <div class="wallet_main">
             <div>
                 <NavbarMenu></NavbarMenu>
             </div>
             <div>
-                <top-info class="wallet_to  p"></top-info>            
+                <top-info class="wallet_top"></top-info>            
                 <router-view id="wallet_router" v-slot="{ Component }">
                     <transition name="page_fade" mode="out-in">
                         <keep-alive
-                            exclude="cross_chain,activity,advanced,earn,manage,studio"
-                        >
+                            exclude="cross_chain,activity,advanced,earn,manage,studio">
                             <component :is="Component" :key="$route.path" />
                         </keep-alive>
                     </transition>
                 </router-view>
-            </div>
-            
-        </div>
-        <transition name="fade" mode="out-in">
-            <main-panel class="panel"></main-panel>
-        </transition>
+            </div>            
+        </div>        
     </div>
 </template>
 
@@ -34,7 +29,6 @@ import { useMainStore } from '@/stores'
 import { useRouter } from 'vue-router'
 import TopInfo from '@/components/wallet/TopInfo.vue'
 import Sidebar from '@/components/wallet/Sidebar.vue'
-import MainPanel from '@/components/SidePanels/MainPanel.vue'
 import UpdateKeystoreModal from '@/components/modals/UpdateKeystore/UpdateKeystoreModal.vue'
 import NavbarMenu from '@/components/NavbarMenu.vue'
 
@@ -44,8 +38,7 @@ const TIMEOUT_DUR_MS = TIMEOUT_DURATION * 1000
 export default defineComponent({
     name: 'Wallet',
     components: {
-        Sidebar,
-        MainPanel,
+        Sidebar,        
         TopInfo,
         UpdateKeystoreModal,
         NavbarMenu
@@ -75,16 +68,6 @@ export default defineComponent({
             logoutTimestamp.value = Date.now() + TIMEOUT_DUR_MS
         }
 
-        const checkLogout = () => {
-            let now = Date.now()
-
-            // Logout if current time is passed the logout timestamp
-            if (now >= logoutTimestamp.value && !isLogOut.value) {
-                isLogOut.value = true
-                store.timeoutLogout()
-            }
-        }
-
         const unload = (event: BeforeUnloadEvent) => {
             // user has no wallet saved
             if (!localStorage.getItem('w') && hasVolatileWallets.value && isLogOut.value) {
@@ -98,9 +81,6 @@ export default defineComponent({
 
         onMounted(() => {
             resetTimer()
-            intervalId.value = setInterval(() => {
-                checkLogout()
-            }, 1000)
 
             let view = wallet_view.value as HTMLDivElement
 
@@ -134,7 +114,7 @@ export default defineComponent({
             isManageWarning,
             hasVolatileWallets,
             resetTimer,
-            checkLogout,
+            
             unload
         }
     }
@@ -147,7 +127,7 @@ export default defineComponent({
 .wallet_view {
     padding-bottom: 0;
     display: grid;
-    grid-template-columns: 200px 1fr 300px;
+    grid-template-columns: 200px 1fr;
     column-gap: 15px;
     height: 100%;
     background-color: var(--bg-wallet);
@@ -202,7 +182,7 @@ export default defineComponent({
 
 @include main.medium-device {
     .wallet_view {
-        grid-template-columns: 180px 1fr 240px !important;
+        grid-template-columns: 180px 1fr !important;
         column-gap: 9px;
     }
 

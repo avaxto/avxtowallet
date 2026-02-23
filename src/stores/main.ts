@@ -145,18 +145,6 @@ export const useMainStore = defineStore('main', () => {
         avxtoStore.startPolling()
     }
 
-    // TODO: Parts can be shared with the logout function below
-    // Similar to logout but keeps the Remembered keys.
-    const timeoutLogout = async () => {
-        const notificationsStore = useNotificationsStore()
-        await notificationsStore.add({
-            title: 'Session Timeout',
-            message: 'You are logged out due to inactivity.',
-            type: 'warning',
-        })
-
-        logout()
-    }
 
     const logout = async () => {
         // Stop AVXTO balance polling
@@ -403,7 +391,6 @@ export const useMainStore = defineStore('main', () => {
         accessWalletSingleton,
         accessWalletInjected,
         onAccess,
-        timeoutLogout,
         logout,
         removeAllKeys,
         addWalletMnemonic,

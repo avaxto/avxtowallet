@@ -7,22 +7,16 @@
             </button>
             <AccountSettingsModal ref="settingsModal"></AccountSettingsModal>
         </template>
-        <template v-else>
-            <SaveAccountModal ref="saveModal"></SaveAccountModal>
-            <button class="save_account" @click="save">
-                <fa icon="exclamation-triangle" class="volatile_alert"></fa>
-                Save Account
-            </button>
-        </template>
+
     </div>
 </template>
 <script lang="ts">
 import { defineComponent, ref, computed } from 'vue'
 import { useStore } from '@/stores'
+import { useMainStore } from '@/stores'
 
 import { iUserAccountEncrypted } from '@/store/types'
 import Identicon from '@/components/misc/Identicon.vue'
-import SaveAccountModal from '@/components/modals/SaveAccount/SaveAccountModal.vue'
 import AccountSettingsModal from '@/components/modals/AccountSettings/AccountSettingsModal.vue'
 import { WalletType } from '@/js/wallets/types'
 
@@ -30,12 +24,11 @@ export default defineComponent({
     name: 'AccountMenu',
     components: {
         AccountSettingsModal,
-        SaveAccountModal,
         Identicon,
     },
     setup() {
         const store = useStore()
-        const saveModal = ref<InstanceType<typeof SaveAccountModal>>()
+        const mainStore = useMainStore()
         const settingsModal = ref<InstanceType<typeof AccountSettingsModal>>()
 
         const account = computed((): iUserAccountEncrypted | null => {
@@ -43,7 +36,7 @@ export default defineComponent({
         })
 
         const wallet = computed((): WalletType | null => {
-            return store.state.activeWallet
+            return mainStore.activeWallet
         })
 
         const isLedger = computed(() => {
@@ -56,18 +49,12 @@ export default defineComponent({
             settingsModal.value?.open()
         }
 
-        const save = () => {
-            saveModal.value?.open()
-        }
-
         return {
             account,
             wallet,
             isLedger,
-            saveModal,
             settingsModal,
             openSettings,
-            save
         }
     }
 })
@@ -91,10 +78,5 @@ export default defineComponent({
     }
 }
 
-.save_account {
-    color: var(--warning);
-    &:hover {
-        opacity: 0.5;
-    }
-}
+
 </style>

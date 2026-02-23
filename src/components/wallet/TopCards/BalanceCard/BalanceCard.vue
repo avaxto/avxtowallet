@@ -98,7 +98,7 @@
                 </div>
             </div>
         </div>
-        <NftCol class="nft_card"></NftCol>
+        
     </div>
 </template>
 <script lang="ts">

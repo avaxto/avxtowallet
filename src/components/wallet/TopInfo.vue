@@ -1,7 +1,7 @@
 <template>
     <div class="top_cards">
-        <balance-card class="top_card balance_card"></balance-card>
         <address-card class="top_card addr_card"></address-card>
+        <balance-card class="top_card balance_card"></balance-card>        
     </div>
 </template>
 <script>
@@ -20,7 +20,7 @@ export default {
 
 .top_cards {
     display: grid;
-    grid-template-columns: 1fr 360px;
+    grid-template-columns: 360px 360px;
     grid-gap: 15px;
 }
 .top_card {
@@ -107,8 +107,9 @@ export default {
 }
 
 @include main.medium-device {
+
     .top_cards {
-        grid-template-columns: 1fr 320px;
+        grid-template-columns: 350px 350px;
         grid-gap: 9px;
     }
 }

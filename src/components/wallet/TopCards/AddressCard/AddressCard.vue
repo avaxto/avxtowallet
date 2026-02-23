@@ -19,7 +19,7 @@
                 </p>
                 <div class="buts">
                     <button
-                        v-if="chainNow === 'C'"
+                        v-if="chainNow === 'C' && walletType !== 'injected'"
                         :tooltip="`View the bech32 encoded C-Chain address`"
                         class="bech32"
                         @click="toggleBech32"
@@ -101,7 +101,9 @@ export default defineComponent({
         
         const colorLight = ref('#FFF')
         const colorDark = ref('#242729')
-        const chainNow = ref<ChainIdType>('X')
+        const chainNow = ref<ChainIdType>(
+            (mainStore.activeWallet as WalletType | null)?.type === 'injected' ? 'C' : 'X'
+        )
         const showBech = ref(false)
         
         const activeWallet = computed((): WalletType | null => {
@@ -280,6 +282,13 @@ export default defineComponent({
             }
         })
 
+        // Force C-chain view for injected wallets (MetaMask, Core App, etc.)
+        watch(activeWallet, (wallet) => {
+            if (wallet?.type === 'injected') {
+                chainNow.value = 'C'
+            }
+        }, { immediate: true })
+
         onMounted(() => {
             updateQR()
         })
@@ -394,6 +403,7 @@ export default defineComponent({
 .addr_info {
     margin: 19px !important;
     margin-bottom: 0 !important;
+    margin-top: 0 !important;
     background-color: var(--bg-light);
     font-size: 13px;
     font-weight: bold;

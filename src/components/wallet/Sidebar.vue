@@ -53,15 +53,7 @@
             <div class="bottom">
                 <LanguageSelect></LanguageSelect>                
                 <AccountMenu class="wallet_link"></AccountMenu>
-                <a 
-                    href="https://avax.to/telegram" 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    class="wallet_link"
-                    style="color: var(--primary-color); font-size: 1.1rem;">                    
-                    <strong>Get Support</strong>
-                </a>
-                
+
                 
             </div>
         </div>
