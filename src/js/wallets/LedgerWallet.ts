@@ -15,7 +15,7 @@ import { ava, bintools } from '@/AVA'
 //@ts-ignore
 import bippath from 'bip32-path'
 import createHash from 'create-hash'
-import { pinia, useMainStore, useStore } from '@/stores'
+import { pinia, useMainStore, useAssetsStore, useLedgerStore } from '@/stores'
 import { importPublic, publicToAddress, bnToRlp, rlp, BN as EthereumBN } from 'ethereumjs-util'
 import { UTXO as AVMUTXO } from '@/avalanche/apis/avm/utxos'
 import { AvaWalletCore } from '@/js/wallets/types'
@@ -61,7 +61,7 @@ import { web3 } from '@/evm'
 import { AVA_ACCOUNT_PATH, ETH_ACCOUNT_PATH, LEDGER_ETH_ACCOUNT_PATH } from './MnemonicWallet'
 import { ChainIdType } from '@/constants'
 import { ParseableAvmTxEnum, ParseablePlatformEnum, ParseableEvmTxEnum } from '../TxHelper'
-import { ILedgerBlockMessage } from '../../store/modules/ledger/types'
+import { ILedgerBlockMessage } from '@/types'
 import Erc20Token from '@/js/Erc20Token'
 import { WalletHelper } from '@/helpers/wallet_helper'
 import {
@@ -82,7 +82,8 @@ class LedgerWallet extends AbstractHdWallet implements AvaWalletCore {
     ethAddress: string
     version: string
     ethHdNode: HDKey
-    store: ReturnType<typeof useStore>
+    assetsStore: ReturnType<typeof useAssetsStore>
+    ledgerStore: ReturnType<typeof useLedgerStore>
 
     constructor(
         provider: LedgerProvider,
@@ -97,7 +98,8 @@ class LedgerWallet extends AbstractHdWallet implements AvaWalletCore {
         this.type = 'ledger'
         this.version = version
         this.ethHdNode = hdEth
-        this.store = useStore()
+        this.assetsStore = useAssetsStore()
+        this.ledgerStore = useLedgerStore()
 
         if (hdEth) {
             const ethKey = hdEth
@@ -177,7 +179,7 @@ class LedgerWallet extends AbstractHdWallet implements AvaWalletCore {
 
             const assetId = bintools.cb58Encode(item.getAssetID())
             // @ts-ignore
-            if (assetId !== store.state.Assets.AVA_ASSET_ID) {
+            if (assetId !== this.assetsStore.AVA_ASSET_ID) {
                 isAvaxOnly = false
             }
 
@@ -411,7 +413,7 @@ class LedgerWallet extends AbstractHdWallet implements AvaWalletCore {
         const msg: BufferAvax = BufferAvax.from(createHash('sha256').update(txbuff).digest())
 
         try {
-            store.commit('Ledger/openModal', {
+            this.ledgerStore.openModal({
                 title: 'Sign Hash',
                 warning:
                     'Ledger is unable display this transaction because it is too large. Try entering a lower amount.',
@@ -430,7 +432,7 @@ class LedgerWallet extends AbstractHdWallet implements AvaWalletCore {
                 accountPath,
                 bip32Paths
             )
-            store.commit('Ledger/closeModal')
+            this.ledgerStore.closeModal()
 
             const creds: Credential[] = this.getCredentials<UnsignedTx>(
                 unsignedTx,
@@ -454,7 +456,7 @@ class LedgerWallet extends AbstractHdWallet implements AvaWalletCore {
 
             return signedTx as SignedTx
         } catch (e) {
-            store.commit('Ledger/closeModal')
+            this.ledgerStore.closeModal()
             console.error(e)
             throw e
         }
@@ -495,7 +497,7 @@ class LedgerWallet extends AbstractHdWallet implements AvaWalletCore {
         )
 
         try {
-            store.commit('Ledger/openModal', {
+            this.ledgerStore.openModal({
                 title: title,
                 messages: messages,
                 info: null,
@@ -526,7 +528,7 @@ class LedgerWallet extends AbstractHdWallet implements AvaWalletCore {
 
             return signedTx as SignedTx
         } catch (e) {
-            store.commit('Ledger/closeModal')
+            this.ledgerStore.closeModal()
             console.error(e)
             throw e
         }
@@ -764,7 +766,7 @@ class LedgerWallet extends AbstractHdWallet implements AvaWalletCore {
             )
         }
 
-        store.commit('Ledger/closeModal')
+        this.ledgerStore.closeModal()
         return signedTx
     }
 
@@ -795,7 +797,7 @@ class LedgerWallet extends AbstractHdWallet implements AvaWalletCore {
             )
         }
 
-        store.commit('Ledger/closeModal')
+        this.ledgerStore.closeModal()
         return signedTx
     }
 
@@ -815,7 +817,7 @@ class LedgerWallet extends AbstractHdWallet implements AvaWalletCore {
         }
 
         const txSigned = (await this.signTransactionParsable(unsignedTx, paths, 'C')) as EvmTx
-        store.commit('Ledger/closeModal')
+        this.ledgerStore.closeModal()
         return txSigned
     }
 
@@ -836,7 +838,7 @@ class LedgerWallet extends AbstractHdWallet implements AvaWalletCore {
             const msgs = this.getEvmTransactionMessages(tx)
 
             // Open Modal Prompt
-            store.commit('Ledger/openModal', {
+            this.ledgerStore.openModal({
                 title: 'Transfer',
                 messages: msgs,
                 info: null,
@@ -845,7 +847,7 @@ class LedgerWallet extends AbstractHdWallet implements AvaWalletCore {
                 LEDGER_ETH_ACCOUNT_PATH,
                 rawUnsignedTx.toString('hex')
             )
-            store.commit('Ledger/closeModal')
+            this.ledgerStore.closeModal()
 
             const chainId = await web3.eth.getChainId()
             const networkId = await web3.eth.net.getId()
@@ -872,7 +874,7 @@ class LedgerWallet extends AbstractHdWallet implements AvaWalletCore {
             )
             return signedTx
         } catch (e) {
-            store.commit('Ledger/closeModal')
+            this.ledgerStore.closeModal()
             console.error(e)
             throw e
         }
@@ -936,7 +938,7 @@ class LedgerWallet extends AbstractHdWallet implements AvaWalletCore {
         const addressPath = bippath.fromString(pathStr, false)
         const accountPath = bippath.fromString(`${AVA_ACCOUNT_PATH}`)
 
-        store.commit('Ledger/openModal', {
+        this.ledgerStore.openModal({
             title: `Sign Hash`,
             info: hash.toString('hex').toUpperCase(),
         })
@@ -948,12 +950,12 @@ class LedgerWallet extends AbstractHdWallet implements AvaWalletCore {
                 accountPath,
                 [addressPath]
             )
-            store.commit('Ledger/closeModal')
+            this.ledgerStore.closeModal()
             const signed = sigMap.signatures.get(pathStr)
             if (!signed) throw new Error('Unable to get signature fro the given path.')
             return bintools.cb58Encode(BufferAvax.from(signed))
         } catch (e) {
-            store.commit('Ledger/closeModal')
+            this.ledgerStore.closeModal()
             throw e
         }
     }

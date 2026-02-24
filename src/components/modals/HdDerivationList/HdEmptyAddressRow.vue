@@ -13,7 +13,7 @@
 </template>
 <script lang="ts">
 import { defineComponent, computed } from 'vue'
-import { useStore } from '@/stores'
+import { useMainStore } from '@/stores'
 import { useI18n } from 'vue-i18n'
 import { WalletType } from '@/js/wallets/types'
 
@@ -39,11 +39,11 @@ export default defineComponent({
         }
     },
     setup(props) {
-        const store = useStore()
+        const mainStore = useMainStore()
         const { t } = useI18n()
 
         const wallet = computed(() => {
-            return store.state.activeWallet as WalletType
+            return mainStore.activeWallet as WalletType
         })
 
         const walletType = computed(() => {

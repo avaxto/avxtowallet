@@ -32,7 +32,7 @@
 </template>
 <script lang="ts">
 import { defineComponent, computed } from 'vue'
-import { useStore } from '@/stores'
+import { useMainStore } from '@/stores'
 import { BN } from '@/avalanche'
 import { bnToBig } from '@/helpers/helper'
 import { UnixNow } from '@/avalanche/utils'
@@ -52,8 +52,7 @@ export default defineComponent({
         }
     },
     setup(props) {
-        const store = useStore()
-        
+        const mainStore = useMainStore()
         const isValidator = computed(() => {
             return props.transaction.txType === 'AddValidatorTx'
         })
@@ -74,7 +73,7 @@ export default defineComponent({
         })
 
         const wallet = computed((): WalletType => {
-            return store.state.activeWallet
+            return mainStore.activeWallet
         })
 
         const pAddrsClean = computed((): string[] => {

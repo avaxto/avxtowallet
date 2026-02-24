@@ -32,7 +32,7 @@
 import { defineComponent, ref, computed } from 'vue'
 import { useMainStore } from '@/stores'
 import { useRouter } from 'vue-router'
-import { ImportKeyfileInput } from '@/store/types'
+import { ImportKeyfileInput } from '@/types'
 import { SingletonWallet } from '@/js/wallets/SingletonWallet'
 import { privateToAddress } from 'ethereumjs-util'
 import { bintools } from '@/AVA'

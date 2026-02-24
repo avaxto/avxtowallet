@@ -30,13 +30,13 @@
 </template>
 <script lang="ts">
 import { defineComponent, ref, watch } from 'vue'
-import { useStore } from '@/stores'
+import { useAssetsStore, useNotificationsStore } from '@/stores'
 
 import Modal from './Modal.vue'
 import { web3 } from '@/evm'
 import ERC20Abi from '@openzeppelin/contracts/build/contracts/ERC20.json'
 import Erc20Token from '@/js/Erc20Token'
-import { TokenListToken } from '@/store/modules/assets/types'
+import { TokenListToken } from '@/types'
 
 export default defineComponent({
     name: 'AddERC20TokenModal',
@@ -44,7 +44,8 @@ export default defineComponent({
         Modal,
     },
     setup() {
-        const store = useStore()
+        const assetsStore = useAssetsStore()
+        const notificationsStore = useNotificationsStore()
         const modal = ref<InstanceType<typeof Modal> | null>(null)
         const tokenAddress = ref('')
         const name = ref('')
@@ -97,13 +98,13 @@ export default defineComponent({
                     name: name.value,
                     symbol: symbol.value,
                     decimals: denomination.value,
-                    chainId: store.state.Assets.evmChainId,
+                    chainId: assetsStore.evmChainId,
                     logoURI: '',
                 }
 
-                const token: Erc20Token = await store.dispatch('Assets/addCustomErc20Token', data)
+                const token: Erc20Token = await assetsStore.addCustomErc20Token(data)
 
-                store.dispatch('Notifications/add', {
+                notificationsStore.add({
                     title: 'ERC20 Token Added',
                     message: token.data.name,
                 })

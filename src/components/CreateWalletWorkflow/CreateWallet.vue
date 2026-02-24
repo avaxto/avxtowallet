@@ -125,7 +125,7 @@
 </template>
 <script lang="ts">
 import { defineComponent, ref, computed } from 'vue'
-import { useStore } from '@/stores'
+import { useMainStore } from '@/stores'
 import TextDisplayCopy from '@/components/misc/TextDisplayCopy.vue'
 import Spinner from '@/components/misc/Spinner.vue'
 // import TorusGoogle from "@/components/Torus/TorusGoogle.vue";
@@ -152,7 +152,7 @@ export default defineComponent({
         MnemonicCopied,
     },
     setup() {
-        const store = useStore()
+        const mainStore = useMainStore()
         const isLoad = ref(false)
         const keyPhrase = ref<MnemonicPhrase | null>(null)
         const isSecured = ref(false)
@@ -191,7 +191,7 @@ export default defineComponent({
             isLoad.value = true
 
             setTimeout(async () => {
-                await store.dispatch('accessWallet', keyPhrase.value!.getValue())
+                await mainStore.accessWallet(keyPhrase.value!.getValue())
             }, 500)
         }
 

@@ -29,9 +29,9 @@
 </template>
 <script lang="ts">
 import { defineComponent, ref, computed } from 'vue'
-import { useStore } from '@/stores'
+import { useMainStore } from '@/stores'
 import FileInput from '@/components/misc/FileInput.vue'
-import { ImportKeyfileInput } from '@/store/types'
+import { ImportKeyfileInput } from '@/types'
 import { AllKeyFileTypes } from '@/js/IKeystore'
 import { KEYSTORE_VERSION } from '@/js/Keystore'
 
@@ -42,8 +42,7 @@ export default defineComponent({
     },
     emits: ['success'],
     setup(props, { emit }) {
-        const store = useStore()
-        
+        const mainStore = useMainStore()
         const canAdd = ref(false)
         const pass = ref('')
         const keyfile = ref<File | null>(null)
@@ -94,7 +93,7 @@ export default defineComponent({
                 }
 
                 try {
-                    await store.dispatch('importKeyfile', input)
+                    await mainStore.importKeyfile(input)
                     emit('success')
                     clear()
                 } catch (error) {

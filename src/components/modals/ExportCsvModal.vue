@@ -39,7 +39,7 @@
 </template>
 <script lang="ts">
 import { defineComponent, ref, computed } from 'vue'
-import { useStore } from '@/stores'
+import { useHistoryStore, useMainStore } from '@/stores'
 
 import Modal from '@/components/modals/Modal.vue'
 import {
@@ -47,7 +47,7 @@ import {
     CsvRowStakingTxType,
     ITransactionData,
     UTXO,
-} from '@/store/modules/history/types'
+} from '@/types'
 import { bnToBig } from '@/helpers/helper'
 import { getPriceAtUnixTime } from '@/helpers/price_helper'
 import { generate } from 'csv-generate'
@@ -68,8 +68,8 @@ export default defineComponent({
         Modal,
     },
     setup() {
-        const store = useStore()
-        
+        const mainStore = useMainStore()
+        const historyStore = useHistoryStore()
         const modal = ref<InstanceType<typeof Modal>>()
         const showValidation = ref(true)
         const showDelegation = ref(true)
@@ -88,15 +88,15 @@ export default defineComponent({
         })
 
         const transactions = computed(() => {
-            return store.state.History.allTransactions
+            return historyStore.allTransactions
         })
 
         const stakingTxs = computed((): ITransactionData[] => {
-            return store.getters['History/stakingTxs']
+            return historyStore.stakingTxs
         })
 
         const wallet = computed(() => {
-            return store.state.activeWallet
+            return mainStore.activeWallet
         })
 
         const pAddresses = computed((): string[] => {

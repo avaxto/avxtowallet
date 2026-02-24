@@ -1,6 +1,6 @@
 import { web3 } from '@/evm'
 import ERC721Abi from '@openzeppelin/contracts/build/contracts/ERC721Enumerable.json'
-import { ERC721TokenInput } from '@/store/modules/assets/modules/types'
+import { ERC721TokenInput } from '@/types'
 import axios from 'axios'
 
 interface TokenDataCache {

@@ -1,4 +1,4 @@
-import { TokenListToken } from '@/store/modules/assets/types'
+import { TokenListToken } from '@/types'
 import { web3 } from '@/evm'
 import { BN } from '@/avalanche'
 import { bnToBig } from '@/helpers/helper'

@@ -11,7 +11,7 @@
 </template>
 <script lang="ts">
 import { defineComponent, ref } from 'vue'
-import { useStore } from '@/stores'
+import { useNotificationsStore } from '@/stores'
 import { useTheme } from '@/composables/useTheme'
 
 export default defineComponent({
@@ -23,7 +23,7 @@ export default defineComponent({
         },
     },
     setup(props) {
-        const store = useStore()
+        const notificationsStore = useNotificationsStore()
         const { isDay } = useTheme()
         const copytext = ref<HTMLInputElement>()
         
@@ -33,7 +33,7 @@ export default defineComponent({
                 copytext.value.setSelectionRange(0, 99999)
 
                 document.execCommand('copy')
-                store.dispatch('Notifications/add', {
+                notificationsStore.add({
                     title: ' Copied',
                     message: 'Copied to clipboard.',
                 })

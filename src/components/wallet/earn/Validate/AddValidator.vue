@@ -264,7 +264,7 @@
 </template>
 <script lang="ts">
 import { defineComponent, ref, computed, watch, onMounted } from 'vue'
-import { useStore } from '@/stores'
+import { useAssetsStore, useHistoryStore, useMainStore, useNotificationsStore, usePlatformStore } from '@/stores'
 import { useI18n } from 'vue-i18n'
 //@ts-ignore
 import AvaxInput from '@/components/misc/AvaxInput.vue'
@@ -306,7 +306,11 @@ export default defineComponent({
     },
     emits: ['cancel'],
     setup(props, { emit }) {
-        const store = useStore()
+        const mainStore = useMainStore()
+        const assetsStore = useAssetsStore()
+        const notificationsStore = useNotificationsStore()
+        const historyStore = useHistoryStore()
+        const platformStore = usePlatformStore()
         const { t } = useI18n()
 
         // Reactive state
@@ -348,20 +352,20 @@ export default defineComponent({
 
         // Computed properties
         const wallet = computed((): WalletType => {
-            return store.state.activeWallet
+            return mainStore.activeWallet
         })
 
         const rewardAddressLocal = computed(() => {
-            const w: MnemonicWallet = store.state.activeWallet
+            const w: MnemonicWallet = mainStore.activeWallet
             return w.getPlatformRewardAddress()
         })
 
         const platformUnlocked = computed((): BN => {
-            return store.getters['Assets/walletPlatformBalance'].available
+            return assetsStore.walletPlatformBalance.available
         })
 
         const platformLockedStakeable = computed((): BN => {
-            return store.getters['Assets/walletPlatformBalanceLockedStakeable']
+            return assetsStore.walletPlatformBalanceLockedStakeable
         })
 
         const feeAmt = computed((): BN => {
@@ -464,7 +468,7 @@ export default defineComponent({
         })
 
         const avaxPrice = computed((): Big => {
-            const usdPrice = store.state.prices.value.usd
+            const usdPrice = mainStore.prices.usd
             if (typeof usdPrice !== 'number' || isNaN(usdPrice)) {
                 return Big(0)
             }
@@ -476,7 +480,7 @@ export default defineComponent({
             const end = new Date(endDate.value)
             const duration = end.getTime() - start.getTime() // in ms
 
-            const currentSupply = store.state.Platform.currentSupply
+            const currentSupply = platformStore.currentSupply
             const estimation = calculateStakingReward(stakeAmt.value, duration / 1000, currentSupply)
             const res = bnToBig(estimation, 9)
 
@@ -488,7 +492,7 @@ export default defineComponent({
         })
 
         const minStakeAmt = computed((): BN => {
-            return store.state.Platform.minStake
+            return platformStore.minStake
         })
 
         const canSubmit = computed(() => {
@@ -564,7 +568,7 @@ export default defineComponent({
         const generateBlsKeys = async () => {
             try {
                 // Generate keys deterministically from wallet
-                const w: WalletType = store.state.activeWallet
+                const w: WalletType = mainStore.activeWallet
                 const seed = w.getCurrentAddressPlatform() + nodeId.value
                 const keyPair = generateBlsKeyPair(seed)
                 
@@ -579,14 +583,14 @@ export default defineComponent({
                 validateBlsPublicKey()
                 validateBlsSignature()
                 
-                store.dispatch('Notifications/add', {
+                notificationsStore.add({
                     type: 'info',
                     title: 'BLS Keys Generated',
                     message: 'BLS public key and signature have been generated for your validator.'
                 })
             } catch (error) {
                 console.error('Failed to generate BLS keys:', error)
-                store.dispatch('Notifications/add', {
+                notificationsStore.add({
                     type: 'error',
                     title: 'BLS Generation Failed',
                     message: 'Failed to generate BLS keys. Please enter them manually.'
@@ -674,7 +678,7 @@ export default defineComponent({
         }
 
         const onsuccess = () => {
-            store.dispatch('Notifications/add', {
+            notificationsStore.add({
                 type: 'success',
                 title: 'Validator Added',
                 message: 'Your tokens are now locked to stake.',
@@ -682,8 +686,8 @@ export default defineComponent({
 
             // Update History
             setTimeout(() => {
-                store.dispatch('Assets/updateUTXOs')
-                store.dispatch('History/updateTransactionHistory')
+                assetsStore.updateUTXOs()
+                historyStore.updateTransactionHistory()
             }, 3000)
         }
 
@@ -737,7 +741,7 @@ export default defineComponent({
                 err.value = error.message
             }
 
-            store.dispatch('Notifications/add', {
+            notificationsStore.add({
                 type: 'error',
                 title: 'Validation Failed',
                 message: 'Failed to add validator.',
@@ -746,7 +750,7 @@ export default defineComponent({
 
         const submit = async () => {
             if (!formCheck()) return
-            const w: WalletType = store.state.activeWallet
+            const w: WalletType = mainStore.activeWallet
 
             // Start delegation in 5 minutes
             let startDateVal = new Date(Date.now() + 5 * MIN_MS)

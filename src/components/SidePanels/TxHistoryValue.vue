@@ -13,10 +13,10 @@
 </template>
 <script lang="ts">
 import { defineComponent, computed, type PropType } from 'vue'
-import { useStore } from '@/stores'
+import { useAssetsStore } from '@/stores'
 
 import Big from 'big.js'
-import { TransactionType } from '@/store/modules/history/types'
+import { TransactionType } from '@/types'
 
 export default defineComponent({
     name: 'TxHistoryValue',
@@ -39,12 +39,11 @@ export default defineComponent({
         }
     },
     setup(props) {
-        const store = useStore()
-
+        const assetsStore = useAssetsStore()
         const asset = computed(() => {
             return (
-                store.state.Assets.assetsDict[props.assetId] ||
-                store.state.Assets.nftFamsDict[props.assetId]
+                assetsStore.assetsDict[props.assetId] ||
+                assetsStore.nftFamsDict[props.assetId]
             )
         })
 

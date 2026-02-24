@@ -42,7 +42,7 @@
 <script lang="ts">
 import 'reflect-metadata'
 import { defineComponent, ref, computed } from 'vue'
-import { useStore } from '@/stores'
+import { useAssetsStore, useNetworkStore } from '@/stores'
 
 import FaucetLink from '@/components/misc/FaucetLink.vue'
 import FungibleRow from '@/components/wallet/portfolio/FungibleRow.vue'
@@ -73,21 +73,22 @@ export default defineComponent({
         }
     },
     setup(props: Props) {
-        const store = useStore()
+        const assetsStore = useAssetsStore()
+        const networkStore = useNetworkStore()
         const addTokenModal = ref<InstanceType<typeof AddERC20TokenModal>>()
         const tokenlistModal = ref<InstanceType<typeof TokenListModal>>()
 
         const networkStatus = computed((): string => {
-            let stat = store.state.Network.status
+            let stat = networkStore.status
             return stat
         })
 
         const avaxToken = computed((): AvaAsset => {
-            return store.getters['Assets/AssetAVA']
+            return assetsStore.AssetAVA
         })
 
         const erc20Balances = computed((): Erc20Token[] => {
-            let tokens: Erc20Token[] = store.getters['Assets/networkErc20Tokens']
+            let tokens: Erc20Token[] = assetsStore.networkErc20Tokens
             let filt = tokens.filter((token) => {
                 if (token.balanceBN.isZero()) return false
                 return true
@@ -97,7 +98,7 @@ export default defineComponent({
 
         const walletBalancesSorted = computed((): AvaAsset[] => {
             // let balance: AvaAsset[] = store.getters['walletAssetsArray']
-            let balance: AvaAsset[] = store.getters['Assets/walletAssetsArray']
+            let balance: AvaAsset[] = assetsStore.walletAssetsArray
 
             // Sort by balance, then name
             balance.sort((a, b) => {

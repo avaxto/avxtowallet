@@ -8,8 +8,7 @@
 <script lang="ts">
 import 'reflect-metadata'
 import { defineComponent, computed, toRefs } from 'vue'
-import { useStore } from '@/stores'
-import { useMainStore } from '@/stores/main'
+import { useMainStore } from '@/stores'
 import { WalletType } from '@/js/wallets/types'
 import { ChainIdType } from '@/constants'
 
@@ -24,7 +23,6 @@ export default defineComponent({
     },
     emits: ['update:modelValue'],
     setup(props, { emit }) {
-        const store = useStore()
         const mainStore = useMainStore()
         const { modelValue } = toRefs(props)
 

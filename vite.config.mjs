@@ -49,7 +49,6 @@ export default defineConfig({
         manualChunks: {          
           vendor: ['vue', 'vue-router', 'pinia', 'vuetify'],
           crypto: ['crypto-browserify', 'buffer', 'stream-browserify', 'ethers', 'web3'],
-          avalanche: ['avalanche', '@avalabs/avalanche-wallet-sdk'],
           ledger: ['@ledgerhq/hw-app-eth', '@ledgerhq/hw-transport', '@ledgerhq/hw-transport-webhid', '@ledgerhq/hw-transport-webusb'],
         },
       },

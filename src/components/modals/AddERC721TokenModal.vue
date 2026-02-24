@@ -36,15 +36,15 @@
 </template>
 <script lang="ts">
 import { defineComponent, ref, computed, watch } from 'vue'
-import { useStore } from '@/stores'
+import { useAssetsStore, useErc721Store, useNotificationsStore } from '@/stores'
 
 import Modal from './Modal.vue'
 import { web3 } from '@/evm'
 import ERC20Abi from '@openzeppelin/contracts/build/contracts/ERC20.json'
 import ERC721Abi from '@openzeppelin/contracts/build/contracts/ERC721.json'
 import Erc20Token from '@/js/Erc20Token'
-import { TokenListToken } from '@/store/modules/assets/types'
-import { ERC721TokenInput } from '@/store/modules/assets/modules/types'
+import { TokenListToken } from '@/types'
+import { ERC721TokenInput } from '@/types'
 import { WalletType } from '@/js/wallets/types'
 import axios from 'axios'
 import ERC721Token from '@/js/ERC721Token'
@@ -55,7 +55,9 @@ export default defineComponent({
         Modal,
     },
     setup() {
-        const store = useStore()
+        const assetsStore = useAssetsStore()
+        const notificationsStore = useNotificationsStore()
+        const erc721Store = useErc721Store()
         const modal = ref<InstanceType<typeof Modal> | null>(null)
         const tokenAddress = ref('')
         const name = ref('')
@@ -102,12 +104,12 @@ export default defineComponent({
                     address: tokenAddress.value,
                     name: name.value,
                     symbol: symbol.value,
-                    chainId: store.state.Assets.evmChainId,
+                    chainId: assetsStore.evmChainId,
                 }
 
-                const token: ERC721Token = await store.dispatch('Assets/ERC721/addCustom', data)
+                const token: ERC721Token = await erc721Store.addCustom(data)
 
-                store.dispatch('Notifications/add', {
+                notificationsStore.add({
                     title: 'ERC721 Token Added',
                     message: token.name,
                 })
@@ -131,11 +133,11 @@ export default defineComponent({
         }
 
         const removeToken = async (token: ERC721Token) => {
-            await store.dispatch('Assets/ERC721/removeCustom', token)
+            await erc721Store.removeCustom(token)
         }
 
         const networkTokens = computed((): ERC721Token[] => {
-            return store.getters['Assets/ERC721/networkContractsCustom']
+            return erc721Store.networkContractsCustom
         })
 
         // Watch tokenAddress for changes

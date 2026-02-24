@@ -37,7 +37,7 @@
 </template>
 <script lang="ts">
 import { defineComponent, ref, computed } from 'vue'
-import { useStore } from '@/stores'
+import { useAccountsStore, useMainStore } from '@/stores'
 import MyKeys from '@/components/wallet/manage/MyKeys.vue'
 import ImportKeys from '@/components/modals/ImportKeys.vue'
 import ExportKeys from '@/components/modals/ExportKeys.vue'
@@ -45,7 +45,7 @@ import MnemonicWallet from '@/js/wallets/MnemonicWallet'
 import SaveAccountModal from '@/components/modals/SaveAccount/SaveAccountModal.vue'
 
 import { WalletNameType } from '@/js/wallets/types'
-import { iUserAccountEncrypted } from '@/store/types'
+import { iUserAccountEncrypted } from '@/types'
 import AccountSettingsModal from '@/components/modals/AccountSettings/AccountSettingsModal.vue'
 
 export default defineComponent({
@@ -58,15 +58,15 @@ export default defineComponent({
         SaveAccountModal,
     },
     setup() {
-        const store = useStore()
-
+        const mainStore = useMainStore()
+        const accountsStore = useAccountsStore()
         const importRef = ref<InstanceType<typeof ImportKeys>>()
         const exportRef = ref<InstanceType<typeof ExportKeys>>()
         const account_modal = ref<InstanceType<typeof SaveAccountModal>>()
         const account_settings = ref<InstanceType<typeof AccountSettingsModal>>()
 
         const account = computed(() => {
-            return store.getters['Accounts/account']
+            return accountsStore.account
         })
 
         const importKeys = () => {
@@ -90,19 +90,19 @@ export default defineComponent({
         })
 
         const walletType = computed((): WalletNameType => {
-            return store.state.activeWallet.type
+            return mainStore.activeWallet.type
         })
 
         const hasVolatile = computed(() => {
-            return store.state.volatileWallets.length > 0
+            return mainStore.volatileWallets.length > 0
         })
 
         const allWallets = computed((): MnemonicWallet[] => {
-            return store.state.wallets
+            return mainStore.wallets
         })
 
         const warnUpdateKeyfile = computed(() => {
-            return store.state.warnUpdateKeyfile
+            return mainStore.warnUpdateKeyfile
         })
 
         return {

@@ -34,7 +34,7 @@
 </template>
 <script lang="ts">
 import { defineComponent, ref, computed, watch, onMounted } from 'vue'
-import { useStore } from '@/stores'
+import { useAssetsStore, useMainStore } from '@/stores'
 
 import { BN } from '@/avalanche'
 // import Big from 'big.js';
@@ -45,7 +45,7 @@ import Dropdown from '@/components/misc/Dropdown.vue'
 const BigNumInput = 'big-num-input' // Use string name for globally registered component
 import AvaAsset from '@/js/AvaAsset'
 import { ICurrencyInputDropdownValue } from '@/components/wallet/transfer/types'
-import { IWalletAssetsDict, IWalletBalanceDict, priceDict } from '@/store/types'
+import { IWalletAssetsDict, IWalletBalanceDict, priceDict } from '@/types'
 
 import BalanceDropdown from '@/components/misc/BalancePopup/BalanceDropdown.vue'
 import { avm } from '@/AVA'
@@ -81,27 +81,27 @@ export default defineComponent({
     },
     emits: ['change'],
     setup(props, { emit }) {
-        const store = useStore()
-        
+        const mainStore = useMainStore()
+        const assetsStore = useAssetsStore()
         const bigIn = ref<InstanceType<typeof BigNumInput>>()
         const amount = ref<BN>(new BN(0))
         
         const walletAssetsArray = computed((): AvaAsset[] => {
-            return store.getters['Assets/walletAssetsArray']
+            return assetsStore.walletAssetsArray
         })
         
         const asset_now = ref<AvaAsset>(walletAssetsArray.value[0])
 
         const walletAssetsDict = computed((): IWalletAssetsDict => {
-            return store.getters['Assets/walletAssetsDict']
+            return assetsStore.walletAssetsDict
         })
 
         const avaxAsset = computed((): AvaAsset | null => {
-            return store.getters['Assets/AssetAVA']
+            return assetsStore.AssetAVA
         })
 
         const priceDict = computed((): priceDict => {
-            return store.state.prices
+            return mainStore.prices
         })
 
         onMounted(() => {

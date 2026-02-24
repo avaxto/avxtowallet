@@ -18,7 +18,7 @@
 </template>
 <script lang="ts">
 import { defineComponent, ref, computed, watch, onMounted } from 'vue'
-import { useStore } from '@/stores'
+import { useAssetsStore } from '@/stores'
 import { NFTTransferOutput, UTXO } from '@/avalanche/apis/avm'
 import NftPayloadView from '@/components/misc/NftPayloadView/NftPayloadView.vue'
 import { getPayloadFromUTXO } from '@/helpers/helper'
@@ -48,7 +48,7 @@ export default defineComponent({
     },
     emits: ['change', 'remove'],
     setup(props: Props, { emit }) {
-        const store = useStore()
+        const assetsStore = useAssetsStore()
         const quantity = ref(1)
 
         const assetId = computed(() => {
@@ -62,7 +62,7 @@ export default defineComponent({
 
         const allUtxos = computed(() => {
             let famId = props.sample.getAssetID()
-            let utxos: UTXO[] = store.getters['Assets/walletNftDict'][bintools.cb58Encode(famId)]
+            let utxos: UTXO[] = assetsStore.walletNftDict[bintools.cb58Encode(famId)]
 
             let filtered = utxos.filter((utxo) => {
                 let gId = (utxo.getOutput() as NFTTransferOutput).getGroupID()

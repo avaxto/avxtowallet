@@ -10,14 +10,14 @@
 </template>
 <script lang="ts">
 import { defineComponent, ref, computed } from 'vue'
-import { useStore } from '@/stores'
+import { useNotificationsStore } from '@/stores'
 import AccountSettingsModal from '@/components/modals/AccountSettings/AccountSettingsModal.vue'
 
 export default defineComponent({
     name: 'SaveKeys',
     emits: ['close'],
     setup(props, { emit }) {
-        const store = useStore()
+        const notificationsStore = useNotificationsStore()
         const pass = ref('')
         const error = ref('')
 
@@ -31,7 +31,7 @@ export default defineComponent({
             store
                 .dispatch('Accounts/saveKeys', pass.value)
                 .then((res) => {
-                    store.dispatch('Notifications/add', {
+                    notificationsStore.add({
                         title: 'Keys Saved',
                         message: 'Your account is updated with new keys.',
                     })

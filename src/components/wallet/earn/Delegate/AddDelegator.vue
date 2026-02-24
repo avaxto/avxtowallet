@@ -190,7 +190,7 @@
 <script lang="ts">
 import 'reflect-metadata'
 import { defineComponent, ref, computed, watch, onMounted } from 'vue'
-import { useStore } from '@/stores'
+import { useAssetsStore, useHistoryStore, useMainStore, useNotificationsStore, usePlatformStore } from '@/stores'
 import { useI18n } from 'vue-i18n'
 
 import AvaxInput from '@/components/misc/AvaxInput.vue'
@@ -211,7 +211,7 @@ import { ava, avm, bintools, infoApi, pChain } from '@/AVA'
 import MnemonicWallet from '@/js/wallets/MnemonicWallet'
 import { bnToBig, calculateStakingReward } from '@/helpers/helper'
 import { Defaults, ONEAVAX } from '@/avalanche/utils'
-import { ValidatorListItem } from '@/store/modules/platform/types'
+import { ValidatorListItem } from '@/types'
 import NodeSelection from '@/components/wallet/earn/Delegate/NodeSelection.vue'
 import CurrencySelect from '@/components/misc/CurrencySelect/CurrencySelect.vue'
 import Spinner from '@/components/misc/Spinner.vue'
@@ -248,7 +248,11 @@ export default defineComponent({
         Expandable,
     },
     setup(_, { emit }) {
-        const store = useStore()
+        const mainStore = useMainStore()
+        const assetsStore = useAssetsStore()
+        const notificationsStore = useNotificationsStore()
+        const historyStore = useHistoryStore()
+        const platformStore = usePlatformStore()
         const { t } = useI18n()
 
         const search = ref('')
@@ -276,7 +280,7 @@ export default defineComponent({
         const maxTxSizeAmount = ref<BN | null>(null)
 
         const wallet = computed(() => {
-            return store.state.activeWallet as WalletType
+            return mainStore.activeWallet as WalletType
         })
 
         const setEnd = (val: string) => {
@@ -299,7 +303,7 @@ export default defineComponent({
             isLoading.value = true
             err.value = ''
 
-            let wallet: WalletType = store.state.activeWallet
+            let wallet: WalletType = mainStore.activeWallet
 
             // Start delegation in 5 minutes
             let startDate = new Date(Date.now() + 5 * MIN_MS)
@@ -324,7 +328,7 @@ export default defineComponent({
         }
 
         const onsuccess = (txId: string) => {
-            store.dispatch('Notifications/add', {
+            notificationsStore.add({
                 type: 'success',
                 title: 'Delegator Added',
                 message: 'Your tokens are now locked for staking.',
@@ -332,8 +336,8 @@ export default defineComponent({
 
             // Update History
             setTimeout(() => {
-                store.dispatch('Assets/updateUTXOs')
-                store.dispatch('History/updateTransactionHistory')
+                assetsStore.updateUTXOs()
+                historyStore.updateTransactionHistory()
             }, 3000)
         }
 
@@ -373,7 +377,7 @@ export default defineComponent({
             } else {
                 err.value = e.message
             }
-            store.dispatch('Notifications/add', {
+            notificationsStore.add({
                 type: 'error',
                 title: 'Delegation Failed',
                 message: 'Failed to delegate tokens.',
@@ -385,7 +389,7 @@ export default defineComponent({
             let end = new Date(endDate.value)
             let duration = end.getTime() - start.getTime() // in ms
 
-            let currentSupply = store.state.Platform.currentSupply
+            let currentSupply = platformStore.currentSupply
 
             let estimation = calculateStakingReward(stakeAmt.value, duration / 1000, currentSupply)
             let res = Big(estimation.toString()).div(Math.pow(10, 9))
@@ -397,7 +401,7 @@ export default defineComponent({
         })
 
         const avaxPrice = computed((): Big => {
-            const usdPrice = store.state.prices.value.usd
+            const usdPrice = mainStore.prices.usd
             if (typeof usdPrice !== 'number' || isNaN(usdPrice)) {
                 return Big(0)
             }
@@ -405,7 +409,7 @@ export default defineComponent({
         })
 
         const rewardAddressLocal = computed(() => {
-            let wallet: MnemonicWallet = store.state.activeWallet
+            let wallet: MnemonicWallet = mainStore.activeWallet
             return wallet.getPlatformRewardAddress()
         })
 
@@ -525,7 +529,7 @@ export default defineComponent({
         })
 
         const minStake = computed((): BN => {
-            return store.state.Platform.minStakeDelegation
+            return platformStore.minStakeDelegation
         })
 
         const delegationFee = computed((): number => {
@@ -570,7 +574,7 @@ export default defineComponent({
 
         const remainingAmt = computed((): BN => {
             if (!selected.value) return new BN(0)
-            let nodeMaxStake: BN = store.getters['Platform/validatorMaxStake'](selected.value)
+            let nodeMaxStake: BN = platformStore.validatorMaxStake(selected.value)
 
             let totDel = selected.value.delegatedStake
             let valAmt = selected.value.validatorStake

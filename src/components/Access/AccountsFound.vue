@@ -14,7 +14,7 @@
 <script lang="ts">
 import { defineComponent, ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { iUserAccountEncrypted } from '@/store/types'
+import { iUserAccountEncrypted } from '@/types'
 import Identicon from '@/components/misc/Identicon.vue'
 
 export default defineComponent({

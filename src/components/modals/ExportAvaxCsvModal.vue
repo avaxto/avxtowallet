@@ -20,10 +20,10 @@
 </template>
 <script lang="ts">
 import { defineComponent, ref, computed } from 'vue'
-import { useStore } from '@/stores'
+import { useAssetsStore, useHistoryStore, useMainStore } from '@/stores'
 
 import Modal from '@/components/modals/Modal.vue'
-import { CsvRowAvaxTransferData, ITransactionData, UTXO } from '@/store/modules/history/types'
+import { CsvRowAvaxTransferData, ITransactionData, UTXO } from '@/types'
 import { bnToBig } from '@/helpers/helper'
 import { generate } from 'csv-generate'
 import { downloadCSVFile } from '@/utils/history-utils'
@@ -35,7 +35,9 @@ export default defineComponent({
         Modal,
     },
     setup() {
-        const store = useStore()
+        const mainStore = useMainStore()
+        const assetsStore = useAssetsStore()
+        const historyStore = useHistoryStore()
         const modal = ref<InstanceType<typeof Modal> | null>(null)
         const error = ref<Error | null>(null)
         const isLoading = ref(false)
@@ -50,11 +52,11 @@ export default defineComponent({
         })
 
         const transactions = computed((): ITransactionData[] => {
-            return store.state.History.allTransactions
+            return historyStore.allTransactions
         })
 
         const wallet = computed(() => {
-            return store.state.activeWallet
+            return mainStore.activeWallet
         })
 
         const xAddresses = computed((): string[] => {
@@ -66,7 +68,7 @@ export default defineComponent({
         })
 
         const avaxID = computed(() => {
-            return store.state.Assets.AVA_ASSET_ID
+            return assetsStore.AVA_ASSET_ID
         })
 
         const generateCSVFile = async () => {

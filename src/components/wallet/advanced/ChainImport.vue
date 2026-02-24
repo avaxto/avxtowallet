@@ -40,7 +40,7 @@
 <script lang="ts">
 import 'reflect-metadata'
 import { defineComponent, ref, computed } from 'vue'
-import { useStore } from '@/stores'
+import { useAssetsStore, useHistoryStore, useMainStore, useNotificationsStore } from '@/stores'
 
 import Spinner from '@/components/misc/Spinner.vue'
 import { WalletType } from '@/js/wallets/types'
@@ -57,14 +57,17 @@ export default defineComponent({
     name: 'ChainImport',
     components: { Spinner },
     setup() {
-        const store = useStore()
+        const mainStore = useMainStore()
+        const assetsStore = useAssetsStore()
+        const notificationsStore = useNotificationsStore()
+        const historyStore = useHistoryStore()
         const err = ref('')
         const isSuccess = ref(false)
         const isLoading = ref(false)
         const txId = ref('')
 
         const wallet = computed((): null | WalletType => {
-            let wallet: null | WalletType = store.state.activeWallet
+            let wallet: null | WalletType = mainStore.activeWallet
             return wallet
         })
 
@@ -140,15 +143,15 @@ export default defineComponent({
             isSuccess.value = true
             txId.value = txIdVal
 
-            store.dispatch('Notifications/add', {
+            notificationsStore.add({
                 type: 'success',
                 title: 'Import Success',
                 message: txIdVal,
             })
 
             setTimeout(() => {
-                store.dispatch('Assets/updateUTXOs')
-                store.dispatch('History/updateTransactionHistory')
+                assetsStore.updateUTXOs()
+                historyStore.updateTransactionHistory()
             }, 3000)
         }
 

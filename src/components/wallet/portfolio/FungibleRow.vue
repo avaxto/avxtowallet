@@ -30,13 +30,13 @@
 <script lang="ts">
 import 'reflect-metadata'
 import { defineComponent, computed } from 'vue'
-import { useStore } from '@/stores'
+import { useAssetsStore, useMainStore } from '@/stores'
 
 import AvaAsset from '../../../js/AvaAsset'
 import Hexagon from '@/components/misc/Hexagon.vue'
 import { BN } from '@/avalanche'
 import { bnToBig } from '../../../helpers/helper'
-import { priceDict } from '../../../store/types'
+import { priceDict } from '@/types'
 import { WalletType } from '@/js/wallets/types'
 
 import Big from 'big.js'
@@ -57,10 +57,10 @@ export default defineComponent({
         }
     },
     setup(props: Props) {
-        const store = useStore()
-
+        const mainStore = useMainStore()
+        const assetsStore = useAssetsStore()
         const avaxToken = computed((): AvaAsset => {
-            return store.getters['Assets/AssetAVA']
+            return assetsStore.AssetAVA
         })
 
         const isAvaxToken = computed(() => {
@@ -84,7 +84,7 @@ export default defineComponent({
         })
 
         const evmAvaxBalance = computed((): BN => {
-            let wallet: WalletType | null = store.state.activeWallet
+            let wallet: WalletType | null = mainStore.activeWallet
 
             if (!isAvaxToken.value || !wallet) {
                 return new BN(0)
@@ -109,7 +109,7 @@ export default defineComponent({
         })
 
         const priceDict = computed((): priceDict => {
-            return store.state.prices
+            return mainStore.prices
         })
 
         const totalUSD = computed((): Big => {

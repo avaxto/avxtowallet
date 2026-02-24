@@ -9,7 +9,7 @@
 </template>
 <script lang="ts">
 import { defineComponent, ref, computed, onMounted } from 'vue'
-import { useStore } from '@/stores'
+import { useAssetsStore, useMainStore } from '@/stores'
 import { useRoute } from 'vue-router'
 import { pChain } from '@/AVA'
 import { bnToBig } from '@/helpers/helper'
@@ -27,7 +27,8 @@ export default defineComponent({
     },
     emits: ['cancel'],
     setup(props, { emit }) {
-        const store = useStore()
+        const mainStore = useMainStore()
+        const assetsStore = useAssetsStore()
         const route = useRoute()
         
         const isLoading = ref(false)
@@ -38,11 +39,11 @@ export default defineComponent({
         })
 
         const mintUtxos = computed(() => {
-            return store.state.Assets.nftMintUTXOs
+            return assetsStore.nftMintUTXOs
         })
 
         const submit = async () => {
-            let wallet = store.state.activeWallet
+            let wallet = mainStore.activeWallet
             if (!wallet) return
 
             isLoading.value = true

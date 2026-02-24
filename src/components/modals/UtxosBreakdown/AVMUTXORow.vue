@@ -24,7 +24,7 @@
 </template>
 <script lang="ts">
 import { defineComponent, computed } from 'vue'
-import { useStore } from '@/stores'
+import { useAssetsStore, useNetworkStore } from '@/stores'
 import { AmountOutput, AVMConstants, UTXO as AVMUTXO } from '@/avalanche/apis/avm'
 import {
     PlatformVMConstants,
@@ -50,8 +50,8 @@ export default defineComponent({
         }
     },
     setup(props) {
-        const store = useStore()
-
+        const assetsStore = useAssetsStore()
+        const networkStore = useNetworkStore()
         const out = computed(() => {
             return props.utxo.getOutput()
         })
@@ -76,13 +76,13 @@ export default defineComponent({
             let idClean = bintools.cb58Encode(assetID)
 
             let asset =
-                store.state.Assets.assetsDict[idClean] ||
-                store.state.Assets.nftFamsDict[idClean]
+                assetsStore.assetsDict[idClean] ||
+                assetsStore.nftFamsDict[idClean]
             return asset
         })
 
         const explorerLink = computed(() => {
-            let net: AvaNetwork = store.state.Network.selectedNetwork
+            let net: AvaNetwork = networkStore.selectedNetwork
             let explorer = net.explorerSiteUrl
             if (!explorer) return null
             return explorer + '/tx/' + bintools.cb58Encode(props.utxo.getTxID())

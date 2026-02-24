@@ -16,7 +16,7 @@
 </template>
 <script lang="ts">
 import { defineComponent, computed } from 'vue'
-import { useStore } from '@/stores'
+import { useAssetsStore, useMainStore } from '@/stores'
 import { avm, cChain, pChain } from '@/AVA'
 import { BN } from '@/avalanche'
 import { bnToBig } from '@/helpers/helper'
@@ -50,14 +50,14 @@ export default defineComponent({
         }
     },
     setup(props) {
-        const store = useStore()
-
+        const mainStore = useMainStore()
+        const assetsStore = useAssetsStore()
         const toLocaleString = (val: BN, decimals: number) => {
             return bnToBig(val, decimals).toLocaleString()
         }
 
         const getAssetFromID = (id: string) => {
-            return store.state.Assets.assetsDict[id]
+            return assetsStore.assetsDict[id]
         }
 
         const isExport = computed(() => {
@@ -98,7 +98,7 @@ export default defineComponent({
          * All X/P addresses used by the wallet
          */
         const addresses = computed(() => {
-            let wallet: WalletType | null = store.state.activeWallet
+            let wallet: WalletType | null = mainStore.activeWallet
             if (!wallet) return []
             return wallet.getHistoryAddresses()
         })
@@ -130,7 +130,7 @@ export default defineComponent({
         })
 
         const wallet = computed((): WalletType => {
-            return store.state.activeWallet
+            return mainStore.activeWallet
         })
 
         const balances = computed(() => {

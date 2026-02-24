@@ -12,7 +12,7 @@
 </template>
 <script lang="ts">
 import { defineComponent } from 'vue'
-import { useStore } from '@/stores'
+import { useAssetsStore } from '@/stores'
 
 export default defineComponent({
     name: 'NftPayloadAllow',
@@ -32,10 +32,9 @@ export default defineComponent({
     },
     emits: ['update:modelValue', 'change'],
     setup(props, { emit }) {
-        const store = useStore()
-
+        const assetsStore = useAssetsStore()
         const show = () => {
-            store.commit('Assets/whitelistNFT', props.nftID)
+            assetsStore.whitelistNFT(props.nftID)
             emit('update:modelValue', true)
             emit('change', true)
         }

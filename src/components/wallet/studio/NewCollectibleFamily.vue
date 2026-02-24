@@ -74,7 +74,7 @@
 </template>
 <script lang="ts">
 import { defineComponent, ref, computed, watch } from 'vue'
-import { useStore } from '@/stores'
+import { useAssetsStore, useHistoryStore, useMainStore, useNotificationsStore } from '@/stores'
 import { BN } from '@/avalanche'
 import { pChain } from '@/AVA'
 import { bnToBig } from '@/helpers/helper'
@@ -84,7 +84,10 @@ export default defineComponent({
     name: 'NewCollectibleFamily',
     emits: ['cancel'],
     setup(_, { emit }) {
-        const store = useStore()
+        const mainStore = useMainStore()
+        const assetsStore = useAssetsStore()
+        const notificationsStore = useNotificationsStore()
+        const historyStore = useHistoryStore()
         const name = ref('')
         const symbol = ref('')
         const groupNum = ref(1)
@@ -98,7 +101,7 @@ export default defineComponent({
         })
 
         const mintUtxos = computed(() => {
-            return store.state.Assets.nftMintUTXOs
+            return assetsStore.nftMintUTXOs
         })
 
         watch(() => symbol.value, (val: string) => {
@@ -126,7 +129,7 @@ export default defineComponent({
             if (!validate()) {
                 return
             }
-            let wallet = store.state.activeWallet
+            let wallet = mainStore.activeWallet
             if (!wallet) return
 
             error.value = ''
@@ -159,15 +162,15 @@ export default defineComponent({
             isSuccess.value = true
             txId.value = txIdValue
 
-            store.dispatch('Notifications/add', {
+            notificationsStore.add({
                 type: 'success',
                 title: 'Success',
                 message: 'Collectible family created.',
             })
 
             setTimeout(() => {
-                store.dispatch('Assets/updateUTXOs')
-                store.dispatch('History/updateTransactionHistory')
+                assetsStore.updateUTXOs()
+                historyStore.updateTransactionHistory()
             }, 3000)
         }
 

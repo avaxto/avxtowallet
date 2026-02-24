@@ -31,7 +31,7 @@
 <script lang="ts">
 import 'reflect-metadata'
 import { defineComponent, ref, computed } from 'vue'
-import { useStore } from '@/stores'
+import { useMainStore } from '@/stores'
 import { Big, bnToBig } from '@/avalanche-wallet-sdk'
 //@ts-ignore
 import { BigNumInput } from '@/vue_components/bignum_input.vue'
@@ -66,11 +66,11 @@ export default defineComponent({
     },
     emits: ['change'],
     setup(props: Props, { emit }) {
-        const store = useStore()
+        const mainStore = useMainStore()
         const amtIn = ref<InstanceType<typeof BigNumInput>>()
 
         const priceDict = computed((): priceDict => {
-            return store.state.prices.value
+            return mainStore.prices
         })
 
         const amountUSD = computed((): Big => {

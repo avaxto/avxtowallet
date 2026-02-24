@@ -41,9 +41,9 @@
 <script lang="ts">
 import 'reflect-metadata'
 import { defineComponent, ref, computed } from 'vue'
-import { useStore } from '@/stores'
+import { useMainStore, useNotificationsStore } from '@/stores'
 import MnemonicWallet from '@/js/wallets/MnemonicWallet'
-import { ExportWalletsInput } from '@/store/types'
+import { ExportWalletsInput } from '@/types'
 
 interface Props {
     wallets: MnemonicWallet[]
@@ -64,8 +64,8 @@ export default defineComponent({
     },
     emits: ['success'],
     setup(props: Props, { emit }) {
-        const store = useStore()
-        
+        const mainStore = useMainStore()
+        const notificationsStore = useNotificationsStore()
         const isLoading = ref(false)
         const pass = ref('')
         const passConfirm = ref('')
@@ -97,11 +97,11 @@ export default defineComponent({
                 wallets: props.wallets,
             }
             setTimeout(() => {
-                store.dispatch('exportWallets', input).then((res) => {
+                mainStore.exportWallets(input).then((res) => {
                     isLoading.value = false
                     pass.value = ''
                     passConfirm.value = ''
-                    store.dispatch('Notifications/add', {
+                    notificationsStore.add({
                         title: 'Key File Export',
                         message: 'Your keys are downloaded.',
                     })

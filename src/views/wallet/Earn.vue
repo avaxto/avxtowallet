@@ -98,7 +98,7 @@
 </template>
 <script lang="ts">
 import { defineComponent, ref, computed, onDeactivated, onUnmounted } from 'vue'
-import { useStore } from '@/stores'
+import { useAssetsStore, usePlatformStore } from '@/stores'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 
@@ -117,7 +117,8 @@ export default defineComponent({
         AddDelegator,
     },
     setup() {
-        const store = useStore()
+        const assetsStore = useAssetsStore()
+        const platformStore = usePlatformStore()
         const router = useRouter()
         const { t } = useI18n()
 
@@ -150,11 +151,11 @@ export default defineComponent({
         }
 
         const platformUnlocked = computed((): BN => {
-            return store.getters['Assets/walletPlatformBalance'].available
+            return assetsStore.walletPlatformBalance.available
         })
 
         const platformLockedStakeable = computed((): BN => {
-            return store.getters['Assets/walletPlatformBalanceLockedStakeable']
+            return assetsStore.walletPlatformBalanceLockedStakeable
         })
 
         const totBal = computed((): BN => {
@@ -166,7 +167,7 @@ export default defineComponent({
         })
 
         const canDelegate = computed((): boolean => {
-            let bn = store.state.Platform.minStakeDelegation
+            let bn = platformStore.minStakeDelegation
             if (totBal.value.lt(bn)) {
                 return false
             }
@@ -174,7 +175,7 @@ export default defineComponent({
         })
 
         const canValidate = computed((): boolean => {
-            let bn = store.state.Platform.minStake
+            let bn = platformStore.minStake
             if (totBal.value.lt(bn)) {
                 return false
             }
@@ -182,12 +183,12 @@ export default defineComponent({
         })
 
         const minStakeAmt = computed((): Big => {
-            let bn = store.state.Platform.minStake
+            let bn = platformStore.minStake
             return bnToBig(bn, 9)
         })
 
         const minDelegationAmt = computed((): Big => {
-            let bn = store.state.Platform.minStakeDelegation
+            let bn = platformStore.minStakeDelegation
             return bnToBig(bn, 9)
         })
 

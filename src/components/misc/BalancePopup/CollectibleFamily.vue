@@ -20,9 +20,9 @@
 </template>
 <script lang="ts">
 import { defineComponent, computed } from 'vue'
-import { useStore } from '@/stores'
+import { useAssetsStore } from '@/stores'
 import { AvaNftFamily } from '@/js/AvaNftFamily'
-import { IWalletNftDict } from '@/store/types'
+import { IWalletNftDict } from '@/types'
 import { NFTTransferOutput, UTXO } from '@/avalanche/apis/avm'
 import { Buffer } from '@/avalanche'
 import { PayloadBase, PayloadTypes } from '@/avalanche/utils'
@@ -48,14 +48,13 @@ export default defineComponent({
     },
     emits: ['select'],
     setup(props, { emit }) {
-        const store = useStore()
-
+        const assetsStore = useAssetsStore()
         const nftFamilies = computed(() => {
-            return store.getters['Assets/nftFamilies']
+            return assetsStore.nftFamilies
         })
 
         const nftDict = computed((): IWalletNftDict => {
-            return store.getters['Assets/walletNftDict']
+            return assetsStore.walletNftDict
         })
 
         const utxos = computed(() => {

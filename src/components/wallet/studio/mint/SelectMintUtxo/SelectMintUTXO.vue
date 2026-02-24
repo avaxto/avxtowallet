@@ -10,10 +10,10 @@
 </template>
 <script lang="ts">
 import { defineComponent, computed } from 'vue'
-import { useStore } from '@/stores'
+import { useAssetsStore } from '@/stores'
 
-import { IWalletNftMintDict } from '@/store/types'
-import { NftFamilyDict } from '@/store/modules/assets/types'
+import { IWalletNftMintDict } from '@/types'
+import { NftFamilyDict } from '@/types'
 import { UTXO } from '@/avalanche/apis/avm'
 import FamilyRow from '@/components/wallet/studio/mint/SelectMintUtxo/FamilyRow.vue'
 
@@ -22,14 +22,13 @@ export default defineComponent({
     components: { FamilyRow },
     emits: ['change'],
     setup(props, { emit }) {
-        const store = useStore()
-
+        const assetsStore = useAssetsStore()
         const nftFamsDict = computed((): NftFamilyDict => {
-            return store.state.Assets.nftFamsDict
+            return assetsStore.nftFamsDict
         })
 
         const nftMintDict = computed((): IWalletNftMintDict => {
-            return store.getters['Assets/nftMintDict']
+            return assetsStore.nftMintDict
         })
 
         const select = (utxo: UTXO) => {

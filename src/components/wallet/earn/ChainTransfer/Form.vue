@@ -48,7 +48,7 @@
 </template>
 <script lang="ts">
 import { defineComponent, ref, computed, watch, onMounted } from 'vue'
-import { useStore } from '@/stores'
+import { useMainStore } from '@/stores'
 import AvaxInput from '@/components/misc/AvaxInput.vue'
 import { BN } from '@/avalanche'
 import Big from 'big.js'
@@ -85,7 +85,7 @@ export default defineComponent({
     },
     emits: ['change'],
     setup(props, { emit }) {
-        const store = useStore()
+        const mainStore = useMainStore()
         const sourceChain = ref<ChainIdType>('X')
         const targetChain = ref<ChainIdType>('P')
         const amt = ref(new BN(0))
@@ -100,7 +100,7 @@ export default defineComponent({
         })
 
         const wallet = computed(() => {
-            const currentWallet: MnemonicWallet = store.state.activeWallet
+            const currentWallet: MnemonicWallet = mainStore.activeWallet
             return currentWallet
         })
 

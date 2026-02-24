@@ -28,7 +28,7 @@
 </template>
 <script lang="ts">
 import { defineComponent, ref, computed, watch, onMounted } from 'vue'
-import { useStore } from '@/stores'
+import { useMainStore } from '@/stores'
 
 import Modal from '@/components/modals/Modal.vue'
 import MnemonicWallet from '@/js/wallets/MnemonicWallet'
@@ -54,8 +54,7 @@ export default defineComponent({
         }
     },
     setup(props) {
-        const store = useStore()
-        
+        const mainStore = useMainStore()
         const modal = ref<InstanceType<typeof Modal> | null>(null)
         const pdf = ref<HTMLCanvasElement | null>(null)
         const bg = ref<HTMLImageElement | null>(null)
@@ -81,7 +80,7 @@ export default defineComponent({
 
         const address = computed(() => {
             try {
-                let wallet: MnemonicWallet = store.state.activeWallet
+                let wallet: MnemonicWallet = mainStore.activeWallet
                 if (!wallet) return '-'
 
                 let key = wallet.externalHelper.getKeyForIndex(0)

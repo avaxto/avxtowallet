@@ -50,12 +50,12 @@
 </template>
 <script lang="ts">
 import { defineComponent, ref, computed } from 'vue'
-import { useStore } from '@/stores'
+import { usePlatformStore } from '@/stores'
 
 import ValidatorRow from '@/components/misc/ValidatorList/ValidatorRow.vue'
 import FilterSettings from '@/components/misc/ValidatorList/FilterSettings.vue'
 import Tooltip from '@/components/misc/Tooltip.vue'
-import { ValidatorListItem } from '@/store/modules/platform/types'
+import { ValidatorListItem } from '@/types'
 import { ValidatorListFilter } from '@/components/wallet/earn/Delegate/types'
 import { filterValidatorList } from '@/components/wallet/earn/Delegate/helper'
 
@@ -70,7 +70,7 @@ export default defineComponent({
     },
     emits: ['select'],
     setup(props, { emit }) {
-        const store = useStore()
+        const platformStore = usePlatformStore()
         const showFilter = ref(false)
         const filter = ref<ValidatorListFilter | null>(null)
 
@@ -87,7 +87,7 @@ export default defineComponent({
         }
 
         const validators = computed((): ValidatorListItem[] => {
-            let list: ValidatorListItem[] = store.getters['Platform/validatorListEarn']
+            let list: ValidatorListItem[] = platformStore.validatorListEarn
 
             if (props.search) {
                 list = list.filter((v) => {

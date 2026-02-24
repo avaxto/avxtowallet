@@ -49,7 +49,7 @@
 </template>
 <script lang="ts">
 import { defineComponent, ref, computed } from 'vue'
-import { useStore } from '@/stores'
+import { useMainStore } from '@/stores'
 
 import Modal from '@/components/modals/Modal.vue'
 import { WalletType } from '@/js/wallets/types'
@@ -67,8 +67,7 @@ export default defineComponent({
     name: 'UtxosBreakdownModal',
     components: { UTXORow, Modal },
     setup() {
-        const store = useStore()
-        
+        const mainStore = useMainStore()
         const modal = ref<InstanceType<typeof Modal> | null>(null)
         const chain = ref('X')
 
@@ -81,7 +80,7 @@ export default defineComponent({
         }
 
         const wallet = computed((): WalletType | null => {
-            return store.state.activeWallet
+            return mainStore.activeWallet
         })
 
         const sortFnc = <UTXO extends AVMUTXO | PlatformUTXO>(a: UTXO, b: UTXO) => {

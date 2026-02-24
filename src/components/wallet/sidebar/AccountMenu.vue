@@ -12,10 +12,9 @@
 </template>
 <script lang="ts">
 import { defineComponent, ref, computed } from 'vue'
-import { useStore } from '@/stores'
-import { useMainStore } from '@/stores'
+import { useAccountsStore, useMainStore } from '@/stores'
 
-import { iUserAccountEncrypted } from '@/store/types'
+import { iUserAccountEncrypted } from '@/types'
 import Identicon from '@/components/misc/Identicon.vue'
 import AccountSettingsModal from '@/components/modals/AccountSettings/AccountSettingsModal.vue'
 import { WalletType } from '@/js/wallets/types'
@@ -27,12 +26,12 @@ export default defineComponent({
         Identicon,
     },
     setup() {
-        const store = useStore()
+        const accountsStore = useAccountsStore()
         const mainStore = useMainStore()
         const settingsModal = ref<InstanceType<typeof AccountSettingsModal>>()
 
         const account = computed((): iUserAccountEncrypted | null => {
-            return store.getters['Accounts/account']
+            return accountsStore.account
         })
 
         const wallet = computed((): WalletType | null => {

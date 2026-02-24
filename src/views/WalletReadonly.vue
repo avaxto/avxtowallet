@@ -29,7 +29,7 @@
 <script lang="ts">
 import { defineComponent, ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { useStore } from '@/stores'
+import { useNetworkStore, useNotificationsStore } from '@/stores'
 
 import {
     PublicMnemonicWallet,
@@ -58,8 +58,8 @@ export default defineComponent({
     setup() {
         const router = useRouter()
         const route = useRoute()
-        const store = useStore()
-
+        const networkStore = useNetworkStore()
+        const notificationsStore = useNotificationsStore()
         const isWalletLoading = ref(true)
         const isBalanceLoading = ref(false)
         const isStakeDownloading = ref(false)
@@ -85,7 +85,7 @@ export default defineComponent({
         })
 
         const network = computed(() => {
-            return store.state.Network.selectedNetwork as Network | null
+            return networkStore.selectedNetwork as Network | null
         })
 
         const updateAddresses = () => {
@@ -160,7 +160,7 @@ export default defineComponent({
                 downloadCSVFile(encoding + csvContent, fileName)
             } catch (e) {
                 isStakeDownloading.value = false
-                store.dispatch('Notifications/add', {
+                notificationsStore.add({
                     type: 'error',
                     title: 'Request Failed',
                     message: 'Failed to download rewards history.',

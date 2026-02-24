@@ -23,9 +23,9 @@
 </template>
 <script lang="ts">
 import { defineComponent, ref, computed } from 'vue'
-import { useStore } from '@/stores'
+import { useAssetsStore } from '@/stores'
 import { AvaNftFamily } from '../../../../../js/AvaNftFamily'
-import { IWalletNftMintDict } from '@/store/types'
+import { IWalletNftMintDict } from '@/types'
 import { NFTTransferOutput, UTXO } from '@/avalanche/apis/avm'
 import NftPayloadView from '@/components/misc/NftPayloadView/NftPayloadView.vue'
 import NftFamilyCardsPreview from '@/components/misc/NftFamilyCardsPreview.vue'
@@ -41,7 +41,7 @@ export default defineComponent({
     },
     emits: ['select'],
     setup(props, { emit }) {
-        const store = useStore()
+        const assetsStore = useAssetsStore()
         const maxReviewItems = ref(14)
         const isHover = ref(false)
 
@@ -55,12 +55,12 @@ export default defineComponent({
 
         const nftMintDict = computed((): IWalletNftMintDict => {
             // return store.getters.walletNftMintDict
-            return store.getters['Assets/nftMintDict']
+            return assetsStore.nftMintDict
         })
 
         const nftUtxoDict = computed((): IWalletNftMintDict => {
             // return store.getters.walletNftDict
-            return store.getters['Assets/walletNftDict']
+            return assetsStore.walletNftDict
         })
 
         const mintUtxos = computed(() => {

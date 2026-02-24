@@ -42,7 +42,7 @@
 <script lang="ts">
 
 import { defineComponent, ref, computed, nextTick } from 'vue'
-import { useStore } from '@/stores'
+import { useMainStore } from '@/stores'
 //@ts-ignore
 import { BigNumInput } from '@/vue_components'
 import { BN } from '@/avalanche'
@@ -81,8 +81,7 @@ export default defineComponent({
     },
     emits: ['tokenChange', 'collectibleChange', 'amountChange'],
     setup(props, { emit }) {
-        const store = useStore()
-        
+        const mainStore = useMainStore()
         const bigIn = ref<InstanceType<typeof BigNumInput>>()
         const dropdown = ref<InstanceType<typeof EVMAssetDropdown>>()
         
@@ -100,7 +99,7 @@ export default defineComponent({
         const usd_val = computed((): Big => {
             if (token.value != 'native') return Big(0)
 
-            let price = store.state.prices.value.usd
+            let price = mainStore.prices.usd
             if (typeof price !== 'number' || isNaN(price)) {
                 return Big(0)
             }
@@ -146,7 +145,7 @@ export default defineComponent({
         })
 
         const avaxBalanceBN = computed((): BN => {
-            let w: WalletType | null = store.state.activeWallet
+            let w: WalletType | null = mainStore.activeWallet
             if (!w) return new BN(0)
             return w.ethBalance
         })

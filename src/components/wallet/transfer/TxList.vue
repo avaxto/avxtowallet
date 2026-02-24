@@ -30,13 +30,13 @@
 <script lang="ts">
 import 'reflect-metadata'
 import { defineComponent, ref, computed, watch, onActivated, onDeactivated } from 'vue'
-import { useStore } from '@/stores'
+import { useAssetsStore } from '@/stores'
 import { useRoute } from 'vue-router'
 import { v1 as uuidv1 } from 'uuid'
 import { BN } from '@/avalanche'
 import CurrencyInputDropdown from '@/components/misc/CurrencyInputDropdown.vue'
 import AvaAsset from '@/js/AvaAsset'
-import { AssetsDict } from '@/store/modules/assets/types'
+import { AssetsDict } from '@/types'
 import { ICurrencyInputDropdownValue, ITransaction } from '@/components/wallet/transfer/types'
 
 export default defineComponent({
@@ -52,7 +52,7 @@ export default defineComponent({
     },
     emits: ['change'],
     setup(props, { emit }) {
-        const store = useStore()
+        const assetsStore = useAssetsStore()
         const route = useRoute()
         
         const tx_list = ref<ITransaction[]>([])
@@ -60,11 +60,11 @@ export default defineComponent({
         const next_initial = ref<AvaAsset | null>(null)
 
         const assets_list = computed((): AvaAsset[] => {
-            return store.getters['Assets/walletAssetsArray']
+            return assetsStore.walletAssetsArray
         })
 
         const assets = computed((): AssetsDict => {
-            return store.getters['Assets/walletAssetsDict']
+            return assetsStore.walletAssetsDict
         })
 
         const showAdd = computed((): boolean => {

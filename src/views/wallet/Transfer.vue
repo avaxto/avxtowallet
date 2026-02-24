@@ -133,7 +133,7 @@
 </template>
 <script lang="ts">
 import { defineComponent, ref, computed, onActivated, onDeactivated } from 'vue'
-import { useStore } from '@/stores'
+import { useAssetsStore, useHistoryStore, useMainStore, useNetworkStore, useNotificationsStore } from '@/stores'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 
@@ -150,7 +150,7 @@ import { ITransaction } from '@/components/wallet/transfer/types'
 import { UTXO } from '@/avalanche/apis/avm'
 import { Buffer, BN } from '@/avalanche'
 import TxSummary from '@/components/wallet/transfer/TxSummary.vue'
-import { IssueBatchTxInput } from '@/store/types'
+import { IssueBatchTxInput } from '@/types'
 // Type for price data
 type priceDict = { usd: number }
 import { WalletType } from '@/js/wallets/types'
@@ -175,7 +175,11 @@ export default defineComponent({
         ChainInput,
     },
     setup() {
-        const store = useStore()
+        const mainStore = useMainStore()
+        const assetsStore = useAssetsStore()
+        const networkStore = useNetworkStore()
+        const notificationsStore = useNotificationsStore()
+        const historyStore = useHistoryStore()
         const route = useRoute()
         const { t } = useI18n()
 
@@ -308,17 +312,17 @@ export default defineComponent({
             isAjax.value = false
             isSuccess.value = true
 
-            store.dispatch('Notifications/add', {
+            notificationsStore.add({
                 title: t('transfer.success_title'),
                 message: t('transfer.success_msg'),
                 type: 'success',
             })
 
             // Update the user's balance
-            store.dispatch('Assets/updateUTXOs').then(() => {
+            assetsStore.updateUTXOs().then(() => {
                 updateSendAgainLock()
             })
-            store.dispatch('History/updateTransactionHistory')
+            historyStore.updateTransactionHistory()
         }
 
         const updateSendAgainLock = () => {
@@ -334,7 +338,7 @@ export default defineComponent({
         const onerror = (errVal: any) => {
             err.value = errVal
             isAjax.value = false
-            store.dispatch('Notifications/add', {
+            notificationsStore.add({
                 title: t('transfer.error_title'),
                 message: t('transfer.error_msg'),
                 type: 'error',
@@ -386,11 +390,11 @@ export default defineComponent({
 
         // Computed properties
         const networkStatus = computed(() => {
-            return store.state.Network.status
+            return networkStore.status
         })
 
         const hasNFT = computed(() => {
-            return store.state.Assets.nftUTXOs.length > 0
+            return assetsStore.nftUTXOs.length > 0
         })
 
         const faucetLink = computed(() => {
@@ -439,11 +443,11 @@ export default defineComponent({
         })
 
         const avaxAsset = computed((): AvaAsset => {
-            return store.getters['Assets/AssetAVA']
+            return assetsStore.AssetAVA
         })
 
         const wallet = computed((): WalletType => {
-            return store.state.activeWallet.value as WalletType
+            return mainStore.activeWallet as WalletType
         })
 
         const txFee = computed((): Big => {
@@ -463,15 +467,15 @@ export default defineComponent({
         })
 
         const addresses = computed(() => {
-            return store.state.addresses
+            return mainStore.addresses
         })
 
         const priceDict = computed((): priceDict => {
-            return store.state.prices.value
+            return mainStore.prices
         })
 
         const nftUTXOs = computed((): UTXO[] => {
-            return store.state.Assets.nftUTXOs
+            return assetsStore.nftUTXOs
         })
 
         // Lifecycle hooks

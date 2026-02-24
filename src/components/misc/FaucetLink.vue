@@ -8,12 +8,11 @@
     </div>
 </template>
 <script>
-import { useStore } from '@/stores'
+import { useMainStore } from '@/stores'
 
 export default {
     setup() {
-        const store = useStore()
-        
+        const mainStore = useMainStore()
         return {
             store
         }
@@ -25,7 +24,7 @@ export default {
             return null
         },
         selectedAddress() {
-            return this.store.state.address
+            return this.mainStore.address
         },
     },
 }

@@ -18,8 +18,7 @@
 </template>
 <script lang="ts">
 import { defineComponent, computed } from 'vue'
-import { useStore } from '@/stores'
-import { useAssetsStore, useErc721Store } from '@/stores'
+import { useMainStore, useAssetsStore, useErc721Store } from '@/stores'
 import { NFTTransferOutput, UTXO } from '@/avalanche/apis/avm'
 import NftCard from '@/components/wallet/portfolio/NftCard.vue'
 import NftPayloadView from '@/components/misc/NftPayloadView/NftPayloadView.vue'
@@ -28,7 +27,7 @@ import { Buffer } from '@/avalanche'
 import { PayloadTypes } from '@/avalanche/utils'
 import { bintools } from '@/AVA'
 import NftFamilyCardsPreview from '@/components/misc/NftFamilyCardsPreview.vue'
-import { ERC721WalletBalance } from '@/stores/erc721'
+import type { ERC721WalletBalance } from '@/stores/erc721'
 import ERC721View from '@/components/misc/ERC721View.vue'
 
 const NFT_COUNT = 15
@@ -44,7 +43,7 @@ export default defineComponent({
         NftPayloadView,
     },
     setup() {
-        const store = useStore()
+        const mainStore = useMainStore()
         const assetsStore = useAssetsStore()
         const erc721Store = useErc721Store()
 
@@ -99,7 +98,7 @@ export default defineComponent({
 
         const erc721BalanceArray = computed(() => {
             // TODO: Remove after ledger support
-            const wallet = store.state.activeWallet.value
+            const wallet = mainStore.activeWallet
             if (wallet && wallet.type === 'ledger') return []
 
             let res = []

@@ -8,13 +8,13 @@
 </template>
 <script lang="ts">
 import { defineComponent, computed, onMounted, type PropType } from 'vue'
-import { useStore } from '@/stores'
+import { useAssetsStore } from '@/stores'
 
 import NftPayloadView from '@/components/misc/NftPayloadView/NftPayloadView.vue'
 import { PayloadBase } from '@/avalanche/utils'
 import { Buffer } from '@/avalanche'
 import { PayloadTypes } from '@/avalanche/utils'
-import { UTXO } from '@/store/modules/history/types'
+import { UTXO } from '@/types'
 
 const payloadtypes = PayloadTypes.getInstance()
 
@@ -34,16 +34,15 @@ export default defineComponent({
         }
     },
     setup(props) {
-        const store = useStore()
-
+        const assetsStore = useAssetsStore()
         onMounted(() => {
             if (!nftFamsDict.value[props.assetID]) {
-                store.dispatch('Assets/addUnknownNftFamily', props.assetID)
+                assetsStore.addUnknownNftFamily(props.assetID)
             }
         })
 
         const nftFamsDict = computed(() => {
-            return store.state.Assets.nftFamsDict
+            return assetsStore.nftFamsDict
         })
 
         const quantity = computed(() => {

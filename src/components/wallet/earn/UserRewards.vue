@@ -33,13 +33,13 @@
 <script lang="ts">
 import 'reflect-metadata'
 import { defineComponent, ref, computed, onMounted, onBeforeUnmount } from 'vue'
-import { useStore } from '@/stores'
+import { useEarnStore, useMainStore } from '@/stores'
 import { AvaWalletCore } from '../../../js/wallets/types'
 import UserRewardRow from '@/components/wallet/earn/UserRewardRow.vue'
 import { bnToBig } from '@/helpers/helper'
 import Big from 'big.js'
 import { BN } from '@/avalanche'
-import { EarnState } from '@/store/modules/earn/types'
+import { EarnState } from '@/types'
 
 export default defineComponent({
     name: 'UserRewards',
@@ -47,19 +47,19 @@ export default defineComponent({
         UserRewardRow,
     },
     setup() {
-        const store = useStore()
-        
+        const mainStore = useMainStore()
+        const earnStore = useEarnStore()
         const updateInterval = ref<ReturnType<typeof setInterval> | undefined>(undefined)
 
         const userAddresses = computed(() => {
-            let wallet: AvaWalletCore = store.state.activeWallet
+            let wallet: AvaWalletCore = mainStore.activeWallet
             if (!wallet) return []
 
             return wallet.getAllAddressesP()
         })
 
         const stakingTxs = computed(() => {
-            return store.state.Earn.stakingTxs as EarnState['stakingTxs']
+            return earnStore.stakingTxs as EarnState['stakingTxs']
         })
 
         const validatorTxs = computed(() => {
@@ -86,11 +86,11 @@ export default defineComponent({
         })
 
         onMounted(() => {
-            store.dispatch('Earn/refreshRewards')
+            earnStore.refreshRewards()
 
             // Update every 5 minutes
             updateInterval.value = setInterval(() => {
-                store.dispatch('Earn/refreshRewards')
+                earnStore.refreshRewards()
             }, 5 * 60 * 1000)
         })
 

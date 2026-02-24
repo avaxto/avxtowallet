@@ -30,7 +30,7 @@
 import { defineComponent, ref } from 'vue'
 
 import ValidatorsList from '@/components/misc/ValidatorList/ValidatorsList.vue'
-import { ValidatorListItem } from '@/store/modules/platform/types'
+import { ValidatorListItem } from '@/types'
 
 export default defineComponent({
     name: 'NodeSelection',

@@ -32,7 +32,7 @@
 </template>
 <script>
 // import ListItem from './ListItem';
-import { useStore } from '@/stores'
+import { useMainStore } from '@/stores'
 
 export default {
     components: {
@@ -71,15 +71,14 @@ export default {
         }
     },
     setup() {
-        const store = useStore()
-        
+        const mainStore = useMainStore()
         return {
             store
         }
     },
     computed: {
         items() {
-            return this.store.state.addresses
+            return this.mainStore.addresses
         },
     },
     methods: {

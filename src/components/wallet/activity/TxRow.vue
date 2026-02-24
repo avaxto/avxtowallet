@@ -33,8 +33,8 @@
 </template>
 <script lang="ts">
 import { defineComponent, computed } from 'vue'
-import { useStore } from '@/stores'
-import { AssetsDict, NftFamilyDict } from '@/store/modules/assets/types'
+import { useAssetsStore } from '@/stores'
+import { AssetsDict, NftFamilyDict } from '@/types'
 import { PChainUtxo, Utxo } from '@avalabs/glacier-sdk'
 
 import StakingTx from '@/components/SidePanels/History/ViewTypes/StakingTx.vue'
@@ -74,8 +74,7 @@ export default defineComponent({
         }
     },
     setup(props: Props) {
-        const store = useStore()
-
+        const assetsStore = useAssetsStore()
         const explorerUrl = computed((): string | null => {
             const netID = ava.getNetworkID()
             return getUrlFromTransaction(netID, props.source)
@@ -125,11 +124,11 @@ export default defineComponent({
         })
 
         const assets = computed((): AssetsDict => {
-            return store.state.Assets.assetsDict
+            return assetsStore.assetsDict
         })
 
         const nftFams = computed((): NftFamilyDict => {
-            return store.state.Assets.nftFamsDict
+            return assetsStore.nftFamsDict
         })
 
         const mom = computed(() => {

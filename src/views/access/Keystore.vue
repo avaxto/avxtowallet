@@ -39,7 +39,7 @@ import { useI18n } from 'vue-i18n'
 
 import FileInput from '../../components/misc/FileInput.vue'
 // import RememberKey from "../../components/misc/RememberKey.vue";
-import { ImportKeyfileInput } from '@/store/types'
+import { ImportKeyfileInput } from '@/types'
 import { AllKeyFileTypes } from '@/js/IKeystore'
 
 export default defineComponent({

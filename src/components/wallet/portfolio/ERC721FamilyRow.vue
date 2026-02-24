@@ -21,11 +21,11 @@
 </template>
 <script lang="ts">
 import { defineComponent, computed } from 'vue'
-import { useStore } from '@/stores'
+import { useAssetsStore, useErc721Store } from '@/stores'
 import ERC721Token from '@/js/ERC721Token'
 import { WalletType } from '@/js/wallets/types'
 import ERC721View from '@/components/wallet/portfolio/ERC721Card.vue'
-import { ERC721WalletBalance } from '@/store/modules/assets/modules/types'
+import { ERC721WalletBalance } from '@/types'
 
 interface Props {
     family: ERC721Token
@@ -41,10 +41,10 @@ export default defineComponent({
         }
     },
     setup(props: Props) {
-        const store = useStore()
-
+        const assetsStore = useAssetsStore()
+        const erc721Store = useErc721Store()
         const walletBalance = computed((): string[] => {
-            return store.state.Assets.ERC721.walletBalance[props.family.contractAddress] || []
+            return erc721Store.walletBalance[props.family.contractAddress] || []
         })
 
         const hasBalance = computed(() => {

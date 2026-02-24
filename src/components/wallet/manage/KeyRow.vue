@@ -114,12 +114,11 @@
 </template>
 <script lang="ts">
 import { defineComponent, computed, ref } from 'vue'
-import { useStore } from '@/stores'
-import { useMainStore } from '@/stores/main'
+import { useAssetsStore, useMainStore } from '@/stores'
 
 import { bintools, keyChain } from '@/AVA'
 import AvaAsset from '@/js/AvaAsset'
-import { AssetsDict } from '@/store/modules/assets/types'
+import { AssetsDict } from '@/types'
 import { AmountOutput, KeyPair as AVMKeyPair } from '@/avalanche/apis/avm'
 import MnemonicPhraseModal from '@/components/modals/MnemonicPhraseModal.vue'
 import HdDerivationListModal from '@/components/modals/HdDerivationList/HdDerivationListModal.vue'
@@ -161,7 +160,7 @@ export default defineComponent({
     },
     emits: ['remove', 'select'],
     setup(props, { emit }) {
-        const store = useStore()
+        const assetsStore = useAssetsStore()
         const mainStore = useMainStore()
         
         const export_wallet = ref<InstanceType<typeof ExportKeys>>()
@@ -181,7 +180,7 @@ export default defineComponent({
         })
 
         const assetsDict = computed((): AssetsDict => {
-            return store.state.Assets.assetsDict
+            return assetsStore.assetsDict
         })
 
         const balances = computed((): IKeyBalanceDict => {

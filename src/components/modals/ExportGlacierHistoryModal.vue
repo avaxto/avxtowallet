@@ -79,7 +79,7 @@
 </template>
 <script lang="ts">
 import { defineComponent, ref, computed, watch } from 'vue'
-import { useStore } from '@/stores'
+import { useMainStore } from '@/stores'
 
 import Modal from '@/components/modals/Modal.vue'
 import { BlockchainId, Glacier, OperationStatus } from '@avalabs/glacier-sdk'
@@ -106,8 +106,7 @@ export default defineComponent({
         RadioButtons,
     },
     setup() {
-        const store = useStore()
-        
+        const mainStore = useMainStore()
         const modal = ref<InstanceType<typeof Modal> | null>(null)
         const operationID = ref<string | null>(null)
         const downloadURL = ref<string | null>(null)
@@ -175,7 +174,7 @@ export default defineComponent({
         })
 
         const wallet = computed(() => {
-            return store.state.activeWallet
+            return mainStore.activeWallet
         })
 
         const formStartDate = computed(() => {
@@ -257,7 +256,7 @@ export default defineComponent({
         }, { immediate: true })
 
         const generateCSVData = () => {
-            const w = store.state.activeWallet as WalletType
+            const w = mainStore.activeWallet as WalletType
             if (!w) return
             w.startTxExportJob(formStartDate.value, formEndDate.value, includeChains.value).then((res) => {
                 operationID.value = res.operationId

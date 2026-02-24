@@ -25,7 +25,7 @@
 <script lang="ts">
 import 'reflect-metadata'
 import { defineComponent, computed } from 'vue'
-import { useStore } from '@/stores'
+import { useHistoryStore, useMainStore, useNetworkStore } from '@/stores'
 import { useRoute } from 'vue-router'
 
 import Spinner from '@/components/misc/Spinner.vue'
@@ -40,11 +40,13 @@ export default defineComponent({
         Spinner,
     },
     setup() {
-        const store = useStore()
+        const mainStore = useMainStore()
+        const networkStore = useNetworkStore()
+        const historyStore = useHistoryStore()
         const route = useRoute()
 
         const isExplorer = computed((): boolean => {
-            const network: AvaNetwork | null = store.state.Network.selectedNetwork
+            const network: AvaNetwork | null = networkStore.selectedNetwork
             if (!network) return false
             if (network.explorerUrl) {
                 return true
@@ -60,11 +62,11 @@ export default defineComponent({
         })
 
         const isUpdating = computed((): boolean => {
-            return store.state.History.isUpdating ?? false
+            return historyStore.isUpdating ?? false
         })
 
         const transactions = computed((): TransactionType[] => {
-            return store.state.History.recentTransactions ?? []
+            return historyStore.recentTransactions ?? []
         })
 
         const isActivityPage = computed(() => {
@@ -75,7 +77,7 @@ export default defineComponent({
         })
 
         const explorerUrl = computed((): string => {
-            const addr = store.state.address?.value
+            const addr = mainStore.address
             if (!addr) return ''
             const addressPart = addr.split('-')[1]
             return `https://explorer.avax.network/address/${addressPart}`

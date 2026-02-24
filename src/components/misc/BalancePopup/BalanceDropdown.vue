@@ -22,7 +22,7 @@
 </template>
 <script lang="ts">
 import { defineComponent, ref, computed } from 'vue'
-import { useStore } from '@/stores'
+import { useAssetsStore } from '@/stores'
 
 import BalancePopup from '@/components/misc/BalancePopup/BalancePopup.vue'
 import AvaAsset from '@/js/AvaAsset'
@@ -50,12 +50,12 @@ export default defineComponent({
     },
     emits: ['update:modelValue', 'change'],
     setup(props, { emit }) {
-        const store = useStore()
+        const assetsStore = useAssetsStore()
         const isPopup = ref(false)
         const token_modal = ref<InstanceType<typeof AvmTokenSelect>>()
 
         const assetArray = computed((): AvaAsset[] => {
-            return store.getters['Assets/walletAssetsArray']
+            return assetsStore.walletAssetsArray
         })
 
         const disabledIds = computed((): string[] => {

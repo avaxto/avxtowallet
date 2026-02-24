@@ -86,7 +86,7 @@
 </template>
 <script lang="ts">
 import { defineComponent, ref, computed, onMounted, onUnmounted } from 'vue'
-import { useStore } from '@/stores'
+import { useHistoryStore, useNetworkStore } from '@/stores'
 import { useI18n } from 'vue-i18n'
 import {
     isTransactionC,
@@ -128,7 +128,8 @@ export default defineComponent({
         VirtualList,
     },
     setup() {
-        const store = useStore()
+        const networkStore = useNetworkStore()
+        const historyStore = useHistoryStore()
         const { t } = useI18n()
 
         const mode = ref<ModeKeyType>('all')
@@ -175,7 +176,7 @@ export default defineComponent({
         })
 
         const isUpdatingAll = computed((): boolean => {
-            return store.state.History.isUpdatingAll
+            return historyStore.isUpdatingAll
         })
 
         const isNextPage = computed(() => {
@@ -195,7 +196,7 @@ export default defineComponent({
         })
 
         const activeNetwork = computed((): AvaNetwork | null => {
-            return store.state.Network.selectedNetwork
+            return networkStore.selectedNetwork
         })
 
         const isMainnet = computed(() => {
@@ -212,11 +213,11 @@ export default defineComponent({
         })
 
         const isError = computed(() => {
-            return store.state.History.isError
+            return historyStore.isError
         })
 
         const updateHistory = async () => {
-            store.dispatch('History/updateAllTransactionHistory')
+            historyStore.updateAllTransactionHistory()
         }
 
         const monthGroups = computed((): any => {
@@ -248,7 +249,7 @@ export default defineComponent({
                 'AddDelegatorTx',
                 'CreateAssetTx',
             ]
-            return store.state.History.allTransactions.filter((tx: TransactionType) => {
+            return historyStore.allTransactions.filter((tx: TransactionType) => {
                 return supportedTypes.includes(tx.txType)
             })
         })

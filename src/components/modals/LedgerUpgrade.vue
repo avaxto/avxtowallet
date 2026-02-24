@@ -32,7 +32,7 @@
 </template>
 <script lang="ts">
 import { defineComponent, ref, computed, watch, onBeforeUnmount } from 'vue'
-import { useStore } from '@/stores'
+import { useLedgerStore, useMainStore } from '@/stores'
 import { WalletType } from '@/js/wallets/types'
 
 import Modal from './Modal.vue'
@@ -44,7 +44,8 @@ export default defineComponent({
         Modal,
     },
     setup() {
-        const store = useStore()
+        const mainStore = useMainStore()
+        const ledgerStore = useLedgerStore()
         const modal = ref<InstanceType<typeof Modal> | null>(null)
 
         const open = () => {
@@ -56,7 +57,7 @@ export default defineComponent({
         }
 
         const beforeClose = () => {
-            store.commit('Ledger/setIsUpgradeRequired', false)
+            ledgerStore.setIsUpgradeRequired(false)
         }
 
         const minV = computed(() => {
@@ -64,11 +65,11 @@ export default defineComponent({
         })
 
         const isActive = computed(() => {
-            return store.state.Ledger.isUpgradeRequired
+            return ledgerStore.isUpgradeRequired
         })
 
         const wallet = computed(() => {
-            return store.state.activeWallet as WalletType
+            return mainStore.activeWallet as WalletType
         })
 
         // Watch isActive for changes
@@ -82,7 +83,7 @@ export default defineComponent({
         }, { immediate: true })
 
         onBeforeUnmount(() => {
-            store.commit('Ledger/setIsUpgradeRequired', false)
+            ledgerStore.setIsUpgradeRequired(false)
         })
 
         return {

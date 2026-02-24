@@ -1,6 +1,5 @@
 import { AvaNetwork } from '@/js/AvaNetwork'
-import { pinia } from '@/stores'
-import { useMainStore } from '@/stores'
+import { pinia, useMainStore } from '@/stores'
 import { WalletType } from '@/js/wallets/types'
 
 /**

@@ -49,8 +49,8 @@
 </template>
 <script lang="ts">
 import { defineComponent, computed } from 'vue'
-import { useStore } from '@/stores'
-import { ValidatorListItem } from '@/store/modules/platform/types'
+import { useNetworkStore } from '@/stores'
+import { ValidatorListItem } from '@/types'
 import { bnToBig } from '@/helpers/helper'
 import { AvaNetwork } from '@/js/AvaNetwork'
 
@@ -63,8 +63,7 @@ export default defineComponent({
         }
     },
     setup(props) {
-        const store = useStore()
-
+        const networkStore = useNetworkStore()
         const uptimeText = computed((): string => {
             return (props.node.uptime * 100).toFixed(2) + '%'
         })
@@ -86,7 +85,7 @@ export default defineComponent({
         })
 
         const avascanURL = computed(() => {
-            const activeNet: AvaNetwork = store.state.Network.selectedNetwork
+            const activeNet: AvaNetwork = networkStore.selectedNetwork
 
             if (activeNet.networkId === 1) {
                 return `https://avascan.info/staking/validator/${props.node.nodeID}`

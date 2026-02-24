@@ -25,7 +25,7 @@ import type {
     ImportKeyfileInput,
     ExportWalletsInput,
     AccessWalletMultipleInput,
-} from '@/store/types'
+} from '@/types'
 
 // Import store composables
 import { useAssetsStore } from './assets'

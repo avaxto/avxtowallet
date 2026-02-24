@@ -31,10 +31,10 @@ import NFTCard from './NftCard.vue'
 import CollectibleFamilyRow from '@/components/wallet/portfolio/CollectibleFamilyRow.vue'
 import 'reflect-metadata'
 import { defineComponent, ref, computed } from 'vue'
-import { useStore } from '@/stores'
-import { IWalletNftDict, IWalletNftMintDict } from '@/store/types'
+import { useAssetsStore, useErc721Store, useMainStore } from '@/stores'
+import { IWalletNftDict, IWalletNftMintDict } from '@/types'
 import { AvaNftFamily } from '@/js/AvaNftFamily'
-import { NftFamilyDict } from '@/store/modules/assets/types'
+import { NftFamilyDict } from '@/types'
 import AddERC721TokenModal from '@/components/modals/AddERC721TokenModal.vue'
 import ERC721Token from '@/js/ERC721Token'
 import ERC721FamilyRow from '@/components/wallet/portfolio/ERC721FamilyRow.vue'
@@ -59,29 +59,31 @@ export default defineComponent({
         }
     },
     setup(props: Props) {
-        const store = useStore()
+        const mainStore = useMainStore()
+        const assetsStore = useAssetsStore()
+        const erc721Store = useErc721Store()
         const addTokenModalRef = ref<AddERC721TokenModal>()
         const isScroll = ref(false)
 
         const isEmpty = computed((): boolean => {
-            const nftUtxos = store.state.Assets.nftUTXOs.length
-            const mintUTxos = store.state.Assets.nftMintUTXOs.length
-            const erc721Bal = store.getters['Assets/ERC721/totalOwned']
+            const nftUtxos = assetsStore.nftUTXOs.length
+            const mintUTxos = assetsStore.nftMintUTXOs.length
+            const erc721Bal = erc721Store.totalOwned
             return nftUtxos + mintUTxos + erc721Bal === 0
         })
 
         const nftDict = computed((): IWalletNftDict => {
-            const dict = store.getters['Assets/walletNftDict']
+            const dict = assetsStore.walletNftDict
             return dict
         })
 
         const nftMintDict = computed((): IWalletNftMintDict => {
-            const dict = store.getters['Assets/nftMintDict']
+            const dict = assetsStore.nftMintDict
             return dict
         })
 
         const nftFamsArray = computed(() => {
-            let fams: AvaNftFamily[] = store.state.Assets.nftFams
+            let fams: AvaNftFamily[] = assetsStore.nftFams
 
             // If search query
             if (props.search) {
@@ -114,13 +116,13 @@ export default defineComponent({
         })
 
         const nftFamsDict = computed((): NftFamilyDict => {
-            const dict = store.state.Assets.nftFamsDict
+            const dict = assetsStore.nftFamsDict
             return dict
         })
 
         const erc721s = computed((): ERC721Token[] => {
-            const w: WalletType = store.state.activeWallet
-            return store.getters['Assets/ERC721/networkContracts']
+            const w: WalletType = mainStore.activeWallet
+            return erc721Store.networkContracts
         })
 
         const onScroll = (ev: any) => {

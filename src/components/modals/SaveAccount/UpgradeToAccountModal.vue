@@ -24,7 +24,7 @@
 </template>
 <script lang="ts">
 import { defineComponent, ref, watch, onMounted } from 'vue'
-import { useStore } from '@/stores'
+import { useAccountsStore, useMainStore } from '@/stores'
 import { useI18n } from 'vue-i18n'
 import Modal from '../Modal.vue'
 import {
@@ -41,13 +41,14 @@ import {
 } from '@/js/Keystore'
 import MnemonicWallet from '../../../js/wallets/MnemonicWallet'
 import { SingletonWallet } from '../../../js/wallets/SingletonWallet'
-import { SaveAccountInput } from '@/store/types'
+import { SaveAccountInput } from '@/types'
 
 export default defineComponent({
     name: 'UpgradeToAccountModal',
     components: { Modal },
     setup() {
-        const store = useStore()
+        const mainStore = useMainStore()
+        const accountsStore = useAccountsStore()
         const { t } = useI18n()
         const modal = ref<InstanceType<typeof Modal> | null>(null)
         const password = ref('')
@@ -72,15 +73,15 @@ export default defineComponent({
                 const keyFile: AllKeyFileDecryptedTypes = await readKeyFile(fileData, pass)
                 isLoading.value = false
                 const accessInput = extractKeysFromDecryptedFile(keyFile)
-                await store.dispatch('accessWalletMultiple', {
+                await mainStore.accessWalletMultiple({
                     keys: accessInput,
                     activeIndex: keyFile.activeIndex,
                 })
 
                 // If they are using an old keystore version upgrade to a new one
                 // if (keyFile.version !== KEYSTORE_VERSION) {
-                //     let wallets = store.state.wallets as MnemonicWallet[]
-                //     let wallet = store.state.activeWallet as
+                //     let wallets = mainStore.wallets as MnemonicWallet[]
+                //     let wallet = mainStore.activeWallet as
                 //         | MnemonicWallet
                 //         | SingletonWallet
                 //         | null
@@ -96,13 +97,13 @@ export default defineComponent({
                     password: pass,
                     accountName: 'Account 1',
                 }
-                await store.dispatch('Accounts/saveAccount', accountIn)
+                await accountsStore.saveAccount(accountIn)
 
                 // Wont be using this anymore
                 localStorage.removeItem('w')
 
                 // These are not volatile wallets since they are loaded from storage
-                store.state.volatileWallets = []
+                mainStore.volatileWallets = []
                 password.value = ''
                 close()
             } catch (e) {
@@ -130,7 +131,7 @@ export default defineComponent({
         }
 
         // Watch store auth state
-        watch(() => store.state.isAuth, (val: boolean) => {
+        watch(() => mainStore.isAuth, (val: boolean) => {
             if (!val) {
                 openIfValid()
             }

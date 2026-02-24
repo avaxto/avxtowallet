@@ -30,17 +30,17 @@
 </template>
 <script lang="ts">
 import { defineComponent, ref, computed, onMounted } from 'vue'
-import { useStore } from '@/stores'
+import { useAccountsStore } from '@/stores'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { ImportKeyfileInput, iUserAccountEncrypted } from '@/store/types'
+import { ImportKeyfileInput, iUserAccountEncrypted } from '@/types'
 import Identicon from '@/components/misc/Identicon.vue'
 
 export default defineComponent({
     name: 'Account',
     components: { Identicon },
     setup() {
-        const store = useStore()
+        const accountsStore = useAccountsStore()
         const route = useRoute()
         const router = useRouter()
         const { t } = useI18n()
@@ -54,7 +54,7 @@ export default defineComponent({
         })
 
         const accounts = computed(() => {
-            return store.state.Accounts.accounts
+            return accountsStore.accounts
         })
 
         const account = computed(() => {

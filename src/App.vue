@@ -31,7 +31,7 @@ import TestNetBanner from '@/components/TestNetBanner.vue'
 import NetworkLoadingBlock from '@/components/misc/NetworkLoadingBlock.vue'
 import UpgradeToAccountModal from '@/components/modals/SaveAccount/UpgradeToAccountModal.vue'
 import LedgerWalletLoading from '@/components/modals/LedgerWalletLoading.vue'
-import { useStore } from '@/stores'
+import { useAccountsStore, useAssetsStore, useErc721Store, useMainStore, useNetworkStore } from '@/stores'
 import { onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
@@ -48,7 +48,11 @@ export default {
         TestNetBanner,
     },
     setup() {
-        const store = useStore()
+        const mainStore = useMainStore()
+        const assetsStore = useAssetsStore()
+        const networkStore = useNetworkStore()
+        const accountsStore = useAccountsStore()
+        const erc721Store = useErc721Store()
         const route = useRoute()
         const router = useRouter()
                 
@@ -63,16 +67,16 @@ export default {
                 }
                 
                 // Initialize network
-                const aka = await store.dispatch('Network/init')
+                const aka = await networkStore.init()
                 
                 // Load accounts and initialize other stores
-                store.commit('Accounts/loadAccounts')
-                store.dispatch('Assets/initErc20List')
-                store.dispatch('Assets/ERC721/init')
-                store.dispatch('updateAvaxPrice')
+                accountsStore.loadAccounts()
+                assetsStore.initErc20List()
+                erc721Store.init()
+                mainStore.updateAvaxPrice()
 
                 // Route to access page if accounts exist
-                if (store.state.Accounts.accounts.length > 0) {
+                if (accountsStore.accounts.length > 0) {
                     // Do not route for legal pages
                     if (route.name !== 'legal') {
                         router.push('/access')
@@ -85,9 +89,7 @@ export default {
             }
         })
         
-        return {
-            store
-        }
+        return {}
     },
     computed: {
         isNavbar() {

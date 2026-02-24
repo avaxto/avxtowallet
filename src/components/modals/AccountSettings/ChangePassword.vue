@@ -26,14 +26,14 @@
 </template>
 <script lang="ts">
 import { defineComponent, ref, computed } from 'vue'
-import { useStore } from '@/stores'
+import { useNotificationsStore } from '@/stores'
 import AccountSettingsModal from '@/components/modals/AccountSettings/AccountSettingsModal.vue'
-import { ChangePasswordInput } from '@/store/modules/accounts/types'
+import { ChangePasswordInput } from '@/types'
 
 export default defineComponent({
     name: 'ChangePassword',
     setup(props, { emit }) {
-        const store = useStore()
+        const notificationsStore = useNotificationsStore()
         const pass = ref('')
         const passOld = ref('')
         const passConfirm = ref('')
@@ -77,7 +77,7 @@ export default defineComponent({
             store
                 .dispatch('Accounts/changePassword', input)
                 .then(() => {
-                    store.dispatch('Notifications/add', {
+                    notificationsStore.add({
                         title: 'Password Changed',
                         message: 'You can now use your account with your new password.',
                     })

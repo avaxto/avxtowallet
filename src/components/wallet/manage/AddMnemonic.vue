@@ -21,7 +21,7 @@
 </template>
 <script lang="ts">
 import { defineComponent, ref, computed } from 'vue'
-import { useStore } from '@/stores'
+import { useMainStore } from '@/stores'
 import { useI18n } from 'vue-i18n'
 import * as bip39 from 'bip39'
 
@@ -29,7 +29,7 @@ export default defineComponent({
     name: 'AddMnemonic',
     emits: ['success'],
     setup(_, { emit }) {
-        const store = useStore()
+        const mainStore = useMainStore()
         const { t } = useI18n()
         const phrase = ref('')
         const err = ref('')
@@ -88,7 +88,7 @@ export default defineComponent({
 
             setTimeout(async () => {
                 try {
-                    await store.dispatch('addWalletMnemonic', phraseValue)
+                    await mainStore.addWalletMnemonic(phraseValue)
                     isLoading.value = false
                     handleImportSuccess()
                 } catch (e) {

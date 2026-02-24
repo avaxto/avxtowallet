@@ -14,12 +14,12 @@
 </template>
 <script lang="ts">
 import { defineComponent, computed, reactive, onMounted } from 'vue'
-import { useStore } from '@/stores'
+import { useAssetsStore } from '@/stores'
 import { BaseTxAssetSummary, BaseTxNFTSummary } from '@/helpers/history_helper'
 import AvaAsset from '@/js/AvaAsset'
 import { bnToBig } from '@/helpers/helper'
 import { BN } from '@/avalanche'
-import { UTXO } from '@/store/modules/history/types'
+import { UTXO } from '@/types'
 import TxHistoryNftFamilyGroup from '@/components/SidePanels/TxHistoryNftFamilyGroup.vue'
 
 interface GroupDict {
@@ -42,12 +42,11 @@ export default defineComponent({
         }
     },
     setup(props) {
-        const store = useStore()
-        
+        const assetsStore = useAssetsStore()
         const groupDict = reactive<GroupDict>({})
 
         const assetDetail = computed((): AvaAsset => {
-            return store.state.Assets.nftFamsDict[props.assetID]
+            return assetsStore.nftFamsDict[props.assetID]
         })
 
         onMounted(() => {

@@ -123,7 +123,7 @@
 </template>
 <script lang="ts">
 import { defineComponent, ref, computed } from 'vue'
-import { useStore } from '@/stores'
+import { useAssetsStore, useHistoryStore, useMainStore, useNotificationsStore } from '@/stores'
 import { useI18n } from 'vue-i18n'
 
 import SelectMintUTXO from '@/components/wallet/studio/mint/SelectMintUtxo/SelectMintUTXO.vue'
@@ -134,7 +134,7 @@ import GenericForm from '@/components/wallet/studio/mint/forms/GenericForm.vue'
 import NftPayloadView from '@/components/misc/NftPayloadView/NftPayloadView.vue'
 
 import { NFTMintOutput, NFTTransferOutput, UTXO } from '@/avalanche/apis/avm'
-import { NftFamilyDict } from '@/store/modules/assets/types'
+import { NftFamilyDict } from '@/types'
 import { avm, bintools, pChain } from '@/AVA'
 import {
     GenericFormType,
@@ -171,7 +171,10 @@ export default defineComponent({
     },
     emits: ['clearUtxo', 'cancel'],
     setup(props, { emit }) {
-        const store = useStore()
+        const mainStore = useMainStore()
+        const assetsStore = useAssetsStore()
+        const notificationsStore = useNotificationsStore()
+        const historyStore = useHistoryStore()
         const { t } = useI18n()
 
         const quantity = ref(1)
@@ -200,7 +203,7 @@ export default defineComponent({
         })
 
         const nftFamsDict = computed(() => {
-            return store.state.Assets.nftFamsDict as NftFamilyDict
+            return assetsStore.nftFamsDict as NftFamilyDict
         })
 
         const family = computed(() => {
@@ -293,7 +296,7 @@ export default defineComponent({
         }
 
         const familyUtxos = computed((): UTXO[] => {
-            let dict = store.getters['Assets/walletNftDict']
+            let dict = assetsStore.walletNftDict
         // return this.$store.getters.walletNftDict[this.family.id] || []
             return dict[family.value.id] || []
         })
@@ -324,7 +327,7 @@ export default defineComponent({
         })
 
         const submit = async () => {
-            let wallet = store.state.activeWallet
+            let wallet = mainStore.activeWallet
             if (!wallet) return
 
             isLoading.value = true
@@ -346,15 +349,15 @@ export default defineComponent({
             isSuccess.value = true
             txId.value = txIdParam
 
-            store.dispatch('Notifications/add', {
+            notificationsStore.add({
                 type: 'success',
                 title: 'Success',
                 message: 'Collectible minted and added to your wallet.',
             })
 
             setTimeout(() => {
-                store.dispatch('Assets/updateUTXOs')
-                store.dispatch('History/updateTransactionHistory')
+                assetsStore.updateUTXOs()
+                historyStore.updateTransactionHistory()
             }, 2000)
         }
 

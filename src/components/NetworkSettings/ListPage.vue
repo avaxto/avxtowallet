@@ -15,7 +15,7 @@
 <script lang="ts">
 import 'reflect-metadata'
 import { defineComponent, computed } from 'vue'
-import { useStore } from '@/stores'
+import { useNetworkStore } from '@/stores'
 
 import NetworkRow from './NetworkRow.vue'
 import { AvaNetwork } from '@/js/AvaNetwork'
@@ -27,10 +27,9 @@ export default defineComponent({
     },
     emits: ['edit'],
     setup(_, { emit }) {
-        const store = useStore()
-
+        const networkStore = useNetworkStore()
         const networks = computed((): AvaNetwork[] => {
-            return store.getters['Network/allNetworks']
+            return networkStore.allNetworks
         })
 
         const onEdit = (net: AvaNetwork) => {

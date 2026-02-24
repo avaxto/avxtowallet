@@ -28,7 +28,7 @@
 </template>
 <script lang="ts">
 import { defineComponent, ref, computed, watch, onMounted } from 'vue'
-import { useStore } from '@/stores'
+import { useMainStore } from '@/stores'
 import UtxoSelectModal from '@/components/modals/UtxoSelect/UtxoSelect.vue'
 import { AmountOutput, UTXO, UTXOSet } from '@/avalanche/apis/platformvm'
 import { WalletType } from '@/js/wallets/types'
@@ -51,14 +51,13 @@ export default defineComponent({
     },
     emits: ['change'],
     setup(props, { emit }) {
-        const store = useStore()
-        
+        const mainStore = useMainStore()
         const customUtxos = ref<UTXO[]>([])
         const formType = ref('all')
         const modal = ref<InstanceType<typeof UtxoSelectModal>>()
 
         const platformUtxos = computed((): UTXO[] => {
-            let wallet: WalletType | null = store.state.activeWallet
+            let wallet: WalletType | null = mainStore.activeWallet
             if (!wallet) return []
             const utxos = wallet.getPlatformUTXOSet().getAllUTXOs()
             const now = UnixNow()

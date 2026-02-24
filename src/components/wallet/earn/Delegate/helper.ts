@@ -1,5 +1,5 @@
 import { ValidatorListFilter } from '@/components/wallet/earn/Delegate/types'
-import { ValidatorListItem } from '@/store/modules/platform/types'
+import { ValidatorListItem } from '@/types'
 import { DAY_MS } from '@/constants'
 import { ONEAVAX } from '@/avalanche/utils'
 import { BN } from '@/avalanche'

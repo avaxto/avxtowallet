@@ -25,10 +25,10 @@
 </template>
 <script lang="ts">
 import { defineComponent, computed } from 'vue'
-import { useStore } from '@/stores'
+import { useAssetsStore } from '@/stores'
 import { AvaNftFamily } from '@/js/AvaNftFamily'
 import NFTCard from './NftCard.vue'
-import { IWalletNftDict, IWalletNftMintDict } from '@/store/types'
+import { IWalletNftDict, IWalletNftMintDict } from '@/types'
 import { NFTTransferOutput, UTXO, AVMConstants, NFTMintOutput } from '@/avalanche/apis/avm'
 import { NftGroupDict } from '@/components/wallet/portfolio/types'
 import CollectibleFamilyGroup from '@/components/wallet/portfolio/CollectibleFamilyGroup.vue'
@@ -46,14 +46,13 @@ export default defineComponent({
         }
     },
     setup(props) {
-        const store = useStore()
-
+        const assetsStore = useAssetsStore()
         const nftDict = computed((): IWalletNftDict => {
-            return store.getters['Assets/walletNftDict']
+            return assetsStore.walletNftDict
         })
 
         const nftMintDict = computed((): IWalletNftMintDict => {
-            return store.getters['Assets/nftMintDict']
+            return assetsStore.nftMintDict
         })
 
         const utxos = computed((): UTXO[] => {

@@ -60,8 +60,7 @@
 <script lang="ts">
 import 'reflect-metadata'
 import { defineComponent, ref, computed, watch, onMounted } from 'vue'
-import { useStore } from '@/stores'
-import { useMainStore } from '@/stores/main'
+import { useMainStore } from '@/stores'
 import { useI18n } from 'vue-i18n'
 
 import CopyText from '@/components/misc/CopyText.vue'
@@ -91,7 +90,6 @@ export default defineComponent({
         ChainSelect,
     },
     setup() {
-        const store = useStore()
         const mainStore = useMainStore()
         const { t } = useI18n()
         

@@ -1,6 +1,5 @@
 import { createRouter, createWebHistory, RouteLocationNormalized, NavigationGuardNext } from 'vue-router'
 import Home from '../views/Home.vue'
-
 import Transfer from '@/views/wallet/Transfer.vue'
 import ManageKeys from '@/views/wallet/ManageKeys.vue'
 import Menu from '../views/access/Menu.vue'
@@ -15,7 +14,7 @@ import Earn from '@/views/wallet/Earn.vue'
 import Advanced from '@/views/wallet/Advanced.vue'
 import Activity from '@/views/wallet/Activity.vue'
 import Account from '@/views/access/Account.vue'
-import { useStore } from '@/stores'
+import { useMainStore } from '@/stores'
 import Studio from '@/views/wallet/Studio.vue'
 import Export from '@/views/wallet/CrossChain.vue'
 import Xpub from '@/views/access/Xpub.vue'
@@ -24,8 +23,8 @@ import WalletReadonly from '@/views/WalletReadonly.vue'
 import { PublicMnemonicWallet } from '@/avalanche-wallet-sdk'
 
 const ifNotAuthenticated = (to: RouteLocationNormalized, from: RouteLocationNormalized, next: NavigationGuardNext) => {
-    const store = useStore()
-    if (!store.state.isAuth.value) {
+    const mainStore = useMainStore()
+    if (!mainStore.isAuth) {
         next()
         return
     }
@@ -33,8 +32,8 @@ const ifNotAuthenticated = (to: RouteLocationNormalized, from: RouteLocationNorm
 }
 
 const ifAuthenticated = (to: RouteLocationNormalized, from: RouteLocationNormalized, next: NavigationGuardNext) => {
-    const store = useStore()
-    if (store.state.isAuth.value) {
+    const mainStore = useMainStore()
+    if (mainStore.isAuth) {
         next()
         return
     }

@@ -9,12 +9,12 @@
 </template>
 <script lang="ts">
 import { defineComponent, ref, computed } from 'vue'
-import { useStore } from '@/stores'
+import { useNotificationsStore } from '@/stores'
 
 export default defineComponent({
     name: 'DeleteAccount',
     setup() {
-        const store = useStore()
+        const notificationsStore = useNotificationsStore()
         const pass = ref('')
         const error = ref('')
 
@@ -28,7 +28,7 @@ export default defineComponent({
             await store
                 .dispatch('Accounts/deleteAccount', pass.value)
                 .then((res) => {
-                    store.dispatch('Notifications/add', {
+                    notificationsStore.add({
                         title: 'Account Deleted',
                         message: 'Your wallet is no longer stored on this browser.',
                     })

@@ -20,7 +20,7 @@
 <script lang="ts">
 import 'reflect-metadata'
 import { defineComponent, ref } from 'vue'
-import { useStore } from '@/stores'
+import { useMainStore } from '@/stores'
 import { useI18n } from 'vue-i18n'
 // @ts-ignore
 import { QrInput } from '@/vue_components'
@@ -34,7 +34,7 @@ export default defineComponent({
     },
     emits: ['success'],
     setup(_, { emit }) {
-        const store = useStore()
+        const mainStore = useMainStore()
         const { t } = useI18n()
         const privateKeyInput = ref('')
         const canAdd = ref(false)
@@ -65,7 +65,7 @@ export default defineComponent({
 
             setTimeout(async () => {
                 try {
-                    await store.dispatch('addWalletSingleton', privateKeyInput.value)
+                    await mainStore.addWalletSingleton(privateKeyInput.value)
                     emit('success')
                     clear()
                 } catch (e) {

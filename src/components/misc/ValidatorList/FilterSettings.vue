@@ -99,7 +99,7 @@
 import { defineComponent, ref, computed, watch } from 'vue'
 import moment from 'moment'
 import { ValidatorListFilter } from '@/components/wallet/earn/Delegate/types'
-import { ValidatorListItem } from '@/store/modules/platform/types'
+import { ValidatorListItem } from '@/types'
 import { filterValidatorList } from '@/components/wallet/earn/Delegate/helper'
 
 const MINUTE_MS = 60000

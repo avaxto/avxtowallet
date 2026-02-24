@@ -19,11 +19,11 @@
 </template>
 <script lang="ts">
 import { defineComponent, computed } from 'vue'
-import { useStore } from '@/stores'
+import { useAssetsStore, useErc721Store } from '@/stores'
 import ERC721Token from '@/js/ERC721Token'
 import ERC721View from '@/components/misc/ERC721View.vue'
 import { iErc721SelectInput } from '@/components/misc/EVMInputDropdown/types'
-import { ERC721WalletBalance } from '@/store/modules/assets/modules/types'
+import { ERC721WalletBalance } from '@/types'
 
 interface Props {
     token: ERC721Token
@@ -40,10 +40,10 @@ export default defineComponent({
     },
     emits: ['select'],
     setup(props: Props, { emit }) {
-        const store = useStore()
-
+        const assetsStore = useAssetsStore()
+        const erc721Store = useErc721Store()
         const walletBalance = computed((): string[] => {
-            return store.state.Assets.ERC721.walletBalance[props.token.contractAddress] || []
+            return erc721Store.walletBalance[props.token.contractAddress] || []
         })
 
         const hasBalance = computed((): boolean => {

@@ -18,7 +18,7 @@
 </template>
 <script lang="ts">
 import { defineComponent, ref, computed, onMounted } from 'vue'
-import { useStore } from '@/stores'
+import { useMainStore } from '@/stores'
 import { useI18n } from 'vue-i18n'
 
 import Modal from '@/components/modals/Modal.vue'
@@ -40,7 +40,7 @@ export default defineComponent({
         }
     },
     setup() {
-        const store = useStore()
+        const mainStore = useMainStore()
         const { t } = useI18n()
         
         const modal = ref<InstanceType<typeof Modal> | null>(null)
@@ -57,11 +57,11 @@ export default defineComponent({
         }
 
         const logout = () => {
-            store.dispatch('logout')
+            mainStore.logout()
         }
 
         const allWallets = computed((): MnemonicWallet[] => {
-            return store.state.wallets
+            return mainStore.wallets
         })
 
         onMounted(() => {

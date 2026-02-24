@@ -45,12 +45,12 @@
 </template>
 <script lang="ts">
 import { defineComponent, ref, computed, onActivated, onDeactivated } from 'vue'
-import { useStore } from '@/stores'
+import { useAssetsStore } from '@/stores'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import NewCollectibleFamily from '@/components/wallet/studio/NewCollectibleFamily.vue'
 import MintNft from '@/components/wallet/studio/mint/MintNft.vue'
-import { IWalletNftMintDict } from '@/store/types'
+import { IWalletNftMintDict } from '@/types'
 import Big from 'big.js'
 import { bnToBig } from '@/helpers/helper'
 import { avm } from '@/AVA'
@@ -62,7 +62,7 @@ export default defineComponent({
         NewCollectibleFamily,
     },
     setup() {
-        const store = useStore()
+        const assetsStore = useAssetsStore()
         const route = useRoute()
         const router = useRouter()
         const { t } = useI18n()
@@ -81,7 +81,7 @@ export default defineComponent({
         }
 
         const nftMintDict = computed((): IWalletNftMintDict => {
-            return store.getters['Assets/nftMintDict']
+            return assetsStore.nftMintDict
         })
 
         const canMint = computed((): boolean => {

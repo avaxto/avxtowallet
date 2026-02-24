@@ -36,7 +36,7 @@
 </template>
 <script lang="ts">
 import { defineComponent, ref, computed, watch } from 'vue'
-import { useStore } from '@/stores'
+import { useAssetsStore } from '@/stores'
 
 import MnemonicWallet from '@/js/wallets/MnemonicWallet'
 import { KeyPair as AVMKeyPair, UTXOSet as AVMUTXOSet } from '@/avalanche/apis/avm'
@@ -62,8 +62,7 @@ export default defineComponent({
         }
     },
     setup(props) {
-        const store = useStore()
-        
+        const assetsStore = useAssetsStore()
         const addrsExternal = ref<string[]>([])
         const addrsInternal = ref<string[]>([])
         const addrsPlatform = ref<string[]>([])
@@ -93,19 +92,19 @@ export default defineComponent({
         })
 
         const assetsDict = computed(() => {
-            return store.state.Assets.assetsDict
+            return assetsStore.assetsDict
         })
 
         const utxoSetToBalanceDict = (
             set: AVMUTXOSet | PlatformUTXOSet,
             addrs: string[]
         ): DerivationListBalanceDict[] => {
-            let assets: AvaAsset[] = store.state.Assets.assets
+            let assets: AvaAsset[] = assetsStore.assets
 
             let denoms: number[] = assets.map((asset) => {
                 return asset.denomination
             })
-            let assetIds: string[] = store.getters['Assets/assetIds']
+            let assetIds: string[] = assetsStore.assetIds
 
             let res = []
             for (var i = 0; i < addrs.length; i++) {

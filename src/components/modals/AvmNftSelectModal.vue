@@ -15,10 +15,10 @@
 </template>
 <script lang="ts">
 import { defineComponent, ref, computed } from 'vue'
-import { useStore } from '@/stores'
+import { useAssetsStore } from '@/stores'
 import Modal from '@/components/modals/Modal.vue'
 import { UTXO } from '@/avalanche/apis/avm'
-import { NftFamilyDict } from '@/store/modules/assets/types'
+import { NftFamilyDict } from '@/types'
 import CollectibleFamily from '@/components/misc/BalancePopup/CollectibleFamily.vue'
 
 interface Props {
@@ -36,15 +36,15 @@ export default defineComponent({
     },
     emits: ['select'],
     setup(props: Props, { emit }) {
-        const store = useStore()
+        const assetsStore = useAssetsStore()
         const modalRef = ref<InstanceType<typeof Modal>>()
 
         const isEmpty = computed((): boolean => {
-            return store.state.Assets.nftUTXOs.length === 0
+            return assetsStore.nftUTXOs.length === 0
         })
 
         const nftFamsDict = computed((): NftFamilyDict => {
-            return store.state.Assets.nftFamsDict
+            return assetsStore.nftFamsDict
         })
 
         const open = () => {

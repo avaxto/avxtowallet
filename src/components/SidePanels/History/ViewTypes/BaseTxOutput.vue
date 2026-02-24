@@ -13,7 +13,7 @@
 </template>
 <script lang="ts">
 import { defineComponent, computed } from 'vue'
-import { useStore } from '@/stores'
+import { useAssetsStore } from '@/stores'
 import { BaseTxAssetSummary } from '@/helpers/history_helper'
 import AvaAsset from '@/js/AvaAsset'
 import { bnToBig } from '@/helpers/helper'
@@ -37,12 +37,11 @@ export default defineComponent({
         }
     },
     setup(props: Props) {
-        const store = useStore()
-
+        const assetsStore = useAssetsStore()
         const assetDetail = computed((): AvaAsset => {
             return (
-                store.state.Assets.assetsDict[props.assetID] ||
-                store.state.Assets.nftFamsDict[props.assetID]
+                assetsStore.assetsDict[props.assetID] ||
+                assetsStore.nftFamsDict[props.assetID]
             )
         })
 

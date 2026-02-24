@@ -61,14 +61,14 @@
 </template>
 <script lang="ts">
 import { defineComponent, ref, computed } from 'vue'
-import { useStore } from '@/stores'
+import { useNetworkStore } from '@/stores'
 
 import NetworkRow from './NetworkRow.vue'
 import CustomPage from './CustomPage.vue'
 import ListPage from './ListPage.vue'
 import EditPage from '@/components/NetworkSettings/EditPage.vue'
 import { AvaNetwork } from '@/js/AvaNetwork'
-import { NetworkStatus } from '@/store/modules/network/types'
+import { NetworkStatus } from '@/types'
 import { useTheme } from '@/composables/useTheme'
 
 export default defineComponent({
@@ -80,7 +80,7 @@ export default defineComponent({
         EditPage,
     },
     setup() {
-        const store = useStore()
+        const networkStore = useNetworkStore()
         const { isDay } = useTheme()
 
         const page = ref('list')
@@ -105,7 +105,7 @@ export default defineComponent({
         }
 
         const addCustomNetwork = (data: AvaNetwork): void => {
-            store.dispatch('Network/addCustomNetwork', data)
+            networkStore.addCustomNetwork(data)
             page.value = 'list'
         }
 
@@ -122,7 +122,7 @@ export default defineComponent({
 
         const networkUpdated = () => {
             page.value = 'list'
-            store.dispatch('Network/save')
+            networkStore.save()
         }
 
         const onedit = (network: AvaNetwork): void => {
@@ -131,15 +131,15 @@ export default defineComponent({
         }
 
         const status = computed((): NetworkStatus => {
-            return store.state.Network.status
+            return networkStore.status
         })
 
         const activeNetwork = computed((): null | AvaNetwork => {
-            return store.state.Network.selectedNetwork
+            return networkStore.selectedNetwork
         })
 
         const networks = computed((): AvaNetwork[] => {
-            return store.getters('Network/allNetworks')
+            return networkStore.allNetworks
         })
 
         const isTestnet = computed((): boolean => {

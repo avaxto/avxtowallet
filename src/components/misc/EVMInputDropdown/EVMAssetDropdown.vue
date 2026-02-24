@@ -12,7 +12,7 @@
 </template>
 <script lang="ts">
 import { defineComponent, ref, computed } from 'vue'
-import { useStore } from '@/stores'
+import { useMainStore } from '@/stores'
 import Erc20Token from '@/js/Erc20Token'
 import { WalletType } from '@/js/wallets/types'
 
@@ -35,8 +35,7 @@ export default defineComponent({
     },
     emits: ['change', 'changeCollectible'],
     setup(props, { emit }) {
-        const store = useStore()
-        
+        const mainStore = useMainStore()
         const select_modal = ref<InstanceType<typeof EVMTokenSelectModal>>()
         const isPopup = ref(false)
         const selected = ref<Erc20Token | ERC721Token | 'native'>('native')
@@ -53,7 +52,7 @@ export default defineComponent({
         }
 
         const avaxBalance = computed((): Big => {
-            let w: WalletType | null = store.state.activeWallet
+            let w: WalletType | null = mainStore.activeWallet
             if (!w) return Big(0)
             let balBN = w.ethBalance
             return bnToBig(balBN, 18)

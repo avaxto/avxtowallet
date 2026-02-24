@@ -46,12 +46,12 @@
 </template>
 <script lang="ts">
 import { defineComponent, ref, computed } from 'vue'
-import { useStore } from '@/stores'
+import { useAccountsStore, useMainStore, useNotificationsStore } from '@/stores'
 import { useI18n } from 'vue-i18n'
 
 import Modal from '../Modal.vue'
-import { SaveAccountInput } from '@/store/types'
-import { iUserAccountEncrypted } from '@/store/types'
+import { SaveAccountInput } from '@/types'
+import { iUserAccountEncrypted } from '@/types'
 import Identicon from '@/components/misc/Identicon.vue'
 
 export default defineComponent({
@@ -61,7 +61,9 @@ export default defineComponent({
         Modal,
     },
     setup() {
-        const store = useStore()
+        const mainStore = useMainStore()
+        const notificationsStore = useNotificationsStore()
+        const accountsStore = useAccountsStore()
         const { t } = useI18n()
         const modal = ref<InstanceType<typeof Modal> | null>(null)
         const password = ref('')
@@ -74,7 +76,7 @@ export default defineComponent({
         const foundAccount = ref<iUserAccountEncrypted | null>(null)
 
         const walletType = computed(() => {
-            return store.state.activeWallet.type
+            return mainStore.activeWallet.type
         })
 
         const error = computed(() => {
@@ -101,14 +103,14 @@ export default defineComponent({
                 accountName: accountNameVal,
                 password: pass,
             }
-            await store.dispatch('Accounts/saveAccount', input)
+            await accountsStore.saveAccount(input)
 
             isLoading.value = false
             onsuccess()
         }
 
         const onsuccess = () => {
-            store.dispatch('Notifications/add', {
+            notificationsStore.add({
                 title: 'Account Saved',
                 message: 'Your keys are now stored under a new local account.',
                 type: 'info',
@@ -133,7 +135,7 @@ export default defineComponent({
         }
 
         const baseAddresses = computed((): string[] => {
-            return store.getters['Accounts/baseAddresses']
+            return accountsStore.baseAddresses
         })
 
         return {

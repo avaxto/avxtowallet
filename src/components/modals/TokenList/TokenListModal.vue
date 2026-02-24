@@ -40,10 +40,10 @@
 </template>
 <script lang="ts">
 import { defineComponent, ref, computed } from 'vue'
-import { useStore } from '@/stores'
+import { useAssetsStore } from '@/stores'
 
 import Modal from '@/components/modals/Modal.vue'
-import { TokenList } from '@/store/modules/assets/types'
+import { TokenList } from '@/types'
 
 export default defineComponent({
     name: 'TokenListModal',
@@ -51,7 +51,7 @@ export default defineComponent({
         Modal,
     },
     setup() {
-        const store = useStore()
+        const assetsStore = useAssetsStore()
         const modal = ref<InstanceType<typeof Modal> | null>(null)
         const urlIn = ref('')
         const err = ref('')
@@ -64,7 +64,7 @@ export default defineComponent({
         })
 
         const lists = computed((): TokenList[] => {
-            return store.state.Assets.tokenLists
+            return assetsStore.tokenLists
         })
 
         const beforeClose = () => {
@@ -74,7 +74,7 @@ export default defineComponent({
 
         const onSuccess = () => {
             urlIn.value = ''
-            store.dispatch('Assets/updateERC20Balances')
+            assetsStore.updateERC20Balances()
         }
 
         const onError = (error: any) => {
@@ -97,7 +97,7 @@ export default defineComponent({
         }
 
         const removeList = async (list: TokenList) => {
-            store.dispatch('Assets/removeTokenList', list)
+            assetsStore.removeTokenList(list)
         }
 
         const open = (): void => {

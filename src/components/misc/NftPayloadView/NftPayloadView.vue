@@ -22,7 +22,7 @@
 </template>
 <script lang="ts">
 import { defineComponent, ref, computed, watch, onMounted } from 'vue'
-import { useStore } from '@/stores'
+import { useAssetsStore } from '@/stores'
 import { PayloadBase } from '@/avalanche/utils'
 
 import UrlPayloadView from '@/components/misc/NftPayloadView/views/UrlPayloadView.vue'
@@ -58,11 +58,11 @@ export default defineComponent({
         }
     },
     setup(props) {
-        const store = useStore()
+        const assetsStore = useAssetsStore()
         const isShow = ref(false)
 
         const nftWhitelist = computed(() => {
-            return store.state.Assets.nftWhitelist
+            return assetsStore.nftWhitelist
         })
 
         const payloadID = computed(() => {

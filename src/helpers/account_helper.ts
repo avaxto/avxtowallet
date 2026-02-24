@@ -1,4 +1,4 @@
-import { iUserAccountEncrypted } from '@/store/types'
+import { iUserAccountEncrypted } from '@/types'
 import { WalletType } from '@/js/wallets/types'
 import isEqual from 'lodash.isequal'
 import differenceBy from 'lodash.differenceby'

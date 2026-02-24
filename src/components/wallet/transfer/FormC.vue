@@ -125,10 +125,10 @@
 </template>
 <script lang="ts">
 import { defineComponent, computed, ref, onMounted, onBeforeUnmount } from 'vue'
-import { useStore } from '@/stores'
+import { useMainStore } from '@/stores'
 import { useI18n } from 'vue-i18n'
 import AvaxInput from '@/components/misc/AvaxInput.vue'
-import { priceDict } from '@/store/types'
+import { priceDict } from '@/types'
 import { WalletType } from '@/js/wallets/types'
 import {
     GasHelper,
@@ -156,7 +156,7 @@ export default defineComponent({
         QrInput,
     },
     setup() {
-        const store = useStore()
+        const mainStore = useMainStore()
         const route = useRoute()
         const { t } = useI18n()
 

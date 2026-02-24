@@ -27,7 +27,7 @@
 </template>
 <script lang="ts">
 import { defineComponent, computed, type PropType } from 'vue'
-import { useStore } from '@/stores'
+import { useNetworkStore, useNotificationsStore } from '@/stores'
 import { AvaNetwork } from '@/js/AvaNetwork'
 
 export default defineComponent({
@@ -40,8 +40,8 @@ export default defineComponent({
     },
     emits: ['edit'],
     setup(props, { emit }) {
-        const store = useStore()
-
+        const networkStore = useNetworkStore()
+        const notificationsStore = useNotificationsStore()
         const endpoint = computed(() => {
             let net = props.network
             let portText = ''
@@ -53,20 +53,18 @@ export default defineComponent({
         })
 
         const networkStatus = computed(() => {
-            return store.state.Network.status
+            return networkStore.status
         })
 
         const isConnected = computed(() => {
-            let state = store.state.Network
-            if (props.network === state.selectedNetwork && networkStatus.value === 'connected') {
+            if (props.network === networkStore.selectedNetwork && networkStatus.value === 'connected') {
                 return true
             }
             return false
         })
 
         const isSelected = computed(() => {
-            let state = store.state.Network
-            if (props.network === state.selectedNetwork) {
+            if (props.network === networkStore.selectedNetwork) {
                 return true
             }
             return false
@@ -77,9 +75,8 @@ export default defineComponent({
         }
 
         const deleteNet = () => {
-            store.dispatch('Network/removeCustomNetwork', props.network)
-            store.dispatch(
-                'Notifications/add',
+            networkStore.removeCustomNetwork(props.network)
+            notificationsStore.add(
                 {
                     title: 'Network Removed',
                     message: 'Removed custom network.',
@@ -91,10 +88,9 @@ export default defineComponent({
         const select = async () => {
             let net = props.network
             try {
-                let isSel = await store.dispatch('Network/setNetwork', net)
+                let isSel = await networkStore.setNetwork(net)
 
-                store.dispatch(
-                    'Notifications/add',
+                notificationsStore.add(
                     {
                         title: 'Network Connected',
                         message: 'Connected to ' + net.name,
@@ -105,10 +101,9 @@ export default defineComponent({
                 // Note: Removed parent access as it's not Vue 3 compatible
                 // Instead, consider emitting an event or using proper component communication
             } catch (e) {
-                store.state.Network.selectedNetwork = null
-                store.state.Network.status = 'disconnected'
-                store.dispatch(
-                    'Notifications/add',
+                networkStore.selectedNetwork = null
+                networkStore.status = 'disconnected'
+                notificationsStore.add(
                     {
                         title: 'Connection Failed',
                         message: `Failed to connect ${net.name}`,

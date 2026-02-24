@@ -9,7 +9,7 @@
 </template>
 <script lang="ts">
 import { defineComponent, computed } from 'vue'
-import { useStore } from '@/stores'
+import { useMainStore } from '@/stores'
 import { ChainIdType } from '@/constants'
 import { CurrencyType } from '@/components/misc/CurrencySelect/types'
 
@@ -32,10 +32,9 @@ export default defineComponent({
     },
     emits: ['change'],
     setup(props: Props, { emit }) {
-        const store = useStore()
-
+        const mainStore = useMainStore()
         const wallet = computed(() => {
-            return store.state.activeWallet
+            return mainStore.activeWallet
         })
 
         const isEVMSupported = computed(() => {

@@ -11,7 +11,7 @@
 import VueComponents from '@/vue_components'
 //@ts-ignore
 const { CopyText } = VueComponents
-import { useStore } from '@/stores'
+import { useNotificationsStore } from '@/stores'
 
 export default {
     components: {
@@ -24,15 +24,14 @@ export default {
         },
     },
     setup() {
-        const store = useStore()
-        
+        const notificationsStore = useNotificationsStore()
         return {
             store
         }
     },
     methods: {
         oncopy(val) {
-            this.store.dispatch('Notifications/add', {
+            this.notificationsStore.add({
                 title: 'Copy',
                 message: 'Copied to clipboard.',
             })

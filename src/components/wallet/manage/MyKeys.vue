@@ -23,8 +23,7 @@
 </template>
 <script lang="ts">
 import { defineComponent, computed } from 'vue'
-import { useStore } from '@/stores'
-import { useMainStore } from '@/stores/main'
+import { useAccountsStore, useHistoryStore, useMainStore, useNotificationsStore } from '@/stores'
 import { useI18n } from 'vue-i18n'
 
 import KeyRow from '@/components/wallet/manage/KeyRow.vue'
@@ -38,17 +37,19 @@ export default defineComponent({
         RememberKey,
     },
     setup() {
-        const store = useStore()
         const mainStore = useMainStore()
+        const notificationsStore = useNotificationsStore()
+        const historyStore = useHistoryStore()
+        const accountsStore = useAccountsStore()
         const { t } = useI18n()
 
         const selectWallet = (wallet: WalletType) => {
-            store.dispatch('activateWallet', wallet)
-            store.dispatch('History/updateTransactionHistory')
+            mainStore.activateWallet(wallet)
+            historyStore.updateTransactionHistory()
         }
 
         const account = computed(() => {
-            return store.getters['Accounts/account']
+            return accountsStore.account
         })
 
         const removeWallet = async (wallet: WalletType) => {
@@ -56,9 +57,9 @@ export default defineComponent({
             let isConfirm = confirm(msg)
 
             if (isConfirm) {
-                await store.dispatch('Accounts/deleteKey', wallet)
-                await store.dispatch('removeWallet', wallet)
-                store.dispatch('Notifications/add', {
+                await accountsStore.deleteKey(wallet)
+                await mainStore.removeWallet(wallet)
+                notificationsStore.add({
                     title: t('keys.remove_success_title'),
                     message: t('keys.remove_success_msg'),
                 })

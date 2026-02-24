@@ -48,7 +48,7 @@
 <script lang="ts">
 import 'reflect-metadata'
 import { defineComponent, ref, onMounted } from 'vue'
-import { useStore } from '@/stores'
+import { useNetworkStore, useNotificationsStore } from '@/stores'
 
 import { AvaNetwork } from '@/js/AvaNetwork'
 import punycode from 'punycode'
@@ -67,8 +67,8 @@ export default defineComponent({
     },
     emits: ['delete', 'success'],
     setup(props: Props, { emit }) {
-        const store = useStore()
-        
+        const networkStore = useNetworkStore()
+        const notificationsStore = useNotificationsStore()
         const name = ref('My Custom Network')
         const url = ref('')
         const networkId = ref(12345)
@@ -163,9 +163,9 @@ export default defineComponent({
             net.explorerSiteUrl = explorer_site.value
             net.networkId = networkId.value
 
-            await store.dispatch('Network/save')
+            await networkStore.save()
 
-            store.dispatch('Notifications/add', {
+            notificationsStore.add({
                 title: 'Changes Saved',
                 message: 'Network settings updated.',
             })

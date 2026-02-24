@@ -117,7 +117,7 @@
 <script lang="ts">
 import 'reflect-metadata'
 import { defineComponent, ref, computed, watch, onMounted } from 'vue'
-import { useStore } from '@/stores'
+import { useAssetsStore, useMainStore } from '@/stores'
 import { useI18n } from 'vue-i18n'
 
 import Dropdown from '@/components/misc/Dropdown.vue'
@@ -166,7 +166,8 @@ export default defineComponent({
         TxStateCard,
     },
     setup() {
-        const store = useStore()
+        const mainStore = useMainStore()
+        const assetsStore = useAssetsStore()
         const { t } = useI18n()
 
         const form = ref<InstanceType<typeof ChainSwapForm> | null>(null)
@@ -208,12 +209,12 @@ export default defineComponent({
         })
 
         const ava_asset = computed((): AvaAsset | null => {
-            let ava = store.getters['Assets/AssetAVA']
+            let ava = assetsStore.AssetAVA
             return ava
         })
 
         const platformBalance = computed(() => {
-            return store.getters['Assets/walletPlatformBalance']
+            return assetsStore.walletPlatformBalance
         })
 
         const platformUnlocked = computed((): BN => {
@@ -356,7 +357,7 @@ export default defineComponent({
         }
 
         const wallet = computed(() => {
-            let wallet: WalletType = store.state.activeWallet
+            let wallet: WalletType = mainStore.activeWallet
             return wallet
         })
 

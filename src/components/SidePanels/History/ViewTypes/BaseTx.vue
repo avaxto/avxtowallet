@@ -79,7 +79,7 @@
 </template>
 <script lang="ts">
 import { defineComponent, computed } from 'vue'
-import { useStore } from '@/stores'
+import { useMainStore } from '@/stores'
 import { TransactionValueDict } from '@/components/SidePanels/types'
 import { PayloadBase, PayloadTypes } from '@/avalanche/utils'
 import { BN, Buffer } from '@/avalanche'
@@ -115,8 +115,7 @@ export default defineComponent({
         }
     },
     setup(props) {
-        const store = useStore()
-
+        const mainStore = useMainStore()
         const inputUTXOs = computed(() => {
             return props.transaction.consumedUtxos || []
         })
@@ -129,7 +128,7 @@ export default defineComponent({
          * All X/P addresses used by the wallet
          */
         const addresses = computed(() => {
-            let wallet: WalletType | null = store.state.activeWallet
+            let wallet: WalletType | null = mainStore.activeWallet
             if (!wallet) return []
             return wallet.getHistoryAddresses()
         })

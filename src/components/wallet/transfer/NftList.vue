@@ -27,9 +27,9 @@
 </template>
 <script lang="ts">
 import { defineComponent, ref, computed, onActivated, onDeactivated } from 'vue'
-import { useStore } from '@/stores'
-import { IWalletNftDict } from '../../../store/types'
-import { NftFamilyDict } from '../../../store/modules/assets/types'
+import { useAssetsStore } from '@/stores'
+import { IWalletNftDict } from '@/types'
+import { NftFamilyDict } from '@/types'
 import BalancePopup from '@/components/misc/BalancePopup/BalancePopup.vue'
 
 import 'reflect-metadata'
@@ -55,8 +55,7 @@ export default defineComponent({
     },
     emits: ['change'],
     setup(props, { emit }) {
-        const store = useStore()
-        
+        const assetsStore = useAssetsStore()
         const addedNfts = ref<UTXO[]>([])
         const groupUtxos = ref<IGroupDict>({})
         const select_modal = ref<InstanceType<typeof AvmNftSelectModal>>()
@@ -72,15 +71,15 @@ export default defineComponent({
         })
 
         const nftUTXOs = computed((): UTXO[] => {
-            return store.state.Assets.nftUTXOs
+            return assetsStore.nftUTXOs
         })
 
         const nftDict = computed((): IWalletNftDict => {
-            return store.getters['Assets/walletNftDict']
+            return assetsStore.walletNftDict
         })
 
         const nftFamsDict = computed((): NftFamilyDict => {
-            return store.state.Assets.nftFamsDict
+            return assetsStore.nftFamsDict
         })
 
         const usedNftIds = computed(() => {

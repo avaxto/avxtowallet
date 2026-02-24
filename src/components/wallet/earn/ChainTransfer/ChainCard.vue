@@ -19,7 +19,7 @@
 </template>
 <script lang="ts">
 import { defineComponent, computed, onMounted } from 'vue'
-import { useStore } from '@/stores'
+import { useAssetsStore, useMainStore } from '@/stores'
 import { UTXO } from '@/avalanche/apis/platformvm'
 import { ChainIdType } from '@/constants'
 import { BN } from '@/avalanche'
@@ -54,25 +54,25 @@ export default defineComponent({
     },
     emits: ['change'],
     setup(props, { emit }) {
-        const store = useStore()
-
+        const mainStore = useMainStore()
+        const assetsStore = useAssetsStore()
         const onChange = (ev: any) => {
             let val: ChainIdType = ev.target.value
             emit('change', val)
         }
 
         const ava_asset = computed((): AvaAsset | null => {
-            let ava = store.getters['Assets/AssetAVA']
+            let ava = assetsStore.AssetAVA
             return ava
         })
 
         const wallet = computed((): WalletType => {
-            let wallet: MnemonicWallet = store.state.activeWallet
+            let wallet: MnemonicWallet = mainStore.activeWallet
             return wallet
         })
 
         const platformUnlocked = computed((): BN => {
-            return store.getters['Assets/walletPlatformBalance'].available
+            return assetsStore.walletPlatformBalance.available
         })
 
         const avmUnlocked = computed((): BN => {

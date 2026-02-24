@@ -29,7 +29,7 @@
 <script lang="ts">
 import 'reflect-metadata'
 import { defineComponent, computed } from 'vue'
-import { useStore } from '@/stores'
+import { useMainStore } from '@/stores'
 
 import moment from 'moment'
 import TxHistoryNftFamilyGroup from '@/components/SidePanels/TxHistoryNftFamilyGroup.vue'
@@ -64,8 +64,7 @@ export default defineComponent({
         }
     },
     setup(props: Props) {
-        const store = useStore()
-
+        const mainStore = useMainStore()
         const explorerUrl = computed((): string | null => {
             const netID = ava.getNetworkID()
             return getUrlFromTransaction(netID, props.transaction)
@@ -76,7 +75,7 @@ export default defineComponent({
         })
 
         const addresses = computed(() => {
-            const wallet: WalletType | null = store.state.activeWallet
+            const wallet: WalletType | null = mainStore.activeWallet
             if (!wallet) return []
             return wallet.getHistoryAddresses()
         })

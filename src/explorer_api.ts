@@ -1,5 +1,5 @@
 import axios, { AxiosInstance } from 'axios'
-import { ITransactionData } from './store/modules/history/types'
+import { ITransactionData } from '@/types'
 
 // Doesn't really matter what we set, it will change
 const api_url: string = 'localhost'

@@ -21,12 +21,12 @@
 <script lang="ts">
 import 'reflect-metadata'
 import { defineComponent, computed, watch, ref } from 'vue'
-import { useStore } from '@/stores'
+import { useLedgerStore } from '@/stores'
 
 import Spinner from '@/components/misc/Spinner.vue'
 import Modal from './Modal.vue'
-import { ILedgerBlockMessage } from '../../store/modules/ledger/types'
-import { LEDGER_EXCHANGE_TIMEOUT } from '../../store/modules/ledger/types'
+import { ILedgerBlockMessage } from '@/types'
+import { LEDGER_EXCHANGE_TIMEOUT } from '@/types'
 
 export default defineComponent({
     name: 'LedgerBlock',
@@ -35,8 +35,7 @@ export default defineComponent({
         Spinner,
     },
     setup() {
-        const store = useStore()
-        
+        const ledgerStore = useLedgerStore()
         const intervalId = ref<ReturnType<typeof setTimeout> | null>(null)
         const modal = ref<InstanceType<typeof Modal>>()
 
@@ -53,27 +52,27 @@ export default defineComponent({
         }
 
         const title = computed((): string => {
-            return store.state.Ledger.title
+            return ledgerStore.title
         })
 
         const info = computed((): string => {
-            return store.state.Ledger.info
+            return ledgerStore.info
         })
 
         const messages = computed((): Array<ILedgerBlockMessage> => {
-            return store.state.Ledger.messages
+            return ledgerStore.messages
         })
 
         const isActive = computed((): boolean => {
-            return store.state.Ledger.isBlock
+            return ledgerStore.isBlock
         })
 
         const isPrompt = computed((): boolean => {
-            return store.state.Ledger.isPrompt
+            return ledgerStore.isPrompt
         })
 
         const warning = computed(() => {
-            return store.state.Ledger.warning
+            return ledgerStore.warning
         })
 
         watch(isActive, (val: boolean) => {

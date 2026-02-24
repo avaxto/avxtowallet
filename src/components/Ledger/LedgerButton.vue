@@ -17,7 +17,7 @@
 <script lang="ts">
 import 'reflect-metadata'
 import { defineComponent, ref, computed, onUnmounted } from 'vue'
-import { useStore } from '@/stores'
+import { useLedgerStore, useMainStore, useNotificationsStore } from '@/stores'
 import TransportU2F from '@ledgerhq/hw-transport-u2f'
 //@ts-ignore
 import TransportWebUSB from '@ledgerhq/hw-transport-webusb'
@@ -47,8 +47,9 @@ export default defineComponent({
         LedgerBlock,
     },
     setup() {
-        const store = useStore()
-        
+        const notificationsStore = useNotificationsStore()
+        const ledgerStore = useLedgerStore()
+        const mainStore = useMainStore()
         const isLoading = ref(false)
         const version = ref<string | undefined>(undefined)
 
@@ -91,7 +92,7 @@ export default defineComponent({
             // If no config was found that means user has not opened the Avalanche app.
             setTimeout(() => {
                 if (version.value) return
-                store.commit('Ledger/setIsUpgradeRequired', true)
+                ledgerStore.setIsUpgradeRequired(true)
             }, 1000)
 
             try {
@@ -103,16 +104,16 @@ export default defineComponent({
         }
 
         const showWalletLoading = () => {
-            store.commit('Ledger/closeModal')
-            store.commit('Ledger/setIsWalletLoading', true)
+            ledgerStore.closeModal()
+            ledgerStore.setIsWalletLoading(true)
         }
 
         const loadWallet = async (wallet: LedgerWallet) => {
             showWalletLoading()
             return new Promise((resolve, reject) => {
                 setTimeout(() => {
-                    store
-                        .dispatch('accessWalletLedger', wallet)
+                    mainStore
+                        .accessWalletLedger(wallet)
                         .then(() => {
                             resolve(undefined)
                         })
@@ -124,7 +125,7 @@ export default defineComponent({
         }
 
         const onsuccess = () => {
-            store.commit('Ledger/setIsWalletLoading', false)
+            ledgerStore.setIsWalletLoading(false)
             isLoading.value = false
             version.value = undefined
         }
@@ -132,10 +133,10 @@ export default defineComponent({
         const onerror = (err: any) => {
             isLoading.value = false
             version.value = undefined
-            store.commit('Ledger/closeModal')
+            ledgerStore.closeModal()
             console.error(err)
 
-            store.dispatch('Notifications/add', {
+            notificationsStore.add({
                 type: 'error',
                 title: 'Ledger Access Failed',
                 message: 'Failed to get public key from ledger device.',
@@ -151,17 +152,17 @@ export default defineComponent({
                 await waitForConfig(transport)
 
                 // Close the initial prompt modal if exists
-                store.commit('Ledger/setIsUpgradeRequired', false)
+                ledgerStore.setIsUpgradeRequired(false)
                 isLoading.value = true
 
                 if (!version.value) {
-                    store.commit('Ledger/setIsUpgradeRequired', true)
+                    ledgerStore.setIsUpgradeRequired(true)
                     isLoading.value = false
                     throw new Error('')
                 }
 
                 if (version.value < MIN_LEDGER_V) {
-                    store.commit('Ledger/setIsUpgradeRequired', true)
+                    ledgerStore.setIsUpgradeRequired(true)
                     isLoading.value = false
                     throw new Error('')
                 }
@@ -177,7 +178,7 @@ export default defineComponent({
                     },
                 ]
 
-                store.commit('Ledger/openModal', {
+                ledgerStore.openModal({
                     title: 'Getting Public Keys',
                     messages,
                     isPrompt: false,
@@ -196,7 +197,7 @@ export default defineComponent({
         }
 
         onUnmounted(() => {
-            store.commit('Ledger/closeModal')
+            ledgerStore.closeModal()
         })
 
         return {

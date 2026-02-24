@@ -21,7 +21,7 @@
 <script lang="ts">
 import 'reflect-metadata'
 import { defineComponent, ref } from 'vue'
-import { useStore } from '@/stores'
+import { useMainStore, useNotificationsStore } from '@/stores'
 
 import Modal from '@/components/modals/Modal.vue'
 import CopyText from '@/components/misc/CopyText.vue'
@@ -43,7 +43,8 @@ export default defineComponent({
         }
     },
     setup() {
-        const store = useStore()
+        const mainStore = useMainStore()
+        const notificationsStore = useNotificationsStore()
         const isLoading = ref(false)
         const modalRef = ref<InstanceType<typeof Modal>>()
 
@@ -57,8 +58,8 @@ export default defineComponent({
 
         const submit = async () => {
             isLoading.value = true
-            await store.dispatch('logout')
-            await store.dispatch('Notifications/add', {
+            await mainStore.logout()
+            await notificationsStore.add({
                 title: 'Logout',
                 message: 'You have successfully logged out of your wallet.',
             })

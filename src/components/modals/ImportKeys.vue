@@ -31,7 +31,7 @@
 <script lang="ts">
 import 'reflect-metadata'
 import { defineComponent, ref, onMounted } from 'vue'
-import { useStore } from '@/stores'
+import { useNotificationsStore } from '@/stores'
 import { useI18n } from 'vue-i18n'
 import Modal from '@/components/modals/Modal.vue'
 import AddKeyFile from '@/components/wallet/manage/AddKeyFile.vue'
@@ -52,7 +52,7 @@ export default defineComponent({
         AddMnemonic,
     },
     setup() {
-        const store = useStore()
+        const notificationsStore = useNotificationsStore()
         const { t } = useI18n()
         
         const modalRef = ref<Modal>()
@@ -76,7 +76,7 @@ export default defineComponent({
 
         const handleImportSuccess = () => {
             modalRef.value?.close()
-            store.dispatch('Notifications/add', {
+            notificationsStore.add({
                 title: t('keys.import_key_success_title'),
                 message: t('keys.import_key_success_msg'),
             })

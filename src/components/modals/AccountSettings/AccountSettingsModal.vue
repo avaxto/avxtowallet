@@ -36,11 +36,11 @@
 </template>
 <script lang="ts">
 import { defineComponent, ref, computed } from 'vue'
-import { useStore } from '@/stores'
+import { useAccountsStore, useMainStore } from '@/stores'
 
 import Modal from '@/components/modals/Modal.vue'
 import Identicon from '@/components/misc/Identicon.vue'
-import { iUserAccountEncrypted } from '@/store/types'
+import { iUserAccountEncrypted } from '@/types'
 import ChangePassword from '@/components/modals/AccountSettings/ChangePassword.vue'
 import DeleteAccount from '@/components/modals/AccountSettings/DeleteAccount.vue'
 import SaveKeys from '@/components/modals/AccountSettings/SaveKeys.vue'
@@ -53,17 +53,17 @@ export default defineComponent({
         Modal,
     },
     setup() {
-        const store = useStore()
-        
+        const mainStore = useMainStore()
+        const accountsStore = useAccountsStore()
         const modal = ref<InstanceType<typeof Modal> | null>(null)
         const subComponent = ref<any>(null)
 
         const account = computed((): iUserAccountEncrypted => {
-            return store.getters['Accounts/account']
+            return accountsStore.account
         })
 
         const hasVolatile = computed(() => {
-            return store.state.volatileWallets.length > 0
+            return mainStore.volatileWallets.length > 0
         })
 
         const open = () => {

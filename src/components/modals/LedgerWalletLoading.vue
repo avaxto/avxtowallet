@@ -8,7 +8,7 @@
 </template>
 <script lang="ts">
 import { defineComponent, ref, computed, watch, onMounted } from 'vue'
-import { useStore } from '@/stores'
+import { useLedgerStore } from '@/stores'
 import Modal from '@/components/modals/Modal.vue'
 import Spinner from '@/components/misc/Spinner.vue'
 
@@ -16,11 +16,11 @@ export default defineComponent({
     name: 'LedgerWalletLoading',
     components: { Spinner, Modal },
     setup() {
-        const store = useStore()
+        const ledgerStore = useLedgerStore()
         const modalRef = ref<InstanceType<typeof Modal>>()
 
         const isActive = computed(() => {
-            return store.state.Ledger.isWalletLoading
+            return ledgerStore.isWalletLoading
         })
 
         onMounted(() => {

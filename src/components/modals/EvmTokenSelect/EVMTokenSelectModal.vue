@@ -34,7 +34,7 @@
 </template>
 <script lang="ts">
 import { defineComponent, ref, computed } from 'vue'
-import { useStore } from '@/stores'
+import { useAssetsStore, useErc721Store, useMainStore } from '@/stores'
 
 import Modal from '@/components/modals/Modal.vue'
 import Erc20Token from '@/js/Erc20Token'
@@ -43,7 +43,7 @@ import { WalletType } from '@/js/wallets/types'
 import { bnToBig } from '@/helpers/helper'
 import ERC721Token from '@/js/ERC721Token'
 import ERC721Row from '@/components/modals/EvmTokenSelect/ERC721Row.vue'
-import { ERC721WalletBalance } from '@/store/modules/assets/modules/types'
+import { ERC721WalletBalance } from '@/types'
 import { iErc721SelectInput } from '@/components/misc/EVMInputDropdown/types'
 
 export default defineComponent({
@@ -54,8 +54,9 @@ export default defineComponent({
     },
     emits: ['select', 'selectCollectible'],
     setup(props, { emit }) {
-        const store = useStore()
-        
+        const mainStore = useMainStore()
+        const assetsStore = useAssetsStore()
+        const erc721Store = useErc721Store()
         const modal = ref<InstanceType<typeof Modal> | null>(null)
 
         const open = (): void => {
@@ -63,7 +64,7 @@ export default defineComponent({
         }
 
         const tokens = computed((): Erc20Token[] => {
-            let tokens: Erc20Token[] = store.getters['Assets/networkErc20Tokens']
+            let tokens: Erc20Token[] = assetsStore.networkErc20Tokens
             let filt = tokens.filter((t) => {
                 if (t.balanceBN.isZero()) return false
                 return true
@@ -72,12 +73,12 @@ export default defineComponent({
         })
 
         const erc721s = computed((): ERC721Token[] => {
-            let w: WalletType = store.state.activeWallet
-            return store.getters['Assets/ERC721/networkContracts']
+            let w: WalletType = mainStore.activeWallet
+            return erc721Store.networkContracts
         })
 
         const avaxBalance = computed((): Big => {
-            let w: WalletType | null = store.state.activeWallet
+            let w: WalletType | null = mainStore.activeWallet
             if (!w) return Big(0)
             let balBN = w.ethBalance
             return bnToBig(balBN, 18)
