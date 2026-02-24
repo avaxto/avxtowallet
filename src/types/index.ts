@@ -1,5 +1,5 @@
 /**
- * Consolidated type definitions previously spread across src/store/modules/*/types.ts
+ * Consolidated type definitions previously spread across src/store/modules/
  */
 
 import Big from 'big.js'
