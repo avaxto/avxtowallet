@@ -45,6 +45,19 @@
                 </v-btn>
             </template>
             <v-list>
+                
+                <v-list-item>
+                    <v-list-item-title>
+                        <a 
+                        href="https://avax.to/avxto/quick-start/" 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        class="wallet_link">
+                            AVXTO Quick Start
+                        </a>
+                    </v-list-item-title>
+                </v-list-item>
+
                 <v-list-item>
                     <v-list-item-title>
                         <a 

@@ -55,6 +55,7 @@ import {
     type Hash,
     type TransactionSerializable,
 } from 'viem'
+
 import { avalanche } from 'viem/chains'
 
 /**

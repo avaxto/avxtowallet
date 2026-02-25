@@ -18,7 +18,8 @@
     "dependencies": {
         "@avalabs/glacier-sdk": "2.8.0-alpha.108",
         "@avalabs/hw-app-avalanche": "^1.1.1",
-        "@avalanche-sdk/client": "^0.0.4-alpha.16",
+        "@avalanche-sdk/chainkit": "^0.3.13",
+        "@avalanche-sdk/client": "^0.1.1",
         "@ethereumjs/common": "2.0.0",
         "@ethereumjs/tx": "3.0.0",
         "@fortawesome/fontawesome-svg-core": "^7.1.0",

@@ -99,7 +99,7 @@ const routes = [
         path: '/wallet',
         children: [
             {
-                path: '/',
+                path: '',
                 name: 'wallet',
                 component: WalletHome,
             },
