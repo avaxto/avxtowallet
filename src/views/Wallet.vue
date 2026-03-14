@@ -8,7 +8,7 @@
             <div>
                 <NavbarMenu></NavbarMenu>
             </div>
-            <div>
+            <div class="wallet_content">
                 <top-info class="wallet_top"></top-info>            
                 <router-view id="wallet_router" v-slot="{ Component }">
                     <transition name="page_fade" mode="out-in">
@@ -143,11 +143,14 @@ export default defineComponent({
 }
 
 .wallet_main {
-    height: 100%;
     display: grid;
-    grid-template-rows: max-content 1fr;
     grid-gap: 15px;
     padding-top: 8px;
+}
+
+.wallet_content {
+    display: flex;
+    flex-direction: column;
 }
 
 #wallet_router {

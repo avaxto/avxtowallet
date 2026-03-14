@@ -9,11 +9,11 @@
             <span v-if="!isAvaxToken">ANT</span>
         </p>
         <p class="name_col mobile_only">{{ symbol }}</p>
-        <router-link :to="sendLink" class="send_col" v-if="isBalance">
+        <router-link :to="isBalance ? sendLink : ''" class="send_col" :class="{ disabled: !isBalance }">
             <img v-if="$root.theme === 'day'" src="@/assets/sidebar/transfer_nav.png" />
             <img v-else src="@/assets/sidebar/transfer_nav_night.svg" />
         </router-link>
-        <p v-else></p>
+        
         <p class="balance_col" v-if="isBalance">
             <span>
                 {{ amtBig.toLocaleString() }}
@@ -166,7 +166,7 @@ export default defineComponent({
 
 .asset {
     padding: 14px 0px;
-    justify-self: center;
+    
 
     > * {
         align-self: center;
@@ -174,7 +174,7 @@ export default defineComponent({
 
     .balance_col {
         font-size: 18px;
-        text-align: right;
+        text-align: left;
         .fiat {
             font-size: 12px;
             color: var(--primary-color-light);
@@ -197,6 +197,10 @@ export default defineComponent({
         img {
             width: 18px;
             object-fit: contain;
+        }
+        &.disabled {
+            opacity: 0.15;
+            pointer-events: none;
         }
     }
 }

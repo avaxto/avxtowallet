@@ -4,7 +4,6 @@
         <TokenListModal ref="tokenlistModal"></TokenListModal>
         <div class="headers">
             <p class="name_col">{{ $t('portfolio.name') }}</p>
-            <p></p>
             <p class="send_col">{{ $t('portfolio.send') }}</p>
             <p class="balance_col balance_header">{{ $t('portfolio.balance') }}</p>
         </div>
@@ -183,7 +182,6 @@ export default defineComponent({
 .fungibles_view {
     display: flex;
     flex-direction: column;
-    height: 100%;
 }
 
 .search {
@@ -213,13 +211,11 @@ export default defineComponent({
 }
 
 .scrollable {
-    overflow-y: scroll;
-    height: 100%;
     flex-grow: 1;
 }
 
 .scrollabe_cont {
-    height: 50px;
+    height: auto;
 }
 .asset {
     border-bottom: 1px solid var(--bg-light);
@@ -302,7 +298,7 @@ export default defineComponent({
     .headers,
     .asset {
         display: grid;
-        grid-template-columns: max-content 1fr 100px 1fr;
+        grid-template-columns: 40px minmax(0, 1fr) 100px minmax(0, 1fr);
     }
 }
 
@@ -310,7 +306,7 @@ export default defineComponent({
     .fungibles_view {
         .headers,
         .asset {
-            grid-template-columns: max-content 1fr 1fr 50px;
+            grid-template-columns: max-content minmax(0, 1fr) minmax(0, 1fr) 50px;
         }
 
         .balance_col {
