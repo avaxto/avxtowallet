@@ -111,6 +111,37 @@ export default class MnemonicWallet extends AbstractHdWallet implements IAvaHdWa
         this.hdKey = masterHdKey
         this.mnemonic = new MnemonicPhrase(mnemonic)
         this.isLoading = false
+
+        // AvalancheAccount: initialize xpAccount for XP-chain signing
+        const avmKeyPair = this.externalHelper.getCurrentKey()
+        if (avmKeyPair) {
+            const pubKeyBuf = avmKeyPair.getPublicKey()
+            const pubKeyHex = '0x' + pubKeyBuf.toString('hex')
+            this.xpAccount = {
+                publicKey: pubKeyHex,
+                signMessage: async (message: string) => {
+                    return this.signMessage(message)
+                },
+                signTransaction: async (txHash: string | Uint8Array) => {
+                    const hashBuf = typeof txHash === 'string'
+                        ? BufferAvalanche.from(txHash.replace('0x', ''), 'hex')
+                        : BufferAvalanche.from(txHash)
+                    const signed = avmKeyPair.sign(hashBuf)
+                    return bintools.cb58Encode(signed)
+                },
+                verify: (message: string, signature: string) => {
+                    try {
+                        const msgBuf = BufferAvalanche.from(message, 'utf8')
+                        const sigBuf = bintools.cb58Decode(signature)
+                        return avmKeyPair.verify(msgBuf, sigBuf)
+                    } catch {
+                        return false
+                    }
+                },
+                type: 'local' as const,
+                source: 'mnemonic' as const,
+            }
+        }
     }
 
     getEvmAddress(): string {

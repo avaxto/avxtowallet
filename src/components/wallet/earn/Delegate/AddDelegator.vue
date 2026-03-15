@@ -216,7 +216,7 @@ import NodeSelection from '@/components/wallet/earn/Delegate/NodeSelection.vue'
 import CurrencySelect from '@/components/misc/CurrencySelect/CurrencySelect.vue'
 import Spinner from '@/components/misc/Spinner.vue'
 import DateForm from '@/components/wallet/earn/DateForm.vue'
-import { WalletType } from '@/js/wallets/types'
+import { AvalancheAccount } from '@/js/wallets/types'
 
 import UtxoSelectForm from '@/components/wallet/earn/UtxoSelectForm.vue'
 import Expandable from '@/components/misc/Expandable.vue'
@@ -280,7 +280,7 @@ export default defineComponent({
         const maxTxSizeAmount = ref<BN | null>(null)
 
         const wallet = computed(() => {
-            return mainStore.activeWallet as WalletType
+            return mainStore.activeWallet as AvalancheAccount
         })
 
         const setEnd = (val: string) => {
@@ -303,7 +303,7 @@ export default defineComponent({
             isLoading.value = true
             err.value = ''
 
-            let wallet: WalletType = mainStore.activeWallet
+            let wallet: AvalancheAccount = mainStore.activeWallet
 
             // Start delegation in 5 minutes
             let startDate = new Date(Date.now() + 5 * MIN_MS)

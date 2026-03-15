@@ -26,7 +26,7 @@ import { useI18n } from 'vue-i18n'
 import Big from 'big.js'
 import { DerivationListBalanceDict } from '@/components/modals/HdDerivationList/types'
 import { LedgerWallet } from '@/js/wallets/LedgerWallet'
-import { WalletType } from '@/js/wallets/types'
+import { AvalancheAccount } from '@/js/wallets/types'
 
 import { ava } from '@/AVA'
 import { getPreferredHRP } from '@/avalanche/utils'
@@ -79,7 +79,7 @@ export default defineComponent({
         })
 
         const wallet = computed(() => {
-            return mainStore.activeWallet as WalletType
+            return mainStore.activeWallet as AvalancheAccount
         })
 
         const walletType = computed(() => {

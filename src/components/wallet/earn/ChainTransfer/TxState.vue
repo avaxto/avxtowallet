@@ -38,7 +38,7 @@ import { ChainIdType } from '@/constants'
 import { BN } from '@/avalanche'
 import AvaAsset from '@/js/AvaAsset'
 import MnemonicWallet from '@/js/wallets/MnemonicWallet'
-import { WalletType } from '@/js/wallets/types'
+import { AvalancheAccount } from '@/js/wallets/types'
 
 import { bnToBig } from '@/helpers/helper'
 import { TxState } from '@/components/wallet/earn/ChainTransfer/types'

@@ -45,7 +45,7 @@ import ERC721Abi from '@openzeppelin/contracts/build/contracts/ERC721.json'
 import Erc20Token from '@/js/Erc20Token'
 import { TokenListToken } from '@/types'
 import { ERC721TokenInput } from '@/types'
-import { WalletType } from '@/js/wallets/types'
+import { AvalancheAccount } from '@/js/wallets/types'
 import axios from 'axios'
 import ERC721Token from '@/js/ERC721Token'
 

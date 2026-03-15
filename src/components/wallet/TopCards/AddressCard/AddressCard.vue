@@ -68,7 +68,7 @@ import QRModal from '@/components/modals/QRModal.vue'
 import PaperWallet from '@/components/modals/PaperWallet/PaperWallet.vue'
 import QRCode from 'qrcode'
 import { KeyPair as AVMKeyPair } from '@/avalanche/apis/avm'
-import { WalletType, WalletNameType } from '@/js/wallets/types'
+import { AvalancheAccount, WalletNameType } from '@/js/wallets/types'
 
 import MnemonicWallet, {
     AVA_ACCOUNT_PATH,
@@ -100,12 +100,12 @@ export default defineComponent({
         const colorLight = ref('#FFF')
         const colorDark = ref('#242729')
         const chainNow = ref<ChainIdType>(
-            (mainStore.activeWallet as WalletType | null)?.type === 'injected' ? 'C' : 'X'
+            (mainStore.activeWallet as AvalancheAccount | null)?.type === 'injected' ? 'C' : 'X'
         )
         const showBech = ref(false)
         
-        const activeWallet = computed((): WalletType | null => {
-            return mainStore.activeWallet as WalletType | null
+        const activeWallet = computed((): AvalancheAccount | null => {
+            return mainStore.activeWallet as AvalancheAccount | null
         })
 
         const address = computed(() => {

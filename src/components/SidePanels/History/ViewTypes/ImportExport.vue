@@ -27,7 +27,7 @@ import {
     XChainTransaction,
 } from '@/js/Glacier/models'
 import { getExportBalances } from '@/components/SidePanels/History/ViewTypes/getExportBalances'
-import { WalletType } from '@/js/wallets/types'
+import { AvalancheAccount } from '@/js/wallets/types'
 import { isOwnedUTXO } from '@/js/Glacier/isOwnedUtxo'
 
 function idToAlias(chainId: string | undefined) {
@@ -98,7 +98,7 @@ export default defineComponent({
          * All X/P addresses used by the wallet
          */
         const addresses = computed(() => {
-            let wallet: WalletType | null = mainStore.activeWallet
+            let wallet: AvalancheAccount | null = mainStore.activeWallet
             if (!wallet) return []
             return wallet.getHistoryAddresses()
         })
@@ -129,7 +129,7 @@ export default defineComponent({
             return idToAlias(sourceChainId.value)
         })
 
-        const wallet = computed((): WalletType => {
+        const wallet = computed((): AvalancheAccount => {
             return mainStore.activeWallet
         })
 

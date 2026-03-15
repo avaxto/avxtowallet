@@ -37,7 +37,7 @@ import { BN } from '@/avalanche'
 import { bnToBig } from '@/helpers/helper'
 import { UnixNow } from '@/avalanche/utils'
 import { ValidatorRaw } from '@/components/misc/ValidatorList/types'
-import { WalletType } from '@/js/wallets/types'
+import { AvalancheAccount } from '@/js/wallets/types'
 import { getPriceAtUnixTime } from '@/helpers/price_helper'
 import Big from 'big.js'
 import { PChainTransaction, PChainUtxo, RewardType } from '@avalabs/glacier-sdk'
@@ -72,7 +72,7 @@ export default defineComponent({
             return tot
         })
 
-        const wallet = computed((): WalletType => {
+        const wallet = computed((): AvalancheAccount => {
             return mainStore.activeWallet
         })
 

@@ -94,6 +94,34 @@ class SingletonWallet extends AbstractWallet implements AvaWalletCore, UnsafeWal
 
         this.type = 'singleton'
         this.isInit = true
+
+        // AvalancheAccount: initialize xpAccount for XP-chain signing
+        const pubKeyBuf = this.keyPair.getPublicKey()
+        const pubKeyHex = '0x' + pubKeyBuf.toString('hex')
+        this.xpAccount = {
+            publicKey: pubKeyHex,
+            signMessage: async (message: string) => {
+                return this.signMessage(message)
+            },
+            signTransaction: async (txHash: string | Uint8Array) => {
+                const hashBuf = typeof txHash === 'string'
+                    ? BufferAvalanche.from(txHash.replace('0x', ''), 'hex')
+                    : BufferAvalanche.from(txHash)
+                const signed = this.keyPair.sign(hashBuf)
+                return bintools.cb58Encode(signed)
+            },
+            verify: (message: string, signature: string) => {
+                try {
+                    const msgBuf = BufferAvalanche.from(message, 'utf8')
+                    const sigBuf = bintools.cb58Decode(signature)
+                    return this.keyPair.verify(msgBuf, sigBuf)
+                } catch {
+                    return false
+                }
+            },
+            type: 'local' as const,
+            source: 'privateKey' as const,
+        }
     }
 
     getChangeAddressAvm(): string {

@@ -1,12 +1,12 @@
 import { ethers } from 'ethers';
-import { WalletType } from '@/avalanche-wallet-sdk/Wallet/types';
+import { AvalancheAccount } from '@/avalanche-wallet-sdk/Wallet/types';
 
 const SOCKET_RECONNECT_TIMEOUT = 1000;
 
 export class EVMWebSocketProvider {
     provider: ethers.providers.WebSocketProvider;
     wsUrl: string;
-    wallets: WalletType[] = [];
+    wallets: AvalancheAccount[] = [];
 
     constructor(wsUrl: string) {
         let provider = new ethers.providers.WebSocketProvider(wsUrl);
@@ -25,7 +25,7 @@ export class EVMWebSocketProvider {
         this.addListeners();
     }
 
-    trackWallet(wallet: WalletType): void {
+    trackWallet(wallet: AvalancheAccount): void {
         if (this.wallets.includes(wallet)) {
             return;
         }
@@ -33,7 +33,7 @@ export class EVMWebSocketProvider {
         this.wallets.push(wallet);
     }
 
-    removeWallet(wallet: WalletType): void {
+    removeWallet(wallet: AvalancheAccount): void {
         if (!this.wallets.includes(wallet)) {
             return;
         }

@@ -9,7 +9,7 @@
 import 'reflect-metadata'
 import { defineComponent, computed, toRefs } from 'vue'
 import { useMainStore } from '@/stores'
-import { WalletType } from '@/js/wallets/types'
+import { AvalancheAccount } from '@/js/wallets/types'
 import { ChainIdType } from '@/constants'
 
 
@@ -27,19 +27,19 @@ export default defineComponent({
         const { modelValue } = toRefs(props)
 
         const isEVMSupported = computed(() => {
-            const wallet: WalletType | null = mainStore.activeWallet as WalletType | null
+            const wallet: AvalancheAccount | null = mainStore.activeWallet as AvalancheAccount | null
             if (!wallet) return false
             return !!wallet.ethAddress
         })
 
         const isXSupported = computed(() => {
-            const wallet: WalletType | null = mainStore.activeWallet as WalletType | null
+            const wallet: AvalancheAccount | null = mainStore.activeWallet as AvalancheAccount | null
             if (!wallet) return false
             return !!wallet.getCurrentAddressAvm()
         })
 
         const isPSupported = computed(() => {
-            const wallet: WalletType | null = mainStore.activeWallet as WalletType | null
+            const wallet: AvalancheAccount | null = mainStore.activeWallet as AvalancheAccount | null
             if (!wallet) return false
             return !!wallet.getCurrentAddressPlatform()
         })

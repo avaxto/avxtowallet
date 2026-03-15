@@ -31,7 +31,7 @@ import { defineComponent, ref, computed, watch, onMounted } from 'vue'
 import { useMainStore } from '@/stores'
 import UtxoSelectModal from '@/components/modals/UtxoSelect/UtxoSelect.vue'
 import { AmountOutput, UTXO, UTXOSet } from '@/avalanche/apis/platformvm'
-import { WalletType } from '@/js/wallets/types'
+import { AvalancheAccount } from '@/js/wallets/types'
 
 import { CurrencyType } from '@/components/misc/CurrencySelect/types'
 import { BN } from '@/avalanche'
@@ -57,7 +57,7 @@ export default defineComponent({
         const modal = ref<InstanceType<typeof UtxoSelectModal>>()
 
         const platformUtxos = computed((): UTXO[] => {
-            let wallet: WalletType | null = mainStore.activeWallet
+            let wallet: AvalancheAccount | null = mainStore.activeWallet
             if (!wallet) return []
             const utxos = wallet.getPlatformUTXOSet().getAllUTXOs()
             const now = UnixNow()

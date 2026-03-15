@@ -1,5 +1,5 @@
 import { iUserAccountEncrypted } from '@/types'
-import { WalletType } from '@/js/wallets/types'
+import { AvalancheAccount } from '@/js/wallets/types'
 import isEqual from 'lodash.isequal'
 import differenceBy from 'lodash.differenceby'
 import { readKeyFile } from '@/js/Keystore'
@@ -12,12 +12,12 @@ export function getAccountByIndex(index: number): iUserAccountEncrypted | null {
     return getLocalStorageAccounts()[index] || null
 }
 
-export const checkIfSavedLocally = (allWallets: WalletType[]): boolean => {
+export const checkIfSavedLocally = (allWallets: AvalancheAccount[]): boolean => {
     const exists = checkAccountsExist()
 
     if (!exists) return false
 
-    const ethAddressArray: string[] = allWallets.map((x: WalletType) => x.ethAddress)
+    const ethAddressArray: string[] = allWallets.map((x: AvalancheAccount) => x.ethAddress)
 
     const savedAccounts: iUserAccountEncrypted[] = getLocalStorageJSONItem('accounts')
 
@@ -51,8 +51,8 @@ export const saveLocalStorageJSONItem = (key: string, data: any) => {
     localStorage.setItem(key, formatted)
 }
 
-export const getIndexByWallets = (wallets: WalletType[]): number | null => {
-    const ethAddressArray: string[] = wallets.map((x: WalletType) => x.getEvmAddress())
+export const getIndexByWallets = (wallets: AvalancheAccount[]): number | null => {
+    const ethAddressArray: string[] = wallets.map((x: AvalancheAccount) => x.getEvmAddress())
     const savedAccounts: iUserAccountEncrypted[] = getLocalStorageAccounts()
     for (let i = 0; i < savedAccounts.length; i++) {
         const acct = savedAccounts[i]
@@ -64,10 +64,10 @@ export const getIndexByWallets = (wallets: WalletType[]): number | null => {
 }
 
 export const getNonVolatileWallets = (
-    allWallets: WalletType[],
-    volatileWallets: WalletType[]
-): WalletType[] => {
-    const diff = differenceBy(allWallets, volatileWallets, 'ethAddress') as WalletType[]
+    allWallets: AvalancheAccount[],
+    volatileWallets: AvalancheAccount[]
+): AvalancheAccount[] => {
+    const diff = differenceBy(allWallets, volatileWallets, 'ethAddress') as AvalancheAccount[]
     return diff === undefined ? [] : diff
 }
 

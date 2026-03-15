@@ -1,6 +1,6 @@
 import Sockette from 'sockette';
 import { PubSub } from '@/avalanche';
-import { WalletType } from '@/avalanche-wallet-sdk/Wallet/types';
+import { AvalancheAccount } from '@/avalanche-wallet-sdk/Wallet/types';
 
 const FILTER_ADDRESS_SIZE = 1000;
 
@@ -8,7 +8,7 @@ export class AVMWebSocketProvider {
     isConnected = false;
     socket: Sockette;
 
-    wallets: WalletType[] = [];
+    wallets: AvalancheAccount[] = [];
     boundHandler: any;
 
     constructor(wsUrl: string) {
@@ -33,7 +33,7 @@ export class AVMWebSocketProvider {
      * Starts watching for transactions on this wallet.
      * @param wallet The wallet instance to track
      */
-    trackWallet(wallet: WalletType): void {
+    trackWallet(wallet: AvalancheAccount): void {
         if (this.wallets.includes(wallet)) {
             return;
         }
@@ -47,7 +47,7 @@ export class AVMWebSocketProvider {
         this.updateFilterAddresses();
     }
 
-    removeWallet(w: WalletType): void {
+    removeWallet(w: AvalancheAccount): void {
         if (!this.wallets.includes(w)) {
             return;
         }

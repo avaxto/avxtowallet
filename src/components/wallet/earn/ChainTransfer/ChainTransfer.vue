@@ -134,7 +134,7 @@ import { ChainIdType } from '@/constants'
 
 import ChainSwapForm from '@/components/wallet/earn/ChainTransfer/Form.vue'
 
-import { WalletType } from '@/js/wallets/types'
+import { AvalancheAccount } from '@/js/wallets/types'
 import {
     ExportChainsC,
     ExportChainsP,
@@ -357,7 +357,7 @@ export default defineComponent({
         }
 
         const wallet = computed(() => {
-            let wallet: WalletType = mainStore.activeWallet
+            let wallet: AvalancheAccount = mainStore.activeWallet
             return wallet
         })
 

@@ -285,7 +285,7 @@ import DateForm from '@/components/wallet/earn/DateForm.vue'
 import UtxoSelectForm from '@/components/wallet/earn/UtxoSelectForm.vue'
 import Expandable from '@/components/misc/Expandable.vue'
 import { AmountOutput, UTXO, UTXOSet } from '@/avalanche/apis/platformvm'
-import { WalletType } from '@/js/wallets/types'
+import { AvalancheAccount } from '@/js/wallets/types'
 import { sortUTxoSetP } from '@/helpers/sortUTXOs'
 import { selectMaxUtxoForStaking } from '@/helpers/utxoSelection/selectMaxUtxoForStaking'
 import { bnToAvaxP } from '@/avalanche-wallet-sdk'
@@ -351,7 +351,7 @@ export default defineComponent({
         const maxTxSizeAmount = ref(new BN(0))
 
         // Computed properties
-        const wallet = computed((): WalletType => {
+        const wallet = computed((): AvalancheAccount => {
             return mainStore.activeWallet
         })
 
@@ -568,7 +568,7 @@ export default defineComponent({
         const generateBlsKeys = async () => {
             try {
                 // Generate keys deterministically from wallet
-                const w: WalletType = mainStore.activeWallet
+                const w: AvalancheAccount = mainStore.activeWallet
                 const seed = w.getCurrentAddressPlatform() + nodeId.value
                 const keyPair = generateBlsKeyPair(seed)
                 
@@ -750,7 +750,7 @@ export default defineComponent({
 
         const submit = async () => {
             if (!formCheck()) return
-            const w: WalletType = mainStore.activeWallet
+            const w: AvalancheAccount = mainStore.activeWallet
 
             // Start delegation in 5 minutes
             let startDateVal = new Date(Date.now() + 5 * MIN_MS)

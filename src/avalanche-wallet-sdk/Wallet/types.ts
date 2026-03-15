@@ -2,6 +2,7 @@ import { KeyPair as AVMKeyPair } from '@/avalanche/apis/avm';
 
 import { BN } from '@/avalanche';
 
+import { AvalancheAccount as BaseAvalancheAccount } from '@avalanche-sdk/client/accounts'
 import { MnemonicWallet } from '@/avalanche-wallet-sdk/Wallet/MnemonicWallet';
 import { SingletonWallet } from '@/avalanche-wallet-sdk/Wallet/SingletonWallet';
 import { LedgerWallet } from '@/avalanche-wallet-sdk/Wallet/Ledger';
@@ -20,7 +21,7 @@ export type ExportChainsC = 'X' | 'P';
 export type HdChainType = 'X' | 'P';
 
 export type WalletNameType = 'mnemonic' | 'ledger' | 'singleton' | 'xpub';
-export type WalletType = MnemonicWallet | SingletonWallet | LedgerWallet;
+export type AvalancheAccount = MnemonicWallet | SingletonWallet | LedgerWallet;
 
 export interface WalletBalanceX {
     [assetId: string]: AssetBalanceX;

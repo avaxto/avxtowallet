@@ -153,7 +153,7 @@ import TxSummary from '@/components/wallet/transfer/TxSummary.vue'
 import { IssueBatchTxInput } from '@/types'
 // Type for price data
 type priceDict = { usd: number }
-import { WalletType } from '@/js/wallets/types'
+import { AvalancheAccount } from '@/js/wallets/types'
 import { bnToBig } from '@/helpers/helper'
 import * as bip39 from 'bip39'
 import FormC from '@/components/wallet/transfer/FormC.vue'
@@ -446,8 +446,8 @@ export default defineComponent({
             return assetsStore.AssetAVA
         })
 
-        const wallet = computed((): WalletType => {
-            return mainStore.activeWallet as WalletType
+        const wallet = computed((): AvalancheAccount => {
+            return mainStore.activeWallet as AvalancheAccount
         })
 
         const txFee = computed((): Big => {

@@ -21,7 +21,9 @@ import {
     UnsignedTx as PlatformUnsignedTx,
 } from '@/avalanche/apis/platformvm/tx'
 import { Tx as AVMTx, UnsignedTx as AVMUnsignedTx } from '@/avalanche/apis/avm/tx'
-import { AvmImportChainType, WalletType } from '@/js/wallets/types'
+import { AvmImportChainType } from '@/js/wallets/types'
+import type { Account, Address } from 'viem'
+import type { XPAccount } from '@avalanche-sdk/client/accounts'
 import { issueC, issueP, issueX } from '@/helpers/issueTx'
 import { sortUTxoSetP } from '@/helpers/sortUTXOs'
 import { getStakeForAddresses } from '@/helpers/utxo_helper'
@@ -48,6 +50,26 @@ abstract class AbstractWallet {
 
     isFetchUtxos: boolean
     isInit: boolean
+
+    // AvalancheAccount conformance
+    xpAccount?: XPAccount
+
+    get evmAccount(): Account {
+        return {
+            address: this.getEVMAddress(),
+            type: 'json-rpc',
+        } as Account
+    }
+
+    getEVMAddress(): Address {
+        return `0x${this.getEvmAddress()}` as Address
+    }
+
+    getXPAddress(chain?: 'X' | 'P' | 'C', hrp?: string): string {
+        if (chain === 'P') return this.getCurrentAddressPlatform()
+        if (chain === 'C') return this.getEvmAddressBech()
+        return this.getCurrentAddressAvm()
+    }
 
     abstract getEvmAddressBech(): string
     abstract getEvmAddress(): string

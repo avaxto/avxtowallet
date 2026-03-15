@@ -116,7 +116,7 @@ import { ONEAVAX } from '@/avalanche/utils'
 import { bnToBig } from '@/helpers/helper'
 // Type for price data
 type priceDict = { usd: number }
-import { WalletType } from '@/js/wallets/types'
+import { AvalancheAccount } from '@/js/wallets/types'
 import UtxosBreakdownModal from '@/components/modals/UtxosBreakdown/UtxosBreakdownModal.vue'
 
 export default defineComponent({
@@ -349,8 +349,8 @@ export default defineComponent({
             }
         })
 
-        const wallet = computed((): WalletType | null => {
-            return mainStore.activeWallet as WalletType | null
+        const wallet = computed((): AvalancheAccount | null => {
+            return mainStore.activeWallet as AvalancheAccount | null
         })
 
         const isInjected = computed((): boolean => {

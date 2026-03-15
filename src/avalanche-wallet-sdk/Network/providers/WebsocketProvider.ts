@@ -1,6 +1,6 @@
 import { AVMWebSocketProvider } from '@/avalanche-wallet-sdk/Network/providers/AVMWebSocketProvider';
 import { EVMWebSocketProvider } from '@/avalanche-wallet-sdk/Network/providers/EVMWebSocketProvider';
-import { WalletType } from '@/avalanche-wallet-sdk/Wallet/types';
+import { AvalancheAccount } from '@/avalanche-wallet-sdk/Wallet/types';
 import { NetworkConfig } from '@/avalanche-wallet-sdk/Network/types';
 import { wsUrlFromConfigEVM, wsUrlFromConfigX } from '@/avalanche-wallet-sdk/helpers/network_helper';
 import { activeNetwork } from '@/avalanche-wallet-sdk/Network/network';
@@ -35,12 +35,12 @@ export class WebsocketProvider {
         this.setEndpoints(avm, evm);
     }
 
-    public trackWallet(wallet: WalletType): void {
+    public trackWallet(wallet: AvalancheAccount): void {
         this.avmProvider.trackWallet(wallet);
         this.evmProvider.trackWallet(wallet);
     }
 
-    public removeWallet(wallet: WalletType): void {
+    public removeWallet(wallet: AvalancheAccount): void {
         this.avmProvider.removeWallet(wallet);
         this.evmProvider.removeWallet(wallet);
     }

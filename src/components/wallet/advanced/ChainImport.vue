@@ -43,7 +43,7 @@ import { defineComponent, ref, computed } from 'vue'
 import { useAssetsStore, useHistoryStore, useMainStore, useNotificationsStore } from '@/stores'
 
 import Spinner from '@/components/misc/Spinner.vue'
-import { WalletType } from '@/js/wallets/types'
+import { AvalancheAccount } from '@/js/wallets/types'
 import { BN } from '@/avalanche'
 import {
     avaxCtoX,
@@ -66,8 +66,8 @@ export default defineComponent({
         const isLoading = ref(false)
         const txId = ref('')
 
-        const wallet = computed((): null | WalletType => {
-            let wallet: null | WalletType = mainStore.activeWallet
+        const wallet = computed((): null | AvalancheAccount => {
+            let wallet: null | AvalancheAccount = mainStore.activeWallet
             return wallet
         })
 

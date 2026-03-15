@@ -52,7 +52,7 @@ import { defineComponent, ref, computed } from 'vue'
 import { useMainStore } from '@/stores'
 
 import Modal from '@/components/modals/Modal.vue'
-import { WalletType } from '@/js/wallets/types'
+import { AvalancheAccount } from '@/js/wallets/types'
 
 import { UTXOSet as AVMUTXOSet, UTXO as AVMUTXO, AVMConstants } from '@/avalanche/apis/avm'
 import {
@@ -79,7 +79,7 @@ export default defineComponent({
             chain.value = chainID
         }
 
-        const wallet = computed((): WalletType | null => {
+        const wallet = computed((): AvalancheAccount | null => {
             return mainStore.activeWallet
         })
 

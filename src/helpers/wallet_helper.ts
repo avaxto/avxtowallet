@@ -4,7 +4,7 @@ import {
     UTXO as PlatformUTXO,
 } from '@/avalanche/apis/platformvm/utxos'
 import { UTXO as AVMUTXO } from '@/avalanche/apis/avm/utxos'
-import { WalletType } from '@/js/wallets/types'
+import { AvalancheAccount } from '@/js/wallets/types'
 import { InjectedWallet } from '@/js/wallets/InjectedWallet'
 
 import { BN, Buffer } from '@/avalanche'
@@ -27,7 +27,7 @@ import glacier from '@/js/Glacier/Glacier'
 
 class WalletHelper {
     static async createNftFamily(
-        wallet: WalletType,
+        wallet: AvalancheAccount,
         name: string,
         symbol: string,
         groupNum: number
@@ -54,7 +54,7 @@ class WalletHelper {
     }
 
     static async mintNft(
-        wallet: WalletType,
+        wallet: AvalancheAccount,
         mintUtxo: AVMUTXO,
         payload: PayloadBase,
         quantity: number
@@ -79,7 +79,7 @@ class WalletHelper {
     }
 
     static async issueBatchTx(
-        wallet: WalletType,
+        wallet: AvalancheAccount,
         orders: (ITransaction | AVMUTXO)[],
         addr: string,
         memo: Buffer | undefined
@@ -92,7 +92,7 @@ class WalletHelper {
     }
 
     static async sendEth(
-        wallet: WalletType,
+        wallet: AvalancheAccount,
         to: string,
         amount: BN, // in wei
         gasPrice: BN,
@@ -115,7 +115,7 @@ class WalletHelper {
     }
 
     static async sendErc20(
-        wallet: WalletType,
+        wallet: AvalancheAccount,
         to: string,
         amount: BN,
         gasPrice: BN,
@@ -137,7 +137,7 @@ class WalletHelper {
     }
 
     static async sendErc721(
-        wallet: WalletType,
+        wallet: AvalancheAccount,
         to: string,
         gasPrice: BN,
         gasLimit: number,
@@ -184,13 +184,13 @@ class WalletHelper {
         return hash.transactionHash
     }
 
-    static async estimateTxGas(wallet: WalletType, tx: any) {
+    static async estimateTxGas(wallet: AvalancheAccount, tx: any) {
         const fromAddr = '0x' + wallet.getEvmAddress()
         const estGas = await tx.estimateGas({ from: fromAddr })
         return Math.round(estGas * 1.1)
     }
 
-    static async estimateGas(wallet: WalletType, to: string, amount: BN, token: Erc20Token) {
+    static async estimateGas(wallet: AvalancheAccount, to: string, amount: BN, token: Erc20Token) {
         const from = '0x' + wallet.getEvmAddress()
         const tx = token.createTransferTx(to, amount)
         const estGas = await tx.estimateGas({
