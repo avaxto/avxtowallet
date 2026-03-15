@@ -1,8 +1,8 @@
 <template>
-    <div v-if="!isInjected" class="chain_select" :class="{ 'c_only': isInjected }">
+    <div class="chain_select">
         <button @click="setChain('C')" :active="modelValue === 'C' ? true : undefined" v-if="isEVMSupported">C</button>
-        <button v-if="!isInjected" @click="setChain('X')" :active="modelValue === 'X' ? true : undefined">X</button>
-        <button v-if="!isInjected" @click="setChain('P')" :active="modelValue === 'P' ? true : undefined">P</button>        
+        <button @click="setChain('X')" :active="modelValue === 'X' ? true : undefined" v-if="isXSupported">X</button>
+        <button @click="setChain('P')" :active="modelValue === 'P' ? true : undefined" v-if="isPSupported">P</button>        
     </div>
 </template>
 <script lang="ts">
@@ -29,13 +29,19 @@ export default defineComponent({
         const isEVMSupported = computed(() => {
             const wallet: WalletType | null = mainStore.activeWallet as WalletType | null
             if (!wallet) return false
-            return wallet.ethAddress
+            return !!wallet.ethAddress
         })
 
-        const isInjected = computed(() => {
+        const isXSupported = computed(() => {
             const wallet: WalletType | null = mainStore.activeWallet as WalletType | null
             if (!wallet) return false
-            return wallet.type === 'injected'
+            return !!wallet.getCurrentAddressAvm()
+        })
+
+        const isPSupported = computed(() => {
+            const wallet: WalletType | null = mainStore.activeWallet as WalletType | null
+            if (!wallet) return false
+            return !!wallet.getCurrentAddressPlatform()
         })
 
         const setChain = (val: ChainIdType) => {
@@ -44,7 +50,8 @@ export default defineComponent({
 
         return {
             isEVMSupported,
-            isInjected,
+            isXSupported,
+            isPSupported,
             setChain,
             modelValue
         }

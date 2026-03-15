@@ -80,6 +80,9 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
     ethAddress: string
     ethAddressBech: string
 
+    avmAddress: string
+    platformAddress: string
+
     stakeAmount: BN
 
     private walletClient: WalletClient
@@ -92,6 +95,9 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
         // Store the EVM address without '0x' prefix (matching other wallet types)
         this.ethAddress = evmAddress.toLowerCase().replace('0x', '')
         this.ethAddressBech = '' // Injected wallets don't have bech32 C-chain addresses
+
+        this.avmAddress = ''
+        this.platformAddress = ''
 
         this.chainId = avm.getBlockchainAlias() || avm.getBlockchainID()
         this.chainIdP = pChain.getBlockchainAlias() || pChain.getBlockchainID()
@@ -125,6 +131,18 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
         }
 
         const wallet = new InjectedWallet(provider, accounts[0])
+
+        // Try to get X/P addresses from the provider (Core App exposes avalanche_getAddresses)
+        try {
+            const addrs: { xAddress?: string; pAddress?: string } = await provider.request({
+                method: 'avalanche_getAddresses',
+            })
+            if (addrs?.xAddress) wallet.avmAddress = addrs.xAddress
+            if (addrs?.pAddress) wallet.platformAddress = addrs.pAddress
+        } catch {
+            // Provider does not support avalanche_getAddresses (e.g. MetaMask) — leave empty
+        }
+
         return wallet
     }
 
@@ -132,36 +150,35 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
     // Injected wallets are EVM-only; X/P chain addresses are not available.
 
     getCurrentAddressAvm(): string {
-        // Injected wallets don't have AVM addresses
-        return ''
+        return this.avmAddress
     }
 
     getChangeAddressAvm(): string {
-        return ''
+        return this.avmAddress
     }
 
     getCurrentAddressPlatform(): string {
-        return ''
+        return this.platformAddress
     }
 
     getAllExternalAddressesX(): string[] {
-        return []
+        return this.avmAddress ? [this.avmAddress] : []
     }
 
     getAllChangeAddressesX(): string[] {
-        return []
+        return this.avmAddress ? [this.avmAddress] : []
     }
 
     getDerivedAddresses(): string[] {
-        return []
+        return this.avmAddress ? [this.avmAddress] : []
     }
 
     getDerivedAddressesP(): string[] {
-        return []
+        return this.platformAddress ? [this.platformAddress] : []
     }
 
     getAllDerivedExternalAddresses(): string[] {
-        return []
+        return this.avmAddress ? [this.avmAddress] : []
     }
 
     getHistoryAddresses(): string[] {
