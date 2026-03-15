@@ -22,6 +22,7 @@ export default {
     display: grid;
     grid-template-columns: 360px 360px;
     grid-gap: 15px;
+    margin-bottom: 15px;
 }
 .top_card {
     flex-grow: 1;

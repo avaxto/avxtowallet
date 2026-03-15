@@ -8,8 +8,8 @@
             {{ token.data.name }} ({{ token.data.symbol }})
             <span>ERC20</span>
         </p>
-        <router-link :to="sendLink" class="send_col" v-if="isBalance">
-            <img v-if="$root.theme === 'day'" src="@/assets/sidebar/transfer_nav.png" />
+        <router-link :to="isBalance ? sendLink : ''" class="send_col" :class="{ disabled: !isBalance }">
+            <img v-if="isDay" src="@/assets/sidebar/transfer_nav.png" />
             <img v-else src="@/assets/sidebar/transfer_nav_night.svg" />
         </router-link>
         <p class="balance_col">
@@ -18,6 +18,7 @@
     </div>
 </template>
 <script lang="ts">
+import { useTheme } from '@/composables/useTheme'
 import { defineComponent, computed } from 'vue'
 import Erc20Token from '@/js/Erc20Token'
 
@@ -34,6 +35,8 @@ export default defineComponent({
         }
     },
     setup(props: Props) {
+        const { isDay } = useTheme()
+
         const balText = computed(() => {
             return props.token.balanceBig.toLocaleString()
         })
@@ -49,7 +52,8 @@ export default defineComponent({
         return {
             balText,
             isBalance,
-            sendLink
+            sendLink,
+            isDay
         }
     }
 })
@@ -71,7 +75,7 @@ img {
     width: 40px;
     height: 40px;
     border-radius: 40px;
-    justify-self: center;
+
 }
 
 .balance_col {
@@ -84,7 +88,6 @@ img {
 }
 
 .col_name {
-    padding-left: 15px;
 
     span {
         font-size: 12px;

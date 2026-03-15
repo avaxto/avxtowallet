@@ -3,6 +3,7 @@
         <AddERC20TokenModal ref="addTokenModal"></AddERC20TokenModal>
         <TokenListModal ref="tokenlistModal"></TokenListModal>
         <div class="headers">
+            <p class="icon_col"></p>
             <p class="name_col">{{ $t('portfolio.name') }}</p>
             <p class="send_col">{{ $t('portfolio.send') }}</p>
             <p class="balance_col balance_header">{{ $t('portfolio.balance') }}</p>
@@ -96,7 +97,7 @@ export default defineComponent({
         })
 
         const walletBalancesSorted = computed((): AvaAsset[] => {
-            // let balance: AvaAsset[] = store.getters['walletAssetsArray']
+            
             let balance: AvaAsset[] = assetsStore.walletAssetsArray
 
             // Sort by balance, then name

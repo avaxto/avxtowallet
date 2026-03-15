@@ -146,6 +146,7 @@ export default defineComponent({
     display: grid;
     grid-gap: 15px;
     padding-top: 8px;
+    align-content: start;
 }
 
 .wallet_content {

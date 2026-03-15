@@ -10,7 +10,7 @@
         </p>
         <p class="name_col mobile_only">{{ symbol }}</p>
         <router-link :to="isBalance ? sendLink : ''" class="send_col" :class="{ disabled: !isBalance }">
-            <img v-if="$root.theme === 'day'" src="@/assets/sidebar/transfer_nav.png" />
+            <img v-if="isDay" src="@/assets/sidebar/transfer_nav.png" />
             <img v-else src="@/assets/sidebar/transfer_nav_night.svg" />
         </router-link>
         
@@ -31,6 +31,7 @@
 import 'reflect-metadata'
 import { defineComponent, computed } from 'vue'
 import { useAssetsStore, useMainStore } from '@/stores'
+import { useTheme } from '@/composables/useTheme'
 
 import AvaAsset from '../../../js/AvaAsset'
 import Hexagon from '@/components/misc/Hexagon.vue'
@@ -59,6 +60,7 @@ export default defineComponent({
     setup(props: Props) {
         const mainStore = useMainStore()
         const assetsStore = useAssetsStore()
+        const { isDay } = useTheme()
         const avaxToken = computed((): AvaAsset => {
             return assetsStore.AssetAVA
         })
@@ -147,6 +149,7 @@ export default defineComponent({
         return {
             iconUrl,
             isBalance,
+            isDay,
             totalUSD,
             priceDict,
             sendLink,
@@ -174,7 +177,7 @@ export default defineComponent({
 
     .balance_col {
         font-size: 18px;
-        text-align: left;
+        text-align: right;
         .fiat {
             font-size: 12px;
             color: var(--primary-color-light);
@@ -182,7 +185,6 @@ export default defineComponent({
     }
 
     .name_col {
-        padding-left: 15px;
         white-space: nowrap;
         overflow-y: hidden;
         text-overflow: ellipsis;
@@ -240,7 +242,6 @@ $icon_w: 40px;
 
 .name_col {
     span {
-        font-size: 12px;
         color: var(--secondary-color);
     }
 }
@@ -255,6 +256,7 @@ $icon_w: 40px;
             font-size: 15px;
         }
         font-size: 15px;
+        text-align: right;
     }
     .send_col {
         img {
@@ -262,9 +264,6 @@ $icon_w: 40px;
         }
     }
 
-    .name_col {
-        font-size: 14px;
-    }
 
     $icon_w: 30px;
     .icon {
@@ -280,6 +279,7 @@ $icon_w: 40px;
 
     .balance_col {
         font-size: 1rem !important;
+        text-align: right;
     }
 
     .mobile_only {

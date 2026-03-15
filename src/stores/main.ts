@@ -137,6 +137,7 @@ export const useMainStore = defineStore('main', () => {
 
         const assetsStore = useAssetsStore()
         assetsStore.updateAvaAsset()
+        assetsStore.updateBaseAsset()
         router.push('/wallet')
         assetsStore.updateUTXOs()
 
@@ -257,8 +258,8 @@ export const useMainStore = defineStore('main', () => {
 
         const assetsStore = useAssetsStore()
         const historyStore = useHistoryStore()
-
         assetsStore.updateAvaAsset()
+        assetsStore.updateBaseAsset()
         updateActiveAddress()
         historyStore.updateTransactionHistory()
         updateFilterAddresses()
