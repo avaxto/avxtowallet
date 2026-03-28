@@ -123,7 +123,15 @@ export const useMainStore = defineStore('main', () => {
     }
 
     const accessWalletInjected = async () => {
-        const wallet = await InjectedWallet.connect()
+        let wallet: InjectedWallet | null = null
+        try {
+            wallet = await InjectedWallet.connect()
+        } catch (e) {
+            throw new Error(
+                e instanceof Error ? e.message : 'Failed to connect to wallet extension.'
+            )
+        }
+
         wallets.value = [wallet]
         volatileWallets.value = [wallet]
 

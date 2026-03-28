@@ -217,15 +217,19 @@ export const useAssetsStore = defineStore('assets', () => {
         removeAllAssets()
     }
 
-    const onUtxosUpdated = async () => {
+    const onUtxosUpdated = async (retries = 0) => {
         const mainStore = useMainStore()
         const wallet = mainStore.activeWallet as any
 
         if (!wallet) return
 
         if (wallet.isFetchUtxos) {
+            if (retries >= 20) {
+                console.warn('onUtxosUpdated: gave up waiting for isFetchUtxos after 20 retries')
+                return
+            }
             setTimeout(() => {
-                onUtxosUpdated()
+                onUtxosUpdated(retries + 1)
             }, 500)
             return
         }

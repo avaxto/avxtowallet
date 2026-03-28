@@ -1,5 +1,5 @@
 import { ethers } from 'ethers';
-import { AvalancheAccount } from '@/avalanche-wallet-sdk/Wallet/types';
+import { AvalancheAccount } from '@avalanche-sdk/client/accounts'
 
 const SOCKET_RECONNECT_TIMEOUT = 1000;
 

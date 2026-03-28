@@ -30,7 +30,7 @@ import Erc20Token from '@/js/Erc20Token'
 import { Transaction } from '@ethereumjs/tx'
 import { ExportChainsC, ExportChainsP, ExportChainsX } from '@/avalanche-wallet-sdk'
 import { UTXOSet as EVMUTXOSet } from '@/avalanche/apis/evm/utxos'
-import { AvalancheAccount as BaseAvalancheAccount } from '@avalanche-sdk/client/accounts'
+import { AvalancheAccount } from '@avalanche-sdk/client/accounts'
 
 export interface IIndexKeyCache {
     [index: number]: AVMKeyPair
@@ -42,11 +42,7 @@ export type AvmExportChainType = 'P' | 'C'
 
 export type WalletNameType = 'mnemonic' | 'ledger' | 'singleton' | 'injected'
 
-/**
- * AvalancheAccount combines the SDK's AvalancheAccount with the wallet core interface.
- * Replaces the former WalletType union.
- */
-export type AvalancheAccount = BaseAvalancheAccount & AvaWalletCore
+export type { AvalancheAccount }
 
 interface IAddressManager {
     getCurrentAddressAvm(): string

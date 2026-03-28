@@ -210,12 +210,15 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
     }
 
     // ---- UTXO management ----
-    // Injected wallets are primarily EVM; X/P UTXO sets remain empty.
+    // Injected wallets are primarily EVM; X/P UTXO sets remain empty (check this)
 
     async getUTXOs(): Promise<void> {
         this.isFetchUtxos = true
-        await this.getEthBalance()
-        this.isFetchUtxos = false
+        try {
+            await this.getEthBalance()
+        } finally {
+            this.isFetchUtxos = false
+        }
     }
 
     // ---- Transaction building ----

@@ -1,6 +1,6 @@
 import { AVMWebSocketProvider } from '@/avalanche-wallet-sdk/Network/providers/AVMWebSocketProvider';
 import { EVMWebSocketProvider } from '@/avalanche-wallet-sdk/Network/providers/EVMWebSocketProvider';
-import { AvalancheAccount } from '@/avalanche-wallet-sdk/Wallet/types';
+import { AvalancheAccount } from '@avalanche-sdk/client/accounts'
 import { NetworkConfig } from '@/avalanche-wallet-sdk/Network/types';
 import { wsUrlFromConfigEVM, wsUrlFromConfigX } from '@/avalanche-wallet-sdk/helpers/network_helper';
 import { activeNetwork } from '@/avalanche-wallet-sdk/Network/network';

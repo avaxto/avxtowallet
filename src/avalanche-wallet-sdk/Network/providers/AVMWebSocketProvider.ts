@@ -1,6 +1,6 @@
 import Sockette from 'sockette';
 import { PubSub } from '@/avalanche';
-import { AvalancheAccount } from '@/avalanche-wallet-sdk/Wallet/types';
+import { AvalancheAccount } from '@avalanche-sdk/client/accounts'
 
 const FILTER_ADDRESS_SIZE = 1000;
 

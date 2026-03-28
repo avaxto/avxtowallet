@@ -10,6 +10,7 @@
         <div class="buts_right">
             <DayNightToggle class="action_but"></DayNightToggle>
             <button
+                v-if="!isAuth"
                 class="action_but connect_but"
                 data-cy="connect_wallet"
                 @click="connectWallet"
@@ -115,8 +116,9 @@ export default defineComponent({
             isConnecting.value = true
             try {
                 await mainStore.accessWalletInjected()
-            } catch (e) {
-                // silently fail; user can retry
+            } catch (e: any) {
+                console.error('Wallet connection failed:', e)
+                alert(e?.message || 'Failed to connect wallet.')
             } finally {
                 isConnecting.value = false
             }
