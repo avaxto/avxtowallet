@@ -19,6 +19,7 @@
         <NetworkLoadingBlock></NetworkLoadingBlock>
         <notifications></notifications>        
         <TestNetBanner></TestNetBanner>
+        <StatusBar></StatusBar>
     </v-app>
 </template>
 <script>
@@ -31,6 +32,7 @@ import TestNetBanner from '@/components/TestNetBanner.vue'
 import NetworkLoadingBlock from '@/components/misc/NetworkLoadingBlock.vue'
 import UpgradeToAccountModal from '@/components/modals/SaveAccount/UpgradeToAccountModal.vue'
 import LedgerWalletLoading from '@/components/modals/LedgerWalletLoading.vue'
+import StatusBar from '@/components/StatusBar.vue'
 import { useAccountsStore, useAssetsStore, useErc721Store, useMainStore, useNetworkStore } from '@/stores'
 import { onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -46,6 +48,7 @@ export default {
         Navbar,
         Notifications,
         TestNetBanner,
+        StatusBar,
     },
     setup() {
         const mainStore = useMainStore()

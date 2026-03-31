@@ -22,6 +22,7 @@ import { VueHeadMixin } from '@unhead/vue'
 // @ts-ignore
 import '@/vue_components'
 import Big from 'big.js'
+import { useStatusBarStore } from '@/stores'
 
 const app = createApp(App)
 
@@ -48,6 +49,7 @@ app.use(router)
 app.use(pinia)
 
 import { useThemeStore } from './stores/theme'
+import { read } from 'fs'
 const themeStore = useThemeStore()
 themeStore.initTheme()
 
@@ -110,8 +112,11 @@ app.config.errorHandler = (err: any, instance, info) => {
 }
 
 const mountedApp = app.mount('#app')
-console.log(`AVAX Toolbox Version: ${AVAX_TOOLBOX_VERSION}`)
+const readyMessage = `AVAX Toolbox Version: ${AVAX_TOOLBOX_VERSION}`
+console.log(readyMessage)
 
+const statusBar = useStatusBarStore()
+statusBar.success(readyMessage)             // green
 
 // @ts-ignore
 if (window.Cypress) {
