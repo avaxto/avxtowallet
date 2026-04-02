@@ -134,7 +134,7 @@ import { ChainIdType } from '@/constants'
 
 import ChainSwapForm from '@/components/wallet/earn/ChainTransfer/Form.vue'
 
-import { AvalancheAccount } from '@/js/wallets/types'
+import { AvalancheAccount } from '@avalanche-sdk/client/accounts'
 import {
     ExportChainsC,
     ExportChainsP,

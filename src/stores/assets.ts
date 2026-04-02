@@ -15,7 +15,7 @@ import Erc20Token from '@/js/Erc20Token'
 import { AvaNetwork } from '@/js/AvaNetwork'
 import MnemonicWallet from '@/js/wallets/MnemonicWallet'
 import { LedgerWallet } from '@/js/wallets/LedgerWallet'
-import { AvalancheAccount } from '@/js/wallets/types'
+import { AvalancheAccount } from '@avalanche-sdk/client/accounts'
 import { getPayloadFromUTXO } from '@/helpers/helper'
 import { isUrlBanned } from '@/components/misc/NftPayloadView/blacklist'
 import localTokenList from '@/ERC20Tokenlist.json'
@@ -277,7 +277,7 @@ export const useAssetsStore = defineStore('assets', () => {
         for (let i = 0; i < tokens.length; i++) {
             const t = tokens[i]
             if (token.address === t.data.address && token.chainId === t.data.chainId) {
-                console.log('ERC20 Token already added.')
+                console.log('ERC20 Token ' + token.symbol + ' already added.')
                 return
             }
         }

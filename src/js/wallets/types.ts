@@ -30,7 +30,6 @@ import Erc20Token from '@/js/Erc20Token'
 import { Transaction } from '@ethereumjs/tx'
 import { ExportChainsC, ExportChainsP, ExportChainsX } from '@/avalanche-wallet-sdk'
 import { UTXOSet as EVMUTXOSet } from '@/avalanche/apis/evm/utxos'
-import { AvalancheAccount } from '@avalanche-sdk/client/accounts'
 
 export interface IIndexKeyCache {
     [index: number]: AVMKeyPair
@@ -41,8 +40,6 @@ export type AvmImportChainType = 'P' | 'C'
 export type AvmExportChainType = 'P' | 'C'
 
 export type WalletNameType = 'mnemonic' | 'ledger' | 'singleton' | 'injected'
-
-export type { AvalancheAccount }
 
 interface IAddressManager {
     getCurrentAddressAvm(): string

@@ -4,7 +4,7 @@ import {
     UTXO as PlatformUTXO,
 } from '@/avalanche/apis/platformvm/utxos'
 import { UTXO as AVMUTXO } from '@/avalanche/apis/avm/utxos'
-import { AvalancheAccount } from '@/js/wallets/types'
+import { AvalancheAccount } from '@avalanche-sdk/client/accounts'
 import { InjectedWallet } from '@/js/wallets/InjectedWallet'
 
 import { BN, Buffer } from '@/avalanche'

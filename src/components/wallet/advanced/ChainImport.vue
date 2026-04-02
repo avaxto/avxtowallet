@@ -43,7 +43,7 @@ import { defineComponent, ref, computed } from 'vue'
 import { useAssetsStore, useHistoryStore, useMainStore, useNotificationsStore } from '@/stores'
 
 import Spinner from '@/components/misc/Spinner.vue'
-import { AvalancheAccount } from '@/js/wallets/types'
+import { AvalancheAccount } from '@avalanche-sdk/client/accounts'
 import { BN } from '@/avalanche'
 import {
     avaxCtoX,

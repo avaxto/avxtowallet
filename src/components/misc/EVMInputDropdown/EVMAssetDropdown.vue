@@ -14,7 +14,7 @@
 import { defineComponent, ref, computed } from 'vue'
 import { useMainStore } from '@/stores'
 import Erc20Token from '@/js/Erc20Token'
-import { AvalancheAccount } from '@/js/wallets/types'
+import { AvalancheAccount } from '@avalanche-sdk/client/accounts'
 
 import { bnToBig } from '@/helpers/helper'
 import Big from 'big.js'

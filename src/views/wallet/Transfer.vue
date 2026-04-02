@@ -153,7 +153,7 @@ import TxSummary from '@/components/wallet/transfer/TxSummary.vue'
 import { IssueBatchTxInput } from '@/types'
 // Type for price data
 type priceDict = { usd: number }
-import { AvalancheAccount } from '@/js/wallets/types'
+import { AvalancheAccount } from '@avalanche-sdk/client/accounts'
 import { bnToBig } from '@/helpers/helper'
 import * as bip39 from 'bip39'
 import FormC from '@/components/wallet/transfer/FormC.vue'

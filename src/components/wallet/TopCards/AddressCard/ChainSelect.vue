@@ -9,7 +9,7 @@
 import 'reflect-metadata'
 import { defineComponent, computed, toRefs } from 'vue'
 import { useMainStore } from '@/stores'
-import { AvalancheAccount } from '@/js/wallets/types'
+import { AvalancheAccount } from '@avalanche-sdk/client/accounts'
 import { ChainIdType } from '@/constants'
 
 

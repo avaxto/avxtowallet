@@ -33,7 +33,7 @@
 <script lang="ts">
 import { defineComponent, ref, computed, watch, onBeforeUnmount } from 'vue'
 import { useLedgerStore, useMainStore } from '@/stores'
-import { AvalancheAccount } from '@/js/wallets/types'
+import { AvalancheAccount } from '@avalanche-sdk/client/accounts'
 
 import Modal from './Modal.vue'
 import { MIN_LEDGER_V } from '@/js/wallets/constants'

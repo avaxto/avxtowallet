@@ -83,7 +83,7 @@ import { useMainStore } from '@/stores'
 
 import Modal from '@/components/modals/Modal.vue'
 import { BlockchainId, Glacier, OperationStatus } from '@avalabs/glacier-sdk'
-import { AvalancheAccount } from '@/js/wallets/types'
+import { AvalancheAccount } from '@avalanche-sdk/client/accounts'
 import MultiSelect from '../misc/MultiSelect.vue'
 import glacier from '@/js/Glacier/Glacier'
 import Spinner from '@/components/misc/Spinner.vue'

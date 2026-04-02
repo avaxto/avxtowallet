@@ -9,3 +9,9 @@ export const AVXTO_CONTRACT_ADDRESS = '0xf56CeCc07d97Ac50630022CF84C19e612ae8C93
 export const AVXTO_SYMBOL = 'AVXTO'
 export const AVXTO_ICON = '/src/assets/AVXTO_Icon.png'
 export const AVXTO_NAME = 'AVAX Toolbox'
+
+// TODO set these to correct testnet values
+export const TESTNET_AVXTO_CONTRACT_ADDRESS = '0xf56CeCc07d97Ac50630022CF84C19e612ae8C93D'
+export const TESTNET_AVXTO_SYMBOL = 'AVXTO'
+export const TESTNET_AVXTO_ICON = '/src/assets/AVXTO_Icon.png'
+export const TESTNET_AVXTO_NAME = 'AVAX Toolbox'

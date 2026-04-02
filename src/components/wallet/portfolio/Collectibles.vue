@@ -38,7 +38,7 @@ import { NftFamilyDict } from '@/types'
 import AddERC721TokenModal from '@/components/modals/AddERC721TokenModal.vue'
 import ERC721Token from '@/js/ERC721Token'
 import ERC721FamilyRow from '@/components/wallet/portfolio/ERC721FamilyRow.vue'
-import { AvalancheAccount } from '@/js/wallets/types'
+import { AvalancheAccount } from '@avalanche-sdk/client/accounts'
 
 interface Props {
     search: string

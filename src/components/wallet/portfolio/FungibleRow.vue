@@ -38,7 +38,7 @@ import Hexagon from '@/components/misc/Hexagon.vue'
 import { BN } from '@/avalanche'
 import { bnToBig } from '../../../helpers/helper'
 import { priceDict } from '@/types'
-import { AvalancheAccount } from '@/js/wallets/types'
+import { AvalancheAccount } from '@avalanche-sdk/client/accounts'
 
 import Big from 'big.js'
 

@@ -28,7 +28,7 @@ import { useI18n } from 'vue-i18n'
 
 import KeyRow from '@/components/wallet/manage/KeyRow.vue'
 import RememberKey from '@/components/misc/RememberKey.vue'
-import { AvalancheAccount } from '@/js/wallets/types'
+import { AvalancheAccount } from '@avalanche-sdk/client/accounts'
 
 export default defineComponent({
     name: 'MyKeys',

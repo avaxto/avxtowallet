@@ -83,7 +83,7 @@ import { useMainStore } from '@/stores'
 import { TransactionValueDict } from '@/components/SidePanels/types'
 import { PayloadBase, PayloadTypes } from '@/avalanche/utils'
 import { BN, Buffer } from '@/avalanche'
-import { AvalancheAccount } from '@/js/wallets/types'
+import { AvalancheAccount } from '@avalanche-sdk/client/accounts'
 import { avm, pChain } from '@/AVA'
 
 import TxHistoryValue from '@/components/SidePanels/TxHistoryValue.vue'

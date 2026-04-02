@@ -1,5 +1,5 @@
 import { ITransactionData, UTXO } from '@/types'
-import { AvalancheAccount } from '@/js/wallets/types'
+import { AvalancheAccount } from '@avalanche-sdk/client/accounts'
 import { BN } from '@/avalanche'
 import { AVMConstants } from '@/avalanche/apis/avm'
 

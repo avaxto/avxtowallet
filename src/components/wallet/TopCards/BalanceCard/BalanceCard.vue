@@ -116,7 +116,7 @@ import { ONEAVAX } from '@/avalanche/utils'
 import { bnToBig } from '@/helpers/helper'
 // Type for price data
 type priceDict = { usd: number }
-import { AvalancheAccount } from '@/js/wallets/types'
+import { AvalancheAccount } from '@avalanche-sdk/client/accounts'
 import UtxosBreakdownModal from '@/components/modals/UtxosBreakdown/UtxosBreakdownModal.vue'
 
 export default defineComponent({

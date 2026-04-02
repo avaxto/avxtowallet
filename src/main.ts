@@ -116,7 +116,7 @@ const readyMessage = `AVAX Toolbox Version: ${AVAX_TOOLBOX_VERSION}`
 console.log(readyMessage)
 
 const statusBar = useStatusBarStore()
-statusBar.success(readyMessage)             // green
+statusBar.info(readyMessage)
 
 // @ts-ignore
 if (window.Cypress) {

@@ -23,7 +23,7 @@
 import { defineComponent, computed } from 'vue'
 import { useAssetsStore, useErc721Store } from '@/stores'
 import ERC721Token from '@/js/ERC721Token'
-import { AvalancheAccount } from '@/js/wallets/types'
+import { AvalancheAccount } from '@avalanche-sdk/client/accounts'
 import ERC721View from '@/components/wallet/portfolio/ERC721Card.vue'
 import { ERC721WalletBalance } from '@/types'
 

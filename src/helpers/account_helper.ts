@@ -1,5 +1,5 @@
 import { iUserAccountEncrypted } from '@/types'
-import { AvalancheAccount } from '@/js/wallets/types'
+import { AvalancheAccount } from '@avalanche-sdk/client/accounts'
 import isEqual from 'lodash.isequal'
 import differenceBy from 'lodash.differenceby'
 import { readKeyFile } from '@/js/Keystore'

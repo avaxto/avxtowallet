@@ -52,7 +52,7 @@ import { defineComponent, ref, computed } from 'vue'
 import { useMainStore } from '@/stores'
 
 import Modal from '@/components/modals/Modal.vue'
-import { AvalancheAccount } from '@/js/wallets/types'
+import { AvalancheAccount } from '@avalanche-sdk/client/accounts'
 
 import { UTXOSet as AVMUTXOSet, UTXO as AVMUTXO, AVMConstants } from '@/avalanche/apis/avm'
 import {

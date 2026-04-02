@@ -129,7 +129,7 @@ import { useMainStore } from '@/stores'
 import { useI18n } from 'vue-i18n'
 import AvaxInput from '@/components/misc/AvaxInput.vue'
 import { priceDict } from '@/types'
-import { AvalancheAccount } from '@/js/wallets/types'
+import { AvalancheAccount } from '@avalanche-sdk/client/accounts'
 import {
     GasHelper,
     TxHelper,

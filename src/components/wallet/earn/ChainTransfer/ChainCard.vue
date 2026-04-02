@@ -25,7 +25,7 @@ import { ChainIdType } from '@/constants'
 import { BN } from '@/avalanche'
 import AvaAsset from '@/js/AvaAsset'
 import MnemonicWallet from '@/js/wallets/MnemonicWallet'
-import { AvalancheAccount } from '@/js/wallets/types'
+import { AvalancheAccount } from '@avalanche-sdk/client/accounts'
 
 import { bnToBig } from '@/helpers/helper'
 import NumberCounter from '@/components/misc/NumberCounter.vue'

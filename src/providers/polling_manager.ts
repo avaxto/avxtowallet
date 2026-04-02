@@ -1,6 +1,6 @@
 import { AvaNetwork } from '@/js/AvaNetwork'
 import { pinia, useNetworkStore, useMainStore } from '@/stores'
-import { AvalancheAccount } from '@/js/wallets/types'
+import { AvalancheAccount } from '@avalanche-sdk/client/accounts'
 import { PROVIDER_CONFIG } from '@/providers/provider_config'
 
 /**

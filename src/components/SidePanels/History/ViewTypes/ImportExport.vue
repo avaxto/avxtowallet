@@ -27,7 +27,7 @@ import {
     XChainTransaction,
 } from '@/js/Glacier/models'
 import { getExportBalances } from '@/components/SidePanels/History/ViewTypes/getExportBalances'
-import { AvalancheAccount } from '@/js/wallets/types'
+import { AvalancheAccount } from '@avalanche-sdk/client/accounts'
 import { isOwnedUTXO } from '@/js/Glacier/isOwnedUtxo'
 
 function idToAlias(chainId: string | undefined) {

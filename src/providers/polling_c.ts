@@ -1,6 +1,6 @@
 import { AvaNetwork } from '@/js/AvaNetwork'
 import { pinia, useMainStore } from '@/stores'
-import { AvalancheAccount } from '@/js/wallets/types'
+import { AvalancheAccount } from '@avalanche-sdk/client/accounts'
 
 /**
  * REST API equivalent of socket_c.ts  

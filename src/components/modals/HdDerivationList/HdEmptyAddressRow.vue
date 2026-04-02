@@ -15,7 +15,7 @@
 import { defineComponent, computed } from 'vue'
 import { useMainStore } from '@/stores'
 import { useI18n } from 'vue-i18n'
-import { AvalancheAccount } from '@/js/wallets/types'
+import { AvalancheAccount } from '@avalanche-sdk/client/accounts'
 
 import { LedgerWallet } from '@/js/wallets/LedgerWallet'
 import { ava } from '@/AVA'

@@ -27,7 +27,7 @@
 <script lang="ts">
 import { defineComponent, ref, computed, onDeactivated } from 'vue'
 import { useMainStore } from '@/stores'
-import { AvalancheAccount } from '@/js/wallets/types'
+import { AvalancheAccount } from '@avalanche-sdk/client/accounts'
 import SearchAddress from '@/components/wallet/advanced/SignMessage/SearchAddress.vue'
 import { SingletonWallet } from '@/js/wallets/SingletonWallet'
 

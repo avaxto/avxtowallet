@@ -26,7 +26,7 @@ import { useI18n } from 'vue-i18n'
 import Big from 'big.js'
 import { DerivationListBalanceDict } from '@/components/modals/HdDerivationList/types'
 import { LedgerWallet } from '@/js/wallets/LedgerWallet'
-import { AvalancheAccount } from '@/js/wallets/types'
+import { AvalancheAccount } from '@avalanche-sdk/client/accounts'
 
 import { ava } from '@/AVA'
 import { getPreferredHRP } from '@/avalanche/utils'

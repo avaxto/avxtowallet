@@ -1,7 +1,7 @@
 import { AvaNetwork } from '@/js/AvaNetwork'
 import { pinia, useMainStore, useAssetsStore } from '@/stores'
 import { bnToBig } from '@/helpers/helper'
-import { AvalancheAccount } from '@/js/wallets/types'
+import { AvalancheAccount } from '@avalanche-sdk/client/accounts'
 
 /**
  * REST API equivalent of socket_x.ts

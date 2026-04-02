@@ -51,7 +51,7 @@ import Erc20Token from '@/js/Erc20Token'
 import ERC20Row from '@/components/wallet/portfolio/ERC20Row.vue'
 import AddERC20TokenModal from '@/components/modals/AddERC20TokenModal.vue'
 import TokenListModal from '@/components/modals/TokenList/TokenListModal.vue'
-import { AvalancheAccount } from '@/js/wallets/types'
+import { AvalancheAccount } from '@avalanche-sdk/client/accounts'
 
 interface Props {
     search: string

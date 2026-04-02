@@ -46,7 +46,7 @@ import { Utxo, PChainTransaction, PChainUtxo } from '@avalabs/glacier-sdk'
 import { getUrlFromTransaction } from '@/js/Glacier/getUrlFromTransaction'
 import { ava } from '@/AVA'
 import { isOwnedUTXO } from '@/js/Glacier/isOwnedUtxo'
-import { AvalancheAccount } from '@/js/wallets/types'
+import { AvalancheAccount } from '@avalanche-sdk/client/accounts'
 
 interface Props {
     transaction: XChainTransaction | PChainTransaction

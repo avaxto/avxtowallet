@@ -31,7 +31,7 @@ import { defineComponent, ref, computed, watch, onMounted } from 'vue'
 import { useMainStore } from '@/stores'
 import UtxoSelectModal from '@/components/modals/UtxoSelect/UtxoSelect.vue'
 import { AmountOutput, UTXO, UTXOSet } from '@/avalanche/apis/platformvm'
-import { AvalancheAccount } from '@/js/wallets/types'
+import { AvalancheAccount } from '@avalanche-sdk/client/accounts'
 
 import { CurrencyType } from '@/components/misc/CurrencySelect/types'
 import { BN } from '@/avalanche'
