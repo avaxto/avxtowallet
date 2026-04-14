@@ -11,6 +11,7 @@ import { ITransaction } from '@/components/wallet/transfer/types'
 import { WalletNameType } from '@/js/wallets/types'
 
 import { Buffer as BufferAvalanche, BN } from '@/avalanche'
+import { getPreferredHRP } from '@/avalanche/utils/helperfunctions'
 import {
     KeyPair as AVMKeyPair,
     KeyChain as AVMKeyChain,
@@ -132,15 +133,25 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
 
         const wallet = new InjectedWallet(provider, accounts[0])
 
-        // Try to get X/P addresses from the provider (Core App exposes avalanche_getAddresses)
+        // Try to get X/P addresses from the provider.
+        // Core App exposes avalanche_getAccountPubKey which returns { xp, evm } compressed pubkeys.
+        // We derive the bech32 X/P addresses from the xp public key.
         try {
-            const addrs: { xAddress?: string; pAddress?: string } = await provider.request({
-                method: 'avalanche_getAddresses',
+            const pubKeys: { xp?: string; evm?: string } = await provider.request({
+                method: 'avalanche_getAccountPubKey',
+                params: {},
             })
-            if (addrs?.xAddress) wallet.avmAddress = addrs.xAddress
-            if (addrs?.pAddress) wallet.platformAddress = addrs.pAddress
-        } catch {
-            // Provider does not support avalanche_getAddresses (e.g. MetaMask) — leave empty
+            if (pubKeys?.xp) {
+                const hrp = getPreferredHRP(ava.getNetworkID())
+                // Strip optional '0x' prefix — the key must be a 33-byte compressed secp256k1 pubkey
+                const xpHex = pubKeys.xp.replace(/^0x/, '')
+                const addrBuf = AVMKeyPair.addressFromPublicKey(BufferAvalanche.from(xpHex, 'hex'))
+                wallet.avmAddress      = bintools.addressToString(hrp, 'X', addrBuf)
+                wallet.platformAddress = bintools.addressToString(hrp, 'P', addrBuf)
+            }
+        } catch (err) {
+            console.warn('Provider does not support avalanche_getAccountPubKey. X/P chain addresses will be unavailable.', err)
+            // Provider does not support the method (e.g. MetaMask) — leave empty
         }
 
         return wallet

@@ -35,13 +35,20 @@ export default defineComponent({
         const isXSupported = computed(() => {
             const wallet: AvalancheAccount | null = mainStore.activeWallet as AvalancheAccount | null
             if (!wallet) return false
-            return !!wallet.getCurrentAddressAvm()
+
+            const xAddress = wallet.getCurrentAddressAvm()
+            const xpAddress = wallet.getXPAddress()
+            console.log('X Address: ' + xAddress)
+            console.log('XP Address: ' + xpAddress)
+            return !!xAddress
         })
 
         const isPSupported = computed(() => {
             const wallet: AvalancheAccount | null = mainStore.activeWallet as AvalancheAccount | null
             if (!wallet) return false
-            return !!wallet.getCurrentAddressPlatform()
+            const pAddress = wallet.getCurrentAddressPlatform()
+            console.log('P Address: ' + pAddress)
+            return !!pAddress
         })
 
         const setChain = (val: ChainIdType) => {
