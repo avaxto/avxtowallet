@@ -15,3 +15,6 @@ export const TESTNET_AVXTO_CONTRACT_ADDRESS = '0xCf568B85904790A03FB2d17DD5042e9
 export const TESTNET_AVXTO_SYMBOL = 'SMTK'
 export const TESTNET_AVXTO_ICON = '/src/assets/AVXTO_Icon.png'
 export const TESTNET_AVXTO_NAME = 'SomeToken'
+
+
+

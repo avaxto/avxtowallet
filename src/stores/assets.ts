@@ -152,6 +152,7 @@ export const useAssetsStore = defineStore('assets', () => {
     const erc20Tokens = ref<Erc20Token[]>([])
     const erc20TokensCustom = ref<Erc20Token[]>([])
     const evmChainId = ref<number>(0)
+    const baseAsset = ref<TokenListToken | null>(null)
     const tokenLists = ref<TokenList[]>([])
     const tokenListUrls = ref<string[]>([])
     const tokenListsCustom = ref<string[]>([])
@@ -470,7 +471,7 @@ export const useAssetsStore = defineStore('assets', () => {
 
     const updateBaseAsset = async () => {
         const isTestnet = evmChainId.value === 43113
-        const baseAsset: TokenListToken = {
+        baseAsset.value = {
             address: isTestnet ? TESTNET_AVXTO_CONTRACT_ADDRESS : AVXTO_CONTRACT_ADDRESS,
             chainId: evmChainId.value,
             name: isTestnet ? TESTNET_AVXTO_NAME : AVXTO_NAME,
@@ -478,7 +479,7 @@ export const useAssetsStore = defineStore('assets', () => {
             decimals: 18,
             logoURI: isTestnet ? TESTNET_AVXTO_ICON : AVXTO_ICON,
         }
-        await addErc20Token(baseAsset)
+        await addErc20Token(baseAsset.value)
     }
 
     const updateAvaAsset = async () => {
@@ -801,6 +802,7 @@ export const useAssetsStore = defineStore('assets', () => {
         erc20Tokens,
         erc20TokensCustom,
         evmChainId,
+        baseAsset,
         tokenLists,
         tokenListUrls,
         tokenListsCustom,
