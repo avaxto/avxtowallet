@@ -21,7 +21,9 @@ import { isUrlBanned } from '@/components/misc/NftPayloadView/blacklist'
 import localTokenList from '@/ERC20Tokenlist.json'
 import { useMainStore } from './main'
 import { useErc721Store } from './erc721'
-import { AVXTO_CONTRACT_ADDRESS, AVXTO_ICON, AVXTO_NAME, AVXTO_SYMBOL } from '@/avxto/AVXTOConf'
+import { AVXTO_CONTRACT_ADDRESS, AVXTO_ICON, AVXTO_NAME, AVXTO_SYMBOL,
+        TESTNET_AVXTO_CONTRACT_ADDRESS, TESTNET_AVXTO_ICON, TESTNET_AVXTO_NAME, TESTNET_AVXTO_SYMBOL } from '@/avxto/AVXTOConf'
+
 
 // Types (inline definitions to avoid circular imports)
 export interface TokenListToken {
@@ -467,13 +469,14 @@ export const useAssetsStore = defineStore('assets', () => {
     }
 
     const updateBaseAsset = async () => {
+        const isTestnet = evmChainId.value === 43113
         const baseAsset: TokenListToken = {
-            address: AVXTO_CONTRACT_ADDRESS,
+            address: isTestnet ? TESTNET_AVXTO_CONTRACT_ADDRESS : AVXTO_CONTRACT_ADDRESS,
             chainId: evmChainId.value,
-            name: AVXTO_NAME,
-            symbol: AVXTO_SYMBOL,
+            name: isTestnet ? TESTNET_AVXTO_NAME : AVXTO_NAME,
+            symbol: isTestnet ? TESTNET_AVXTO_SYMBOL : AVXTO_SYMBOL,
             decimals: 18,
-            logoURI: AVXTO_ICON,
+            logoURI: isTestnet ? TESTNET_AVXTO_ICON : AVXTO_ICON,
         }
         await addErc20Token(baseAsset)
     }

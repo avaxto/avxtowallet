@@ -21,7 +21,7 @@
                 </p>
                 <p>
                     <b>$</b>
-                    {{ amountUSD.toLocaleString(2) }}
+                    {{ amountUSD.toFixed(2) }}
                 </p>
             </div>
             <div></div>
@@ -74,7 +74,9 @@ export default defineComponent({
         })
 
         const amountUSD = computed((): Big => {
-            let usdPrice = priceDict.value.usd
+            const prices = priceDict.value
+            if (!prices) return Big(0)
+            let usdPrice = prices.usd
             if (typeof usdPrice !== 'number' || isNaN(usdPrice)) {
                 return Big(0)
             }
