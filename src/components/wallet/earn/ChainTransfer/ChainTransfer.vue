@@ -446,6 +446,7 @@ export default defineComponent({
             importId,
             importState,
             importStatus,
+            importReason,
             avmUnlocked,
             balanceBN,
             platformUnlocked,

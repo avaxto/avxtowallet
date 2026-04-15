@@ -32,7 +32,7 @@
 
         <div v-if="!isConfirm">
             <label>{{ $t('earn.transfer.amount') }}</label>
-
+            
             <AvaxInput
                 :max="maxAmt"
                 v-model="amt"

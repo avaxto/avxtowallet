@@ -1,8 +1,9 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { web3 } from '@/evm'
-import { AVXTO_CONTRACT_ADDRESS, C_CHAIN_POLLING_INTERVAL } from '@/avxto/AVXTOConf'
+import { C_CHAIN_POLLING_INTERVAL } from '@/avxto/AVXTOConf'
 import { useMainStore } from './main'
+import { useAssetsStore } from './assets'
 
 // Minimal ERC20 ABI — only balanceOf
 const ERC20_BALANCE_ABI = [
@@ -27,8 +28,15 @@ export const useAvxtoStore = defineStore('avxto', () => {
      */
     const fetchAvxtoBalance = async () => {
         const mainStore = useMainStore()
+        const assetsStore = useAssetsStore()
         const wallet = mainStore.activeWallet
         if (!wallet) {
+            avxtoBalance.value = '0'
+            return
+        }
+
+        const contractAddress = assetsStore.baseAsset?.address
+        if (!contractAddress) {
             avxtoBalance.value = '0'
             return
         }
@@ -40,8 +48,9 @@ export const useAvxtoStore = defineStore('avxto', () => {
         }
 
         try {
-            const contract = new web3.eth.Contract(ERC20_BALANCE_ABI as any, AVXTO_CONTRACT_ADDRESS)
-            console.log(`Fetching AVXTO balance for address ${evmAddress} from contract ${AVXTO_CONTRACT_ADDRESS} contract ${contract}...`)
+            
+            const contract = new web3.eth.Contract(ERC20_BALANCE_ABI as any, contractAddress)
+            console.log(`Fetching AVXTO balance for address ${evmAddress} from contract ${contractAddress} contract ${contract}...`)
             const balance: string = await contract.methods.balanceOf(evmAddress).call()
             console.log(`Fetched AVXTO balance for ${evmAddress}: ${balance}`)
             avxtoBalance.value = balance.toString()
