@@ -98,7 +98,7 @@ export default defineComponent({
         outline: none !important;
         color: var(--primary-color-light);
 
-        &[active] {
+        &[active="true"] {
             color: var(--secondary-color);
             border-bottom: 2px solid var(--secondary-color);
         }
