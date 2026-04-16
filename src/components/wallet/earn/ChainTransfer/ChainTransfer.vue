@@ -116,7 +116,7 @@
 </template>
 <script lang="ts">
 import 'reflect-metadata'
-import { defineComponent, ref, computed, watch, onMounted } from 'vue'
+import { defineComponent, ref, shallowRef, computed, watch, onMounted } from 'vue'
 import { useAssetsStore, useMainStore } from '@/stores'
 import { useI18n } from 'vue-i18n'
 
@@ -174,15 +174,15 @@ export default defineComponent({
         const sourceChain = ref<ChainIdType>('X')
         const targetChain = ref<ChainIdType>('P')
         const isLoading = ref(false)
-        const amt = ref(new BN(0))
+        const amt = shallowRef(new BN(0))
         const err = ref('')
 
         const isImportErr = ref(false)
         const isConfirm = ref(false)
         const isSuccess = ref(false)
 
-        const formAmt = ref(new BN(0))
-        const baseFee = ref(new BN(0))
+        const formAmt = shallowRef(new BN(0))
+        const baseFee = shallowRef(new BN(0))
 
         // Transaction ids
         const exportId = ref('')

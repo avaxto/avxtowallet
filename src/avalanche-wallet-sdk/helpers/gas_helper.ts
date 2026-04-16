@@ -114,8 +114,11 @@ export function estimateExportGasFeeFromMockTx(
     const AVAX_ID = activeNetwork.avaxID;
     const avaxIDBuff = bintools.cb58Decode(AVAX_ID);
 
-    const txIn = new EVMInput(from, amount, avaxIDBuff);
-    const secpOut = new SECPTransferOutput(amount, [toBuff]);
+    // Ensure a plain BN instance (not a Vue reactive proxy) reaches EVMInput/EVMOutput
+    const safeAmount = new BN(amount.toString(10), 10);
+
+    const txIn = new EVMInput(from, safeAmount, avaxIDBuff);
+    const secpOut = new SECPTransferOutput(safeAmount, [toBuff]);
     const txOut = new TransferableOutput(avaxIDBuff, secpOut);
 
     // Create fake export Tx

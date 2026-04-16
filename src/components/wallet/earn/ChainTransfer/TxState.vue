@@ -54,16 +54,16 @@ export default defineComponent({
             required: true
         },
         status: {
-            type: String,
-            required: true
+            type: String as () => string | null,
+            default: null
         },
         reason: {
-            type: String,
-            required: true
+            type: String as () => string | null,
+            default: null
         },
         txId: {
-            type: String,
-            required: true
+            type: String as () => string | null,
+            default: null
         },
         isExport: {
             type: Boolean,

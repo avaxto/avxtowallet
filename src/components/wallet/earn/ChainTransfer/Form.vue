@@ -35,7 +35,7 @@
             
             <AvaxInput
                 :max="maxAmt"
-                v-model="amt"
+                :amount="amt"
                 @change="onAmtChange"
                 :balance="balance"
             ></AvaxInput>
@@ -137,7 +137,8 @@ export default defineComponent({
             onChange()
         }
 
-        const onAmtChange = () => {
+        const onAmtChange = (val: BN) => {
+            amt.value = val
             onChange()
         }
 
