@@ -33,16 +33,13 @@
     </div>
 </template>
 <script lang="ts">
-import { defineComponent, ref, computed, watch, onMounted } from 'vue'
+import { defineComponent, ref, computed, watch, onMounted, toRaw } from 'vue'
 import { useAssetsStore, useMainStore } from '@/stores'
 
 import { BN } from '@/avalanche'
 // import Big from 'big.js';
 import Dropdown from '@/components/misc/Dropdown.vue'
-// import BigNumInput from "@/components/misc/BigNumInput";
-
-// Components will be globally registered by the library
-const BigNumInput = 'big-num-input' // Use string name for globally registered component
+import BigNumInput from '@/components/misc/BigNumInput.vue'
 import AvaAsset from '@/js/AvaAsset'
 import { ICurrencyInputDropdownValue } from '@/components/wallet/transfer/types'
 import { IWalletAssetsDict, IWalletBalanceDict, priceDict } from '@/types'
@@ -145,6 +142,7 @@ export default defineComponent({
         }
 
         const amount_in = (val: BN) => {
+            if (!val || val instanceof Event) return
             amount.value = val
             onchange()
         }
@@ -164,8 +162,10 @@ export default defineComponent({
         }
 
         const amountUSD = computed((): Big => {
-            let usdPrice = priceDict.value.usd
-            let bigAmt = bnToBig(amount.value, denomination.value)
+            let usdPrice = priceDict.value?.usd
+            if (!usdPrice) return Big(0)
+            if (!amount.value) return Big(0)
+            let bigAmt = bnToBig(toRaw(amount.value), denomination.value)
             let usdBig = bigAmt.times(usdPrice)
             return usdBig
         })
@@ -199,7 +199,7 @@ export default defineComponent({
 
         const denomination = computed((): number => {
             if (!asset_now.value) return 0
-            return asset_now.value.denomination
+            return asset_now.value.denomination ?? 0
         })
 
         const max_amount = computed((): null | BN => {
@@ -228,7 +228,7 @@ export default defineComponent({
 
         const maxAmountBig = computed((): Big => {
             if (!max_amount.value) return Big(0)
-            return bnToBig(max_amount.value, denomination.value)
+            return bnToBig(toRaw(max_amount.value), denomination.value)
         })
 
         return {

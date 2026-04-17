@@ -14,8 +14,10 @@
 <script>
 import Big from 'big.js'
 import { BN } from '@/avalanche'
+import { toRaw } from 'vue'
 
 export default {
+    emits: ['change'],
     data() {
         return {
             raw: '0',
@@ -31,10 +33,15 @@ export default {
         },
         bigMax() {
             if (this.max) {
-                // this.max is a BN in satoshis
-                let satoshi = Big(this.max)
-                let divider = Big(10).pow(this.denomination)
-                return satoshi.div(divider)
+                try {
+                    // toRaw to unwrap Vue reactive proxy from BN
+                    let rawMax = toRaw(this.max)
+                    let satoshi = Big(rawMax.toString(10))
+                    let divider = Big(10).pow(this.denomination)
+                    return satoshi.div(divider)
+                } catch (e) {
+                    return null
+                }
             }
             return null
         },
@@ -69,29 +76,30 @@ export default {
     methods: {
         // Emit in BN as satoshis!
         emit() {
-            // console.log(this.value.toString());
             let tens = Big(10).pow(this.denomination)
             let satoshis = this.value.times(tens)
             let bn = new BN(satoshis.toFixed(0))
             this.$emit('change', bn)
         },
         change(ev) {
-            this.cleanInput()
+            // TODO check why this is being called, seems like a bug
+            //this.cleanInput()
         },
         input(ev) {
-            ev.preventDefault()
-            let data = ev.data
-
-            if (data !== null) {
-                let num = parseInt(data)
-                if (isNaN(num)) {
-                    this.cleanInput()
+            try {
+                let rawnum = new Big(this.raw)
+                if (this.bigMax != null) {
+                    if (rawnum.gt(this.bigMax)) rawnum = this.bigMax
+                    else if (rawnum.lt(this.bigMin)) rawnum = this.bigMin
                 }
+                this.value = rawnum
+                this.emit()
+            } catch (e) {
+                // raw not yet parseable, wait for more input
             }
         },
         cleanInput() {
             let rawnum
-            // console.log('Raw:',this.raw);
             try {
                 if (this.raw === '') this.raw = 0
                 rawnum = new Big(this.raw)
@@ -99,15 +107,24 @@ export default {
                 rawnum = this.value
             }
 
-            if (this.bigMax != null) {
-                if (rawnum.gt(this.bigMax)) {
-                    rawnum = this.bigMax
-                } else if (rawnum.lt(this.bigMin)) {
-                    rawnum = this.bigMin
+            try {
+                if (this.bigMax != null) {
+                    if (rawnum.gt(this.bigMax)) {
+                        rawnum = this.bigMax
+                    } else if (rawnum.lt(this.bigMin)) {
+                        rawnum = this.bigMin
+                    }
                 }
+            } catch (e) {
+                // bigMax comparison failed, skip clamping
             }
             this.value = rawnum
             this.raw = rawnum.toFixed(this.denomination)
+            this.emit()
+        },
+        clear() {
+            this.value = new Big(0)
+            this.raw = new Big(0).toFixed(this.denomination)
             this.emit()
         },
         maxout() {

@@ -132,7 +132,7 @@
     </div>
 </template>
 <script lang="ts">
-import { defineComponent, ref, computed, onActivated, onDeactivated } from 'vue'
+import { defineComponent, ref, computed, onActivated, onDeactivated, toRaw } from 'vue'
 import { useAssetsStore, useHistoryStore, useMainStore, useNetworkStore, useNotificationsStore } from '@/stores'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
@@ -168,7 +168,7 @@ export default defineComponent({
     components: {
         FaucetLink,
         TxList,
-        // QrInput is globally registered by @avalabs/vue_components
+        QrInput,
         NftList,
         TxSummary,
         FormC,
@@ -230,7 +230,11 @@ export default defineComponent({
         }
 
         const updateTxList = (data: ITransaction[]) => {
+            if (!data || data instanceof Event) return
+            console.log('Updating tx list with:')
+            console.log(data)
             orders.value = data
+            console.log(orders.value)
         }
 
         const updateNftList = (val: UTXO[]) => {
@@ -421,10 +425,11 @@ export default defineComponent({
 
         const totalTxSize = computed(() => {
             let res = new BN(0)
-            for (var i = 0; i < orders.value.length; i++) {
-                let order = orders.value[i]
+            const rawOrders = toRaw(orders.value)
+            for (var i = 0; i < rawOrders.length; i++) {
+                let order = rawOrders[i]
                 if (order.amount) {
-                    res = res.add(orders.value[i].amount)
+                    res = res.add(order.amount)
                 }
             }
             return res
@@ -432,11 +437,13 @@ export default defineComponent({
 
         const avaxTxSize = computed(() => {
             let res = new BN(0)
-            for (var i = 0; i < orders.value.length; i++) {
-                let order = orders.value[i]
+            const rawOrders = toRaw(orders.value)
+            for (var i = 0; i < rawOrders.length; i++) {
+                let order = rawOrders[i]
                 if (!order.asset) continue
+                if (!avaxAsset.value) continue
                 if (order.amount && order.asset.id === avaxAsset.value.id) {
-                    res = res.add(orders.value[i].amount)
+                    res = res.add(order.amount)
                 }
             }
             return res

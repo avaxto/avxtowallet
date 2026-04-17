@@ -9,12 +9,13 @@ import {
 
 import { Defaults, getPreferredHRP, ONEAVAX, PayloadBase, PayloadTypes } from '@/avalanche/utils'
 import Big from 'big.js'
+import { toRaw } from 'vue'
 
 import { Buffer, BN } from '@/avalanche'
 import createHash from 'create-hash'
 
 function bnToBig(val: BN, denomination = 0): Big {
-    return new Big(val.toString()).div(Math.pow(10, denomination))
+    return new Big(toRaw(val).toString(10)).div(Math.pow(10, denomination))
 }
 
 function keyToKeypair(key: string, chainID: string = 'X'): AVMKeyPair {

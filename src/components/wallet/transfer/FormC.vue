@@ -124,7 +124,7 @@
     </div>
 </template>
 <script lang="ts">
-import { defineComponent, computed, ref, onMounted, onBeforeUnmount } from 'vue'
+import { defineComponent, computed, ref, markRaw, onMounted, onBeforeUnmount } from 'vue'
 import { useMainStore } from '@/stores'
 import { useI18n } from 'vue-i18n'
 import AvaxInput from '@/components/misc/AvaxInput.vue'
@@ -157,14 +157,13 @@ export default defineComponent({
     },
     setup() {
         const mainStore = useMainStore()
-        const route = useRoute()
         const { t } = useI18n()
 
         const isConfirm = ref(false)
         const isSuccess = ref(false)
         const addressIn = ref('')
-        const amountIn = ref(new BN(0))
-        const gasPrice = ref(new BN(225000000000))
+        const amountIn = ref(markRaw(new BN(0)))
+        const gasPrice = ref(markRaw(new BN(225000000000)))
         const gasPriceInterval = ref<ReturnType<typeof setTimeout> | undefined>(undefined)
         const gasLimit = ref(21000)
         const err = ref('')
@@ -184,7 +183,7 @@ export default defineComponent({
         const token_in = ref<InstanceType<typeof EVMInputDropdown> | null>(null)
 
         const updateGasPrice = async () => {
-            gasPrice.value = await GasHelper.getAdjustedGasPrice()
+            gasPrice.value = markRaw(await GasHelper.getAdjustedGasPrice())
         }
 
         // Lifecycle methods
@@ -205,6 +204,139 @@ export default defineComponent({
         })
 
         // Continue with rest of component logic...
+
+        // ---- Computed ----
+
+        const wallet = computed(() => mainStore.activeWallet as any)
+
+        const gasPriceNumber = computed({
+            get: () => gasPrice.value.div(new BN(1e9)).toNumber(),
+            set: (val: number) => {
+                gasPrice.value = new BN(val).mul(new BN(1e9))
+            },
+        })
+
+        const maxFee = computed((): BN => {
+            return gasPrice.value.mul(new BN(gasLimit.value))
+        })
+
+        const maxFeeText = computed((): string => {
+            return bnToAvaxC(maxFee.value)
+        })
+
+        const maxFeeUSD = computed((): Big => {
+            const prices = (mainStore as any).prices
+            const usd = prices?.usd
+            if (typeof usd !== 'number' || isNaN(usd)) return Big(0)
+            return bnToBigAvaxC(maxFee.value).times(usd)
+        })
+
+        const canConfirm = computed((): boolean => {
+            if (!addressIn.value) return false
+            if (isCollectible.value) {
+                return !!formCollectible.value
+            }
+            
+            return amountIn.value.gt(new BN(0))
+        })
+
+        // ---- Event handlers ----
+
+        const onAmountChange = (val: BN) => {
+            amountIn.value = markRaw(val)
+        }
+
+        const onTokenChange = (token: Erc20Token | 'native') => {
+            formToken.value = token
+        }
+
+        const onCollectibleChange = (val: iErc721SelectInput | null) => {
+            formCollectible.value = val
+            isCollectible.value = !!val
+        }
+
+        // ---- Actions ----
+
+        const confirm = async () => {
+            formAddress.value = addressIn.value
+            formAmount.value = amountIn.value
+            err.value = ''
+
+            // Estimate gas limit for ERC20 / native
+            try {
+                if (formToken.value !== 'native' && formToken.value instanceof Erc20Token) {
+                    gasLimit.value = await (wallet.value as any).estimateGas(
+                        formAddress.value,
+                        formAmount.value,
+                        formToken.value
+                    )
+                } else {
+                    gasLimit.value = 21000
+                }
+            } catch (e: any) {
+                gasLimit.value = 21000
+            }
+            isConfirm.value = true
+        }
+
+        const cancel = () => {
+            isConfirm.value = false
+            err.value = ''
+        }
+
+        const submit = async () => {
+            isLoading.value = true
+            err.value = ''
+            try {
+                let hash: string
+                if (isCollectible.value && formCollectible.value) {
+                    hash = await WalletHelper.sendErc721(
+                        wallet.value,
+                        formAddress.value,
+                        gasPrice.value,
+                        gasLimit.value,
+                        formCollectible.value.token,
+                        formCollectible.value.id
+                    )
+                } else if (formToken.value !== 'native' && formToken.value instanceof Erc20Token) {
+                    hash = await WalletHelper.sendErc20(
+                        wallet.value,
+                        formAddress.value,
+                        formAmount.value,
+                        gasPrice.value,
+                        gasLimit.value,
+                        formToken.value
+                    )
+                } else {
+                    hash = await WalletHelper.sendEth(
+                        wallet.value,
+                        formAddress.value,
+                        formAmount.value,
+                        gasPrice.value,
+                        gasLimit.value
+                    )
+                }
+                txHash.value = hash
+                isSuccess.value = true
+                canSendAgain.value = true
+            } catch (e: any) {
+                err.value = e.message || String(e)
+            } finally {
+                isLoading.value = false
+            }
+        }
+
+        const startAgain = () => {
+            isConfirm.value = false
+            isSuccess.value = false
+            addressIn.value = ''
+            amountIn.value = markRaw(new BN(0))
+            txHash.value = ''
+            canSendAgain.value = false
+            err.value = ''
+            token_in.value?.clear?.()
+        }
+
         return {
             isConfirm,
             isSuccess,
@@ -222,7 +354,18 @@ export default defineComponent({
             formCollectible,
             txHash,
             token_in,
-            updateGasPrice
+            updateGasPrice,
+            gasPriceNumber,
+            maxFeeText,
+            maxFeeUSD,
+            canConfirm,
+            onAmountChange,
+            onTokenChange,
+            onCollectibleChange,
+            confirm,
+            cancel,
+            submit,
+            startAgain,
         }
     }
 })

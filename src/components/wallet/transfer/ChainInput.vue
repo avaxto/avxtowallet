@@ -2,8 +2,8 @@
     <div v-if="isEVMSupported">
         <label>{{ $t('transfer.source_chain.title') }}</label>
         <div class="chain_select">
-            <button :active="formType === 'X'" @click="set('X')">X</button>
-            <button :active="formType === 'C'" @click="set('C')">C</button>
+            <button type="button" :active="modelValue === 'X'" @click="set('X')">X</button>
+            <button type="button" :active="modelValue === 'C'" @click="set('C')">C</button>
         </div>
     </div>
 </template>
@@ -14,14 +14,14 @@ import { ChainIdType } from '@/constants'
 import { CurrencyType } from '@/components/misc/CurrencySelect/types'
 
 interface Props {
-    formType: CurrencyType
+    modelValue: CurrencyType
     disabled: boolean
 }
 
 export default defineComponent({
     name: 'ChainInput',
     props: {
-        formType: {
+        modelValue: {
             type: String as () => CurrencyType,
             required: true
         },
@@ -30,7 +30,7 @@ export default defineComponent({
             default: false
         }
     },
-    emits: ['change'],
+    emits: ['update:modelValue'],
     setup(props: Props, { emit }) {
         const mainStore = useMainStore()
         const wallet = computed(() => {
@@ -43,7 +43,7 @@ export default defineComponent({
 
         const set = (val: ChainIdType) => {
             if (props.disabled) return
-            emit('change', val)
+            emit('update:modelValue', val)
         }
 
         return {
@@ -78,7 +78,7 @@ label {
         &:hover {
             opacity: 1;
         }
-        &[active] {
+        &[active="true"] {
             //background-color: var(--secondary-color);
             color: var(--secondary-color);
             //border-color: var(--primary-color-light);
@@ -100,7 +100,7 @@ label {
             background-color: var(--bg-light);
             color: var(--primary-color-light);
 
-            &[active] {
+            &[active="true"] {
                 //background-color: var(--secondary-color);
                 color: var(--primary-color);
                 //color: #fff;

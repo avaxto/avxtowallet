@@ -10,7 +10,7 @@
                         :step="stepSize"
                         :placeholder="placeholder"
                         ref="bigIn"
-                        @change="amount_in"
+                        @update:modelValue="amount_in"
                         class="bigIn"
                         :disabled="disabled"
                     ></BigNumInput>
@@ -41,7 +41,7 @@
 </template>
 <script lang="ts">
 
-import { defineComponent, ref, computed, nextTick } from 'vue'
+import { defineComponent, ref, shallowRef, computed, nextTick, toRaw } from 'vue'
 import { useMainStore } from '@/stores'
 //@ts-ignore
 import { BigNumInput } from '@/vue_components'
@@ -88,7 +88,7 @@ export default defineComponent({
         const token = ref<Erc20Token | 'native'>('native')
         const isCollectible = ref(false)
         const collectible = ref<iErc721SelectInput | null>(null)
-        const amt = ref(new BN(0))
+        const amt = shallowRef(new BN(0))
 
         const clear = () => {
             if (dropdown.value) {
@@ -103,7 +103,7 @@ export default defineComponent({
             if (typeof price !== 'number' || isNaN(price)) {
                 return Big(0)
             }
-            let big = bnToBig(amt.value, 18)
+            let big = bnToBig(toRaw(amt.value), 18)
             return big.mul(Big(price))
         })
 
@@ -151,7 +151,7 @@ export default defineComponent({
         })
 
         const avaxBalance = computed((): Big => {
-            return bnToBig(avaxBalanceBN.value, 18)
+            return bnToBig(toRaw(avaxBalanceBN.value), 18)
         })
 
         const balance = computed((): Big => {

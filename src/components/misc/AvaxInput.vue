@@ -9,7 +9,7 @@
                 :denomination="9"
                 :max="max"
                 placeholder="0.00"
-                @change="amount_in"
+                @update:modelValue="amount_in"
             ></BigNumInput>
         </div>
         <p class="ticker">AVAX</p>
