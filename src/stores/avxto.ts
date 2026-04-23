@@ -48,11 +48,8 @@ export const useAvxtoStore = defineStore('avxto', () => {
         }
 
         try {
-            
             const contract = new web3.eth.Contract(ERC20_BALANCE_ABI as any, contractAddress)
-            console.log(`Fetching AVXTO balance for address ${evmAddress} from contract ${contractAddress} contract ${contract}...`)
-            const balance: string = await contract.methods.balanceOf(evmAddress).call()
-            console.log(`Fetched AVXTO balance for ${evmAddress}: ${balance}`)
+            const balance: string = await contract.methods.balanceOf(evmAddress).call()            
             avxtoBalance.value = balance.toString()
         } catch (e) {
             console.error('Failed to fetch AVXTO token balance:', e)

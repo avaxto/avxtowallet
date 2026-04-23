@@ -40,6 +40,10 @@ import { avmGetAllUTXOs, platformGetAllUTXOs } from '@/helpers/utxo_helper'
 import { UTXO as AVMUTXO } from '@/avalanche/apis/avm/utxos'
 import { Transaction } from '@ethereumjs/tx'
 import { ExportChainsC, ExportChainsP, ExportChainsX } from '@/avalanche-wallet-sdk'
+import { createAvalancheWalletClient } from '@avalanche-sdk/client'
+import { activeNetwork } from '@/avalanche-wallet-sdk/Network/network'
+import * as TxHelper from '@/avalanche-wallet-sdk/helpers/tx_helper'
+import { defineChain } from 'viem'
 
 import {
     createWalletClient,
@@ -264,45 +268,49 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
     // X/P chain signing is not supported. EVM signing delegates to the injected provider.
 
     /**
-     * Sign an X-chain transaction via the Core App provider (avalanche_signTx).
+     * Sign an X-chain transaction via the Core App provider (avalanche_signTransaction).
      * Only Core App (window.avalanche) supports this; MetaMask will reject.
      */
     async signX(unsignedTx: AVMUnsignedTx): Promise<AVMTx> {
         const txHex = Buffer.from(unsignedTx.toBuffer()).toString('hex')
-        const signedHex: string = await this.provider.request({
-            method: 'avalanche_signTx',
+        const raw = await this.provider.request({
+            method: 'avalanche_signTransaction',
             params: { transactionHex: txHex, chainAlias: 'X' },
         })
+        // Core App may return a plain hex string or { signedTransactionHex: '...' }
+        const signedHex: string = typeof raw === 'string' ? raw : raw.signedTransactionHex
         const tx = new AVMTx()
-        tx.fromBuffer(Buffer.from(signedHex.replace(/^0x/, ''), 'hex'))
+        tx.fromBuffer(Buffer.from(signedHex.replace(/^0x/, ''), 'hex') as any)
         return tx
     }
 
     /**
-     * Sign a P-chain transaction via the Core App provider (avalanche_signTx).
+     * Sign a P-chain transaction via the Core App provider (avalanche_signTransaction).
      */
     async signP(unsignedTx: PlatformUnsignedTx): Promise<PlatformTx> {
         const txHex = Buffer.from(unsignedTx.toBuffer()).toString('hex')
-        const signedHex: string = await this.provider.request({
-            method: 'avalanche_signTx',
+        const raw = await this.provider.request({
+            method: 'avalanche_signTransaction',
             params: { transactionHex: txHex, chainAlias: 'P' },
         })
+        const signedHex: string = typeof raw === 'string' ? raw : raw.signedTransactionHex
         const tx = new PlatformTx()
-        tx.fromBuffer(Buffer.from(signedHex.replace(/^0x/, ''), 'hex'))
+        tx.fromBuffer(Buffer.from(signedHex.replace(/^0x/, ''), 'hex') as any)
         return tx
     }
 
     /**
-     * Sign a C-chain atomic transaction via the Core App provider (avalanche_signTx).
+     * Sign a C-chain atomic transaction via the Core App provider (avalanche_signTransaction).
      */
     async signC(unsignedTx: EVMUnsignedTx): Promise<EvmTx> {
         const txHex = Buffer.from(unsignedTx.toBuffer()).toString('hex')
-        const signedHex: string = await this.provider.request({
-            method: 'avalanche_signTx',
+        const raw = await this.provider.request({
+            method: 'avalanche_signTransaction',
             params: { transactionHex: txHex, chainAlias: 'C' },
         })
+        const signedHex: string = typeof raw === 'string' ? raw : raw.signedTransactionHex
         const tx = new EvmTx()
-        tx.fromBuffer(Buffer.from(signedHex.replace(/^0x/, ''), 'hex'))
+        tx.fromBuffer(Buffer.from(signedHex.replace(/^0x/, ''), 'hex') as any)
         return tx
     }
 
@@ -471,6 +479,52 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
         utxos?: PlatformUTXO[]
     ): Promise<string> {
         throw new Error('Delegation is not supported with injected wallets.')
+    }
+
+    // ---- Cross-chain export override ----
+    // Use the new SDK sendXPTransaction with a custom provider transport so Core App
+    // handles signing and submission internally, without any manual signC/issueC dance.
+
+    async exportFromCChain(amt: BN, destinationChain: ExportChainsC, exportFee: BN): Promise<string> {
+        const importFee = avm.getTxFee()
+        const amtFee = amt.add(importFee)
+
+        const hexAddr = this.getEvmAddress()
+        const destinationAddr =
+            destinationChain === 'X'
+                ? this.getCurrentAddressAvm()
+                : this.getCurrentAddressPlatform()
+
+        const exportTxResult = await TxHelper.buildEvmExportTransaction(
+            [`0x${hexAddr}`],
+            destinationAddr,
+            amtFee,
+            '',
+            destinationChain,
+            exportFee
+        )
+
+        const network = activeNetwork
+        const chain = defineChain({
+            id: network.evmChainID,
+            name: 'Avalanche',
+            nativeCurrency: { name: 'Avalanche', symbol: 'AVAX', decimals: 18 },
+            rpcUrls: { default: { http: [network.rpcUrl.c] } },
+        })
+
+        // Use the injected provider as the transport so Core App handles
+        // avalanche_signTransaction + avalanche_sendTransaction internally.
+        const walletClient = createAvalancheWalletClient({
+            chain: chain as any,
+            transport: { type: 'custom' as const, provider: this.provider },
+        })
+
+        const result = await walletClient.sendXPTransaction({
+            tx: exportTxResult.tx,
+            chainAlias: exportTxResult.chainAlias,
+        })
+
+        return result.txHash
     }
 }
 

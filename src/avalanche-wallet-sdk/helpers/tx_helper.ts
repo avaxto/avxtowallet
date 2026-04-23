@@ -1,4 +1,5 @@
 import { cChain, ethersProvider, pChain, web3, xChain, activeNetwork } from '@/avalanche-wallet-sdk/Network/network';
+import { avm } from '@/AVA';
 import { createAvalancheWalletClient } from '@avalanche-sdk/client';
 import type { PrepareExportTxnReturnType } from '@avalanche-sdk/client/dist/methods/wallet/cChain/index.js';
 import { defineChain } from 'viem';
@@ -161,6 +162,29 @@ export async function buildEvmExportTransaction(
         ? fromAddresses[0]
         : `0x${fromAddresses[0]}`) as `0x${string}`;
 
+    // Build context from static network config to avoid RPC calls to avm.getAssetDescription
+    // and other unsupported methods. Only eth_getTransactionCount and eth_baseFee are still
+    // fetched from the C-chain node (those are always supported).
+    const baseTxFee = BigInt(avm.getTxFee().toString());
+    const context = {
+        networkID: network.networkID,
+        hrp: network.networkID === 1 ? 'avax' : network.networkID === 5 ? 'fuji' : 'custom',
+        xBlockchainID: network.xChainID,
+        pBlockchainID: network.pChainID,
+        cBlockchainID: network.cChainID,
+        avaxAssetID: network.avaxID,
+        baseTxFee,
+        createAssetTxFee: BigInt(avm.getDefaultCreationTxFee().toString()),
+        platformFeeConfig: {
+            weights: { 0: 0, 1: 0, 2: 0, 3: 0 },
+            maxCapacity: BigInt(0),
+            maxPerSecond: BigInt(0),
+            targetPerSecond: BigInt(0),
+            minPrice: BigInt(0),
+            excessConversionConstant: BigInt(0),
+        },
+    } as any;
+
     return walletClient.cChain.prepareExportTxn({
         destinationChain,
         fromAddress,
@@ -168,6 +192,7 @@ export async function buildEvmExportTransaction(
             addresses: [toAddress],
             amount: BigInt(amount.toString()),
         },
+        context,
     });
 }
 

@@ -317,7 +317,10 @@ abstract class AbstractWallet {
             exportFee
         )
 
+        console.log('Built export transaction', exportTxResult)
+
         if (this.xpAccount) {
+            console.log('Wallet has xpAccount, using wallet client to sign and send export transaction...')
             // Local-key wallets (mnemonic / singleton): sign with xpAccount
             const network = activeNetwork
             const chain = defineChain({
@@ -345,16 +348,27 @@ abstract class AbstractWallet {
                 account: avalancheAccount as any,
             })
             return result.txHash
+        } else {
+            console.log('Wallet does NOT have xpAccount, using legacy signing and issuing for export transaction...')
         }
 
         // Fallback for wallets without a local xpAccount (Ledger, Injected):
         // Convert the new SDK UnsignedTx bytes back to the old AvalancheJS format
         // so the wallet's signC implementation can handle signing.
+        console.log('1')
         const txBytes = exportTxResult.tx.toBytes()
+        console.log('2')
         const oldUnsignedTx = new EVMUnsignedTx()
+        console.log('3')
         oldUnsignedTx.fromBuffer(Buffer.from(txBytes) as any)
+        console.log('4')
         const tx = await this.signC(oldUnsignedTx)
-        return this.issueC(tx)
+        console.log('5')
+        const issuedTx = this.issueC(tx)
+        console.log('6')
+        console.log('Issued export transaction', issuedTx)
+        console.log('7')
+        return issuedTx
     }
 
     /**
