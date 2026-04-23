@@ -79,7 +79,6 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
     chainIdP: string
 
     ethAddress: string
-    ethAddressBech: string
 
     avmAddress: string
     platformAddress: string
@@ -95,7 +94,6 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
         this.provider = provider
         // Store the EVM address without '0x' prefix (matching other wallet types)
         this.ethAddress = evmAddress.toLowerCase().replace('0x', '')
-        this.ethAddressBech = '' // Injected wallets don't have bech32 C-chain addresses
 
         this.avmAddress = ''
         this.platformAddress = ''
@@ -209,15 +207,16 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
     }
 
     getEvmAddressBech(): string {
-        return this.ethAddressBech
+        const addrBuf = BufferAvalanche.from(this.ethAddress, 'hex')
+        return bintools.addressToString(ava.getHRP(), 'C', addrBuf)
     }
 
     getAllAddressesX(): string[] {
-        return []
+        return this.avmAddress ? [this.avmAddress] : []
     }
 
     getAllAddressesP(): string[] {
-        return []
+        return this.platformAddress ? [this.platformAddress] : []
     }
 
     // ---- UTXO management ----
@@ -264,18 +263,47 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
     // ---- Signing ----
     // X/P chain signing is not supported. EVM signing delegates to the injected provider.
 
+    /**
+     * Sign an X-chain transaction via the Core App provider (avalanche_signTx).
+     * Only Core App (window.avalanche) supports this; MetaMask will reject.
+     */
     async signX(unsignedTx: AVMUnsignedTx): Promise<AVMTx> {
-        throw new Error('X-chain signing is not supported with injected wallets.')
+        const txHex = Buffer.from(unsignedTx.toBuffer()).toString('hex')
+        const signedHex: string = await this.provider.request({
+            method: 'avalanche_signTx',
+            params: { transactionHex: txHex, chainAlias: 'X' },
+        })
+        const tx = new AVMTx()
+        tx.fromBuffer(Buffer.from(signedHex.replace(/^0x/, ''), 'hex'))
+        return tx
     }
 
+    /**
+     * Sign a P-chain transaction via the Core App provider (avalanche_signTx).
+     */
     async signP(unsignedTx: PlatformUnsignedTx): Promise<PlatformTx> {
-        throw new Error('P-chain signing is not supported with injected wallets.')
+        const txHex = Buffer.from(unsignedTx.toBuffer()).toString('hex')
+        const signedHex: string = await this.provider.request({
+            method: 'avalanche_signTx',
+            params: { transactionHex: txHex, chainAlias: 'P' },
+        })
+        const tx = new PlatformTx()
+        tx.fromBuffer(Buffer.from(signedHex.replace(/^0x/, ''), 'hex'))
+        return tx
     }
 
+    /**
+     * Sign a C-chain atomic transaction via the Core App provider (avalanche_signTx).
+     */
     async signC(unsignedTx: EVMUnsignedTx): Promise<EvmTx> {
-        throw new Error(
-            'Avalanche C-chain atomic signing is not supported with injected wallets.'
-        )
+        const txHex = Buffer.from(unsignedTx.toBuffer()).toString('hex')
+        const signedHex: string = await this.provider.request({
+            method: 'avalanche_signTx',
+            params: { transactionHex: txHex, chainAlias: 'C' },
+        })
+        const tx = new EvmTx()
+        tx.fromBuffer(Buffer.from(signedHex.replace(/^0x/, ''), 'hex'))
+        return tx
     }
 
     /**
@@ -416,39 +444,9 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
         return Math.round(Number(estimate) * 1.1)
     }
 
-    // ---- Cross-chain operations (not supported) ----
-
-    async exportFromXChain(amt: BN, destinationChain: ExportChainsX): Promise<string> {
-        throw new Error('Cross-chain exports are not supported with injected wallets.')
-    }
-
-    async exportFromPChain(amt: BN, destinationChain: ExportChainsP): Promise<string> {
-        throw new Error('Cross-chain exports are not supported with injected wallets.')
-    }
-
-    async exportFromCChain(
-        amt: BN,
-        destinationChain: ExportChainsC,
-        baseFee: BN
-    ): Promise<string> {
-        throw new Error('Cross-chain exports are not supported with injected wallets.')
-    }
-
-    async importToPlatformChain(sourceChain: ExportChainsP): Promise<string> {
-        throw new Error('Cross-chain imports are not supported with injected wallets.')
-    }
-
-    async importToXChain(sourceChain: ExportChainsX): Promise<string> {
-        throw new Error('Cross-chain imports are not supported with injected wallets.')
-    }
-
-    async importToCChain(
-        sourceChain: ExportChainsC,
-        baseFee: BN,
-        utxoSet?: EVMUTXOSet
-    ): Promise<string> {
-        throw new Error('Cross-chain imports are not supported with injected wallets.')
-    }
+    // ---- Cross-chain operations ----
+    // Delegated to AbstractWallet using signX / signP / signC above.
+    // Core App (window.avalanche) is required; MetaMask does not support avalanche_signTx.
 
     // ---- Validation / Delegation (not supported) ----
 

@@ -5,7 +5,6 @@ import { ExportChainsC } from '@/avalanche-wallet-sdk/Wallet/types';
 import { bintools } from '@/avalanche-wallet-sdk/common';
 import { chainIdFromAlias } from '@/avalanche-wallet-sdk/Network';
 import { costExportTx, costImportTx } from '@/avalanche/utils';
-import { buildEvmExportTransaction } from '@/avalanche-wallet-sdk/helpers/tx_helper';
 
 const MAX_GAS = new BN(1000_000_000_000);
 
@@ -131,12 +130,12 @@ export function estimateExportGasFeeFromMockTx(
 }
 
 /**
- * Returns the estimated gas for the export transaction.
+ * Returns the estimated gas for the export transaction using a mock transaction.
  * @param destinationChain Either `X` or `P`
  * @param amount The amount to export. In nAVAX.
  * @param from The C chain hex address exporting the asset
  * @param fromBech The C chain bech32 address exporting the asset
- * @param to The destination address on the destination chain
+ * @param to The destination X or P address
  */
 export async function estimateExportGasFee(
     destinationChain: ExportChainsC,
@@ -145,7 +144,5 @@ export async function estimateExportGasFee(
     to: string,
     amount: BN
 ): Promise<number> {
-    let exportTx = await buildEvmExportTransaction([from], to, amount, fromBech, destinationChain, new BN(0));
-
-    return costExportTx(exportTx);
+    return estimateExportGasFeeFromMockTx(destinationChain, amount, from, to);
 }

@@ -1,5 +1,5 @@
 <template>
-    <div>
+    <div class="chain_transfer_root">
         <div class="cols">
             <div class="form">
                 <ChainSwapForm
@@ -396,9 +396,63 @@ export default defineComponent({
             }
         }
 
-        // Convert remaining methods to composition API functions
-        const chainExport = async (amt: BN, sourceChain: ChainIdType, destinationChain: ChainIdType) => {
-            // Implementation will be added
+        const chainExport = async (amt: BN, src: ChainIdType, dst: ChainIdType) => {
+            const w = wallet.value as any
+
+            // --- Export phase ---
+            exportState.value = TxState.started
+            exportId.value = ''
+            exportStatus.value = null
+            exportReason.value = null
+
+            let exportTxId: string
+            try {
+                if (src === 'X') {
+                    exportTxId = await w.exportFromXChain(amt, dst as ExportChainsX)
+                } else if (src === 'P') {
+                    exportTxId = await w.exportFromPChain(amt, dst as ExportChainsP)
+                } else {
+                    exportTxId = await w.exportFromCChain(amt, dst as ExportChainsC, exportFeeBN.value)
+                }
+                exportId.value = exportTxId
+                exportState.value = TxState.success
+                console.log('Exported with txId', exportTxId)
+            } catch (e: any) {
+                exportState.value = TxState.failed
+                exportReason.value = e.message || String(e)
+                console.log('Export failed', e)
+                throw e
+            }
+
+            // Wait for UTXOs to appear in atomic memory
+            await new Promise((resolve) => setTimeout(resolve, IMPORT_DELAY))
+
+            // --- Import phase ---
+            importState.value = TxState.started
+            importId.value = ''
+            importStatus.value = null
+            importReason.value = null
+
+            let importTxId: string
+            try {
+                if (dst === 'X') {
+                    importTxId = await w.importToXChain(src as ExportChainsX)
+                } else if (dst === 'P') {
+                    importTxId = await w.importToPlatformChain(src as ExportChainsP)
+                } else {
+                    importTxId = await w.importToCChain(src as ExportChainsC, importFeeBN.value)
+                }
+                importId.value = importTxId
+                importState.value = TxState.success
+            } catch (e: any) {
+                importState.value = TxState.failed
+                importReason.value = e.message || String(e)
+                isImportErr.value = true
+                throw e
+            }
+
+            isSuccess.value = true
+            isLoading.value = false
         }
 
         const onerror = (error: any) => {
@@ -570,6 +624,10 @@ export default defineComponent({
 </style>
 <style scoped lang="scss">
 @use "../../../../main";
+
+.chain_transfer_root {
+    overflow-y: auto;
+}
 
 .cols {
     display: grid;

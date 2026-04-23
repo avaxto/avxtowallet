@@ -23,7 +23,10 @@ import {
 import { Tx as AVMTx, UnsignedTx as AVMUnsignedTx } from '@/avalanche/apis/avm/tx'
 import { AvmImportChainType } from '@/js/wallets/types'
 import type { Account, Address } from 'viem'
+import { defineChain } from 'viem'
 import type { XPAccount } from '@avalanche-sdk/client/accounts'
+import { createAvalancheWalletClient } from '@avalanche-sdk/client'
+import { activeNetwork } from '@/avalanche-wallet-sdk/Network/network'
 import { issueC, issueP, issueX } from '@/helpers/issueTx'
 import { sortUTxoSetP } from '@/helpers/sortUTXOs'
 import { getStakeForAddresses } from '@/helpers/utxo_helper'
@@ -293,31 +296,64 @@ abstract class AbstractWallet {
      * @param fee Fee to use in the export transaction, given in nAVAX.
      */
     async exportFromCChain(amt: BN, destinationChain: ExportChainsC, exportFee: BN) {
-        // Add import fee
-        // X and P have the same fee
+        // Add import fee so the destination chain can cover its import cost
         const importFee = avm.getTxFee()
         const amtFee = amt.add(importFee)
 
         const hexAddr = this.getEvmAddress()
-        const bechAddr = this.getEvmAddressBech()
-
-        const fromAddresses = [hexAddr]
 
         const destinationAddr =
             destinationChain === 'X'
                 ? this.getCurrentAddressAvm()
                 : this.getCurrentAddressPlatform()
 
-        const exportTx = await TxHelper.buildEvmExportTransaction(
-            fromAddresses,
+        // Build the export transaction using the new Avalanche SDK
+        const exportTxResult = await TxHelper.buildEvmExportTransaction(
+            [`0x${hexAddr}`],
             destinationAddr,
             amtFee,
-            bechAddr,
+            '',
             destinationChain,
             exportFee
         )
 
-        const tx = await this.signC(exportTx)
+        if (this.xpAccount) {
+            // Local-key wallets (mnemonic / singleton): sign with xpAccount
+            const network = activeNetwork
+            const chain = defineChain({
+                id: network.evmChainID,
+                name: 'Avalanche',
+                nativeCurrency: { name: 'Avalanche', symbol: 'AVAX', decimals: 18 },
+                rpcUrls: { default: { http: [network.rpcUrl.c] } },
+            })
+            const evmAddress = this.getEVMAddress() as `0x${string}`
+            const xpAcc = this.xpAccount!
+            const avalancheAccount = {
+                evmAccount: { address: evmAddress, type: 'json-rpc' as const },
+                xpAccount: xpAcc,
+                getXPAddress: () => '',
+                getEVMAddress: () => evmAddress,
+            }
+            const walletClient = createAvalancheWalletClient({
+                chain: chain as any,
+                transport: { type: 'http' as const, url: network.rpcUrl.c },
+                account: avalancheAccount as any,
+            })
+            const result = await walletClient.sendXPTransaction({
+                tx: exportTxResult.tx,
+                chainAlias: exportTxResult.chainAlias,
+                account: avalancheAccount as any,
+            })
+            return result.txHash
+        }
+
+        // Fallback for wallets without a local xpAccount (Ledger, Injected):
+        // Convert the new SDK UnsignedTx bytes back to the old AvalancheJS format
+        // so the wallet's signC implementation can handle signing.
+        const txBytes = exportTxResult.tx.toBytes()
+        const oldUnsignedTx = new EVMUnsignedTx()
+        oldUnsignedTx.fromBuffer(Buffer.from(txBytes) as any)
+        const tx = await this.signC(oldUnsignedTx)
         return this.issueC(tx)
     }
 

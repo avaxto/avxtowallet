@@ -820,7 +820,7 @@ export abstract class WalletProvider {
             exportFee = avaxCtoX(baseFee.mul(new BN(gas)));
         }
 
-        let exportTx = await buildEvmExportTransaction(
+        const exportTxResult = await buildEvmExportTransaction(
             fromAddresses,
             destinationAddr,
             amt,
@@ -829,7 +829,12 @@ export abstract class WalletProvider {
             exportFee
         );
 
-        let tx = await this.signC(exportTx);
+        // Convert new SDK UnsignedTx bytes to the old AvalancheJS format for signC
+        const txBytes = exportTxResult.tx.toBytes();
+        const oldUnsignedTx = new EVMUnsignedTx();
+        oldUnsignedTx.fromBuffer(Buffer.from(txBytes) as any);
+
+        let tx = await this.signC(oldUnsignedTx);
 
         let txId = await cChain.issueTx(tx);
 

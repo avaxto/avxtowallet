@@ -1,4 +1,7 @@
-import { cChain, ethersProvider, pChain, web3, xChain } from '@/avalanche-wallet-sdk/Network/network';
+import { cChain, ethersProvider, pChain, web3, xChain, activeNetwork } from '@/avalanche-wallet-sdk/Network/network';
+import { createAvalancheWalletClient } from '@avalanche-sdk/client';
+import type { PrepareExportTxnReturnType } from '@avalanche-sdk/client/dist/methods/wallet/cChain/index.js';
+import { defineChain } from 'viem';
 
 import { BN, Buffer } from '@/avalanche';
 import {
@@ -124,41 +127,48 @@ export async function buildPlatformExportTransaction(
 
 /**
  *
- * @param fromAddresses
- * @param toAddress
- * @param amount
- * @param fromAddressBech
- * @param destinationChain Either `X` or `P`
- * @param fee Export fee in nAVAX
+ * @param fromAddresses Hex EVM addresses (with or without 0x prefix).
+ * @param toAddress Destination bech32 XP address.
+ * @param amount Amount to export (including import fee for destination chain), in nAVAX.
+ * @param _fromAddressBech Legacy parameter, no longer used.
+ * @param destinationChain Either `X` or `P`.
+ * @param _fee Legacy parameter. Export fee is now auto-calculated from the network base fee.
+ * @returns PrepareExportTxnReturnType from the new Avalanche SDK.
  */
 export async function buildEvmExportTransaction(
     fromAddresses: string[],
     toAddress: string,
-    amount: BN, // export amount + fee
-    fromAddressBech: string,
+    amount: BN,
+    _fromAddressBech: string,
     destinationChain: ExportChainsC,
-    fee: BN
-) {
-    let destinationChainId = chainIdFromAlias(destinationChain);
+    _fee: BN
+): Promise<PrepareExportTxnReturnType> {
+    const network = activeNetwork;
 
-    const nonce = await web3.eth.getTransactionCount(fromAddresses[0]);
-    const avaxAssetIDBuf: Buffer = await xChain.getAVAXAssetID();
-    const avaxAssetIDStr: string = bintools.cb58Encode(avaxAssetIDBuf);
+    const chain = defineChain({
+        id: network.evmChainID,
+        name: 'Avalanche',
+        nativeCurrency: { name: 'Avalanche', symbol: 'AVAX', decimals: 18 },
+        rpcUrls: { default: { http: [network.rpcUrl.c] } },
+    });
 
-    let fromAddressHex = fromAddresses[0];
+    const walletClient = createAvalancheWalletClient({
+        chain: chain as any,
+        transport: { type: 'http' as const, url: network.rpcUrl.c },
+    });
 
-    return await cChain.buildExportTx(
-        amount,
-        avaxAssetIDStr,
-        destinationChainId,
-        fromAddressHex,
-        fromAddressBech,
-        [toAddress],
-        nonce,
-        undefined,
-        undefined,
-        fee
-    );
+    const fromAddress = (fromAddresses[0].startsWith('0x')
+        ? fromAddresses[0]
+        : `0x${fromAddresses[0]}`) as `0x${string}`;
+
+    return walletClient.cChain.prepareExportTxn({
+        destinationChain,
+        fromAddress,
+        exportedOutput: {
+            addresses: [toAddress],
+            amount: BigInt(amount.toString()),
+        },
+    });
 }
 
 export async function buildEvmTransferEIP1559Tx(

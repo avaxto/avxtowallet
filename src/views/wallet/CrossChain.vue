@@ -1,5 +1,5 @@
 <template>
-    <div>
+    <div class="cross_chain_view">
         <div class="head">
             <h1>{{ $t('cross_chain.title') }}</h1>
             <p>
@@ -22,6 +22,12 @@ export default defineComponent({
 })
 </script>
 <style scoped lang="scss">
+.cross_chain_view {
+    height: auto;
+    min-height: 100%;
+    overflow: visible;
+}
+
 h1 {
     font-weight: normal;
 }

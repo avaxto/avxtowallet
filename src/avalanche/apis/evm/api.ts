@@ -734,9 +734,28 @@ export class EVMAPI extends JRPCAPI {
         "Error - EVMAPI.buildExportTx: Destination ChainID must be 32 bytes in length."
       )
     }
-    const assetDescription: any = await this.getAssetDescription("AVAX")
+    // Resolve the AVAX asset ID without making an RPC call.
+    // Prefer the cached value set via setAVAXAssetID, then fall back to network
+    // constants, and only as a last resort use the passed-in assetID (custom networks
+    // that always export AVAX).
+    let avaxAssetIDBuf: Buffer
+    if (this.AVAXAssetID) {
+      avaxAssetIDBuf = this.AVAXAssetID
+    } else {
+      const networkID = this.core.getNetworkID()
+      const networkDefs = Defaults.network[networkID]
+      const avaxAssetIDStr: string | undefined =
+        networkDefs?.["C"]?.avaxAssetID ?? networkDefs?.["X"]?.avaxAssetID
+      if (avaxAssetIDStr) {
+        avaxAssetIDBuf = bintools.cb58Decode(avaxAssetIDStr)
+      } else {
+        // Custom network: assume the caller is exporting AVAX
+        avaxAssetIDBuf = bintools.cb58Decode(typeof assetID === "string" ? assetID : bintools.cb58Encode(assetID))
+      }
+    }
+    const avaxAssetIDEncoded = bintools.cb58Encode(avaxAssetIDBuf)
     let evmInputs: EVMInput[] = []
-    if (bintools.cb58Encode(assetDescription.assetID) === assetID) {
+    if (avaxAssetIDEncoded === assetID) {
       const evmInput: EVMInput = new EVMInput(
         fromAddressHex,
         amount.add(fee),
@@ -752,7 +771,7 @@ export class EVMAPI extends JRPCAPI {
       const evmAVAXInput: EVMInput = new EVMInput(
         fromAddressHex,
         fee,
-        assetDescription.assetID,
+        avaxAssetIDBuf,
         nonce
       )
       evmAVAXInput.addSignatureIdx(0, bintools.stringToAddress(fromAddressBech))
