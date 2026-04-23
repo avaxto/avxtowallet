@@ -74,7 +74,8 @@ export default {
                 
                 // Load accounts and initialize other stores
                 accountsStore.loadAccounts()
-                assetsStore.initErc20List()
+                // TODO this is legacy code from original wallet
+                //assetsStore.initErc20List()
                 erc721Store.init()
                 mainStore.updateAvaxPrice()
 

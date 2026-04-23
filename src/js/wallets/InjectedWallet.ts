@@ -230,6 +230,18 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
         this.isFetchUtxos = true
         try {
             await this.getEthBalance()
+
+            // Fetch X chain UTXOs if we have an AVM address
+            if (this.avmAddress) {
+                const avmAddrs = [this.avmAddress]
+                this.utxoset = await avmGetAllUTXOs(avmAddrs)
+            }
+
+            // Fetch P chain UTXOs if we have a platform address
+            if (this.platformAddress) {
+                const platformAddrs = [this.platformAddress]
+                this.platformUtxoset = await platformGetAllUTXOs(platformAddrs)
+            }
         } finally {
             this.isFetchUtxos = false
         }

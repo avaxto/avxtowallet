@@ -279,8 +279,7 @@ export const useAssetsStore = defineStore('assets', () => {
         // Make sure its not added before
         for (let i = 0; i < tokens.length; i++) {
             const t = tokens[i]
-            if (token.address === t.data.address && token.chainId === t.data.chainId) {
-                console.log('ERC20 Token ' + token.symbol + ' already added.')
+            if (token.address === t.data.address && token.chainId === t.data.chainId) {                
                 return
             }
         }

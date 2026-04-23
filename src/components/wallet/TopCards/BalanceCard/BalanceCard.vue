@@ -46,54 +46,70 @@
                     </p>
                 </div>
             </div>
-            <!--            <button class="expand_but">Show Breakdown<fa icon="list-ol"></fa></button>-->
+            
             <div class="alt_info">
                 <div class="alt_non_breakdown" v-if="!isBreakdown">
                     <div>
                         <label>{{ $t('top.balance.available') }}</label>
-                        <p>{{ isInjected ? cleanAvaxBN(evmUnlocked) : unlockedText }} AVAX</p>
+                        <p>{{ unlockedText }} AVAX</p>
                     </div>
-                    <div v-if="hasLocked && !isInjected">
+                    <div v-if="hasLocked">
                         <label>{{ $t('top.locked') }}</label>
                         <p>{{ balanceTextLocked }} AVAX</p>
                     </div>
-                    <div v-if="hasMultisig && !isInjected">
+                    <div v-if="hasMultisig">
                         <label>Multisig</label>
                         <p>{{ balanceTextMultisig }} AVAX</p>
                     </div>
-                    <div v-if="!isInjected">
+                    <div>
                         <label>{{ $t('top.balance.stake') }}</label>
                         <p>{{ stakingText }} AVAX</p>
                     </div>
                 </div>
                 <div class="alt_breakdown" v-else>
                     <div>
-                        <template v-if="!isInjected">
+                        <div class="balance-item">
                             <label>{{ $t('top.balance.available') }} (X)</label>
                             <p>{{ cleanAvaxBN(avmUnlocked) }} AVAX</p>
+                        </div>
+                        <div class="balance-item">
                             <label>{{ $t('top.balance.available') }} (P)</label>
                             <p>{{ cleanAvaxBN(platformUnlocked) }} AVAX</p>
-                        </template>
-                        <label>{{ $t('top.balance.available') }} (C)</label>
-                        <p>{{ cleanAvaxBN(evmUnlocked) }} AVAX</p>
+                        </div>
+                        <div class="balance-item">
+                            <label>{{ $t('top.balance.available') }} (C)</label>
+                            <p>{{ cleanAvaxBN(evmUnlocked) }} AVAX</p>
+                        </div>
                     </div>
-                    <div v-if="hasLocked && !isInjected">
-                        <label>{{ $t('top.balance.locked') }} (X)</label>
-                        <p>{{ cleanAvaxBN(avmLocked) }} AVAX</p>
-                        <label>{{ $t('top.balance.locked') }} (P)</label>
-                        <p>{{ cleanAvaxBN(platformLocked) }} AVAX</p>
-                        <label>{{ $t('top.balance.locked_stake') }} (P)</label>
-                        <p>{{ cleanAvaxBN(platformLockedStakeable) }} AVAX</p>
+                    <div v-if="hasLocked">
+                        <div class="balance-item">
+                            <label>{{ $t('top.balance.locked') }} (X)</label>
+                            <p>{{ cleanAvaxBN(avmLocked) }} AVAX</p>
+                        </div>
+                        <div class="balance-item">
+                            <label>{{ $t('top.balance.locked') }} (P)</label>
+                            <p>{{ cleanAvaxBN(platformLocked) }} AVAX</p>
+                        </div>
+                        <div class="balance-item">
+                            <label>{{ $t('top.balance.locked_stake') }} (P)</label>
+                            <p>{{ cleanAvaxBN(platformLockedStakeable) }} AVAX</p>
+                        </div>
                     </div>
-                    <div v-if="hasMultisig && !isInjected">
-                        <label>Multisig (X)</label>
-                        <p>{{ cleanAvaxBN(avmMultisig) }} AVAX</p>
-                        <label>Multisig (P)</label>
-                        <p>{{ cleanAvaxBN(platformMultisig) }} AVAX</p>
+                    <div v-if="hasMultisig">
+                        <div class="balance-item">
+                            <label>Multisig (X)</label>
+                            <p>{{ cleanAvaxBN(avmMultisig) }} AVAX</p>
+                        </div>
+                        <div class="balance-item">
+                            <label>Multisig (P)</label>
+                            <p>{{ cleanAvaxBN(platformMultisig) }} AVAX</p>
+                        </div>
                     </div>
-                    <div v-if="!isInjected">
-                        <label>{{ $t('top.balance.stake') }}</label>
-                        <p>{{ stakingText }} AVAX</p>
+                    <div>
+                        <div class="balance-item">
+                            <label>{{ $t('top.balance.stake') }}</label>
+                            <p>{{ stakingText }} AVAX</p>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -545,12 +561,21 @@ h4 {
         position: relative;
         padding: 0 24px;
         border-right: 2px solid var(--bg-light);
+        display: flex;
+        flex-direction: row;
+        flex-wrap: wrap;
+        gap: 0 24px;
         &:first-of-type {
             padding-left: 0;
         }
         &:last-of-type {
             border: none;
         }
+    }
+
+    .balance-item {
+        display: flex;
+        flex-direction: column;
     }
 
     label {

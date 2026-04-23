@@ -38,8 +38,7 @@ export default defineComponent({
 
             const xAddress = wallet.getCurrentAddressAvm()
             const xpAddress = wallet.getXPAddress()
-            console.log('X Address: ' + xAddress)
-            console.log('XP Address: ' + xpAddress)
+            
             return !!xAddress
         })
 
@@ -47,7 +46,7 @@ export default defineComponent({
             const wallet: AvalancheAccount | null = mainStore.activeWallet as AvalancheAccount | null
             if (!wallet) return false
             const pAddress = wallet.getCurrentAddressPlatform()
-            console.log('P Address: ' + pAddress)
+            
             return !!pAddress
         })
 
