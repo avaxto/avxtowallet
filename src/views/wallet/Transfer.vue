@@ -1,6 +1,6 @@
 <template>
     <div class="transfer_card">
-        <!--        <h1>{{ $t('transfer.title') }}</h1>-->
+        
         <div v-if="networkStatus !== 'connected'" class="disconnected">
             <p>{{ $t('transfer.disconnected') }}</p>
         </div>

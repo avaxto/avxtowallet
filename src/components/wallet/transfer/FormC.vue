@@ -124,8 +124,9 @@
     </div>
 </template>
 <script lang="ts">
-import { defineComponent, computed, ref, markRaw, onMounted, onBeforeUnmount } from 'vue'
-import { useMainStore } from '@/stores'
+import { defineComponent, computed, ref, markRaw, onMounted, onBeforeUnmount, nextTick } from 'vue'
+import { useRoute } from 'vue-router'
+import { useMainStore, useAssetsStore } from '@/stores'
 import { useI18n } from 'vue-i18n'
 import AvaxInput from '@/components/misc/AvaxInput.vue'
 import { priceDict } from '@/types'
@@ -157,6 +158,8 @@ export default defineComponent({
     },
     setup() {
         const mainStore = useMainStore()
+        const assetsStore = useAssetsStore()
+        const route = useRoute()
         const { t } = useI18n()
 
         const isConfirm = ref(false)
@@ -195,6 +198,19 @@ export default defineComponent({
                     updateGasPrice()
                 }
             }, 15000)
+
+            // Pre-select token from query string: ?token=0x...
+            const tokenAddress = route.query.token as string | undefined
+            if (tokenAddress) {
+                nextTick(() => {
+                    const match = assetsStore.networkErc20Tokens.find(
+                        (t) => t.data.address.toLowerCase() === tokenAddress.toLowerCase()
+                    )
+                    if (match && token_in.value) {
+                        token_in.value.setToken(match)
+                    }
+                })
+            }
         })
 
         onBeforeUnmount(() => {
