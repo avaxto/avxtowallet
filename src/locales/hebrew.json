@@ -52,6 +52,9 @@
             "earn": "הרווח",
             "advanced": "מתקדם"
         },
+        "topnavbar": {
+            "generator": "גנרטור"
+        },
         "address_card": {},
         "collectibles": {
             "empty": "אין לך פריטי אספנות."

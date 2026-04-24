@@ -52,6 +52,9 @@
             "earn": "收益",
             "advanced": "高级选项"
         },
+        "topnavbar": {
+            "generator": "生成器"
+        },
         "address_card": {},
         "collectibles": {
             "empty": "你没有任何收藏品。"

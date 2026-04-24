@@ -52,6 +52,9 @@
             "earn": "Κερδίστε",
             "advanced": "Προηγμένες ρυθμίσεις"
         },
+        "topnavbar": {
+            "generator": "Γεννήτρια"
+        },
         "address_card": {},
         "collectibles": {
             "empty": "Δεν διαθέτετε συλλεκτικά αντικείμενα."

@@ -52,6 +52,9 @@
             "earn": "Verdien",
             "advanced": "Gevorderd"
         },
+        "topnavbar": {
+            "generator": "Generator"
+        },
         "address_card": {},
         "collectibles": {
             "empty": "U het geen versamelstukke nie."

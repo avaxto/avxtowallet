@@ -52,6 +52,9 @@
             "earn": "Zarabiaj",
             "advanced": "Zaawansowane"
         },
+        "topnavbar": {
+            "generator": "Generator"
+        },
         "address_card": {},
         "collectibles": {
             "empty": "Nie masz żadnych przedmiotów kolekcjonerskich."

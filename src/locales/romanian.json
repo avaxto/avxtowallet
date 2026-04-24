@@ -52,6 +52,9 @@
             "earn": "Câștigă",
             "advanced": "Avansat"
         },
+        "topnavbar": {
+            "generator": "Generator"
+        },
         "address_card": {},
         "collectibles": {
             "empty": "Nu deții obiecte de colecție."

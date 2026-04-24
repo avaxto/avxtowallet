@@ -94,6 +94,7 @@ import {
     TransactionType,
     TransactionTypeName,
 } from '@/js/Glacier/models'
+// TransactionTypeName still used in txsTransfer/txsSwap/txsStake filters
 
 import TxRow from '@/components/wallet/activity/TxRow.vue'
 import RadioButtons from '@/components/misc/RadioButtons.vue'
@@ -240,18 +241,7 @@ export default defineComponent({
         })
 
         const allTxs = computed((): TransactionType[] => {
-            const supportedTypes: TransactionTypeName[] = [
-                'BaseTx',
-                'ImportTx',
-                'ExportTx',
-                'OperationTx',
-                'AddValidatorTx',
-                'AddDelegatorTx',
-                'CreateAssetTx',
-            ]
-            return historyStore.allTransactions.filter((tx: TransactionType) => {
-                return supportedTypes.includes(tx.txType)
-            })
+            return historyStore.allTransactions
         })
 
         const getTxTimestamp = (tx: TransactionType) => {
@@ -364,7 +354,13 @@ export default defineComponent({
         })
 
         const txsStake = computed((): TransactionType[] => {
-            let stakeTypes: TransactionTypeName[] = ['AddValidatorTx', 'AddDelegatorTx']
+            let stakeTypes: TransactionTypeName[] = [
+                'AddValidatorTx',
+                'AddDelegatorTx',
+                'AddPermissionlessValidatorTx',
+                'AddSubnetValidatorTx',
+                'RemoveSubnetValidatorTx',
+            ]
             return allTxs.value.filter((tx) => {
                 return stakeTypes.includes(tx.txType)
             })

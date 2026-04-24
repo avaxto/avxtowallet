@@ -52,6 +52,9 @@
             "earn": "Ganar",
             "advanced": "Avanzado"
         },
+        "topnavbar": {
+            "generator": "Generador"
+        },
         "address_card": {},
         "collectibles": {
             "empty": "No tienens ningún objeto coleccionable."

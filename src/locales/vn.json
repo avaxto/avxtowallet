@@ -52,6 +52,9 @@
             "earn": "Kiếm tiền",
             "advanced": "Nâng cao"
         },
+        "topnavbar": {
+            "generator": "Trình tạo"
+        },
         "address_card": {},
         "collectibles": {
             "empty": "Bạn không sở hữu bất kỳ bộ sưu tập nào."

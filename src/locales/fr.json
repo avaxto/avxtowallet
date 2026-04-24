@@ -52,6 +52,9 @@
             "earn": "Gagner",
             "advanced": "Avancé"
         },
+        "topnavbar": {
+            "generator": "Générateur"
+        },
         "address_card": {},
         "collectibles": {
             "empty": "Vous n'avez aucun jeton non fongible."

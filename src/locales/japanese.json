@@ -52,6 +52,9 @@
             "earn": "獲得する",
             "advanced": "Advanced"
         },
+        "topnavbar": {
+            "generator": "ジェネレーター"
+        },
         "address_card": {},
         "collectibles": {
             "empty": "コレクションが見つかりません"

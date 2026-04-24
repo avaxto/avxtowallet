@@ -52,6 +52,9 @@
             "earn": "Tjen",
             "advanced": "Avansert"
         },
+        "topnavbar": {
+            "generator": "Generator"
+        },
         "address_card": {},
         "collectibles": {
             "empty": "Du eier ingen samleobjekter."

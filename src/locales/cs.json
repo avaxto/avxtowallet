@@ -52,6 +52,9 @@
             "earn": "Vydělávejte",
             "advanced": "Pokročilé"
         },
+        "topnavbar": {
+            "generator": "Generátor"
+        },
         "address_card": {},
         "collectibles": {
             "empty": "Nevlastníte žádné sběratelské předměty."

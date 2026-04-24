@@ -52,6 +52,9 @@
             "earn": "Keressen",
             "advanced": "Speciális"
         },
+        "topnavbar": {
+            "generator": "Generátor"
+        },
         "address_card": {},
         "collectibles": {
             "empty": "Nincsenek gyűjthető tárgyai."

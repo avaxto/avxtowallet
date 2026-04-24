@@ -82,6 +82,9 @@
             "advanced": "Advanced",
             "activity": "Activity"
         },
+        "topnavbar": {
+            "generator": "Generator"
+        },
         "address_card": {},
         "collectibles": {
             "empty": "You do not own any collectibles."
@@ -364,7 +367,7 @@
     },
     "earn": {
         "title": "Earn",
-        "desc": "You can earn more AVAX by staking your existing tokens.",
+        "desc": "You can earn more AVAX by staking your existing tokens or helping validate the network (AVAX analog to Bitcoin mining).",
         "subtitle1": "Validate",
         "subtitle2": "Delegate",
         "subtitle3": "Cross Chain Transfer",

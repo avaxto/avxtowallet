@@ -52,6 +52,9 @@
             "earn": "Заробляйте",
             "advanced": "Додаткові можливості"
         },
+        "topnavbar": {
+            "generator": "Генератор"
+        },
         "address_card": {},
         "collectibles": {
             "empty": "Ви не володієте предметами колекціонування."

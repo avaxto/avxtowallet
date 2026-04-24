@@ -52,6 +52,9 @@
             "earn": "Verdienen",
             "advanced": "Geavanceerd"
         },
+        "topnavbar": {
+            "generator": "Generator"
+        },
         "address_card": {},
         "collectibles": {
             "empty": "U hebt geen inningen."

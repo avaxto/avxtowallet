@@ -52,6 +52,9 @@
             "earn": "Guanya",
             "advanced": "Avançat"
         },
+        "topnavbar": {
+            "generator": "Generador"
+        },
         "address_card": {},
         "collectibles": {
             "empty": "No ets propietari de cap col·lecció."

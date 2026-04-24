@@ -52,6 +52,9 @@
             "earn": "اربح",
             "advanced": "متقدم"
         },
+        "topnavbar": {
+            "generator": "مولِّد"
+        },
         "address_card": {},
         "collectibles": {
             "empty": "أنت لا تملك أي مقتنيات."

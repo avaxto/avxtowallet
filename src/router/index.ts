@@ -13,9 +13,9 @@ import WalletHome from '@/views/wallet/Portfolio.vue'
 import Earn from '@/views/wallet/Earn.vue'
 import Advanced from '@/views/wallet/Advanced.vue'
 import Activity from '@/views/wallet/Activity.vue'
+import Generator from '@/views/wallet/Generator.vue'
 import Account from '@/views/access/Account.vue'
 import { useMainStore } from '@/stores'
-import Studio from '@/views/wallet/Studio.vue'
 import Export from '@/views/wallet/CrossChain.vue'
 import Xpub from '@/views/access/Xpub.vue'
 import Injected from '@/views/access/Injected.vue'
@@ -118,11 +118,7 @@ const routes = [
             {
                 path: 'earn',
                 component: Earn,
-            },
-            {
-                path: 'studio',
-                component: Studio,
-            },
+            },            
             {
                 path: 'advanced',
                 component: Advanced,
@@ -131,6 +127,10 @@ const routes = [
                 path: 'activity',
                 component: Activity,
             },
+            {
+                path: 'generator',
+                component: Generator,
+            },            
         ],
         component: Wallet,
         beforeEnter: ifAuthenticated,

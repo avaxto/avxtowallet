@@ -52,6 +52,9 @@
             "earn": "Guadagna",
             "advanced": "Avanzato"
         },
+        "topnavbar": {
+            "generator": "Generatore"
+        },
         "address_card": {},
         "collectibles": {
             "empty": "Non possiedi alcun oggetto crypto collezionabile."

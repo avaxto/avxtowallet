@@ -7,8 +7,9 @@
                 <span @click="cancel"><fa icon="times"></fa></span>
             </h1>
         </div>
-        <transition name="fade" mode="out-in">
-            <div v-if="!pageNow">
+        <transition name="fade" mode="out-in">            
+            <div key="menu" v-if="!pageNow">
+                
                 <p>{{ $t('earn.desc') }}</p>
                 <div class="options">
                     <div>
@@ -87,17 +88,16 @@
                             {{ $t('earn.rewards_card.submit') }}
                         </v-btn>
                     </div>
-                </div>
-                <!--                <v-btn @click="viewRewards" depressed small>View Estimated Rewards</v-btn>-->
+                </div>                
             </div>
-            <div v-else>
+            <div key="page" v-else>
                 <component :is="pageNow" class="comp" @cancel="cancel"></component>
             </div>
         </transition>
     </div>
 </template>
 <script lang="ts">
-import { defineComponent, ref, computed, onDeactivated, onUnmounted } from 'vue'
+import { defineComponent, ref, shallowRef, computed, onDeactivated, onUnmounted } from 'vue'
 import { useAssetsStore, usePlatformStore } from '@/stores'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
@@ -122,7 +122,7 @@ export default defineComponent({
         const router = useRouter()
         const { t } = useI18n()
 
-        const pageNow = ref<any>(null)
+        const pageNow = shallowRef<any>(null)
         const subtitle = ref('')
         const intervalID = ref<any>(null)
 
@@ -322,5 +322,14 @@ span {
         grid-template-columns: none;
         grid-row-gap: 15px;
     }
+}
+
+.fade-enter-active,
+.fade-leave-active {
+    transition: opacity 0.15s ease;
+}
+.fade-enter-from,
+.fade-leave-to {
+    opacity: 0;
 }
 </style>

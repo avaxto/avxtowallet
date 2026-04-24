@@ -52,6 +52,9 @@
             "earn": "Доходы",
             "advanced": "Дополнительно"
         },
+        "topnavbar": {
+            "generator": "Генератор"
+        },
         "address_card": {},
         "collectibles": {
             "empty": "У Вас нет коллекционных предметов."

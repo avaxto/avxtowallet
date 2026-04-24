@@ -25,6 +25,11 @@
                 </v-btn>
             </template>
             <v-list>
+                <v-list-item>
+                    <v-list-item-title>
+                        <router-link to="/wallet/generator">{{ $t('wallet.topnavbar.generator') }}</router-link>
+                    </v-list-item-title>
+                </v-list-item>                
             </v-list>
         </v-menu>
 
@@ -154,6 +159,12 @@ export default defineComponent({
 @use '../main';
 @use '../light_theme';
 
+
+.wallet_link {
+    font-size: 14px !important;
+}
+
+
 .navbar-menu {
     display: flex;
     align-items: center;
@@ -191,6 +202,10 @@ export default defineComponent({
 
 :deep(.v-list-item:hover) {
     background-color: var(--bg) !important;
+}
+
+:deep(.v-list-item--density-default) {
+    min-height: 25px !important;
 }
 
 :deep(.v-list-item-title) {

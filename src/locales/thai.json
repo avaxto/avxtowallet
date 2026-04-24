@@ -52,6 +52,9 @@
             "earn": "รับ",
             "advanced": "ขั้นสูง"
         },
+        "topnavbar": {
+            "generator": "ตัวสร้าง"
+        },
         "address_card": {},
         "collectibles": {
             "empty": "คุณยังไม่มีการสะสมใดๆ"

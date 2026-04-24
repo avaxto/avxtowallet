@@ -124,7 +124,7 @@
     </div>
 </template>
 <script lang="ts">
-import { defineComponent, computed, ref, markRaw, onMounted, onBeforeUnmount, nextTick } from 'vue'
+import { defineComponent, computed, ref, markRaw, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useMainStore, useAssetsStore } from '@/stores'
 import { useI18n } from 'vue-i18n'
@@ -200,16 +200,22 @@ export default defineComponent({
             }, 15000)
 
             // Pre-select token from query string: ?token=0x...
+            // Use a watcher so it still works if the token list loads after mount
             const tokenAddress = route.query.token as string | undefined
             if (tokenAddress) {
-                nextTick(() => {
-                    const match = assetsStore.networkErc20Tokens.find(
-                        (t) => t.data.address.toLowerCase() === tokenAddress.toLowerCase()
-                    )
-                    if (match && token_in.value) {
-                        token_in.value.setToken(match)
-                    }
-                })
+                const addr = tokenAddress.toLowerCase()
+                const stopWatch = watch(
+                    () => assetsStore.networkErc20Tokens,
+                    (tokens) => {
+                        if (!tokens.length) return
+                        const match = tokens.find((t) => t.data.address.toLowerCase() === addr)
+                        if (match && token_in.value) {
+                            token_in.value.setToken(match)
+                        }
+                        stopWatch()
+                    },
+                    { immediate: true }
+                )
             }
         })
 

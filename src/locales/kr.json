@@ -52,6 +52,9 @@
             "earn": "적립",
             "advanced": "고급"
         },
+        "topnavbar": {
+            "generator": "생성기"
+        },
         "address_card": {},
         "collectibles": {
             "empty": "수집 가능한 것이 없습니다."

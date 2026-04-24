@@ -63,6 +63,9 @@
             "earn": "Kazan",
             "advanced": "Gelişmiş"
         },
+        "topnavbar": {
+            "generator": "Üretici"
+        },
         "address_card": {},
         "collectibles": {
             "empty": "Hiç bir koleksiyona sahip değilsiniz."

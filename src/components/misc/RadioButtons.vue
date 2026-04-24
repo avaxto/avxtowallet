@@ -4,7 +4,7 @@
             v-for="(key, i) in keys"
             :key="key"
             @click="select(key)"
-            :active="selection === key"
+            :active="modelValue === key"
             class="hover_border"
             :disabled="disabled"
         >
@@ -30,15 +30,15 @@ export default defineComponent({
             type: Boolean,
             default: false
         },
-        selection: {
+        modelValue: {
             type: String,
             required: true
         }
     },
-    emits: ['change'],
+    emits: ['update:modelValue'],
     setup(props, { emit }) {
         const select = (val: string) => {
-            emit('change', val)
+            emit('update:modelValue', val)
         }
 
         return {

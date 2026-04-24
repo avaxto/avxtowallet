@@ -29,11 +29,7 @@
                     <img v-else src="@/assets/sidebar/earn_nav_night.png" />
                     {{ $t('wallet.sidebar.earn') }}
                 </router-link>
-                <router-link to="/wallet/studio" data-cy="wallet_studio" class="wallet_link">
-                    <img v-if="isDay" src="@/assets/sidebar/studio_nav.svg" />
-                    <img v-else src="@/assets/sidebar/studio_nav_night.svg" />
-                    {{ $t('wallet.sidebar.studio') }}
-                </router-link>
+               
                 <router-link to="/wallet/activity" data-cy="wallet_activity" class="wallet_link">
                     <img v-if="isDay" src="@/assets/sidebar/activity_nav.svg" />
                     <img v-else src="@/assets/sidebar/activity_nav_night.svg" />

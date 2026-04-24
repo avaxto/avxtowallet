@@ -52,6 +52,9 @@
             "earn": "Ansaitse",
             "advanced": "Edistynyt"
         },
+        "topnavbar": {
+            "generator": "Generaattori"
+        },
         "address_card": {},
         "collectibles": {
             "empty": "Sinulla ei ole keräilyesineitä."
