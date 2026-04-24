@@ -22,7 +22,9 @@ import localTokenList from '@/ERC20Tokenlist.json'
 import { useMainStore } from './main'
 import { useErc721Store } from './erc721'
 import { AVXTO_CONTRACT_ADDRESS, AVXTO_ICON, AVXTO_NAME, AVXTO_SYMBOL,
-        TESTNET_AVXTO_CONTRACT_ADDRESS, TESTNET_AVXTO_ICON, TESTNET_AVXTO_NAME, TESTNET_AVXTO_SYMBOL } from '@/avxto/AVXTOConf'
+        AVXTO_THR,
+        TESTNET_AVXTO_CONTRACT_ADDRESS, TESTNET_AVXTO_ICON, TESTNET_AVXTO_NAME, TESTNET_AVXTO_SYMBOL, 
+        TESTNET_AVXTO_THR} from '@/avxto/AVXTOConf'
 
 
 // Types (inline definitions to avoid circular imports)
@@ -33,6 +35,7 @@ export interface TokenListToken {
     symbol: string
     decimals: number | string
     logoURI: string
+    thr?: BN
 }
 
 export interface TokenList {
@@ -474,9 +477,10 @@ export const useAssetsStore = defineStore('assets', () => {
             address: isTestnet ? TESTNET_AVXTO_CONTRACT_ADDRESS : AVXTO_CONTRACT_ADDRESS,
             chainId: evmChainId.value,
             name: isTestnet ? TESTNET_AVXTO_NAME : AVXTO_NAME,
+            thr: isTestnet ? TESTNET_AVXTO_THR : AVXTO_THR,
             symbol: isTestnet ? TESTNET_AVXTO_SYMBOL : AVXTO_SYMBOL,
             decimals: 18,
-            logoURI: isTestnet ? TESTNET_AVXTO_ICON : AVXTO_ICON,
+            logoURI: isTestnet ? TESTNET_AVXTO_ICON : AVXTO_ICON,            
         }
         await addErc20Token(baseAsset.value)
     }

@@ -164,6 +164,13 @@ export default defineComponent({
     font-size: 14px !important;
 }
 
+.menu-btn {
+    font-size: 14px !important;
+}
+
+.v-list-item-title {
+    font-size: 14px !important;
+}
 
 .navbar-menu {
     display: flex;

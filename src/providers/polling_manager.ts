@@ -1,5 +1,5 @@
 import { AvaNetwork } from '@/js/AvaNetwork'
-import { pinia, useNetworkStore, useMainStore } from '@/stores'
+import { pinia, useNetworkStore, useMainStore, useStatusBarStore, useAssetsStore } from '@/stores'
 import { AvalancheAccount } from '@avalanche-sdk/client/accounts'
 import { PROVIDER_CONFIG } from '@/providers/provider_config'
 
@@ -121,6 +121,7 @@ class PollingManager {
             
             if (currentHeight && currentHeight !== this.xChainConfig.lastXChainHeight) {
                 this.xChainConfig.lastXChainHeight = currentHeight
+                useStatusBarStore(pinia).info(`Current X-Chain Height: ${currentHeight}`)
                 await this.updateWalletBalanceX()
             }
         } catch (error) {
@@ -154,6 +155,7 @@ class PollingManager {
             
             if (currentBlock && currentBlock !== this.cChainConfig.lastBlockNumber) {
                 this.cChainConfig.lastBlockNumber = currentBlock
+                useStatusBarStore(pinia).info(`Current C-Chain block: ${currentBlock}`)
                 await this.updateWalletBalanceC()
             }
         } catch (error) {
@@ -178,19 +180,27 @@ class PollingManager {
         }
     }
 
-    /**
-     * Update wallet balance for C-Chain (replaces blockHeaderCallback functionality)
-     */
     private async updateWalletBalanceC() {
         const wallet: null | AvalancheAccount = useMainStore(pinia).activeWallet as AvalancheAccount | null
         if (!wallet) return
 
         try {
-            // Refresh the wallet balance
-            await wallet.getEthBalance()
+            await wallet.getEthBalance()            
+            const assetsStore = useAssetsStore(pinia)
+            const baseAsset = assetsStore.baseAsset
+            if (baseAsset) {
+                const token = assetsStore.networkErc20Tokens.find(
+                    (t) => t.data.address.toLowerCase() === baseAsset.address.toLowerCase()
+                )
+                if (token) {
+                    token.updateBalance((wallet as any).ethAddress)
+                }
+            }
         } catch (error) {
             console.warn('C-Chain balance update error:', error)
         }
+
+
     }
 
     /**

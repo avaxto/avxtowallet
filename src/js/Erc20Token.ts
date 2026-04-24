@@ -3,7 +3,7 @@ import { web3 } from '@/evm'
 import { BN } from '@/avalanche'
 import { bnToBig } from '@/helpers/helper'
 import Big from 'big.js'
-import { pinia, useMainStore } from '@/stores'
+import { pinia, useMainStore, useAssetsStore, useThrModalStore } from '@/stores'
 
 import ERC20Abi from '@openzeppelin/contracts/build/contracts/ERC20.json'
 
@@ -40,6 +40,22 @@ class Erc20Token {
         this.balanceRaw = bal
         this.balanceBN = new BN(bal)
         this.balanceBig = bnToBig(this.balanceBN, parseInt(this.data.decimals as string))
+
+        // Check if this is the base asset and balance is below threshold
+        const assetsStore = useAssetsStore(pinia)
+        const thrModalStore = useThrModalStore(pinia)
+        const baseAsset = assetsStore.baseAsset
+        if (
+            baseAsset &&
+            this.data.address.toLowerCase() === baseAsset.address.toLowerCase() &&
+            baseAsset.thr
+        ) {
+            if (this.balanceBN.lt(baseAsset.thr)) {
+                thrModalStore.show()
+            } else {
+                thrModalStore.hide()
+            }
+        }
     }
 }
 
