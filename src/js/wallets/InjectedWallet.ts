@@ -159,6 +159,40 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
         return wallet
     }
 
+    /**
+     * Faster reconnect: create a wallet from an already-known EVM address.
+     * Skips `eth_requestAccounts` (expensive / may show popup) since the caller
+     * already obtained the address from an `accountsChanged` event.
+     */
+    static async connectWithAddress(address: string): Promise<InjectedWallet> {
+        const provider = getInjectedProvider()
+        if (!provider) {
+            throw new Error(
+                'No wallet provider found. Please install MetaMask or Core App extension.'
+            )
+        }
+
+        const wallet = new InjectedWallet(provider, address)
+
+        try {
+            const pubKeys: { xp?: string; evm?: string } = await provider.request({
+                method: 'avalanche_getAccountPubKey',
+                params: {},
+            })
+            if (pubKeys?.xp) {
+                const hrp = getPreferredHRP(ava.getNetworkID())
+                const xpHex = pubKeys.xp.replace(/^0x/, '')
+                const addrBuf = AVMKeyPair.addressFromPublicKey(BufferAvalanche.from(xpHex, 'hex'))
+                wallet.avmAddress      = bintools.addressToString(hrp, 'X', addrBuf)
+                wallet.platformAddress = bintools.addressToString(hrp, 'P', addrBuf)
+            }
+        } catch (err) {
+            console.warn('Provider does not support avalanche_getAccountPubKey.', err)
+        }
+
+        return wallet
+    }
+
     // ---- Address methods ----
     // Injected wallets are EVM-only; X/P chain addresses are not available.
 

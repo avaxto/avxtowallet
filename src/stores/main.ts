@@ -124,6 +124,37 @@ export const useMainStore = defineStore('main', () => {
 
     let _injectedAccountsChangedListener: ((accounts: string[]) => void) | null = null
 
+    /**
+     * Switch to a new injected account in-place — no page reload.
+     * Called directly from the accountsChanged listener so the switch
+     * feels instant instead of going through a full reload cycle.
+     */
+    const switchInjectedAccount = async (newAddress: string) => {
+        const avxtoStore = useAvxtoStore()
+        avxtoStore.stopPolling()
+
+        // Reset wallet list — the old wallet is no longer valid
+        wallets.value = []
+        volatileWallets.value = []
+        activeWallet.value = null
+        address.value = null
+        isAuth.value = false
+
+        let wallet: InjectedWallet
+        try {
+            wallet = await InjectedWallet.connectWithAddress(newAddress)
+        } catch (e) {
+            console.error('switchInjectedAccount failed:', e)
+            return
+        }
+
+        wallets.value = [wallet]
+        volatileWallets.value = [wallet]
+
+        await activateWallet(wallet)
+        onAccess()
+    }
+
     const accessWalletInjected = async () => {
         let wallet: InjectedWallet | null = null
         try {
@@ -152,14 +183,12 @@ export const useMainStore = defineStore('main', () => {
             }
             _injectedAccountsChangedListener = (accounts: string[]) => {
                 if (!accounts || accounts.length === 0) {
-                    // Extension disconnected — just log out cleanly.
+                    // Extension disconnected — log out cleanly.
                     logout()
                     return
                 }
-                // A different account was selected — restart the app and
-                // reconnect automatically once the page has reloaded.
-                sessionStorage.setItem('autoConnectInjected', '1')
-                window.location.href = '/'
+                // Switch to the new account immediately without a page reload.
+                switchInjectedAccount(accounts[0])
             }
             provider.on('accountsChanged', _injectedAccountsChangedListener)
         }

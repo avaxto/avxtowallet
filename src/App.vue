@@ -82,21 +82,8 @@ export default {
                 erc721Store.init()
                 mainStore.updateAvaxPrice()
 
-                // Auto-reconnect injected wallet if the user switched accounts
-                // in the Core App / MetaMask extension (see main.ts accountsChanged listener).
-                if (sessionStorage.getItem('autoConnectInjected') === '1') {
-                    sessionStorage.removeItem('autoConnectInjected')
-                    try {
-                        await mainStore.accessWalletInjected()
-                    } catch (e) {
-                        console.error('Auto-reconnect after account switch failed:', e)
-                        // Fall through to normal access page routing.
-                        if (accountsStore.accounts.length > 0 && route.name !== 'legal') {
-                            router.push('/access')
-                        }
-                    }
-                } else if (accountsStore.accounts.length > 0) {
-                    // Route to access page if accounts exist
+                // Route to access page if accounts exist
+                if (accountsStore.accounts.length > 0) {
                     if (route.name !== 'legal') {
                         router.push('/access')
                     }
