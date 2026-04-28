@@ -122,6 +122,8 @@ export const useMainStore = defineStore('main', () => {
         onAccess()
     }
 
+    let _injectedAccountsChangedListener: ((accounts: string[]) => void) | null = null
+
     const accessWalletInjected = async () => {
         let wallet: InjectedWallet | null = null
         try {
@@ -138,6 +140,29 @@ export const useMainStore = defineStore('main', () => {
         await activateWallet(wallet)
 
         onAccess()
+
+        // Listen for account switches in the Core App / MetaMask extension.
+        // When the user picks a different account, mark for auto-reconnect and
+        // do a full-page reload so all wallet state is cleanly re-initialised.
+        const provider = (window as any).avalanche ?? (window as any).ethereum
+        if (provider?.on) {
+            // Remove any stale listener from a previous connection.
+            if (_injectedAccountsChangedListener) {
+                provider.removeListener?.('accountsChanged', _injectedAccountsChangedListener)
+            }
+            _injectedAccountsChangedListener = (accounts: string[]) => {
+                if (!accounts || accounts.length === 0) {
+                    // Extension disconnected — just log out cleanly.
+                    logout()
+                    return
+                }
+                // A different account was selected — restart the app and
+                // reconnect automatically once the page has reloaded.
+                sessionStorage.setItem('autoConnectInjected', '1')
+                window.location.href = '/'
+            }
+            provider.on('accountsChanged', _injectedAccountsChangedListener)
+        }
     }
 
     const onAccess = () => {

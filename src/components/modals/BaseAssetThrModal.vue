@@ -2,8 +2,7 @@
     <transition name="fade">
         <div v-if="thrModalStore.isVisible" class="thr_modal_overlay">
             <div class="thr_modal_body">
-                <div class="thr_modal_content">
-                    <!-- Editable message area -->
+                <div class="thr_modal_content">                    
                     <p class="thr_message">
                         Your AVXTO balance is below the required minimum threshold to use this wallet.<br /><br />
                         Please acquire more <strong>AVXTO</strong> tokens to continue.

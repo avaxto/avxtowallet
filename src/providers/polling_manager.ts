@@ -121,7 +121,7 @@ class PollingManager {
             
             if (currentHeight && currentHeight !== this.xChainConfig.lastXChainHeight) {
                 this.xChainConfig.lastXChainHeight = currentHeight
-                useStatusBarStore(pinia).info(`Current X-Chain Height: ${currentHeight}`)
+                //useStatusBarStore(pinia).info(`Current X-Chain Height: ${currentHeight}`)
                 await this.updateWalletBalanceX()
             }
         } catch (error) {
@@ -155,7 +155,8 @@ class PollingManager {
             
             if (currentBlock && currentBlock !== this.cChainConfig.lastBlockNumber) {
                 this.cChainConfig.lastBlockNumber = currentBlock
-                useStatusBarStore(pinia).info(`Current C-Chain block: ${currentBlock}`)
+                // TODO was overwriting status bar info from other calls, so commenting out for now
+                //useStatusBarStore(pinia).info(`Current C-Chain block: ${currentBlock}`)
                 await this.updateWalletBalanceC()
             }
         } catch (error) {
