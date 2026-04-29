@@ -45,11 +45,44 @@ export type TransactionTypeName =
     | 'RewardValidatorTx'
     | string
 
+// Normalized wrapper for EVM transactions fetched via @avalanche-sdk/chainkit
+export type EvmTransactionDetails = {
+    txHash: string
+    blockTimestamp: number
+    txType: 'EVMTx'
+    nativeTransaction: {
+        txHash: string
+        blockTimestamp: number
+        blockHash: string
+        blockNumber: string
+        chainId: string
+        blockIndex: number
+        txStatus: string
+        from: { address: string; name?: string }
+        to: { address: string; name?: string }
+        value: string
+        gasUsed: string
+        gasPrice: string
+        method?: { name?: string; selector?: string }
+    }
+    erc20Transfers?: Array<{
+        from: { address: string; name?: string }
+        to: { address: string; name?: string }
+        value: string
+        erc20Token: { name?: string; symbol?: string; decimals?: number; address: string }
+    }>
+}
+
+export function isEvmTransaction(tx: TransactionType): tx is EvmTransactionDetails {
+    return (tx as EvmTransactionDetails).txType === 'EVMTx'
+}
+
 export type TransactionType =
     | XChainTransaction
     | PChainTransaction
     | CChainImportTransaction
     | CChainExportTransaction
+    | EvmTransactionDetails
 
 export type UtxoType = Utxo | PChainUtxo
 

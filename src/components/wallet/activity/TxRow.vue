@@ -40,6 +40,7 @@ import { PChainUtxo, Utxo } from '@avalabs/glacier-sdk'
 import StakingTx from '@/components/SidePanels/History/ViewTypes/StakingTx.vue'
 import BaseTx from '@/components/SidePanels/History/ViewTypes/BaseTx.vue'
 import ImportExport from '@/components/SidePanels/History/ViewTypes/ImportExport.vue'
+import EvmTx from '@/components/wallet/activity/EvmTx.vue'
 import moment from 'moment'
 import { getUrlFromTransaction } from '@/js/Glacier/getUrlFromTransaction'
 import {
@@ -47,6 +48,7 @@ import {
     isCChainImportTransaction,
     isTransactionX,
     isTransactionC,
+    isEvmTransaction,
     TransactionTypeName,
 } from '@/js/Glacier/models'
 import { ava } from '@/AVA'
@@ -62,6 +64,7 @@ export default defineComponent({
         StakingTx,
         BaseTx,
         ImportExport,
+        EvmTx,
     },
     props: {
         index: {
@@ -111,12 +114,17 @@ export default defineComponent({
         })
 
         const tx_comp = computed(() => {
+            if (isEvmTransaction(props.source)) return EvmTx
             switch (type.value) {
                 case 'ExportTx':
                 case 'ImportTx':
                     return ImportExport
                 case 'AddDelegatorTx':
                 case 'AddValidatorTx':
+                case 'AddPermissionlessDelegatorTx':
+                case 'AddPermissionlessValidatorTx':
+                case 'AddSubnetValidatorTx':
+                case 'RemoveSubnetValidatorTx':
                     return StakingTx
                 default:
                     return BaseTx

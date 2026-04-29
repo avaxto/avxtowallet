@@ -371,8 +371,9 @@ export default defineComponent({
         }
 
         const setScrollHeight = () => {
-            let h = list.value?.clientHeight
-            listH.value = h
+            if (!list.value) return
+            const rect = (list.value as HTMLElement).getBoundingClientRect()
+            listH.value = Math.max(200, window.innerHeight - rect.top - 14)
         }
 
         onMounted(() => {
@@ -383,10 +384,11 @@ export default defineComponent({
             monthNow.value = now.getMonth()
             scrollToTop()
             setScrollHeight()
+            window.addEventListener('resize', setScrollHeight)
         })
 
         onUnmounted(() => {
-            // Cleanup if needed
+            window.removeEventListener('resize', setScrollHeight)
         })
 
         return {
@@ -496,7 +498,6 @@ export default defineComponent({
 }
 
 .tx_table {
-    height: 100%;
     overflow: auto;
     border-top: 2px solid var(--bg-wallet);
     //overflow: scroll;
