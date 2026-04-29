@@ -20,7 +20,7 @@ export default {
 
 .top_cards {
     display: grid;
-    grid-template-columns: 360px 360px;
+    grid-template-columns: 1fr 1fr;
     grid-gap: 15px;
     margin-bottom: 15px;
 }
@@ -110,7 +110,7 @@ export default {
 @include main.medium-device {
 
     .top_cards {
-        grid-template-columns: 350px 350px;
+        grid-template-columns: 1fr 1fr;
         grid-gap: 9px;
     }
 }

@@ -62,7 +62,29 @@
                         </a>
                     </v-list-item-title>
                 </v-list-item>
-
+                
+                <v-list-item>
+                    <v-list-item-title>
+                        <a 
+                        href="https://avax.to/avxto/faq/" 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        class="wallet_link">
+                            AVXTO FAQ
+                        </a>
+                    </v-list-item-title>
+                </v-list-item>                
+                <v-list-item>
+                    <v-list-item-title>
+                        <a 
+                        href="https://avax.to/avxto/privacy/" 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        class="wallet_link">
+                            AVXTO Privacy
+                        </a>
+                    </v-list-item-title>
+                </v-list-item>
                 <v-list-item>
                     <v-list-item-title>
                         <a 

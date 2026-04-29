@@ -12,7 +12,8 @@
             <p>{{ $t('portfolio.error_network') }}</p>
         </div>
         <div v-show="networkStatus === 'connected'" style="flex-grow: 1">
-            <div v-if="walletBalances.length === 0" class="empty">
+            <div class="sdk_section_header">Default Assets</div>
+            <div v-if="walletBalances.length === 0 && erc20Balances.length === 0 && sdkAssetsFiltered.length === 0 && !sdkLoading" class="empty">
                 <p>{{ $t('portfolio.nobalance') }}</p>
             </div>
             <div class="scrollable no_scroll_bar" v-else>
@@ -29,10 +30,19 @@
                         :key="erc.data.address"
                         :token="erc"
                     ></ERC20Row>
+                    <template v-if="sdkAssetsFiltered.length > 0">
+                        <div class="sdk_section_header">All Assets</div>
+                        <CChainSdkRow
+                            class="asset"
+                            v-for="(asset, i) in sdkAssetsFiltered"
+                            :key="asset.address + (asset.tokenId ?? '') + i"
+                            :asset="asset"
+                            :alternate="i % 2 === 1"
+                        ></CChainSdkRow>
+                    </template>
+                    <div v-else-if="sdkLoading" class="sdk_loading">Loading C-chain assets…</div>
                     <div class="asset add_token_row">
-                        <button @click="addToken">Add Token</button>
-                        <span>or</span>
-                        <button @click="addTokenList">Add Token List</button>
+                        <button @click="addToken">Manually Add Token</button>                        
                     </div>
                 </div>
             </div>
@@ -41,17 +51,20 @@
 </template>
 <script lang="ts">
 import 'reflect-metadata'
-import { defineComponent, ref, computed } from 'vue'
-import { useAssetsStore, useNetworkStore } from '@/stores'
+import { defineComponent, ref, computed, toRef } from 'vue'
+import { useAssetsStore, useNetworkStore, useMainStore } from '@/stores'
 
 import FaucetLink from '@/components/misc/FaucetLink.vue'
 import FungibleRow from '@/components/wallet/portfolio/FungibleRow.vue'
 import AvaAsset from '@/js/AvaAsset'
 import Erc20Token from '@/js/Erc20Token'
 import ERC20Row from '@/components/wallet/portfolio/ERC20Row.vue'
+import CChainSdkRow from '@/components/wallet/portfolio/CChainSdkRow.vue'
 import AddERC20TokenModal from '@/components/modals/AddERC20TokenModal.vue'
 import TokenListModal from '@/components/modals/TokenList/TokenListModal.vue'
 import { AvalancheAccount } from '@avalanche-sdk/client/accounts'
+import { useCChainSdkBalances } from '@/composables/useCChainSdkBalances'
+import type { CChainSdkAsset } from '@/composables/useCChainSdkBalances'
 
 interface Props {
     search: string
@@ -63,6 +76,7 @@ export default defineComponent({
         TokenListModal,
         AddERC20TokenModal,
         ERC20Row,
+        CChainSdkRow,
         FaucetLink,
         FungibleRow,
     },
@@ -75,6 +89,7 @@ export default defineComponent({
     setup(props: Props) {
         const assetsStore = useAssetsStore()
         const networkStore = useNetworkStore()
+        const mainStore = useMainStore()
         const addTokenModal = ref<InstanceType<typeof AddERC20TokenModal>>()
         const tokenlistModal = ref<InstanceType<typeof TokenListModal>>()
 
@@ -154,6 +169,35 @@ export default defineComponent({
             return balance
         })
 
+        const cChainAddress = computed((): string | null => {
+            const wallet = mainStore.activeWallet as any
+            if (!wallet) return null
+            const addr: string | undefined = wallet.ethAddress
+            if (!addr) return null
+            return addr.startsWith('0x') ? addr : `0x${addr}`
+        })
+
+        const evmChainId = computed((): number => assetsStore.evmChainId)
+
+        const { assets: sdkAssets, loading: sdkLoading } = useCChainSdkBalances(
+            cChainAddress,
+            evmChainId
+        )
+
+        const sdkAssetsFiltered = computed((): CChainSdkAsset[] => {
+            let list = sdkAssets.value
+            if (props.search) {
+                const query = props.search.toUpperCase()
+                list = list.filter((a) => {
+                    return (
+                        a.name.toUpperCase().includes(query) ||
+                        a.symbol.toUpperCase().includes(query)
+                    )
+                })
+            }
+            return list
+        })
+
         const addToken = () => {
             addTokenModal.value?.open()
         }
@@ -170,6 +214,8 @@ export default defineComponent({
             avaxToken,
             erc20Balances,
             walletBalances,
+            sdkAssetsFiltered,
+            sdkLoading,
             addToken,
             addTokenList
         }
@@ -229,6 +275,23 @@ export default defineComponent({
 .empty {
     padding: 30px;
     text-align: center;
+}
+
+.sdk_section_header {
+    font-size: 11px;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--primary-color-light);
+    padding: 14px 0 6px;
+    border-top: 1px solid var(--bg-light);
+    margin-top: 4px;
+}
+
+.sdk_loading {
+    padding: 14px 0;
+    font-size: 13px;
+    color: var(--primary-color-light);
 }
 
 .faucet {
