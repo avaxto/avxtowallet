@@ -296,6 +296,10 @@ export default defineComponent({
         grid-template-columns: 1fr;
     }
 
+    .name_col {
+        padding-left: 10px;
+    }
+
     .headers,
     .asset {
         display: grid;
@@ -330,4 +334,6 @@ export default defineComponent({
         }
     }
 }
+
+
 </style>

@@ -452,6 +452,7 @@ export default defineComponent({
     display: grid !important;
     grid-template-rows: max-content 1fr max-content;
     flex-direction: column;
+    min-width: 0;
 }
 
 .where_info {
@@ -462,10 +463,13 @@ export default defineComponent({
 }
 .header {
     display: flex;
+    align-items: center;
+    overflow: hidden;
 
     h4 {
         margin-left: 12px;
         flex-grow: 1;
+        min-width: 0;
     }
 }
 h4 {
@@ -592,7 +596,10 @@ h4 {
     color: var(--primary-color-light);
     font-size: 13px;
     outline: none !important;
-    margin-left: 12px;
+    margin-left: 8px;
+    flex-shrink: 0;
+    white-space: nowrap;
+    overflow: visible;
 
     &:hover {
         color: var(--secondary-color);

@@ -41,7 +41,6 @@ class Erc20Token {
         this.balanceBN = new BN(bal)
         this.balanceBig = bnToBig(this.balanceBN, parseInt(this.data.decimals as string))
 
-        // Check if this is the base asset and balance is below threshold
         const assetsStore = useAssetsStore(pinia)
         const baseAsset = assetsStore.baseAsset
         if (
@@ -50,7 +49,10 @@ class Erc20Token {
             baseAsset.thr
         ) {
             if (this.balanceBN.lt(baseAsset.thr)) {
-                // Exit the wallet entirely — navigate to the standalone insufficient balance page.
+                const thrHuman = baseAsset.thr.toString()
+                sessionStorage.setItem('insufficientBalance_thr', thrHuman)
+                sessionStorage.setItem('insufficientBalance_symbol', baseAsset.symbol)
+                sessionStorage.setItem('insufficientBalance_address', baseAsset.address)
                 window.location.href = '/insufficient-balance'
             }
         }

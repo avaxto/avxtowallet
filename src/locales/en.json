@@ -139,7 +139,7 @@
             "title_p": "P-Chain Wallet Address",
             "title_c": "C-Chain (EVM) Wallet Address",
             "desc_x_1": "This is your X-Chain address to receive funds.",
-            "desc_x_2": "Your X-Chain address will change after every deposit. You can keep using previous addresses.",
+            "desc_x_2": "When using a mnemonic wallet, your X-Chain address will change after every deposit. You can keep using previous addresses.",
             "desc_p": "This is your P-Chain address to receive staking rewards and cross chain transfers.",
             "desc_c": "This is your C-Chain address. Use it to interact with DEX, smart contracts and anything on the Avalanche EVM."
         }

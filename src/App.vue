@@ -41,8 +41,10 @@ import LedgerWalletLoading from '@/components/modals/LedgerWalletLoading.vue'
 import StatusBar from '@/components/StatusBar.vue'
 import BaseAssetThrModal from '@/components/modals/BaseAssetThrModal.vue'
 import { useAccountsStore, useAssetsStore, useErc721Store, useMainStore, useNetworkStore } from '@/stores'
-import { onMounted } from 'vue'
+import { useThemeStore } from '@/stores/theme'
+import { onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useTheme as useVuetifyTheme } from 'vuetify'
 
 export default {
     components: {
@@ -66,6 +68,18 @@ export default {
         const erc721Store = useErc721Store()
         const route = useRoute()
         const router = useRouter()
+        const themeStore = useThemeStore()
+        const vuetifyTheme = useVuetifyTheme()
+
+        // Keep Vuetify's built-in theme in sync with the app day/night toggle
+        // so that v-list, v-menu dropdowns etc. react to theme changes.
+        watch(
+            () => themeStore.theme,
+            (val) => {
+                vuetifyTheme.global.name.value = val === 'night' ? 'dark' : 'light'
+            },
+            { immediate: true }
+        )
                 
         onMounted(async () => {
             try {

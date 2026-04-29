@@ -88,6 +88,7 @@ img {
 }
 
 .col_name {
+    padding-left: 10px;
 
     span {
         font-size: 12px;

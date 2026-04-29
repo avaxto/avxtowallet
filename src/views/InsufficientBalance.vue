@@ -2,25 +2,37 @@
     <div class="insufficient_page">
         <div class="insufficient_body">
             <p class="insufficient_message">
-                The AVXTO balance on this account is below the required minimum threshold to use this wallet.<br /><br />
-                Please acquire more <strong>AVXTO</strong> tokens to continue.
+                The <a href="https://dexscreener.com/avalanche/0x2bdebde7e1088e42aafef104b5f7457aca5ab86f" target="_blank" rel="noopener noreferrer">{{ thrSymbol }}</a> balance on this account is below the required minimum threshold to use this wallet.
+                <template v-if="thrValue">
+                    <br /><br />
+                    Minimum required: <strong>{{ thrValue }} {{ thrSymbol }}</strong>
+                </template>
                 <br /><br />
-                You can buy AVXTO at <a href="https://lfj.gg/avalanche/trade/0xf56cecc07d97ac50630022cf84c19e612ae8c93d" target="_blank" rel="noopener noreferrer">LFJ</a>
-                or <a href="https://arenatrade.ai/token/0xf56cecc07d97ac50630022cf84c19e612ae8c93d" target="_blank" rel="noopener noreferrer">ArenaTrade</a>. Or any other DEX that supports AVXTO.
+                Please acquire more <strong>{{ thrSymbol }}</strong> tokens to continue.
+                <br /><br />
+                You can swap <strong>{{ thrSymbol }}</strong> at <a href="https://lfj.gg/avalanche/trade/0xf56cecc07d97ac50630022cf84c19e612ae8c93d" target="_blank" rel="noopener noreferrer">LFJ</a>
+                or <a href="https://arenatrade.ai/token/0xf56cecc07d97ac50630022cf84c19e612ae8c93d" target="_blank" rel="noopener noreferrer">ArenaTrade</a>. (<em>Or any other DEX with <strong>{{ thrSymbol }}</strong> support.</em>.)
                 <br /><br />    
-                Always check the contract address before making a purchase : <code>0xf56CeCc07d97Ac50630022CF84C19e612ae8C93D</code>
+                Always check the contract address before making a purchase : <code>{{ thrAddress || '0xf56CeCc07d97Ac50630022CF84C19e612ae8C93D' }}</code>
+
             </p>
-            <button class="restart_btn" @click="restart">AVXTO Wallet Home</button>
+            <button class="restart_btn" @click="restart">Back to AVXTO Wallet Home</button>
         </div>
     </div>
 </template>
 
 <script lang="ts">
-import { defineComponent, onMounted, onUnmounted } from 'vue'
+import { defineComponent, onMounted, onUnmounted, ref } from 'vue'
 
 export default defineComponent({
     name: 'InsufficientBalance',
     setup() {
+        const thrValue = ref(sessionStorage.getItem('insufficientBalance_thr') ?? '')
+        const thrSymbol = ref(sessionStorage.getItem('insufficientBalance_symbol') ?? 'AVXTO')
+        const thrAddress = ref(sessionStorage.getItem('insufficientBalance_address') ?? '')
+        sessionStorage.removeItem('insufficientBalance_thr')
+        sessionStorage.removeItem('insufficientBalance_symbol')
+        sessionStorage.removeItem('insufficientBalance_address')
         const provider = (window as any).avalanche ?? (window as any).ethereum
 
         // Snapshot the account that caused us to land here so we can
@@ -55,7 +67,7 @@ export default defineComponent({
             window.location.href = '/'
         }
 
-        return { restart }
+        return { restart, thrValue, thrSymbol, thrAddress }
     },
 })
 </script>
