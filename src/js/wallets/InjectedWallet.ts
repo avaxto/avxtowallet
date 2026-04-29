@@ -43,6 +43,8 @@ import { ExportChainsC, ExportChainsP, ExportChainsX } from '@/avalanche-wallet-
 import { createAvalancheWalletClient } from '@avalanche-sdk/client'
 import { activeNetwork } from '@/avalanche-wallet-sdk/Network/network'
 import * as TxHelper from '@/avalanche-wallet-sdk/helpers/tx_helper'
+import { buildUnsignedTransaction } from '@/js/TxHelper'
+import { issueX } from '@/helpers/issueTx'
 import { defineChain } from 'viem'
 
 import {
@@ -288,7 +290,10 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
         addr: string,
         memo?: BufferAvalanche
     ) {
-        throw new Error('X-chain transactions are not supported with injected wallets.')
+        const changeAddress = this.getChangeAddressAvm()
+        const derivedAddresses: string[] = this.getDerivedAddresses()
+        const utxoset = this.getUTXOSet()
+        return buildUnsignedTransaction(orders, addr, derivedAddresses, utxoset, changeAddress, memo)
     }
 
     async issueBatchTx(
@@ -296,7 +301,9 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
         addr: string,
         memo: BufferAvalanche | undefined
     ): Promise<string> {
-        throw new Error('X-chain batch transactions are not supported with injected wallets.')
+        const unsignedTx = await this.buildUnsignedTransaction(orders, addr, memo)
+        const tx = await this.signX(unsignedTx)
+        return issueX(tx)
     }
 
     // ---- Network change ----

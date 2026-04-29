@@ -38,10 +38,6 @@
                         ></qr-input>
                     </div>
                     <div>
-                        <!--                        <template v-if="isConfirm && formMemo.length > 0">-->
-                        <!--                            <h4>Memo (Optional)</h4>-->
-                        <!--                            <p class="confirm_val">{{ formMemo }}</p>-->
-                        <!--                        </template>-->
                         <h4 v-if="memo || !isConfirm">{{ $t('transfer.memo') }}</h4>
                         <textarea
                             class="memo"
@@ -361,8 +357,8 @@ export default defineComponent({
                 orders: sumArray,
             }
 
-            store
-                .dispatch('issueBatchTx', txListData)
+            mainStore
+                .issueBatchTx(txListData)
                 .then((res) => {
                     canSendAgain.value = false
                     waitTxConfirm(res)

@@ -39,7 +39,7 @@ import { useAssetsStore, useMainStore } from '@/stores'
 import { BN } from '@/avalanche'
 // import Big from 'big.js';
 import Dropdown from '@/components/misc/Dropdown.vue'
-import BigNumInput from '@/components/misc/BigNumInput.vue'
+import { BigNumInput } from '@/vue_components'
 import AvaAsset from '@/js/AvaAsset'
 import { ICurrencyInputDropdownValue } from '@/components/wallet/transfer/types'
 import { IWalletAssetsDict, IWalletBalanceDict, priceDict } from '@/types'
