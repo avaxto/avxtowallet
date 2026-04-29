@@ -3,7 +3,7 @@ import { web3 } from '@/evm'
 import { BN } from '@/avalanche'
 import { bnToBig } from '@/helpers/helper'
 import Big from 'big.js'
-import { pinia, useMainStore, useAssetsStore, useThrModalStore } from '@/stores'
+import { pinia, useAssetsStore } from '@/stores'
 
 import ERC20Abi from '@openzeppelin/contracts/build/contracts/ERC20.json'
 
@@ -43,7 +43,6 @@ class Erc20Token {
 
         // Check if this is the base asset and balance is below threshold
         const assetsStore = useAssetsStore(pinia)
-        const thrModalStore = useThrModalStore(pinia)
         const baseAsset = assetsStore.baseAsset
         if (
             baseAsset &&
@@ -51,9 +50,8 @@ class Erc20Token {
             baseAsset.thr
         ) {
             if (this.balanceBN.lt(baseAsset.thr)) {
-                thrModalStore.show()
-            } else {
-                thrModalStore.hide()
+                // Exit the wallet entirely — navigate to the standalone insufficient balance page.
+                window.location.href = '/insufficient-balance'
             }
         }
     }

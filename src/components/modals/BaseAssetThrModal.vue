@@ -4,10 +4,13 @@
             <div class="thr_modal_body">
                 <div class="thr_modal_content">                    
                     <p class="thr_message">
-                        Your AVXTO balance is below the required minimum threshold to use this wallet.<br /><br />
+                        The AVXTO balance on this account is below the required minimum threshold to use this wallet.<br /><br />
                         Please acquire more <strong>AVXTO</strong> tokens to continue.
+                        <br /><br />
                         You can buy AVXTO at <a href="https://lfj.gg/avalanche/trade/0xf56cecc07d97ac50630022cf84c19e612ae8c93d" target="_blank" rel="noopener noreferrer">LFJ</a>
-                        or <a href="https://arenatrade.ai/token/0xf56cecc07d97ac50630022cf84c19e612ae8c93d" target="_blank" rel="noopener noreferrer">ArenaTrade</a>.
+                        or <a href="https://arenatrade.ai/token/0xf56cecc07d97ac50630022cf84c19e612ae8c93d" target="_blank" rel="noopener noreferrer">ArenaTrade</a>. Or any other DEX that supports AVXTO.
+                        <br /><br />    
+                        Always check the contract address before making a purchase : <code>0xf56CeCc07d97Ac50630022CF84C19e612ae8C93D</code>
                     </p>
                 </div>
             </div>

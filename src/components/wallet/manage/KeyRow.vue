@@ -86,9 +86,7 @@
                             <button v-if="walletType !== 'ledger'" @click="showPrivateKeyCModal">
                                 {{ $t('keys.view_priv_key_c') }}
                             </button>
-                            <p v-if="walletType == 'injected'">
-                                {{ $t('keys.view_priv_key_injected') }}
-                            </p>
+                            
                             <button v-if="isHDWallet" @click="showXpub">Show XPUB</button>
                         </div>
                     </div>

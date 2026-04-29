@@ -2,9 +2,9 @@
     <v-app id="vue-app">
         <v-main>
             <div class="app-content">                
-                <navbar v-show="isNavbar"></navbar>
+                <navbar v-show="isNavbar && !isInsufficientPage"></navbar>
                 <div class="main_cols" :wallet_view="!isNavbar ? '' : null">
-                    <UpgradeToAccountModal></UpgradeToAccountModal>
+                    <UpgradeToAccountModal v-if="!isInsufficientPage"></UpgradeToAccountModal>
                     <router-view id="router_view" v-slot="{ Component }">                        
                         <transition name="fade" mode="out-in">
                             <component :is="Component" />
@@ -13,14 +13,19 @@
                 </div>
             </div>
         </v-main>
-        <LedgerBlock ref="ledger_block"></LedgerBlock>
-        <LedgerUpgrade></LedgerUpgrade>
-        <LedgerWalletLoading></LedgerWalletLoading>
-        <NetworkLoadingBlock></NetworkLoadingBlock>
-        <notifications></notifications>        
-        <TestNetBanner></TestNetBanner>
-        <StatusBar></StatusBar>
-        <BaseAssetThrModal></BaseAssetThrModal>
+        <template v-if="!isInsufficientPage">
+            <LedgerBlock ref="ledger_block"></LedgerBlock>
+            <LedgerUpgrade></LedgerUpgrade>
+            <LedgerWalletLoading></LedgerWalletLoading>
+            <NetworkLoadingBlock></NetworkLoadingBlock>
+            <notifications></notifications>        
+            <TestNetBanner></TestNetBanner>
+            <StatusBar></StatusBar>
+            <BaseAssetThrModal></BaseAssetThrModal>
+        </template>
+        <transition name="fade">
+            <div v-if="mainStore.isSwitchingAccount" class="account_switch_overlay"></div>
+        </transition>
     </v-app>
 </template>
 <script>
@@ -95,7 +100,7 @@ export default {
             }
         })
         
-        return {}
+        return { mainStore }
     },
     computed: {
         isNavbar() {
@@ -103,6 +108,9 @@ export default {
                 return false
             }
             return true
+        },
+        isInsufficientPage() {
+            return this.$route.path === '/insufficient-balance'
         },
     },
     metaInfo: {
@@ -176,6 +184,15 @@ export default {
 /*    overflow: auto;*/
 /*    height: 100%;*/
 /*}*/
+
+.account_switch_overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 99999;
+    background-color: rgba(0, 0, 0, 0.6);
+    cursor: wait;
+    pointer-events: all;
+}
 </style>
 
 <style lang="scss">

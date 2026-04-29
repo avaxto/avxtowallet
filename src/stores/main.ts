@@ -36,6 +36,7 @@ import { useAvxtoStore } from './avxto'
 export const useMainStore = defineStore('main', () => {
     // State
     const isAuth = ref(false)
+    const isSwitchingAccount = ref(false)
     const activeWallet = ref<AvalancheAccount | null>(null)
     const address = ref<string | null>(null)
     const wallets = ref<AvalancheAccount[]>([])
@@ -130,6 +131,7 @@ export const useMainStore = defineStore('main', () => {
      * feels instant instead of going through a full reload cycle.
      */
     const switchInjectedAccount = async (newAddress: string) => {
+        isSwitchingAccount.value = true
         const avxtoStore = useAvxtoStore()
         avxtoStore.stopPolling()
 
@@ -145,6 +147,7 @@ export const useMainStore = defineStore('main', () => {
             wallet = await InjectedWallet.connectWithAddress(newAddress)
         } catch (e) {
             console.error('switchInjectedAccount failed:', e)
+            isSwitchingAccount.value = false
             return
         }
 
@@ -196,6 +199,7 @@ export const useMainStore = defineStore('main', () => {
 
     const onAccess = () => {
         isAuth.value = true
+        isSwitchingAccount.value = false
 
         const assetsStore = useAssetsStore()
         assetsStore.updateAvaAsset()
@@ -435,6 +439,7 @@ export const useMainStore = defineStore('main', () => {
     return {
         // State
         isAuth,
+        isSwitchingAccount,
         activeWallet,
         address,
         wallets,

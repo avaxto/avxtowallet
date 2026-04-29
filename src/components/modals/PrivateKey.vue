@@ -1,19 +1,26 @@
 <template>
     <modal ref="modalRef" :title="$t('modal.priv_key.title')" class="modal_main">
         <div class="singleton_modal_body">
-            <p class="key_raw">{{ privateKey }}</p>
-            <p class="warning_text">
-                Warning: Never disclose this key. Anyone with your private keys can steal any assets
-                held in your wallet.
-            </p>
+            <p v-if="walletType == 'injected'">
+                {{ $t('keys.view_priv_key_injected') }}
+            </p>            
+            <span v-else>
+                <p class="key_raw">{{ privateKey }}</p>
+                <p  class="warning_text">
+                    Warning: Never disclose this key. Anyone with your private keys can steal any assets
+                    held in your wallet.
+                </p>
+            </span>
         </div>
     </modal>
 </template>
 <script lang="ts">
 import 'reflect-metadata'
-import { defineComponent, ref } from 'vue'
+import { defineComponent, ref, computed } from 'vue'
 
 import Modal from '@/components/modals/Modal.vue'
+import { useMainStore } from '@/stores'
+import { AvalancheAccount } from '@avalanche-sdk/client/accounts'
 
 interface Props {
     privateKey: string
@@ -31,7 +38,15 @@ export default defineComponent({
         }
     },
     setup() {
+        const mainStore = useMainStore()
         const modalRef = ref<InstanceType<typeof Modal>>()
+        const wallet = computed(() => {
+            return mainStore.activeWallet as AvalancheAccount
+        })
+
+        const walletType = computed(() => {
+            return wallet.value.type
+        })
 
         const open = (): void => {
             modalRef.value?.open()
@@ -39,6 +54,7 @@ export default defineComponent({
 
         return {
             modalRef,
+            walletType,
             open
         }
     }

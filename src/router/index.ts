@@ -20,6 +20,7 @@ import Export from '@/views/wallet/CrossChain.vue'
 import Xpub from '@/views/access/Xpub.vue'
 import Injected from '@/views/access/Injected.vue'
 import WalletReadonly from '@/views/WalletReadonly.vue'
+import InsufficientBalance from '@/views/InsufficientBalance.vue'
 import { PublicMnemonicWallet } from '@/avalanche-wallet-sdk'
 
 const ifNotAuthenticated = (to: RouteLocationNormalized, from: RouteLocationNormalized, next: NavigationGuardNext) => {
@@ -94,6 +95,11 @@ const routes = [
         path: '/xpub',
         name: 'wallet_readonly',
         component: WalletReadonly,
+    },
+    {
+        path: '/insufficient-balance',
+        name: 'insufficient_balance',
+        component: InsufficientBalance,
     },
     {
         path: '/wallet',

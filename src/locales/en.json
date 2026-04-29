@@ -331,7 +331,7 @@
         "tooltip": "This key will be forgotten when you refresh the browser.",
         "view_priv_key": "View Private Key",
         "view_priv_key_c": "View C Chain Private Key",
-        "view_priv_key_injected": "Private Keys are inaccessible for injected/extension wallets like Core App and Metamask. Please export your key using the injected wallet interface.",
+        "view_priv_key_injected": "Private Keys are inaccessible for Ledger and extension wallets like Core App and Metamask. Please export your key using the injected wallet interface.",
         "view_key": "View Key Phrase",
         "export_key": "Export Key",
         "hd_addresses": "HD Addresses",
