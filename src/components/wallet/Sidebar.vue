@@ -45,6 +45,10 @@
                     <img v-else src="@/assets/sidebar/advanced_nav_night.png" />
                     {{ $t('wallet.sidebar.advanced') }}
                 </router-link>
+                <router-link to="/wallet/addresses" data-cy="wallet_addresses" class="wallet_link">
+                    <span><fa icon="list" class="icon"></fa></span>
+                    Addresses
+                </router-link>
             </div>
             <div class="bottom">
                 <LanguageSelect></LanguageSelect>                

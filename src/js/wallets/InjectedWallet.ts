@@ -146,6 +146,10 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
     private _hdP: string[] = []
     // Resolves once the lot-scan has finished (or immediately if no HD key).
     private _hdScanPromise: Promise<void> | null = null
+    // Last address index reached by each lot-scan (useful for the next incremental scan).
+    private _hdXExternalLastIdx: number = 0
+    private _hdXInternalLastIdx: number = 0
+    private _hdPLastIdx: number = 0
 
     /** Accounts fetched from Core App via avalanche_getAccounts. */
     coreAccounts: CoreAppAccount[] = []
@@ -330,13 +334,26 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
         this._startHdScan()
     }
 
+    async getAddressForIndex(index: number, change: boolean = false, chain: 'X' | 'P' = 'X'): Promise<string> {
+        if (!this._accountKey) {
+            throw new Error('No account key available for HD derivation.')
+        }
+        const changeIdx = change ? 1 : 0
+        const node = this._accountKey.derive(`m/${changeIdx}/${index}`)
+        const addrBuf = AVMKeyPair.addressFromPublicKey(
+            BufferAvalanche.from(node.publicKey!.toString('hex'), 'hex')
+        )
+        const hrp = getPreferredHRP(ava.getNetworkID())
+        return bintools.addressToString(hrp, chain, addrBuf)
+    }
+
     /**
      * Scan one change-index (0=external, 1=internal) of the X-chain or P-chain
      * by querying Glacier in lots of LOT_SIZE addresses.
      * Stops after MAX_EMPTY_LOTS consecutive lots with zero UTXOs.
      * Returns the flat list of all addresses that belonged to non-empty lots.
      */
-    private async _scanHdLot(changeIdx: 0 | 1, chainId: 'X' | 'P'): Promise<string[]> {
+    private async _scanHdLot(changeIdx: 0 | 1, chainId: 'X' | 'P'): Promise<{ addresses: string[]; lastIdx: number }> {
         const LOT_SIZE = 50
         const MAX_EMPTY_LOTS = 5
 
@@ -351,13 +368,11 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
         let addrIdx = 0
 
         while (emptyLots < MAX_EMPTY_LOTS) {
-            // Derive one lot of addresses from the account-level HD key.
+            
             const lotAddrs: string[] = []
             for (let i = 0; i < LOT_SIZE; i++) {
-                const node = this._accountKey!.derive(`m/${changeIdx}/${addrIdx + i}`)
-                const pubKeyBuf = BufferAvalanche.from(node.publicKey!.toString('hex'), 'hex')
-                const addrBuf = AVMKeyPair.addressFromPublicKey(pubKeyBuf)
-                lotAddrs.push(bintools.addressToString(hrp, chainId, addrBuf))
+                const addr = await this.getAddressForIndex(addrIdx + i, changeIdx === 1, chainId)
+                lotAddrs.push(addr)
             }
 
             
@@ -390,7 +405,7 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
             addrIdx += LOT_SIZE
         }
 
-        return active
+        return { addresses: active, lastIdx: addrIdx }
     }
 
     /**
@@ -401,15 +416,21 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
         this._hdXExternal = []
         this._hdXInternal = []
         this._hdP = []
+        this._hdXExternalLastIdx = 0
+        this._hdXInternalLastIdx = 0
+        this._hdPLastIdx = 0
 
         this._hdScanPromise = Promise.all([
             this._scanHdLot(0, 'X'),
             this._scanHdLot(1, 'X'),
             this._scanHdLot(0, 'P'),
         ]).then(([xExt, xInt, p]) => {
-            this._hdXExternal = xExt
-            this._hdXInternal = xInt
-            this._hdP = p
+            this._hdXExternal = xExt.addresses
+            this._hdXInternal = xInt.addresses
+            this._hdP = p.addresses
+            this._hdXExternalLastIdx = xExt.lastIdx
+            this._hdXInternalLastIdx = xInt.lastIdx
+            this._hdPLastIdx = p.lastIdx
         }).catch((e) => console.warn('HD lot scan error', e))
     }
 

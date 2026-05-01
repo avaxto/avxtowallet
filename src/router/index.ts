@@ -19,6 +19,7 @@ import { useMainStore } from '@/stores'
 import Export from '@/views/wallet/CrossChain.vue'
 import Xpub from '@/views/access/Xpub.vue'
 import Injected from '@/views/access/Injected.vue'
+import Addresses from '@/views/wallet/Addresses.vue'
 import WalletReadonly from '@/views/WalletReadonly.vue'
 import InsufficientBalance from '@/views/InsufficientBalance.vue'
 import { PublicMnemonicWallet } from '@/avalanche-wallet-sdk'
@@ -136,6 +137,10 @@ const routes = [
             {
                 path: 'generator',
                 component: Generator,
+            },
+            {
+                path: 'addresses',
+                component: Addresses,
             },            
         ],
         component: Wallet,

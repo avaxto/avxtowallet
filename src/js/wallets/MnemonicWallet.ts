@@ -60,9 +60,6 @@ const INDEX_RANGE: number = 20 // a gap of at least 20 indexes is needed to clai
 const SCAN_SIZE: number = 70 // the total number of utxos to look at initially to calculate last index
 const SCAN_RANGE: number = SCAN_SIZE - INDEX_RANGE // How many items are actually scanned
 
-// Possible indexes for each request is
-// SCAN_SIZE - INDEX_RANGE
-
 export default class MnemonicWallet extends AbstractHdWallet implements IAvaHdWallet {
     seed: string
     hdKey: HDKey
