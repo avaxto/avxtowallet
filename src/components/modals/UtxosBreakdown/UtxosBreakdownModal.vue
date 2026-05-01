@@ -2,8 +2,8 @@
     <Modal title="Wallet UTXO Breakdown" ref="modal">
         <div class="utxos_breakdown_body">
             <div class="tabs">
-                <button @click="setChain('X')" :active="chain === 'X'">X Chain</button>
-                <button @click="setChain('P')" :active="chain === 'P'">P Chain</button>
+                <button @click="setChain('X')" :class="{ active: chain === 'X' }">X Chain</button>
+                <button @click="setChain('P')" :class="{ active: chain === 'P' }">P Chain</button>
             </div>
             <div class="scrollable">
                 <div style="height: 90px">
@@ -211,7 +211,7 @@ thead {
             color: var(--secondary-color);
         }
 
-        &[active] {
+        &.active {
             background-color: var(--secondary-color);
             color: #fff;
         }

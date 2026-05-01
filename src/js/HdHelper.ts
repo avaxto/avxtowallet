@@ -117,8 +117,7 @@ class HdHelper {
         return newIndex
     }
 
-    async findHdIndex() {
-        // Check if explorer is available
+    async findHdIndex() {        
 
         const networkStore = useNetworkStore(pinia)
         const network: AvaNetwork | null = networkStore.selectedNetwork
