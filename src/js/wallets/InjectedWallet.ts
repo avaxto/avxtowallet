@@ -499,14 +499,6 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
         try {
             await this.getEthBalance()
 
-            // Addresses from avalanche_getAccounts — these are the exact addresses
-            // Core App tracks for each account, regardless of HD derivation path.
-            const coreXAddrs = this.coreAccounts
-                .map((a) => a.addressAVM)
-                .filter(Boolean)
-            const corePAddrs = this.coreAccounts
-                .map((a) => a.addressPVM)
-                .filter(Boolean)
 
             if (this._hdScanPromise) {
                 // HD mode: wait for the Glacier lot-scan to finish discovering all
@@ -515,8 +507,8 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
                 await this._hdScanPromise
 
                 // Merge HD-scanned addresses with Core App account addresses (deduplicated).
-                const xSet = new Set([...this._hdXExternal, ...this._hdXInternal, ...coreXAddrs])
-                const pSet = new Set([...this._hdP, ...corePAddrs])
+                const xSet = new Set([...this._hdXExternal, ...this._hdXInternal])
+                const pSet = new Set([...this._hdP])
 
                 if (xSet.size > 0) {
                     this.utxoset = await avmGetAllUTXOs([...xSet])
@@ -528,11 +520,11 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
                 // Single-address fallback — still include all Core App account addresses.
                 const xAddrs = new Set([
                     ...(this.avmAddress ? [this.avmAddress] : []),
-                    ...coreXAddrs,
+                    
                 ])
                 const pAddrs = new Set([
                     ...(this.platformAddress ? [this.platformAddress] : []),
-                    ...corePAddrs,
+                    
                 ])
 
                 if (xAddrs.size > 0) {

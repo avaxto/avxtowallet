@@ -1,5 +1,5 @@
 import { AvaNetwork } from '@/js/AvaNetwork'
-import { pinia, useNetworkStore, useMainStore, useStatusBarStore, useAssetsStore } from '@/stores'
+import { pinia, useNetworkStore, useMainStore, useStatusBarStore, useAssetsStore, useHistoryStore } from '@/stores'
 import { AvalancheAccount } from '@avalanche-sdk/client/accounts'
 import { PROVIDER_CONFIG } from '@/providers/provider_config'
 
@@ -172,9 +172,8 @@ class PollingManager {
 
         try {
             // Refresh the wallet balance
-            // TODO: Implement these in Pinia stores
-            // await store.dispatch('Assets/updateUTXOsExternal')
-            // await store.dispatch('History/updateTransactionHistory')
+            await useAssetsStore(pinia).updateUTXOsExternal()
+            useHistoryStore(pinia).updateTransactionHistory()
         } catch (error) {
             console.warn('X-Chain balance update error:', error)
         }
