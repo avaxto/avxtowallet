@@ -21,6 +21,7 @@ export async function getStakeForAddresses(addrs: string[]): Promise<BN> {
 export async function avmGetAllUTXOs(addrs: string[]): Promise<AVMUTXOSet> {
     if (addrs.length <= 1024) {
         const utxos = await avmGetAllUTXOsForAddresses(addrs)
+        console.log(`Fetched ONESET ${utxos.getAllUTXOs().length} UTXOs for ${addrs.length} addresses`)
         return utxos
     } else {
         //Break the list in to 1024 chunks
@@ -28,7 +29,9 @@ export async function avmGetAllUTXOs(addrs: string[]): Promise<AVMUTXOSet> {
         const remainingChunk = addrs.slice(1024)
 
         const newSet = await avmGetAllUTXOsForAddresses(chunk)
-        return newSet.merge(await avmGetAllUTXOs(remainingChunk))
+        const retSet = newSet.merge(await avmGetAllUTXOs(remainingChunk))
+        console.log(`Fetched RETSET ${retSet.getAllUTXOs().length} UTXOs for ${addrs.length} addresses`)
+        return retSet
     }
 }
 

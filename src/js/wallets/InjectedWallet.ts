@@ -9,6 +9,9 @@
 import { ava, avm, bintools, cChain, pChain } from '@/AVA'
 import { ITransaction } from '@/components/wallet/transfer/types'
 import { WalletNameType } from '@/js/wallets/types'
+import HDKey from 'hdkey'
+import { Avalanche as ChainKitAvalanche } from '@avalanche-sdk/chainkit'
+import { isMainnetNetworkId } from '@/avalanche-wallet-sdk/Network'
 
 import { Buffer as BufferAvalanche, BN } from '@/avalanche'
 import { getPreferredHRP } from '@/avalanche/utils/helperfunctions'
@@ -66,6 +69,50 @@ import {
 import { avalanche } from 'viem/chains'
 
 /**
+ * Represents one account entry returned by Core App's `avalanche_getAccounts` RPC method.
+ */
+export class CoreAppAccount {
+    active: boolean
+    addressC: string
+    addressBTC: string
+    /** Full X-chain address including prefix, e.g. "X-avax1..." */
+    addressAVM: string
+    /** Full P-chain address including prefix, e.g. "P-avax1..." */
+    addressPVM: string
+    addressCoreEth: string
+    addressSVM: string
+    name: string
+    type: string
+    id: string
+    xpAddresses: string[]
+    /** Base58check-encoded BIP32 extended public key for X/P-chain HD derivation. */
+    xpubXP: string
+    index: number
+    walletType: string
+    walletId: string
+    walletName: string
+
+    constructor(raw: Record<string, any>) {
+        this.active = raw.active ?? false
+        this.addressC = raw.addressC ?? ''
+        this.addressBTC = raw.addressBTC ?? ''
+        this.addressAVM = raw.addressAVM ?? ''
+        this.addressPVM = raw.addressPVM ?? ''
+        this.addressCoreEth = raw.addressCoreEth ?? ''
+        this.addressSVM = raw.addressSVM ?? ''
+        this.name = raw.name ?? ''
+        this.type = raw.type ?? ''
+        this.id = raw.id ?? ''
+        this.xpAddresses = Array.isArray(raw.xpAddresses) ? raw.xpAddresses : []
+        this.xpubXP = raw.xpubXP ?? ''
+        this.index = raw.index ?? 0
+        this.walletType = raw.walletType ?? ''
+        this.walletId = raw.walletId ?? ''
+        this.walletName = raw.walletName ?? ''
+    }
+}
+
+/**
  * Get an EIP-1193 provider from the browser window object.
  * Supports MetaMask, Core App, and other injected providers.
  */
@@ -90,6 +137,18 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
     platformAddress: string
 
     stakeAmount: BN
+
+    // HD derivation support — populated when the provider returns an extended public key
+    private _accountKey: HDKey | null = null
+    // Flat lists of derived addresses, filled by the Glacier lot-scan in getUTXOs().
+    private _hdXExternal: string[] = []
+    private _hdXInternal: string[] = []
+    private _hdP: string[] = []
+    // Resolves once the lot-scan has finished (or immediately if no HD key).
+    private _hdScanPromise: Promise<void> | null = null
+
+    /** Accounts fetched from Core App via avalanche_getAccounts. */
+    coreAccounts: CoreAppAccount[] = []
 
     private walletClient: WalletClient
     private provider: any
@@ -136,28 +195,7 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
         }
 
         const wallet = new InjectedWallet(provider, accounts[0])
-
-        // Try to get X/P addresses from the provider.
-        // Core App exposes avalanche_getAccountPubKey which returns { xp, evm } compressed pubkeys.
-        // We derive the bech32 X/P addresses from the xp public key.
-        try {
-            const pubKeys: { xp?: string; evm?: string } = await provider.request({
-                method: 'avalanche_getAccountPubKey',
-                params: {},
-            })
-            if (pubKeys?.xp) {
-                const hrp = getPreferredHRP(ava.getNetworkID())
-                // Strip optional '0x' prefix — the key must be a 33-byte compressed secp256k1 pubkey
-                const xpHex = pubKeys.xp.replace(/^0x/, '')
-                const addrBuf = AVMKeyPair.addressFromPublicKey(BufferAvalanche.from(xpHex, 'hex'))
-                wallet.avmAddress      = bintools.addressToString(hrp, 'X', addrBuf)
-                wallet.platformAddress = bintools.addressToString(hrp, 'P', addrBuf)
-            }
-        } catch (err) {
-            console.warn('Provider does not support avalanche_getAccountPubKey. X/P chain addresses will be unavailable.', err)
-            // Provider does not support the method (e.g. MetaMask) — leave empty
-        }
-
+        await wallet._applyAccountInfo()
         return wallet
     }
 
@@ -175,59 +213,248 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
         }
 
         const wallet = new InjectedWallet(provider, address)
+        await wallet._applyAccountInfo()
+        return wallet
+    }
 
+    /**
+     * Call Core App's `avalanche_getAccounts` RPC, populate `this.coreAccounts`,
+     * and return the parsed array.
+     */
+    async avalancheGetAccounts(): Promise<CoreAppAccount[]> {
+        const raw: Record<string, any>[] = await this.provider.request({
+            method: 'avalanche_getAccounts',
+            params: [],
+        })
+        this.coreAccounts = raw.map((a) => new CoreAppAccount(a))
+        return this.coreAccounts
+    }
+
+    /**
+     * Fetch account info from the provider and apply addresses / HD key.
+     * Tries `avalanche_getAccounts` first (gives full xpubXP);
+     * falls back to `avalanche_getAccountPubKey`.
+     */
+    private async _applyAccountInfo(): Promise<void> {
+        // --- Primary: avalanche_getAccounts (Core App) ---
         try {
-            const pubKeys: { xp?: string; evm?: string } = await provider.request({
+            const accounts = await this.avalancheGetAccounts()
+            // Match the active account to the connected EVM address.
+            const evmAddrLower = ('0x' + this.ethAddress).toLowerCase()
+            const match = accounts.find(
+                (a) => a.active || a.addressC.toLowerCase() === evmAddrLower
+            ) ?? accounts[0]
+
+            if (match?.xpubXP) {
+                this._applyXpKey(match.xpubXP)
+                return
+            }
+        } catch {
+            // Extension does not expose avalanche_getAccounts — try legacy method.
+        }
+
+        // --- Fallback: avalanche_getAccountPubKey ---
+        try {
+            const pubKeys: { xp?: string; evm?: string } = await this.provider.request({
                 method: 'avalanche_getAccountPubKey',
                 params: {},
             })
             if (pubKeys?.xp) {
-                const hrp = getPreferredHRP(ava.getNetworkID())
-                const xpHex = pubKeys.xp.replace(/^0x/, '')
-                const addrBuf = AVMKeyPair.addressFromPublicKey(BufferAvalanche.from(xpHex, 'hex'))
-                wallet.avmAddress      = bintools.addressToString(hrp, 'X', addrBuf)
-                wallet.platformAddress = bintools.addressToString(hrp, 'P', addrBuf)
+                this._applyXpKey(pubKeys.xp)
             }
         } catch (err) {
-            console.warn('Provider does not support avalanche_getAccountPubKey.', err)
+            console.warn('InjectedWallet: could not obtain X/P chain key from provider.', err)
+        }
+    }
+
+    /**
+     * Parse the xp key returned by avalanche_getAccountPubKey.
+     *
+     * Core App may return one of:
+     *   a) A 33-byte compressed secp256k1 public key in hex (66 chars)  — single address
+     *   b) A 78-byte BIP32 extended public key in hex (156 chars)        — HD derivation
+     *   c) A base58check-encoded extended public key (starts with xpub…) — HD derivation
+     *
+     * For cases (b) and (c) we initialise HdHelper instances that scan all derived
+     * addresses using a gap limit of 20, matching Core App's BIP44 derivation.
+     */
+    private _applyXpKey(xp: string): void {
+        const hrp = getPreferredHRP(ava.getNetworkID())
+        const xpStripped = xp.replace(/^0x/, '')
+
+        console.log('[InjectedWallet] xp raw:', xp)
+        console.log('[InjectedWallet] xp stripped len:', xpStripped.length, 'value:', xpStripped.slice(0, 80))
+
+        // --- Try to parse as extended public key (xpub) ---
+        let accountKey: HDKey | null = null
+
+        if (/^[0-9a-fA-F]{156}$/.test(xpStripped)) {
+            // 78-byte BIP32 serialisation encoded as plain hex.
+            // Layout: 4 version | 1 depth | 4 fingerprint | 4 index | 32 chaincode | 33 pubkey
+            const xpBuf = BufferAvalanche.from(xpStripped, 'hex')
+            const hdKey = new HDKey()
+            // @ts-ignore — HDKey exposes these as writeable internals
+            hdKey.publicKey = xpBuf.slice(45, 78)
+            // @ts-ignore
+            hdKey.chainCode = xpBuf.slice(13, 45)
+            accountKey = hdKey
+        } else if (/^[0-9a-fA-F]{66}$/.test(xpStripped)) {
+            // Plain 33-byte compressed public key — no HD derivation possible.
+            console.log('[InjectedWallet] xp is 33-byte compressed pubkey — single address only, no HD scan')
+            const addrBuf = AVMKeyPair.addressFromPublicKey(BufferAvalanche.from(xpStripped, 'hex'))
+            this.avmAddress      = bintools.addressToString(hrp, 'X', addrBuf)
+            this.platformAddress = bintools.addressToString(hrp, 'P', addrBuf)
+            return
+        } else {
+            // Assume base58check-encoded xpub.
+            try {
+                accountKey = (HDKey as any).fromExtendedKey(xpStripped) as HDKey
+            } catch (e) {
+                console.warn('InjectedWallet: unable to parse xp key', e)
+                return
+            }
         }
 
-        return wallet
+        // --- We have an account-level extended public key ---
+        this._accountKey = accountKey
+
+        // Derive the first external address (m/0/0 from account key) as the primary address.
+        const firstExternalNode = accountKey.derive('m/0/0')
+        const addrBuf = AVMKeyPair.addressFromPublicKey(
+            BufferAvalanche.from(firstExternalNode.publicKey!.toString('hex'), 'hex')
+        )
+        this.avmAddress      = bintools.addressToString(hrp, 'X', addrBuf)
+        this.platformAddress = bintools.addressToString(hrp, 'P', addrBuf)
+
+        // Kick off the Glacier lot-scan (async, awaited in getUTXOs).
+        this._startHdScan()
+    }
+
+    /**
+     * Scan one change-index (0=external, 1=internal) of the X-chain or P-chain
+     * by querying Glacier in lots of LOT_SIZE addresses.
+     * Stops after MAX_EMPTY_LOTS consecutive lots with zero UTXOs.
+     * Returns the flat list of all addresses that belonged to non-empty lots.
+     */
+    private async _scanHdLot(changeIdx: 0 | 1, chainId: 'X' | 'P'): Promise<string[]> {
+        const LOT_SIZE = 50
+        const MAX_EMPTY_LOTS = 5
+
+        const netID = ava.getNetworkID()
+        const hrp = getPreferredHRP(netID)
+        const network = isMainnetNetworkId(netID) ? 'mainnet' : 'fuji'
+        const blockchainId = chainId === 'X' ? 'x-chain' : 'p-chain'
+        const sdk = new ChainKitAvalanche({ network })
+
+        const active: string[] = []
+        let emptyLots = 0
+        let addrIdx = 0
+
+        while (emptyLots < MAX_EMPTY_LOTS) {
+            // Derive one lot of addresses from the account-level HD key.
+            const lotAddrs: string[] = []
+            for (let i = 0; i < LOT_SIZE; i++) {
+                const node = this._accountKey!.derive(`m/${changeIdx}/${addrIdx + i}`)
+                const pubKeyBuf = BufferAvalanche.from(node.publicKey!.toString('hex'), 'hex')
+                const addrBuf = AVMKeyPair.addressFromPublicKey(pubKeyBuf)
+                lotAddrs.push(bintools.addressToString(hrp, chainId, addrBuf))
+            }
+
+            
+            let hasUtxos = false
+            try {
+                const pageIter = await sdk.data.primaryNetwork.utxos.listByAddressesV2({
+                    pageSize: 1,
+                    blockchainId,
+                    primaryNetworkAddressesBodyDto: {
+                        addresses: lotAddrs.join(','),
+                    },
+                })
+                for await (const page of pageIter) {
+                    hasUtxos = page.result.utxos.length > 0
+                    break // first page is enough for the presence check
+                }
+                console.log(`[InjectedWallet] scan ${chainId} change=${changeIdx} idx=${addrIdx}-${addrIdx + LOT_SIZE - 1} hasUTXOs=${hasUtxos}`)
+            } catch {
+                console.error('Glacier API error during HD scan. Aborting further scans to avoid rate limits.')
+                break
+            }
+
+            if (hasUtxos) {
+                active.push(...lotAddrs)
+                emptyLots = 0
+            } else {
+                emptyLots++
+            }
+
+            addrIdx += LOT_SIZE
+        }
+
+        return active
+    }
+
+    /**
+     * Kick off the Glacier lot-scan for all three derivation paths.
+     * Stores the promise in _hdScanPromise so getUTXOs() can await it.
+     */
+    private _startHdScan(): void {
+        this._hdXExternal = []
+        this._hdXInternal = []
+        this._hdP = []
+
+        this._hdScanPromise = Promise.all([
+            this._scanHdLot(0, 'X'),
+            this._scanHdLot(1, 'X'),
+            this._scanHdLot(0, 'P'),
+        ]).then(([xExt, xInt, p]) => {
+            this._hdXExternal = xExt
+            this._hdXInternal = xInt
+            this._hdP = p
+        }).catch((e) => console.warn('HD lot scan error', e))
     }
 
     // ---- Address methods ----
-    // Injected wallets are EVM-only; X/P chain addresses are not available.
 
     getCurrentAddressAvm(): string {
-        return this.avmAddress
+        // Use the last discovered external address as the current receive address,
+        // falling back to the base address when no scan has run yet.
+        return this._hdXExternal.at(-1) ?? this.avmAddress
     }
 
     getChangeAddressAvm(): string {
-        return this.avmAddress
+        return this._hdXInternal.at(-1) ?? this.avmAddress
     }
 
     getCurrentAddressPlatform(): string {
-        return this.platformAddress
+        return this._hdP.at(-1) ?? this.platformAddress
     }
 
     getAllExternalAddressesX(): string[] {
-        return this.avmAddress ? [this.avmAddress] : []
+        return this._hdXExternal.length > 0 ? this._hdXExternal
+            : this.avmAddress ? [this.avmAddress] : []
     }
 
     getAllChangeAddressesX(): string[] {
-        return this.avmAddress ? [this.avmAddress] : []
+        return this._hdXInternal.length > 0 ? this._hdXInternal
+            : this.avmAddress ? [this.avmAddress] : []
     }
 
     getDerivedAddresses(): string[] {
-        return this.avmAddress ? [this.avmAddress] : []
+        const hdCombined = [...this._hdXExternal, ...this._hdXInternal]
+        const coreX = this.coreAccounts.map((a) => a.addressAVM).filter(Boolean)
+        const all = [...new Set([...hdCombined, ...coreX])]
+        return all.length > 0 ? all : this.avmAddress ? [this.avmAddress] : []
     }
 
     getDerivedAddressesP(): string[] {
-        return this.platformAddress ? [this.platformAddress] : []
+        const coreP = this.coreAccounts.map((a) => a.addressPVM).filter(Boolean)
+        const all = [...new Set([...this._hdP, ...coreP])]
+        return all.length > 0 ? all : this.platformAddress ? [this.platformAddress] : []
     }
 
     getAllDerivedExternalAddresses(): string[] {
-        return this.avmAddress ? [this.avmAddress] : []
+        return this._hdXExternal.length > 0 ? this._hdXExternal
+            : this.avmAddress ? [this.avmAddress] : []
     }
 
     getHistoryAddresses(): string[] {
@@ -252,11 +479,16 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
     }
 
     getAllAddressesX(): string[] {
-        return this.avmAddress ? [this.avmAddress] : []
+        const hdCombined = [...this._hdXExternal, ...this._hdXInternal]
+        const coreX = this.coreAccounts.map((a) => a.addressAVM).filter(Boolean)
+        const all = [...new Set([...hdCombined, ...coreX])]
+        return all.length > 0 ? all : this.avmAddress ? [this.avmAddress] : []
     }
 
     getAllAddressesP(): string[] {
-        return this.platformAddress ? [this.platformAddress] : []
+        const coreP = this.coreAccounts.map((a) => a.addressPVM).filter(Boolean)
+        const all = [...new Set([...this._hdP, ...coreP])]
+        return all.length > 0 ? all : this.platformAddress ? [this.platformAddress] : []
     }
 
     // ---- UTXO management ----
@@ -267,16 +499,48 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
         try {
             await this.getEthBalance()
 
-            // Fetch X chain UTXOs if we have an AVM address
-            if (this.avmAddress) {
-                const avmAddrs = [this.avmAddress]
-                this.utxoset = await avmGetAllUTXOs(avmAddrs)
-            }
+            // Addresses from avalanche_getAccounts — these are the exact addresses
+            // Core App tracks for each account, regardless of HD derivation path.
+            const coreXAddrs = this.coreAccounts
+                .map((a) => a.addressAVM)
+                .filter(Boolean)
+            const corePAddrs = this.coreAccounts
+                .map((a) => a.addressPVM)
+                .filter(Boolean)
 
-            // Fetch P chain UTXOs if we have a platform address
-            if (this.platformAddress) {
-                const platformAddrs = [this.platformAddress]
-                this.platformUtxoset = await platformGetAllUTXOs(platformAddrs)
+            if (this._hdScanPromise) {
+                // HD mode: wait for the Glacier lot-scan to finish discovering all
+                // addresses that have (or had) UTXOs, then fetch the actual UTXO
+                // objects from the node for each address.
+                await this._hdScanPromise
+
+                // Merge HD-scanned addresses with Core App account addresses (deduplicated).
+                const xSet = new Set([...this._hdXExternal, ...this._hdXInternal, ...coreXAddrs])
+                const pSet = new Set([...this._hdP, ...corePAddrs])
+
+                if (xSet.size > 0) {
+                    this.utxoset = await avmGetAllUTXOs([...xSet])
+                }
+                if (pSet.size > 0) {
+                    this.platformUtxoset = await platformGetAllUTXOs([...pSet])
+                }
+            } else {
+                // Single-address fallback — still include all Core App account addresses.
+                const xAddrs = new Set([
+                    ...(this.avmAddress ? [this.avmAddress] : []),
+                    ...coreXAddrs,
+                ])
+                const pAddrs = new Set([
+                    ...(this.platformAddress ? [this.platformAddress] : []),
+                    ...corePAddrs,
+                ])
+
+                if (xAddrs.size > 0) {
+                    this.utxoset = await avmGetAllUTXOs([...xAddrs])
+                }
+                if (pAddrs.size > 0) {
+                    this.platformUtxoset = await platformGetAllUTXOs([...pAddrs])
+                }
             }
         } finally {
             this.isFetchUtxos = false
@@ -314,6 +578,13 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
         this.utxoset = new AVMUTXOSet()
         this.platformUtxoset = new PlatformUTXOSet()
         this.ethBalance = new BN(0)
+
+        // Re-run the Glacier lot-scan on the new network.
+        if (this._accountKey) {
+            this._hdScanPromise = null
+            this._startHdScan()
+        }
+
         this.getUTXOs()
     }
 

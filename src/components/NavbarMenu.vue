@@ -33,15 +33,6 @@
             </v-list>
         </v-menu>
 
-        <v-menu offset-y>
-            <template v-slot:activator="{ props }">
-                <v-btn text v-bind="props" class="menu-btn">
-                    Toolbox
-                </v-btn>
-            </template>
-            <v-list>
-            </v-list>
-        </v-menu>
 
         <v-menu offset-y>
             <template v-slot:activator="{ props }">

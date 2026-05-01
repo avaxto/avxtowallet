@@ -76,7 +76,7 @@ export default {
         watch(
             () => themeStore.theme,
             (val) => {
-                vuetifyTheme.global.name.value = val === 'night' ? 'dark' : 'light'
+                vuetifyTheme.change(val === 'night' ? 'dark' : 'light')
             },
             { immediate: true }
         )

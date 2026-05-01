@@ -24,6 +24,8 @@ import '@/vue_components'
 import Big from 'big.js'
 import { useStatusBarStore } from '@/stores'
 
+console.log('Starting AVAX Toolbox...')
+
 const app = createApp(App)
 
 // @ts-ignore

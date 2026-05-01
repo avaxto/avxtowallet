@@ -121,7 +121,7 @@ class PollingManager {
             
             if (currentHeight && currentHeight !== this.xChainConfig.lastXChainHeight) {
                 this.xChainConfig.lastXChainHeight = currentHeight
-                //useStatusBarStore(pinia).info(`Current X-Chain Height: ${currentHeight}`)
+                useStatusBarStore(pinia).info(`Current X-Chain Height: ${currentHeight}`)
                 await this.updateWalletBalanceX()
             }
         } catch (error) {
@@ -155,8 +155,7 @@ class PollingManager {
             
             if (currentBlock && currentBlock !== this.cChainConfig.lastBlockNumber) {
                 this.cChainConfig.lastBlockNumber = currentBlock
-                // TODO was overwriting status bar info from other calls, so commenting out for now
-                //useStatusBarStore(pinia).info(`Current C-Chain block: ${currentBlock}`)
+                useStatusBarStore(pinia).info(`Current C-Chain block: ${currentBlock}`)
                 await this.updateWalletBalanceC()
             }
         } catch (error) {
@@ -181,12 +180,18 @@ class PollingManager {
         }
     }
 
+    /**
+     * Update wallet balance for C-Chain (replaces blockHeaderCallback functionality)
+     */
     private async updateWalletBalanceC() {
         const wallet: null | AvalancheAccount = useMainStore(pinia).activeWallet as AvalancheAccount | null
         if (!wallet) return
 
         try {
-            await wallet.getEthBalance()            
+            // Refresh the wallet balance
+            await wallet.getEthBalance()
+
+            // Update ERC20 balance for the base asset (AVXTO)
             const assetsStore = useAssetsStore(pinia)
             const baseAsset = assetsStore.baseAsset
             if (baseAsset) {
@@ -201,7 +206,7 @@ class PollingManager {
             console.warn('C-Chain balance update error:', error)
         }
 
-
+        
     }
 
     /**

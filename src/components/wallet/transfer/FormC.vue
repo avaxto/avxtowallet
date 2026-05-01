@@ -207,10 +207,37 @@ export default defineComponent({
                 const stopWatch = watch(
                     () => assetsStore.networkErc20Tokens,
                     (tokens) => {
-                        if (!tokens.length) return
                         const match = tokens.find((t) => t.data.address.toLowerCase() === addr)
                         if (match && token_in.value) {
                             token_in.value.setToken(match)
+                            stopWatch()
+                            return
+                        }
+                        // Token not in the standard list — build a temporary one from URL params
+                        if (token_in.value) {
+                            const name = (route.query.name as string | undefined) ?? tokenAddress
+                            const symbol = (route.query.symbol as string | undefined) ?? '???'
+                            const decimals = parseInt((route.query.decimals as string | undefined) ?? '18')
+                            const logoURI = (route.query.logoUri as string | undefined) ?? ''
+                            const chainId = assetsStore.evmChainId
+                            const tempToken = new Erc20Token({
+                                address: tokenAddress,
+                                chainId,
+                                name,
+                                symbol,
+                                decimals,
+                                logoURI,
+                            })
+                            const ethAddress = mainStore.activeWallet?.ethAddress
+                            if (ethAddress) {
+                                // Strip 0x if present — updateBalance prepends it internally
+                                const rawAddr = ethAddress.replace(/^0x/i, '')
+                                tempToken.updateBalance(rawAddr).then(() => {
+                                    token_in.value?.setToken(tempToken)
+                                })
+                            } else {
+                                token_in.value.setToken(tempToken)
+                            }
                         }
                         stopWatch()
                     },

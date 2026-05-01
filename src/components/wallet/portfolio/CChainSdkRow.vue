@@ -56,7 +56,15 @@ export default defineComponent({
 
         const sendLink = computed(() => {
             if (props.asset.type === 'erc20') {
-                return `/wallet/transfer?chain=C&token=${props.asset.address}`
+                const params = new URLSearchParams({
+                    chain: 'C',
+                    token: props.asset.address,
+                    name: props.asset.name,
+                    symbol: props.asset.symbol,
+                    decimals: String(props.asset.decimals ?? 18),
+                })
+                if (props.asset.logoUri) params.set('logoUri', props.asset.logoUri)
+                return `/wallet/transfer?${params.toString()}`
             }
             return ''
         })

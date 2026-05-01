@@ -8,6 +8,7 @@ export type CChainSdkAsset = {
     symbol: string
     logoUri?: string
     balance: string
+    decimals?: number
     tokenId?: string
 }
 
@@ -49,6 +50,7 @@ export function useCChainSdkBalances(address: Ref<string | null>, chainId: Ref<n
                         symbol: token.symbol,
                         logoUri: token.logoUri,
                         balance: humanBal,
+                        decimals,
                     })
                 }
             }

@@ -435,8 +435,7 @@ export const useAssetsStore = defineStore('assets', () => {
         // Update ERC721 balances
         const erc721Store = useErc721Store()
         erc721Store.updateWalletBalance()
-        
-        // commit('updateActiveAddress', null, { root: true }) - handled by main store
+                
     }
 
     const updateUTXOsExternal = async () => {
