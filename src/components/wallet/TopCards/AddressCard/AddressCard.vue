@@ -19,6 +19,15 @@
                 </p>
                 <div class="buts">
                     <button
+                        v-if="showNewAddressBtn"
+                        :tooltip="'Advance HD index and show the next X-Chain address'"
+                        class="bech32 new-addr-btn"
+                        @click="getNewXAddress"
+                        :disabled="newAddrLoading"
+                    >
+                        {{ newAddrLoading ? '…' : 'New Address' }}
+                    </button>
+                    <button
                         v-if="chainNow === 'C' && walletType !== 'injected'"
                         :tooltip="`View the bech32 encoded C-Chain address`"
                         class="bech32"
@@ -75,6 +84,8 @@ import MnemonicWallet, {
     LEDGER_ETH_ACCOUNT_PATH,
 } from '@/js/wallets/MnemonicWallet'
 import { LedgerWallet } from '@/js/wallets/LedgerWallet'
+import { AbstractHdWallet } from '@/js/wallets/AbstractHdWallet'
+import { InjectedWallet } from '@/js/wallets/InjectedWallet'
 
 import ChainSelect from '@/components/wallet/TopCards/AddressCard/ChainSelect.vue'
 import { ChainIdType } from '@/constants'
@@ -99,6 +110,8 @@ export default defineComponent({
         
         const colorLight = ref('#FFF')
         const colorDark = ref('#242729')
+        const xAddressOverride = ref<string | null>(null)
+        const newAddrLoading = ref(false)
         const chainNow = ref<ChainIdType>(
             (mainStore.activeWallet as AvalancheAccount | null)?.type === 'injected' ? 'C' : 'X'
         )
@@ -144,13 +157,18 @@ export default defineComponent({
         const activeAddress = computed((): string => {
             switch (chainNow.value) {
                 case 'X':
-                    return address.value
+                    return xAddressOverride.value ?? address.value
                 case 'P':
                     return addressPVM.value
                 case 'C':
                     return showBech.value ? addressEVMBech32.value : addressEVM.value
             }
             return address.value
+        })
+
+        const showNewAddressBtn = computed((): boolean => {
+            return chainNow.value === 'X' &&
+                (walletType.value === 'mnemonic' || walletType.value === 'injected')
         })
 
         const walletType = computed((): WalletNameType => {
@@ -235,6 +253,23 @@ export default defineComponent({
             showBech.value = !showBech.value
         }
 
+        const getNewXAddress = async () => {
+            const wallet = activeWallet.value
+            if (!wallet || newAddrLoading.value) return
+            newAddrLoading.value = true
+            try {
+                if (wallet.type === 'mnemonic') {
+                    const hdWallet = wallet as unknown as AbstractHdWallet
+                    hdWallet.externalHelper.incrementIndex()
+                    xAddressOverride.value = hdWallet.externalHelper.getCurrentAddress()
+                } else if (wallet.type === 'injected') {
+                    xAddressOverride.value = await (wallet as unknown as InjectedWallet).getNextXAddress()
+                }
+            } finally {
+                newAddrLoading.value = false
+            }
+        }
+
         const viewQRModal = () => {
             qrModalRef.value?.open()
         }
@@ -278,6 +313,13 @@ export default defineComponent({
             if (val !== 'C') {
                 showBech.value = false
             }
+            if (val !== 'X') {
+                xAddressOverride.value = null
+            }
+        })
+
+        watch(activeWallet, () => {
+            xAddressOverride.value = null
         })
 
         // Force C-chain view for injected wallets (MetaMask, Core App, etc.)
@@ -313,7 +355,10 @@ export default defineComponent({
             toggleBech32,
             viewQRModal,
             viewPrintModal,
-            verifyLedgerAddress
+            verifyLedgerAddress,
+            showNewAddressBtn,
+            newAddrLoading,
+            getNewXAddress,
         }
     }
 })
@@ -370,6 +415,20 @@ export default defineComponent({
 
     &[active] {
         color: var(--secondary-color) !important;
+    }
+}
+
+.new-addr-btn {
+    color: var(--secondary-color);
+    opacity: 0.85;
+
+    &:hover {
+        opacity: 1;
+    }
+
+    &:disabled {
+        opacity: 0.4;
+        cursor: default;
     }
 }
 

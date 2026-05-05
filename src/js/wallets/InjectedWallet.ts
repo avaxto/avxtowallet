@@ -149,6 +149,8 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
     private _hdXExternalLastIdx: number = 0
     private _hdXInternalLastIdx: number = 0
     private _hdPLastIdx: number = 0
+    // Tracks the next HD index to hand out via getNextXAddress().
+    private _nextXIdx: number | null = null
 
     /** Accounts fetched from Core App via avalanche_getAccounts. */
     coreAccounts: CoreAppAccount[] = []
@@ -344,6 +346,21 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
         )
         const hrp = getPreferredHRP(ava.getNetworkID())
         return bintools.addressToString(hrp, chain, addrBuf)
+    }
+
+    /**
+     * Returns the next fresh external X-chain address beyond all previously scanned UTXOs.
+     * Waits for any in-progress HD scan to finish before deriving.
+     * Each call advances the internal counter by 1.
+     */
+    async getNextXAddress(): Promise<string> {
+        if (this._hdScanPromise) await this._hdScanPromise
+        if (this._nextXIdx === null) {
+            this._nextXIdx = this._hdXExternal.length
+        } else {
+            this._nextXIdx++
+        }
+        return this.getAddressForIndex(this._nextXIdx)
     }
 
     /**
