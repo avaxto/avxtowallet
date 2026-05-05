@@ -198,19 +198,38 @@ export default defineComponent({
                     updateGasPrice()
                 }
             }, 15000)
+        })
 
-            // Pre-select token from query string: ?token=0x...
-            // Use a watcher so it still works if the token list loads after mount
-            const tokenAddress = route.query.token as string | undefined
-            if (tokenAddress) {
+        // Pre-select token from query string: ?token=0x...
+        // Watches route.query.token so it re-runs on every navigation to this
+        // page (onMounted only fires once when the component is already alive).
+        let tokenListStop: (() => void) | undefined
+        watch(
+            () => route.query.token as string | undefined,
+            (tokenAddress) => {
+                // Cancel any in-flight inner watcher from a previous navigation
+                tokenListStop?.()
+                tokenListStop = undefined
+
+                if (!tokenAddress) {
+                    // No token param — reset to native AVAX.
+                    // nextTick ensures template ref is ready on initial mount.
+                    nextTick(() => token_in.value?.setToken('native'))
+                    return
+                }
                 const addr = tokenAddress.toLowerCase()
-                const stopWatch = watch(
+
+                const stopInner = watch(
                     () => assetsStore.networkErc20Tokens,
                     (tokens) => {
+                        // Token list not loaded yet — keep waiting
+                        if (tokens.length === 0) return
+
                         const match = tokens.find((t) => t.data.address.toLowerCase() === addr)
                         if (match && token_in.value) {
                             token_in.value.setToken(match)
-                            stopWatch()
+                            stopInner()
+                            tokenListStop = undefined
                             return
                         }
                         // Token not in the standard list — build a temporary one from URL params
@@ -228,9 +247,8 @@ export default defineComponent({
                                 decimals,
                                 logoURI,
                             })
-                            const ethAddress = mainStore.activeWallet?.ethAddress
+                            const ethAddress = (mainStore.activeWallet as any)?.ethAddress
                             if (ethAddress) {
-                                // Strip 0x if present — updateBalance prepends it internally
                                 const rawAddr = ethAddress.replace(/^0x/i, '')
                                 tempToken.updateBalance(rawAddr).then(() => {
                                     token_in.value?.setToken(tempToken)
@@ -239,12 +257,15 @@ export default defineComponent({
                                 token_in.value.setToken(tempToken)
                             }
                         }
-                        stopWatch()
+                        stopInner()
+                        tokenListStop = undefined
                     },
                     { immediate: true }
                 )
-            }
-        })
+                tokenListStop = stopInner
+            },
+            { immediate: true }
+        )
 
         onBeforeUnmount(() => {
             if (gasPriceInterval.value) {

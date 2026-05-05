@@ -19,10 +19,9 @@ import { createUnhead } from '@unhead/vue'
 import { VueHeadMixin } from '@unhead/vue'
 // @ts-ignore
 import '@/vue_components'
-import Big from 'big.js'
 import { useStatusBarStore } from '@/stores'
 
-console.log('Starting AVAX Toolbox...')
+console.log('Starting AVAX Toolbox')
 
 const app = createApp(App)
 
@@ -125,33 +124,4 @@ if (window.Cypress) {
     window.app = mountedApp
 }
 
-declare module 'big.js' {
-    interface Big {
-        toLocaleString(toFixed?: number): string
-    }
-}
-
-Big.prototype.toLocaleString = function (toFixed: number = 9) {
-    const value = this
-
-    const fixedStr = this.toFixed(toFixed)
-    const split = fixedStr.split('.')
-    const wholeStr = parseInt(split[0]).toLocaleString('en-US')
-
-    if (split.length === 1) {
-        return wholeStr
-    } else {
-        let remainderStr = split[1]
-
-        // remove trailing 0s
-        let lastChar = remainderStr.charAt(remainderStr.length - 1)
-        while (lastChar === '0') {
-            remainderStr = remainderStr.substring(0, remainderStr.length - 1)
-            lastChar = remainderStr.charAt(remainderStr.length - 1)
-        }
-
-        const trimmed = remainderStr.substring(0, toFixed)
-        if (!trimmed) return wholeStr
-        return `${wholeStr}.${trimmed}`
-    }
-}
+import '@/utils/big-extensions'
