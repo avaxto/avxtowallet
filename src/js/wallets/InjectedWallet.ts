@@ -360,7 +360,7 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
         const hrp = getPreferredHRP(netID)
         const network = isMainnetNetworkId(netID) ? 'mainnet' : 'fuji'
         const blockchainId = chainId === 'X' ? 'x-chain' : 'p-chain'
-        const sdk = new ChainKitAvalanche({ network })
+        const sdk = new ChainKitAvalanche({ network, enableTelemetry: false })
 
         const active: string[] = []
         let emptyLots = 0

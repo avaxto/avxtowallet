@@ -88,7 +88,7 @@ export const useHistoryStore = defineStore('history', () => {
             if (evmHexAddress) {
                 try {
                     const chainkitChainId = isMainnetNetworkID(netID) ? '43114' : '43113'
-                    const chainkit = new ChainKitAvalanche({ chainId: chainkitChainId })
+                    const chainkit = new ChainKitAvalanche({ chainId: chainkitChainId, enableTelemetry: false })
                     const pages = await chainkit.data.evm.address.transactions.list({
                         address: evmHexAddress,
                         sortOrder: 'desc',

@@ -29,7 +29,7 @@ export function useCChainSdkBalances(address: Ref<string | null>, chainId: Ref<n
         error.value = null
 
         try {
-            const sdk = new Avalanche({ chainId: String(cid) })
+            const sdk = new Avalanche({ chainId: String(cid), enableTelemetry: false })
             const result: CChainSdkAsset[] = []
 
             // ERC-20
