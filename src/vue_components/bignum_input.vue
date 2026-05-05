@@ -155,6 +155,9 @@ export default BigNumInput
     input{
         text-align: right;
         outline: none;
+        border: 1px solid var(--bg-light);
+        border-radius: 4px;
+        padding: 4px 8px;
     }
     /* Chrome, Safari, Edge, Opera */
     input::-webkit-outer-spin-button,

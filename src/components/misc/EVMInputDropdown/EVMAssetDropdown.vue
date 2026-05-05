@@ -1,7 +1,7 @@
 <template>
     <div class="evm_dropdown hover_border" :active="isPopup" :disabled="disabled">
         <button @click="showPopup" :disabled="disabled">
-            {{ symbol }}
+            Transferring {{ symbol }} (Click to Change)
         </button>
         <EVMTokenSelectModal
             ref="select_modal"
@@ -94,11 +94,29 @@ export default defineComponent({
 
 button {
     text-align: center;
-    width: 100%;
-    height: 100%;
-    position: absolute;
     top: 0;
     left: 0;
+    font-weight: bold;
+    font-size: 14px;
+    border-radius: 4px;
+    padding: 4px 10px;
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);    
+    color: #fff;
+    border: 1px solid var(--bg-light) !important;
+    cursor: pointer;
+    transition: background-color 0.15s, border-color 0.15s;
+
+    &:hover:not(:disabled) {
+        background-color: var(--secondary-color);
+        border-color: var(--secondary-color);
+        color: #fff;
+    }
+
+    &:disabled {
+        opacity: 0.6;
+        cursor: default;
+    }
 }
 
 .list {

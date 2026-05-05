@@ -665,9 +665,7 @@ h4 {
 }
 
 .new_order_Form {
-    display: grid;
-    grid-template-columns: 1fr 1fr 300px;
-    column-gap: 45px;
+    display: block;
 }
 
 .new_order_Form > div {
@@ -676,9 +674,6 @@ h4 {
 }
 .lists {
     /*padding-right: 45px;*/
-    border-right: 1px solid var(--bg-light);
-    grid-column: 1/3;
-
     /*> div{*/
     /*    margin: 14px 0;*/
     /*}*/
@@ -750,12 +745,7 @@ label {
 //    }
 //}
 
-@include main.medium-device {
-    .new_order_Form {
-        grid-template-columns: 1fr 1fr 220px;
-        column-gap: 25px;
-    }
-}
+
 
 @include main.mobile-device {
     .transfer_card {

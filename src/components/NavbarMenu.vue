@@ -38,6 +38,41 @@
             </v-list>
         </v-menu>
 
+     <v-menu offset-y>
+            <template v-slot:activator="{ props }">
+                <v-btn text v-bind="props" class="menu-btn">
+                    Trade
+                </v-btn>
+            </template>
+            <v-list>
+               
+                <v-list-item>
+                    <v-list-item-title>
+                        <a 
+                        href="https://lfj.gg/avalanche/trade/0xf56cecc07d97ac50630022cf84c19e612ae8c93d" 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        class="wallet_link">
+                            Trade AVXTO at LFJ
+                        </a>
+                    </v-list-item-title>
+                </v-list-item>
+
+
+                <v-list-item>
+                    <v-list-item-title>
+                        <a 
+                        href="https://arenatrade.ai/token/0xf56cecc07d97ac50630022cf84c19e612ae8c93d" 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        class="wallet_link"> 
+                            Trade AVXTO at ArenaTrade
+                        </a>
+                    </v-list-item-title>
+                </v-list-item>
+                
+            </v-list>
+        </v-menu>
 
         <v-menu offset-y>
             <template v-slot:activator="{ props }">
@@ -46,7 +81,17 @@
                 </v-btn>
             </template>
             <v-list>
-                
+                <v-list-item>
+                    <v-list-item-title>
+                        <a 
+                        href="https://avax.to/telegram" 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        class="wallet_link">
+                            AVXTO Telegram Group
+                        </a>
+                    </v-list-item-title>
+                </v-list-item>                
                 <v-list-item>
                     <v-list-item-title>
                         <a 
@@ -81,43 +126,11 @@
                         </a>
                     </v-list-item-title>
                 </v-list-item>
-                <v-list-item>
-                    <v-list-item-title>
-                        <a 
-                        href="https://lfj.gg/avalanche/trade/0xf56cecc07d97ac50630022cf84c19e612ae8c93d" 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        class="wallet_link">
-                            Buy AVXTO at LFJ
-                        </a>
-                    </v-list-item-title>
-                </v-list-item>
-
-
-                <v-list-item>
-                    <v-list-item-title>
-                        <a 
-                        href="https://arenatrade.ai/token/0xf56cecc07d97ac50630022cf84c19e612ae8c93d" 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        class="wallet_link"> 
-                            Buy AVXTO at ArenaTrade
-                        </a>
-                    </v-list-item-title>
-                </v-list-item>
-                <v-list-item>
-                    <v-list-item-title>
-                        <a 
-                        href="https://avax.to/telegram" 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        class="wallet_link">
-                            Join AVXTO Telegram Group
-                        </a>
-                    </v-list-item-title>
-                </v-list-item>
+             
+                
             </v-list>
         </v-menu>
+   
         <v-spacer></v-spacer>
         <network-menu class="net_menu"></network-menu>
         &nbsp;        &nbsp;

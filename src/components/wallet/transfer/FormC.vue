@@ -452,16 +452,11 @@ h4 {
 }
 
 .cols {
-    display: grid;
-    grid-template-columns: 1fr 1fr 300px;
-    column-gap: 45px;
+    display: block;
     padding: 0;
 }
 
 .form {
-    padding-right: 60px;
-    grid-column: 1/3;
-    border-right: 1px solid var(--bg-light);
 }
 
 .list_item {
@@ -526,12 +521,7 @@ label {
     padding-bottom: 30px;
 }
 
-@include main.medium-device {
-    .cols {
-        grid-template-columns: 1fr 1fr 220px;
-        column-gap: 25px;
-    }
-}
+
 
 @include main.mobile-device {
     .cols {

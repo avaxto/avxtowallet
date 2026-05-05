@@ -536,6 +536,9 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
         try {
             await this.getEthBalance()
 
+            // Re-run the Glacier HD scan on every refresh so newly-used
+            // addresses (derived after the initial load) are discovered.
+            this._startHdScan()
 
             if (this._hdScanPromise) {
                 // HD mode: wait for the Glacier lot-scan to finish discovering all

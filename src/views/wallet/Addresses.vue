@@ -84,7 +84,7 @@
                     <span class="count">{{ coreAppAddrs.length }}</span>
                 </div>
                 <div class="section_head">
-                    <p class="desc">These are the main account addresses provided by the Core App extension. Only the first two are normally used. The other 49 accounts are reserved in Core App but not shown in this wallet. It is strongly recommended you do not use any of these addresses. Provided for advanced users only.</p>
+                    <p class="desc">These are the main account addresses provided by the Core App extension. Only Account 1 is used by default. The other accounts are reserved in Core App but not shown in this wallet. It is strongly recommended you do not use any of these addresses as <b>you may lose funds</b> (although the Core extension holds these private keys, they're not immediately accessible by the user). <strong>Provided for advanced users only.</strong></p>
                 </div>
                 <div class="addr_list">
                     <div
