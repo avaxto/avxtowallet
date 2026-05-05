@@ -6,7 +6,7 @@
                 <div class="col_big_in">
                     <big-num-input
                         ref="bigIn"
-                        @change="amount_in"
+                        @update:modelValue="amount_in"
                         class="bigIn"
                         contenteditable="bigIn"
                         :max="max_amount"

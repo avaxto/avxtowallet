@@ -21,7 +21,7 @@
         <v-menu offset-y>
             <template v-slot:activator="{ props }">
                 <v-btn text v-bind="props" class="menu-btn">
-                    Wallet
+                    Toolbox
                 </v-btn>
             </template>
             <v-list>
@@ -180,6 +180,15 @@ export default defineComponent({
 
 .wallet_link {
     font-size: 14px !important;
+    color: inherit;
+    text-decoration: none;
+}
+
+:deep(.v-list-item-title a),
+:deep(.v-list-item-title .router-link-active),
+:deep(.v-list-item-title router-link) {
+    color: inherit;
+    text-decoration: none;
 }
 
 .menu-btn {
@@ -199,7 +208,6 @@ export default defineComponent({
 
 .menu-btn {
     box-shadow: none !important;
-    color: var(--primary-color) !important;
     text-transform: none !important;
 
     &:hover,

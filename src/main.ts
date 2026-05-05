@@ -11,8 +11,6 @@ import vuetify from './plugins/vuetify'
 // @ts-ignore
 import i18nMessages from './plugins/i18n.js'
 // @ts-ignore
-import posthogPlugin from './plugins/posthog.js'
-// @ts-ignore
 import {AVAX_TOOLBOX_VERSION} from './avxto/AVXTOConf'
 import 'bootstrap/dist/css/bootstrap.css'
 import 'bootstrap-vue-next/dist/bootstrap-vue-next.css'
@@ -70,7 +68,7 @@ app.use({
         app.provide('usehead', head)
     }
 })
-app.use(posthogPlugin)
+
 app.use(createBootstrap({ components: true, directives: true }))
 app.component('datetime', Datetime)
 app.component('fa', FontAwesomeIcon)

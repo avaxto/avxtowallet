@@ -83,12 +83,7 @@ export default defineComponent({
             resetTimer()
 
             let view = wallet_view.value as HTMLDivElement
-
-            // @ts-ignore
-            if (window.$posthog) {
-                // @ts-ignore
-                window.$posthog.capture('UserLoggedIn')
-            }
+            
 
             view.addEventListener('mousemove', resetTimer)
             view.addEventListener('mousedown', resetTimer)

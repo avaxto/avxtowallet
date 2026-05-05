@@ -229,7 +229,7 @@ export default defineComponent({
             if (!data || data instanceof Event) return
             console.log('Updating tx list with:')
             console.log(data)
-            orders.value = data
+            orders.value = [...data]
             console.log(orders.value)
         }
 

@@ -47,7 +47,6 @@ import { createAvalancheWalletClient } from '@avalanche-sdk/client'
 import { activeNetwork } from '@/avalanche-wallet-sdk/Network/network'
 import * as TxHelper from '@/avalanche-wallet-sdk/helpers/tx_helper'
 import { buildUnsignedTransaction } from '@/js/TxHelper'
-import { issueX } from '@/helpers/issueTx'
 import { defineChain } from 'viem'
 
 import {
@@ -579,8 +578,54 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
         memo: BufferAvalanche | undefined
     ): Promise<string> {
         const unsignedTx = await this.buildUnsignedTransaction(orders, addr, memo)
-        const tx = await this.signX(unsignedTx)
-        return issueX(tx)
+
+        // Populate SigIdx sources (required before calling getSigIdxs)
+        unsignedTx.toBuffer()
+
+        // Build address → HD index maps using actual derivation indices.
+        // _hdXExternal[i] is the address generated at getAddressForIndex(i, false),
+        // so for the common case (lot 0 scanned first) array position equals HD index.
+        const externalAddrToIdx = new Map<string, number>()
+        const internalAddrToIdx = new Map<string, number>()
+        this._hdXExternal.forEach((a, i) => externalAddrToIdx.set(a, i))
+        this._hdXInternal.forEach((a, i) => internalAddrToIdx.set(a, i))
+
+        const hrp = getPreferredHRP(ava.getNetworkID())
+        const externalIndicesSet = new Set<number>()
+        const internalIndicesSet = new Set<number>()
+
+        for (const input of unsignedTx.getTransaction().getIns()) {
+            for (const sigIdx of (input.getInput() as any).getSigIdxs()) {
+                const addrStr = bintools.addressToString(hrp, 'X', sigIdx.getSource())
+                if (externalAddrToIdx.has(addrStr)) {
+                    externalIndicesSet.add(externalAddrToIdx.get(addrStr)!)
+                } else if (internalAddrToIdx.has(addrStr)) {
+                    internalIndicesSet.add(internalAddrToIdx.get(addrStr)!)
+                }
+            }
+        }
+
+        // If no HD indices found (scan not done yet, or coreAccount primary address),
+        // default to external[0] — the primary derived address.
+        if (externalIndicesSet.size === 0 && internalIndicesSet.size === 0) {
+            externalIndicesSet.add(0)
+        }
+
+        // avalanche_sendTransaction signs AND submits in one step.
+        // Passing explicit externalIndices/internalIndices is required by Core App
+        // for ALL transactions (single- and multi-address) so it knows which HD keys to use,
+        // without relying on its own UTXO cache lookup.
+        const txHex = Buffer.from(unsignedTx.toBuffer()).toString('hex')
+        const txId = await this.provider.request({
+            method: 'avalanche_sendTransaction',
+            params: {
+                transactionHex: txHex,
+                chainAlias: 'X',
+                externalIndices: Array.from(externalIndicesSet).sort((a, b) => a - b),
+                internalIndices: Array.from(internalIndicesSet).sort((a, b) => a - b),
+            },
+        })
+        return typeof txId === 'string' ? txId : (txId as any).txHash ?? (txId as any).txID
     }
 
     // ---- Network change ----
@@ -610,11 +655,11 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
      */
     async signX(unsignedTx: AVMUnsignedTx): Promise<AVMTx> {
         const txHex = Buffer.from(unsignedTx.toBuffer()).toString('hex')
+        // Core App may return a plain hex string or { signedTransactionHex: '...' }
         const raw = await this.provider.request({
             method: 'avalanche_signTransaction',
             params: { transactionHex: txHex, chainAlias: 'X' },
         })
-        // Core App may return a plain hex string or { signedTransactionHex: '...' }
         const signedHex: string = typeof raw === 'string' ? raw : raw.signedTransactionHex
         const tx = new AVMTx()
         tx.fromBuffer(Buffer.from(signedHex.replace(/^0x/, ''), 'hex') as any)

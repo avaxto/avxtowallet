@@ -16,3 +16,8 @@ $secondary-color: $pink;
 $secondary-color-light: $pink-light;
 $secondary-color-extra-light: $pink-extra-light;
 $background-color: $gray;
+
+a {
+    color: $white !important;
+    text-decoration: none !important;
+}
