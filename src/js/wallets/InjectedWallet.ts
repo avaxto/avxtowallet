@@ -45,10 +45,13 @@ import { Transaction } from '@ethereumjs/tx'
 import { ExportChainsC, ExportChainsP, ExportChainsX } from '@/avalanche-wallet-sdk'
 import { AvmImportChainType } from '@/js/wallets/types'
 import { createAvalancheWalletClient } from '@avalanche-sdk/client'
+import { issueTx as issueXChainTx } from '@avalanche-sdk/client/methods/xChain'
+import { utils as avaxUtils } from '@avalabs/avalanchejs'
 import { activeNetwork } from '@/avalanche-wallet-sdk/Network/network'
 import { chainIdFromAlias } from '@/avalanche-wallet-sdk/Network/helpers/idFromAlias'
 import * as TxHelper from '@/avalanche-wallet-sdk/helpers/tx_helper'
 import { buildUnsignedTransaction } from '@/js/TxHelper'
+import { sortUTxoSetP } from '@/helpers/sortUTXOs'
 import { defineChain } from 'viem'
 
 import {
@@ -68,6 +71,7 @@ import {
 } from 'viem'
 
 import { avalanche } from 'viem/chains'
+import { address } from 'bitcoinjs-lib'
 
 /**
  * Represents one account entry returned by Core App's `avalanche_getAccounts` RPC method.
@@ -458,6 +462,22 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
         // Use the last discovered external address as the current receive address,
         // falling back to the base address when no scan has run yet.
         return this._hdXExternal.at(-1) ?? this.avmAddress
+    }
+
+    /**
+     * Returns Core App's active account X-chain address — the address that
+     * avalanche_signTransaction signs as.  This is the canonical address to use
+     * for X-chain export destinations and import outputs so that the UTXO owner
+     * always matches the signer.
+     *
+     * Core App's current address comes from avalanche_getAccounts (addressAVM field)
+     * and may be at a higher HD index than m/0/0 (avmAddress).  Using avmAddress
+     * as the export destination causes "nothing to sign" because the UTXO owner
+     * (avmAddress = index 0) doesn't match Core App's current signer address.
+     */
+    private getActiveXChainAddress(): string {
+        const active = this.coreAccounts.find((a) => a.active) ?? this.coreAccounts[0]
+        return active?.addressAVM || this.avmAddress
     }
 
     getChangeAddressAvm(): string {
@@ -920,15 +940,16 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
      *   1. Pre-fetch the wallet's XP public key from Core App so the HTTP build client can
      *      satisfy SDK's EI() call without hitting avalanche_getAccountPubKey on the node.
      *      (X-chain's sB() always calls EI() — so the buildClient must have an account set.)
-     *   2. Build the Etna-codec X-chain ImportTx via buildClient.xChain.prepareImportTxn(),
-     *      passing all known X-chain external addresses so the SDK finds UTXOs at any HD index.
-     *   3. Extract the atomic UTXOs from the UnsignedTx in hex format
-     *      (UnsignedTx.toJSON().utxos = bufferToHex(utxo.toBytes(codec))) — this is the
-     *      exact format Core App's getProvidedUtxos() expects so it can rebuild addressMaps.
-     *   4. Sign + submit through signClient.sendXPTransaction() with explicit externalIndices
-     *      and the hex UTXOs so Core App can sign without needing to fetch from Glacier.
+     *   2. Build the Etna-codec X-chain ImportTx via walletClient.xChain.prepareImportTxn().
+     *   3. Sign via avalanche_signTransaction (builds addressMaps from UTXO owners directly,
+     *      bypassing Core App's Glacier lookup which fails for C→X atomic UTXOs).
+     *   4. Issue the signed tx directly via the X-chain node API.
+     *
+     * The wallet's primary X-chain address (avmAddress, HD index 0) is used for both the
+     * export destination and the import output so Core App can always find the signing key.
      */
     async importToXChain(sourceChain: AvmImportChainType): Promise<string> {
+        console.log('[InjectedWallet] Starting importToXChain with sourceChain:', sourceChain)
         const network = activeNetwork
         const chain = defineChain({
             id: network.evmChainID,
@@ -937,55 +958,64 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
             rpcUrls: { default: { http: [network.rpcUrl.c] } },
         })
 
-        // Pre-fetch pubkey to avoid EI() calling avalanche_getAccountPubKey on an HTTP node
+        // Pre-fetch pubkey so the HTTP build client can satisfy the SDK's account check
+        // without calling avalanche_getAccountPubKey on the node (unsupported there).
         const pubKeyData = (await this.provider.request({
             method: 'avalanche_getAccountPubKey',
             params: {},
         })) as { xp: string; evm: string }
 
-        const buildClient = createAvalancheWalletClient({
+        const addressFrom = ('0x' + this.ethAddress) as `0x${string}`
+        console.log(addressFrom)
+
+        const walletClient = createAvalancheWalletClient({
             chain: chain as any,
             transport: { type: 'http' as const, url: network.rpcUrl.c },
             account: {
                 xpAccount: { publicKey: pubKeyData.xp } as any,
                 evmAccount: {
-                    address: ('0x' + this.ethAddress) as `0x${string}`,
+                    address: addressFrom,
                     publicKey: pubKeyData.evm,
                 } as any,
             } as any,
         })
 
-        // Include all known external X-chain addresses so atomic UTXOs at any index are found
-        const xAddrs = this._hdXExternal.length > 0 ? this._hdXExternal : [this.getCurrentAddressAvm()]
-        const toAddr = xAddrs[0]
-
-        const importTxResult = await buildClient.xChain.prepareImportTxn({
+        // Use Core App's active account address as both the UTXO search scope and the
+        // import output destination.  avalanche_signTransaction signs as this address,
+        // so the UTXO owner must match it to avoid "nothing to sign" errors.
+        //
+        // getAllAddressesX() is used as fromAddresses so the SDK finds atomic UTXOs
+        // regardless of which specific address a previous export was sent to (the lot-scan
+        // may have populated _hdXExternal with up to 50 addresses per lot, causing old
+        // exports to land at the last address in the lot rather than the active address).
+        const activeXAddr = this.getActiveXChainAddress()
+        console.log('Active X-chain address for import:', activeXAddr)
+        const importTxResult = await walletClient.xChain.prepareImportTxn({
             sourceChain: sourceChain as 'P' | 'C',
-            importedOutput: { addresses: [toAddr] },
-            fromAddresses: xAddrs,
+            importedOutput: { addresses: [activeXAddr] }            
         })
 
-        // UnsignedTx.toJSON().utxos = bufferToHex(utxo.toBytes(codec)) — exactly the format
-        // Core App's getProvidedUtxos() expects; passing these lets Core App rebuild addressMaps
-        // without a Glacier round-trip and avoids "nothing to sign" errors on atomic inputs.
+        // Pass the UTXOs explicitly so Core App can skip Glacier (which doesn't reliably
+        // index atomic UTXOs for C→X exports).
         const utxoHexes = (importTxResult.tx.toJSON() as any).utxos as string[]
+        const transactionHex = avaxUtils.bufferToHex(importTxResult.tx.toBytes())
 
-        const signClient = createAvalancheWalletClient({
-            chain: chain as any,
-            transport: { type: 'custom' as const, provider: this.provider },
+        const raw = await this.provider.request({
+            method: 'avalanche_signTransaction',
+            params: {
+                transactionHex,
+                chainAlias: 'X',
+                utxos: utxoHexes,
+            },
+        })
+        const signedTxHex: string = typeof raw === 'string' ? raw : (raw as any).signedTransactionHex
+
+        const issueResult = await issueXChainTx(walletClient.xChainClient as any, {
+            tx: signedTxHex,
+            encoding: 'hex',
         })
 
-        // externalIndices tells Core App which HD external indices to derive keys for
-        const externalIndices = xAddrs.map((_, i) => i)
-
-        const result = await signClient.sendXPTransaction({
-            tx: importTxResult.tx,
-            chainAlias: 'X',
-            externalIndices,
-            utxoIds: utxoHexes,
-        } as any)
-
-        return result.txHash
+        return issueResult.txID
     }
 
     /**
@@ -1105,9 +1135,11 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
         const amtFee = amt.add(importFee)
 
         const hexAddr = this.getEvmAddress()
+        // Use Core App's active account address as the X-chain export destination
+        // so importToXChain can find the UTXO and avalanche_signTransaction can sign it.
         const destinationAddr =
             destinationChain === 'X'
-                ? this.getCurrentAddressAvm()
+                ? this.getActiveXChainAddress()
                 : this.getCurrentAddressPlatform()
 
         const exportTxResult = await TxHelper.buildEvmExportTransaction(
@@ -1140,6 +1172,47 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
         })
 
         return result.txHash
+    }
+
+    /**
+     * Override exportFromPChain for InjectedWallet.
+     *
+     * Uses avmAddress (HD index 0) as the X-chain destination so that importToXChain
+     * can locate the UTXO and Core App's avalanche_signTransaction can sign it
+     * (Core App signs as the primary account address = index 0 = avmAddress).
+     */
+    async exportFromPChain(amt: BN, destinationChain: ExportChainsP, importFee?: BN): Promise<string> {
+        if (destinationChain === 'C' && !importFee)
+            throw new Error('Exports to C chain must specify an import fee.')
+
+        let amtFee = amt.clone()
+        if (importFee) {
+            amtFee = amt.add(importFee)
+        } else if (destinationChain === 'X') {
+            amtFee = amt.add(avm.getTxFee())
+        }
+
+        // Use Core App's active account address for X-destination so importToXChain
+        // finds the UTXO and avalanche_signTransaction can sign it.
+        const destinationAddr =
+            destinationChain === 'C' ? this.getEvmAddressBech() : this.getActiveXChainAddress()
+
+        const utxoSet = this.getPlatformUTXOSet()
+        const sortedSet = sortUTxoSetP(utxoSet, false)
+        const pChangeAddr = this.getCurrentAddressPlatform()
+        const fromAddrs = this.getAllAddressesP()
+
+        const exportTx = await TxHelper.buildPlatformExportTransaction(
+            sortedSet,
+            fromAddrs,
+            destinationAddr,
+            amtFee,
+            pChangeAddr,
+            destinationChain
+        )
+
+        const tx = await this.signP(exportTx)
+        return await this.issueP(tx)
     }
 }
 

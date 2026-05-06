@@ -1,5 +1,13 @@
 <template>
     <div class="wallet_wizard">
+        <h1 class="wizard_heading">Wallet Wizard</h1>
+        <p class="wizard_intro">
+            Wallet Wizard is an AVXTO Toolbox tool that allows you to create a brand new wallet and
+            migrate all assets to the newly created wallet. Refer to
+            <a href="https://avax.to" target="_blank" rel="noopener noreferrer">avax.to</a>
+            website for more about Wallet Wizard.
+        </p>
+
         <!-- Step indicator -->
         <div class="step_indicator">
             <div
@@ -622,6 +630,29 @@ export default defineComponent({
 
 <style scoped lang="scss">
 @use '../../main';
+
+.wizard_heading {
+    font-size: 24px;
+    font-weight: 700;
+    margin-bottom: 8px;
+}
+
+.wizard_intro {
+    font-size: 14px;
+    color: var(--primary-color-light);
+    max-width: 740px;
+    line-height: 1.6;
+    margin-bottom: 28px;
+
+    a {
+        color: var(--secondary-color);
+        text-decoration: none;
+
+        &:hover {
+            text-decoration: underline;
+        }
+    }
+}
 
 h2 {
     font-weight: 600;

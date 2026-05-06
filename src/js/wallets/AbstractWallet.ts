@@ -502,6 +502,7 @@ abstract class AbstractWallet {
     }
 
     async importToXChain(sourceChain: AvmImportChainType) {
+        console.log(`[AbstractWallet] importToXChain called with sourceChain: ${sourceChain}`)
         const utxoSet = await this.avmGetAtomicUTXOs(sourceChain)
 
         if (utxoSet.getAllUTXOs().length === 0) {

@@ -42,7 +42,13 @@
                     </template>
                     <div v-else-if="sdkLoading" class="sdk_loading">Loading C-chain assets…</div>
                     <div class="asset add_token_row">
-                        <button @click="addToken">Manually Add Token</button>                        
+
+                        <button @click="addToken">Manually Add Token</button>
+                        
+                        <p>
+Manually added tokens allow you to quickly check an asset that does not show automatically and will disappear when you close the wallet unless you hold a balance of that token.
+                        </p>
+                        
                     </div>
                 </div>
             </div>
@@ -398,5 +404,20 @@ export default defineComponent({
     }
 }
 
+.add_token_row p {
+    float: none;
+    margin: auto;
+    text-align: center;
+    width: 100%;
+    display:block;
+}
+
+.add_token_row button {
+    float: none;
+    margin: auto;
+    text-align: center;
+    width: 100%;
+    display:block;
+}
 
 </style>
