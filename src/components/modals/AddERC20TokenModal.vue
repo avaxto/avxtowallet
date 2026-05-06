@@ -67,7 +67,7 @@ export default defineComponent({
                 const decimals = await tokenInst.methods.decimals().call()
 
                 symbol.value = tokenSymbol
-                denomination.value = decimals
+                denomination.value = Number(decimals)
                 name.value = tokenName
 
                 canAdd.value = true

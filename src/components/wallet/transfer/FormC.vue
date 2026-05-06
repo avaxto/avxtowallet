@@ -167,6 +167,7 @@ export default defineComponent({
         const addressIn = ref('')
         const amountIn = ref(markRaw(new BN(0)))
         const gasPrice = ref(markRaw(new BN(225000000000)))
+        const gasPriceGwei = ref(225)
         const gasPriceInterval = ref<ReturnType<typeof setTimeout> | undefined>(undefined)
         const gasLimit = ref(21000)
         const err = ref('')
@@ -186,7 +187,13 @@ export default defineComponent({
         const token_in = ref<InstanceType<typeof EVMInputDropdown> | null>(null)
 
         const updateGasPrice = async () => {
-            gasPrice.value = markRaw(await GasHelper.getAdjustedGasPrice())
+            try {
+                const price = await GasHelper.getAdjustedGasPrice()
+                gasPrice.value = markRaw(price)
+                gasPriceGwei.value = price.div(new BN(1000000000)).toNumber()
+            } catch (e) {
+                console.warn('Gas price fetch failed', e)
+            }
         }
 
         // Lifecycle methods
@@ -280,9 +287,10 @@ export default defineComponent({
         const wallet = computed(() => mainStore.activeWallet as any)
 
         const gasPriceNumber = computed({
-            get: () => gasPrice.value.div(new BN(1e9)).toNumber(),
+            get: () => gasPriceGwei.value,
             set: (val: number) => {
-                gasPrice.value = new BN(val).mul(new BN(1e9))
+                gasPriceGwei.value = val
+                gasPrice.value = markRaw(new BN(val).mul(new BN(1000000000)))
             },
         })
 

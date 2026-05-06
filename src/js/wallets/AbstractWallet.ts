@@ -405,6 +405,39 @@ abstract class AbstractWallet {
     }
 
     async importToPlatformChain(sourceChain: ExportChainsP): Promise<string> {
+        if (this.xpAccount) {
+            // Key-based wallets (mnemonic / singleton): use the new SDK idiom.
+            const network = activeNetwork
+            const chain = defineChain({
+                id: network.evmChainID,
+                name: 'Avalanche',
+                nativeCurrency: { name: 'Avalanche', symbol: 'AVAX', decimals: 18 },
+                rpcUrls: { default: { http: [network.rpcUrl.c] } },
+            })
+            const evmAddress = this.getEVMAddress() as `0x${string}`
+            const xpAcc = this.xpAccount!
+            const avalancheAccount = {
+                evmAccount: { address: evmAddress, type: 'json-rpc' as const },
+                xpAccount: xpAcc,
+                getXPAddress: () => '',
+                getEVMAddress: () => evmAddress,
+            }
+            const walletClient = createAvalancheWalletClient({
+                chain: chain as any,
+                transport: { type: 'http' as const, url: network.rpcUrl.c },
+                account: avalancheAccount as any,
+            })
+            const pChainImportTxnRequest = await walletClient.pChain.prepareImportTxn({
+                sourceChain: sourceChain as 'X' | 'C',
+                importedOutput: {
+                    addresses: [this.getCurrentAddressPlatform()],
+                },
+            })
+            const result = await walletClient.sendXPTransaction(pChainImportTxnRequest)
+            return result.txHash
+        }
+
+        // Fallback for wallets without a local xpAccount (Ledger): use old AvalancheJS path.
         const utxoSet = await this.platformGetAtomicUTXOs(sourceChain)
 
         if (utxoSet.getAllUTXOs().length === 0) {
@@ -412,16 +445,11 @@ abstract class AbstractWallet {
         }
 
         const sourceChainId = chainIdFromAlias(sourceChain)
-        // Owner addresses, the addresses we exported to
         const pToAddr = this.getCurrentAddressPlatform()
-
         const hrp = ava.getHRP()
-        const utxoAddrs = utxoSet
+        const ownerAddrs = utxoSet
             .getAddresses()
             .map((addr) => bintools.addressToString(hrp, 'P', addr))
-
-        const fromAddrs = utxoAddrs
-        const ownerAddrs = utxoAddrs
 
         const unsignedTx = await pChain.buildImportTx(
             utxoSet,
@@ -434,7 +462,6 @@ abstract class AbstractWallet {
             undefined
         )
         const tx = await this.signP(unsignedTx)
-        // Pass in string because AJS fails to verify Tx type
         return this.issueP(tx)
     }
 

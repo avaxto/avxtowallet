@@ -308,9 +308,12 @@ export const useAssetsStore = defineStore('assets', () => {
         // Save token state to storage
         erc20TokensCustom.value.push(t)
 
-        const w = mainStore.activeWallet
-        if (w) {
-            t.updateBalance(w.ethAddress)
+        const w = mainStore.activeWallet as any
+        if (w && w.ethAddress) {
+            // Access through the reactive array so Vue's proxy tracks the
+            // property mutations triggered inside updateBalance.
+            const reactiveToken = erc20TokensCustom.value[erc20TokensCustom.value.length - 1]
+            reactiveToken.updateBalance(w.ethAddress)
         }
 
         saveCustomErc20Tokens()
