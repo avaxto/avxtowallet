@@ -49,6 +49,10 @@
                     <span><fa icon="list" class="icon"></fa></span>
                     Addresses
                 </router-link>
+                <router-link to="/wallet/wizard" data-cy="wallet_wizard" class="wallet_link">
+                    <span><fa icon="magic" class="icon"></fa></span>
+                    Wallet Wizard
+                </router-link>
             </div>
             <div class="bottom">
                 <LanguageSelect></LanguageSelect>                

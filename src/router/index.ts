@@ -14,6 +14,7 @@ import Earn from '@/views/wallet/Earn.vue'
 import Advanced from '@/views/wallet/Advanced.vue'
 import Activity from '@/views/wallet/Activity.vue'
 import Generator from '@/views/wallet/Generator.vue'
+import WalletWizard from '@/views/wallet/WalletWizard.vue'
 import Account from '@/views/access/Account.vue'
 import { useMainStore } from '@/stores'
 import Export from '@/views/wallet/CrossChain.vue'
@@ -141,7 +142,11 @@ const routes = [
             {
                 path: 'addresses',
                 component: Addresses,
-            },            
+            },
+            {
+                path: 'wizard',
+                component: WalletWizard,
+            },
         ],
         component: Wallet,
         beforeEnter: ifAuthenticated,
