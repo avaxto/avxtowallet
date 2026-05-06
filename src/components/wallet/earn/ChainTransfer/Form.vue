@@ -1,5 +1,6 @@
 <template>
     <div class="swap_form">
+
         <div>
             <label>{{ $t('cross_chain.form.source') }}</label>
             <select @input="onChangeSource" class="hover_border" v-model="sourceChain">
@@ -13,6 +14,7 @@
                 </option>
             </select>
         </div>
+
         <div>
             <label>{{ $t('cross_chain.form.destination') }}</label>
             <p class="ledger_warn" v-if="!isEVMSupported">
@@ -23,8 +25,7 @@
                     v-for="option in destinationOptions"
                     :value="option"
                     :key="option"
-                    :disabled="isConfirm"
-                >
+                    :disabled="isConfirm">
                     {{ chainNames[option] }}
                 </option>
             </select>
@@ -40,10 +41,12 @@
                 :balance="balance"
             ></AvaxInput>
         </div>
+
         <div class="confirmation_val" v-else>
             <label>{{ $t('earn.transfer.amount') }}</label>
             <p>{{ formAmtText }} AVAX</p>
         </div>
+        
     </div>
 </template>
 <script lang="ts">

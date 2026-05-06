@@ -251,29 +251,66 @@ abstract class AbstractWallet {
     }
 
     async exportFromPChain(amt: BN, destinationChain: ExportChainsP, importFee?: BN) {
-        const utxoSet = this.getPlatformUTXOSet()
-        // Sort by amount
-        const sortedSet = sortUTxoSetP(utxoSet, false)
-
-        const pChangeAddr = this.getCurrentAddressPlatform()
-        const fromAddrs = this.getAllAddressesP()
-
         if (destinationChain === 'C' && !importFee)
             throw new Error('Exports to C chain must specify an import fee.')
 
-        // Calculate C chain import fee
+        // Amount to export: destination chain needs this to cover its import fee
         let amtFee = amt.clone()
         if (importFee) {
             amtFee = amt.add(importFee)
         } else if (destinationChain === 'X') {
-            // We can add the import fee for X chain
             const fee = avm.getTxFee()
             amtFee = amt.add(fee)
         }
 
-        // Get the destination address for the right chain
+        // Destination address on the target chain
         const destinationAddr =
             destinationChain === 'C' ? this.getEvmAddressBech() : this.getCurrentAddressAvm()
+
+        if (this.xpAccount) {
+            // Key-based wallets (mnemonic / singleton): use new SDK prepareExportTxn.
+            // Pass all known P-chain addresses as fromAddresses so the SDK fetches UTXOs
+            // at every HD index — signing addresses are derived from the selected UTXOs,
+            // not just the current active address.
+            const network = activeNetwork
+            const chain = defineChain({
+                id: network.evmChainID,
+                name: 'Avalanche',
+                nativeCurrency: { name: 'Avalanche', symbol: 'AVAX', decimals: 18 },
+                rpcUrls: { default: { http: [network.rpcUrl.c] } },
+            })
+            const evmAddress = this.getEVMAddress() as `0x${string}`
+            const xpAcc = this.xpAccount!
+            const avalancheAccount = {
+                evmAccount: { address: evmAddress, type: 'json-rpc' as const },
+                xpAccount: xpAcc,
+                getXPAddress: () => '',
+                getEVMAddress: () => evmAddress,
+            }
+            const walletClient = createAvalancheWalletClient({
+                chain: chain as any,
+                transport: { type: 'http' as const, url: network.rpcUrl.c },
+                account: avalancheAccount as any,
+            })
+
+            const pChainExportTxnRequest = await walletClient.pChain.prepareExportTxn({
+                exportedOutputs: [{
+                    addresses: [destinationAddr],
+                    amount: BigInt(amtFee.toString()),
+                }],
+                destinationChain: destinationChain as 'X' | 'C',
+                fromAddresses: this.getAllAddressesP(),
+            })
+
+            const result = await walletClient.sendXPTransaction(pChainExportTxnRequest)
+            return result.txHash
+        }
+
+        // Fallback for wallets without a local xpAccount (Ledger, InjectedWallet)
+        const utxoSet = this.getPlatformUTXOSet()
+        const sortedSet = sortUTxoSetP(utxoSet, false)
+        const pChangeAddr = this.getCurrentAddressPlatform()
+        const fromAddrs = this.getAllAddressesP()
 
         const exportTx = await TxHelper.buildPlatformExportTransaction(
             sortedSet,
@@ -285,7 +322,6 @@ abstract class AbstractWallet {
         )
 
         const tx = await this.signP(exportTx)
-
         return await this.issueP(tx)
     }
 

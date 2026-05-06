@@ -43,8 +43,10 @@ import { avmGetAllUTXOs, platformGetAllUTXOs } from '@/helpers/utxo_helper'
 import { UTXO as AVMUTXO } from '@/avalanche/apis/avm/utxos'
 import { Transaction } from '@ethereumjs/tx'
 import { ExportChainsC, ExportChainsP, ExportChainsX } from '@/avalanche-wallet-sdk'
+import { AvmImportChainType } from '@/js/wallets/types'
 import { createAvalancheWalletClient } from '@avalanche-sdk/client'
 import { activeNetwork } from '@/avalanche-wallet-sdk/Network/network'
+import { chainIdFromAlias } from '@/avalanche-wallet-sdk/Network/helpers/idFromAlias'
 import * as TxHelper from '@/avalanche-wallet-sdk/helpers/tx_helper'
 import { buildUnsignedTransaction } from '@/js/TxHelper'
 import { defineChain } from 'viem'
@@ -907,6 +909,81 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
             tx: importTxResult.tx,
             chainAlias: 'C',
         })
+
+        return result.txHash
+    }
+
+    /**
+     * Override importToXChain for InjectedWallet.
+     *
+     * Strategy (mirrors importToPlatformChain):
+     *   1. Pre-fetch the wallet's XP public key from Core App so the HTTP build client can
+     *      satisfy SDK's EI() call without hitting avalanche_getAccountPubKey on the node.
+     *      (X-chain's sB() always calls EI() — so the buildClient must have an account set.)
+     *   2. Build the Etna-codec X-chain ImportTx via buildClient.xChain.prepareImportTxn(),
+     *      passing all known X-chain external addresses so the SDK finds UTXOs at any HD index.
+     *   3. Extract the atomic UTXOs from the UnsignedTx in hex format
+     *      (UnsignedTx.toJSON().utxos = bufferToHex(utxo.toBytes(codec))) — this is the
+     *      exact format Core App's getProvidedUtxos() expects so it can rebuild addressMaps.
+     *   4. Sign + submit through signClient.sendXPTransaction() with explicit externalIndices
+     *      and the hex UTXOs so Core App can sign without needing to fetch from Glacier.
+     */
+    async importToXChain(sourceChain: AvmImportChainType): Promise<string> {
+        const network = activeNetwork
+        const chain = defineChain({
+            id: network.evmChainID,
+            name: 'Avalanche',
+            nativeCurrency: { name: 'Avalanche', symbol: 'AVAX', decimals: 18 },
+            rpcUrls: { default: { http: [network.rpcUrl.c] } },
+        })
+
+        // Pre-fetch pubkey to avoid EI() calling avalanche_getAccountPubKey on an HTTP node
+        const pubKeyData = (await this.provider.request({
+            method: 'avalanche_getAccountPubKey',
+            params: {},
+        })) as { xp: string; evm: string }
+
+        const buildClient = createAvalancheWalletClient({
+            chain: chain as any,
+            transport: { type: 'http' as const, url: network.rpcUrl.c },
+            account: {
+                xpAccount: { publicKey: pubKeyData.xp } as any,
+                evmAccount: {
+                    address: ('0x' + this.ethAddress) as `0x${string}`,
+                    publicKey: pubKeyData.evm,
+                } as any,
+            } as any,
+        })
+
+        // Include all known external X-chain addresses so atomic UTXOs at any index are found
+        const xAddrs = this._hdXExternal.length > 0 ? this._hdXExternal : [this.getCurrentAddressAvm()]
+        const toAddr = xAddrs[0]
+
+        const importTxResult = await buildClient.xChain.prepareImportTxn({
+            sourceChain: sourceChain as 'P' | 'C',
+            importedOutput: { addresses: [toAddr] },
+            fromAddresses: xAddrs,
+        })
+
+        // UnsignedTx.toJSON().utxos = bufferToHex(utxo.toBytes(codec)) — exactly the format
+        // Core App's getProvidedUtxos() expects; passing these lets Core App rebuild addressMaps
+        // without a Glacier round-trip and avoids "nothing to sign" errors on atomic inputs.
+        const utxoHexes = (importTxResult.tx.toJSON() as any).utxos as string[]
+
+        const signClient = createAvalancheWalletClient({
+            chain: chain as any,
+            transport: { type: 'custom' as const, provider: this.provider },
+        })
+
+        // externalIndices tells Core App which HD external indices to derive keys for
+        const externalIndices = xAddrs.map((_, i) => i)
+
+        const result = await signClient.sendXPTransaction({
+            tx: importTxResult.tx,
+            chainAlias: 'X',
+            externalIndices,
+            utxoIds: utxoHexes,
+        } as any)
 
         return result.txHash
     }

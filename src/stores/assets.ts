@@ -21,6 +21,8 @@ import { isUrlBanned } from '@/components/misc/NftPayloadView/blacklist'
 import localTokenList from '@/ERC20Tokenlist.json'
 import { useMainStore } from './main'
 import { useErc721Store } from './erc721'
+import { checkPendingImports } from '@/utils/checkPendingImports'
+import { AbstractWallet } from '@/js/wallets/AbstractWallet'
 import { AVXTO_CONTRACT_ADDRESS, AVXTO_ICON, AVXTO_NAME, AVXTO_SYMBOL,
         AVXTO_THR,
         TESTNET_AVXTO_CONTRACT_ADDRESS, TESTNET_AVXTO_ICON, TESTNET_AVXTO_NAME, TESTNET_AVXTO_SYMBOL, 
@@ -434,6 +436,7 @@ export const useAssetsStore = defineStore('assets', () => {
         await wallet.getUTXOs()
         await onUtxosUpdated()
         await updateERC20Balances()
+        checkPendingImports(wallet as unknown as AbstractWallet).catch(() => {})
         
         // Update ERC721 balances
         const erc721Store = useErc721Store()
