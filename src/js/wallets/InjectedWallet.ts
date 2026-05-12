@@ -45,10 +45,8 @@ import { Transaction } from '@ethereumjs/tx'
 import { ExportChainsC, ExportChainsP, ExportChainsX } from '@/avalanche-wallet-sdk'
 import { AvmImportChainType } from '@/js/wallets/types'
 import { createAvalancheWalletClient } from '@avalanche-sdk/client'
-import { issueTx as issueXChainTx } from '@avalanche-sdk/client/methods/xChain'
-import { utils as avaxUtils } from '@avalabs/avalanchejs'
 import { activeNetwork } from '@/avalanche-wallet-sdk/Network/network'
-import { chainIdFromAlias } from '@/avalanche-wallet-sdk/Network/helpers/idFromAlias'
+
 import * as TxHelper from '@/avalanche-wallet-sdk/helpers/tx_helper'
 import { buildUnsignedTransaction } from '@/js/TxHelper'
 import { sortUTxoSetP } from '@/helpers/sortUTXOs'
@@ -72,6 +70,7 @@ import {
 
 import { avalanche } from 'viem/chains'
 import { address } from 'bitcoinjs-lib'
+
 
 /**
  * Represents one account entry returned by Core App's `avalanche_getAccounts` RPC method.
@@ -601,6 +600,18 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
         }
     }
 
+    /**
+     * Refresh X-chain UTXOs. Called by the polling manager to keep the X-chain
+     * balance up to date without a full getUTXOs() cycle.
+     */
+    async updateUTXOsX(): Promise<AVMUTXOSet> {
+        const addrs = this.getAllAddressesX()
+        if (addrs.length > 0) {
+            this.utxoset = await avmGetAllUTXOs(addrs)
+        }
+        return this.utxoset
+    }
+
     // ---- Transaction building ----
 
     async buildUnsignedTransaction(
@@ -949,7 +960,12 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
      * export destination and the import output so Core App can always find the signing key.
      */
     async importToXChain(sourceChain: AvmImportChainType): Promise<string> {
-        console.log('[InjectedWallet] Starting importToXChain with sourceChain:', sourceChain)
+        // Quick pre-check with the old AJS helper so we can give a clear error early.
+        const utxoSet = await this.avmGetAtomicUTXOs(sourceChain)
+        if (utxoSet.getAllUTXOs().length === 0) {
+            throw new Error('Nothing to import.')
+        }
+
         const network = activeNetwork
         const chain = defineChain({
             id: network.evmChainID,
@@ -958,64 +974,64 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
             rpcUrls: { default: { http: [network.rpcUrl.c] } },
         })
 
-        // Pre-fetch pubkey so the HTTP build client can satisfy the SDK's account check
-        // without calling avalanche_getAccountPubKey on the node (unsupported there).
+        // Pre-fetch XP public key from Core App so the HTTP build client can derive
+        // the X-chain address locally without calling avalanche_getAccountPubKey on
+        // the node (which doesn't support that wallet RPC method).
         const pubKeyData = (await this.provider.request({
             method: 'avalanche_getAccountPubKey',
             params: {},
         })) as { xp: string; evm: string }
 
-        const addressFrom = ('0x' + this.ethAddress) as `0x${string}`
-        console.log(addressFrom)
-
-        const walletClient = createAvalancheWalletClient({
+        // HTTP build client with account so xChain.prepareImportTxn's EI() call can
+        // derive the primary X-chain address from the public key instead of the node.
+        const buildClient = createAvalancheWalletClient({
             chain: chain as any,
             transport: { type: 'http' as const, url: network.rpcUrl.c },
             account: {
                 xpAccount: { publicKey: pubKeyData.xp } as any,
                 evmAccount: {
-                    address: addressFrom,
+                    address: ('0x' + this.ethAddress) as `0x${string}`,
                     publicKey: pubKeyData.evm,
                 } as any,
             } as any,
         })
 
-        // Use Core App's active account address as both the UTXO search scope and the
-        // import output destination.  avalanche_signTransaction signs as this address,
-        // so the UTXO owner must match it to avoid "nothing to sign" errors.
+        // Use HD external X-chain addresses so the SDK fetches atomic UTXOs at
+        // every HD index the wallet may have used when exporting (mirrors _hdP for P-chain).
+        const xAddrs = this._hdXExternal.length > 0 ? this._hdXExternal : [this.avmAddress]
+        const xToAddr = this.getActiveXChainAddress()
+
+        // Build Etna-codec X-chain ImportTx using the new SDK (mirrors importToPlatformChain).
+        const importTxResult = await (buildClient as any).xChain.prepareImportTxn({
+            sourceChain: sourceChain as 'C' | 'P',
+            importedOutput: { addresses: [xToAddr] },
+            fromAddresses: xAddrs,
+        })
+
+        // Core App rejects avalanche_sendTransaction for X-chain ("Unable to create
+        // transaction"), so we must use signXPTransaction → avalanche_signTransaction
+        // + issue the signed tx to the X-chain node directly.
         //
-        // getAllAddressesX() is used as fromAddresses so the SDK finds atomic UTXOs
-        // regardless of which specific address a previous export was sent to (the lot-scan
-        // may have populated _hdXExternal with up to 50 addresses per lot, causing old
-        // exports to land at the last address in the lot rather than the active address).
-        const activeXAddr = this.getActiveXChainAddress()
-        console.log('Active X-chain address for import:', activeXAddr)
-        const importTxResult = await walletClient.xChain.prepareImportTxn({
-            sourceChain: sourceChain as 'P' | 'C',
-            importedOutput: { addresses: [activeXAddr] }            
+        // The UnsignedTx from prepareImportTxn contains embedded addressMaps built
+        // from the fetched atomic UTXOs. Core App reads these addressMaps to determine
+        // which HD key index to use for signing — the same mechanism that lets the
+        // new SDK sign without an explicit utxoIds lookup.
+        const signClient = createAvalancheWalletClient({
+            chain: chain as any,
+            transport: { type: 'custom' as const, provider: this.provider },
         })
 
-        // Pass the UTXOs explicitly so Core App can skip Glacier (which doesn't reliably
-        // index atomic UTXOs for C→X exports).
-        const utxoHexes = (importTxResult.tx.toJSON() as any).utxos as string[]
-        const transactionHex = avaxUtils.bufferToHex(importTxResult.tx.toBytes())
-
-        const raw = await this.provider.request({
-            method: 'avalanche_signTransaction',
-            params: {
-                transactionHex,
-                chainAlias: 'X',
-                utxos: utxoHexes,
-            },
-        })
-        const signedTxHex: string = typeof raw === 'string' ? raw : (raw as any).signedTransactionHex
-
-        const issueResult = await issueXChainTx(walletClient.xChainClient as any, {
-            tx: signedTxHex,
-            encoding: 'hex',
+        const signResult = await (signClient as any).signXPTransaction({
+            tx: importTxResult.tx,
+            chainAlias: 'X',
         })
 
-        return issueResult.txID
+        // Issue the signed tx (new Etna codec) to the X-chain node via the HTTP client.
+        // Old AJS avm.issueTx forwards the raw bytes to the node; AvalancheGo accepts
+        // both old and new codec hex regardless of which client serialized it.
+        const signedHex: string = signResult.signedTxHex
+        const txID = await avm.issueTx(signedHex.startsWith('0x') ? signedHex : `0x${signedHex}`)
+        return txID
     }
 
     /**
@@ -1150,13 +1166,12 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
             destinationChain,
             exportFee
         )
-
-        const network = activeNetwork
+        
         const chain = defineChain({
-            id: network.evmChainID,
+            id: activeNetwork.evmChainID,
             name: 'Avalanche',
             nativeCurrency: { name: 'Avalanche', symbol: 'AVAX', decimals: 18 },
-            rpcUrls: { default: { http: [network.rpcUrl.c] } },
+            rpcUrls: { default: { http: [activeNetwork.rpcUrl.c] } },
         })
 
         // Use the injected provider as the transport so Core App handles

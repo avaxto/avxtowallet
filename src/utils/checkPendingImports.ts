@@ -1,5 +1,6 @@
 import { AbstractWallet } from '@/js/wallets/AbstractWallet'
 import { useStatusBarStore } from '@/stores/statusbar'
+import { ava, bintools } from '@/AVA'
 
 interface PendingImport {
     dest: 'X' | 'P' | 'C'
@@ -63,8 +64,13 @@ export async function checkPendingImports(wallet: AbstractWallet): Promise<void>
             .catch(() => null),
     ]
 
+
+
+
     const results = await Promise.all(checks)
+    console.log('Pending import check results:', results)
     const pending = results.filter((r): r is PendingImport => r !== null)
+    console.log('Pending imports found:', pending)
 
     if (pending.length === 0) return
 
