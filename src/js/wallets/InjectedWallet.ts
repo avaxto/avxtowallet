@@ -46,6 +46,7 @@ import { ExportChainsC, ExportChainsP, ExportChainsX } from '@/avalanche-wallet-
 import { AvmImportChainType } from '@/js/wallets/types'
 import { createAvalancheWalletClient } from '@avalanche-sdk/client'
 import { activeNetwork } from '@/avalanche-wallet-sdk/Network/network'
+import { chainIdFromAlias } from '@/avalanche-wallet-sdk/Network/helpers/idFromAlias'
 
 import * as TxHelper from '@/avalanche-wallet-sdk/helpers/tx_helper'
 import { buildUnsignedTransaction } from '@/js/TxHelper'
@@ -960,78 +961,43 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
      * export destination and the import output so Core App can always find the signing key.
      */
     async importToXChain(sourceChain: AvmImportChainType): Promise<string> {
-        // Quick pre-check with the old AJS helper so we can give a clear error early.
         const utxoSet = await this.avmGetAtomicUTXOs(sourceChain)
         if (utxoSet.getAllUTXOs().length === 0) {
             throw new Error('Nothing to import.')
         }
 
-        const network = activeNetwork
-        const chain = defineChain({
-            id: network.evmChainID,
-            name: 'Avalanche',
-            nativeCurrency: { name: 'Avalanche', symbol: 'AVAX', decimals: 18 },
-            rpcUrls: { default: { http: [network.rpcUrl.c] } },
-        })
-
-        // Pre-fetch XP public key from Core App so the HTTP build client can derive
-        // the X-chain address locally without calling avalanche_getAccountPubKey on
-        // the node (which doesn't support that wallet RPC method).
-        const pubKeyData = (await this.provider.request({
-            method: 'avalanche_getAccountPubKey',
-            params: {},
-        })) as { xp: string; evm: string }
-
-        // HTTP build client with account so xChain.prepareImportTxn's EI() call can
-        // derive the primary X-chain address from the public key instead of the node.
-        const buildClient = createAvalancheWalletClient({
-            chain: chain as any,
-            transport: { type: 'http' as const, url: network.rpcUrl.c },
-            account: {
-                xpAccount: { publicKey: pubKeyData.xp } as any,
-                evmAccount: {
-                    address: ('0x' + this.ethAddress) as `0x${string}`,
-                    publicKey: pubKeyData.evm,
-                } as any,
-            } as any,
-        })
-
-        // Use HD external X-chain addresses so the SDK fetches atomic UTXOs at
-        // every HD index the wallet may have used when exporting (mirrors _hdP for P-chain).
-        const xAddrs = this._hdXExternal.length > 0 ? this._hdXExternal : [this.avmAddress]
+        const hrp = ava.getHRP()
+        const sourceChainId = chainIdFromAlias(sourceChain)
         const xToAddr = this.getActiveXChainAddress()
 
-        // Build Etna-codec X-chain ImportTx using the new SDK (mirrors importToPlatformChain).
-        const importTxResult = await (buildClient as any).xChain.prepareImportTxn({
-            sourceChain: sourceChain as 'C' | 'P',
-            importedOutput: { addresses: [xToAddr] },
-            fromAddresses: xAddrs,
+        const utxoAddrs = (utxoSet.getAddresses() as any[]).map((addr) =>
+            bintools.addressToString(hrp, 'X', addr)
+        )
+
+        const unsignedTx = await avm.buildImportTx(
+            utxoSet,
+            utxoAddrs,
+            sourceChainId,
+            [xToAddr],
+            utxoAddrs,
+            [xToAddr]
+        )
+
+        // Pass UTXO IDs (getUTXOID = CB58 of txID+outputIdx bytes) so Core App can
+        // look up the atomic UTXOs in shared memory to determine the signing key.
+        // NOTE: u.toString() returns the full serialized UTXO — that is NOT the ID.
+        const utxoIds = utxoSet.getAllUTXOs().map((u: AVMUTXO) => u.getUTXOID())
+        const transactionHex = Buffer.from(unsignedTx.toBuffer()).toString('hex')
+
+        const raw = await this.provider.request({
+            method: 'avalanche_signTransaction',
+            params: { transactionHex, chainAlias: 'X', utxos: utxoIds },
         })
 
-        // Core App rejects avalanche_sendTransaction for X-chain ("Unable to create
-        // transaction"), so we must use signXPTransaction → avalanche_signTransaction
-        // + issue the signed tx to the X-chain node directly.
-        //
-        // The UnsignedTx from prepareImportTxn contains embedded addressMaps built
-        // from the fetched atomic UTXOs. Core App reads these addressMaps to determine
-        // which HD key index to use for signing — the same mechanism that lets the
-        // new SDK sign without an explicit utxoIds lookup.
-        const signClient = createAvalancheWalletClient({
-            chain: chain as any,
-            transport: { type: 'custom' as const, provider: this.provider },
-        })
-
-        const signResult = await (signClient as any).signXPTransaction({
-            tx: importTxResult.tx,
-            chainAlias: 'X',
-        })
-
-        // Issue the signed tx (new Etna codec) to the X-chain node via the HTTP client.
-        // Old AJS avm.issueTx forwards the raw bytes to the node; AvalancheGo accepts
-        // both old and new codec hex regardless of which client serialized it.
-        const signedHex: string = signResult.signedTxHex
-        const txID = await avm.issueTx(signedHex.startsWith('0x') ? signedHex : `0x${signedHex}`)
-        return txID
+        const signedHex: string = typeof raw === 'string' ? raw : (raw as any).signedTransactionHex
+        const tx = new AVMTx()
+        tx.fromBuffer(Buffer.from(signedHex.replace(/^0x/, ''), 'hex') as any)
+        return this.issueX(tx)
     }
 
     /**
