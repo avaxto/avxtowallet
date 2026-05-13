@@ -914,17 +914,24 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
     // ---- Cross-chain operations ----
 
     /**
-     * Override exportFromXChain to use the XP-style "C-" destination for X→C exports.
+     * Override exportFromXChain for InjectedWallet.
      *
-     * Empirical evidence (captured `avalanche_sendTransaction` payload, May 2026):
-     * Core App's matchOwners for chainAlias='C' atomic does NOT match against the
-     * EVM (keccak256) bytes — exports to `getEvmAddressBech()` produce UTXOs whose
-     * inputs Core App rejects with "input 0 has no valid owners".  The SDK's own
-     * test fixtures use `getXPAddress("C", hrp)` which encodes ripemd160(sha256(pk))
-     * with a "C-" alias.  We mirror that: same 20 bytes as the account's
-     * addressAVM / addressPVM, just with the "C-" prefix label.
+     * Destinations:
+     * - X→P: active P-chain primary address (Core's `addressPVM`).
+     * - X→C: `getActiveCChainAtomicAddress()` (= the account's `addressCoreEth`).
+     *   Core App's atomic-C signer-lookup uses ripemd160(sha256(compressed EVM
+     *   pubkey)) — verified empirically via the `avalanche_getAccounts`
+     *   response and a successful import round-trip.
      *
-     * The X→P branch keeps the active P-chain address as before.
+     * Inputs:
+     *   `fromAddresses` is restricted to Core-signable X-chain primaries
+     *   (each Core account's `addressAVM`).  Including HD-derived X addresses
+     *   lets the SDK pick UTXOs at signing-keys Core App can't reach,
+     *   producing "This account has nothing to sign".  Stranded HD-derived X
+     *   UTXOs are recoverable only via mnemonic.
+     *
+     *   `changeAddress` is pinned to the active account's `addressAVM` so
+     *   change doesn't land at an HD-derived index.
      */
     async exportFromXChain(amt: BN, destinationChain: ExportChainsX, importFee?: BN): Promise<string> {
         if (destinationChain === 'C' && !importFee)
@@ -943,8 +950,22 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
             amtFee = amt.add(pChain.getTxFee())
         }
 
-        const fromAddresses = this.getAllAddressesX()
-        const changeAddress = this.getChangeAddressAvm()
+        // Restrict input/change to Core-signable X-chain primaries.
+        const coreSignableX = this.coreAccounts.map((a) => a.addressAVM).filter(Boolean)
+        const fromAddresses = coreSignableX.length > 0
+            ? coreSignableX
+            : (this.avmAddress ? [this.avmAddress] : [])
+
+        if (fromAddresses.length === 0) {
+            throw new Error(
+                'No Core-signable X-chain addresses available. Connect a Core extension ' +
+                'account that exposes avalanche_getAccounts, or import your seed phrase ' +
+                'via Wallet Wizard.'
+            )
+        }
+
+        const active = this.coreAccounts.find((a) => a.active) ?? this.coreAccounts[0]
+        const changeAddress = active?.addressAVM || fromAddresses[0]
         const utxos = this.getUTXOSet()
         const exportTx = await TxHelper.buildAvmExportTransaction(
             destinationChain,
@@ -1378,13 +1399,25 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
     /**
      * Override exportFromPChain for InjectedWallet.
      *
-     * - P→X: uses Core App's active addressAVM (HD index 0) as the destination so
-     *   avalanche_signTransaction can sign the eventual import (Core App only
-     *   signs for primary account addresses, not HD-derived children).
-     * - P→C: uses `getActiveCChainAtomicAddress()` — the XP-style derivation
-     *   re-prefixed with "C-". Core App's atomic-C matchOwners only recognises
-     *   this form; the EVM-bytes form lands at a destination Core App won't
-     *   sign for (verified via captured `avalanche_sendTransaction` payload).
+     * Destinations:
+     * - P→X: Core App's active addressAVM (HD index 0).  avalanche_signTransaction
+     *   on the import side only signs for primary account addresses, not
+     *   HD-derived children, so the UTXO owner on X must match this address.
+     * - P→C: `getActiveCChainAtomicAddress()` (= the account's `addressCoreEth`).
+     *   Core App's atomic-C signer-lookup uses ripemd160(sha256(compressed EVM
+     *   pubkey)) — neither the standard EVM bytes nor the X-chain key bytes
+     *   work (verified via captured `avalanche_sendTransaction` payload).
+     *
+     * Inputs:
+     *   `fromAddrs` is restricted to Core-signable addresses (= each Core
+     *   account's `addressPVM`).  If we include HD-derived P-chain addresses,
+     *   the SDK may select UTXOs at those addresses as inputs, and Core App's
+     *   `avalanche_signTransaction` returns "This account has nothing to sign"
+     *   because it can't reach into HD-derived signing keys.  Funds stranded
+     *   at HD-derived P addresses are recoverable only via mnemonic.
+     *
+     *   `pChangeAddr` is also pinned to a Core-signable address so change
+     *   doesn't land at an HD-derived index.
      */
     async exportFromPChain(amt: BN, destinationChain: ExportChainsP, importFee?: BN): Promise<string> {
         if (destinationChain === 'C' && !importFee)
@@ -1402,10 +1435,28 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
                 ? this.getActiveCChainAtomicAddress()
                 : this.getActiveXChainAddress()
 
+        // Restrict input/change addresses to Core-signable primaries.  Including
+        // HD-derived addresses in fromAddrs lets the SDK pick UTXOs Core App
+        // can't sign for, producing "This account has nothing to sign".
+        const coreSignableP = this.coreAccounts.map((a) => a.addressPVM).filter(Boolean)
+        const fromAddrs = coreSignableP.length > 0
+            ? coreSignableP
+            : (this.platformAddress ? [this.platformAddress] : [])
+
+        if (fromAddrs.length === 0) {
+            throw new Error(
+                'No Core-signable P-chain addresses available. Connect a Core extension ' +
+                'account that exposes avalanche_getAccounts, or import your seed phrase ' +
+                'via Wallet Wizard.'
+            )
+        }
+
         const utxoSet = this.getPlatformUTXOSet()
         const sortedSet = sortUTxoSetP(utxoSet, false)
-        const pChangeAddr = this.getCurrentAddressPlatform()
-        const fromAddrs = this.getAllAddressesP()
+        // Send change back to the primary signable address (the active Core
+        // account's addressPVM) so it stays signable in future txs.
+        const active = this.coreAccounts.find((a) => a.active) ?? this.coreAccounts[0]
+        const pChangeAddr = active?.addressPVM || fromAddrs[0]
 
         const exportTx = await TxHelper.buildPlatformExportTransaction(
             sortedSet,
