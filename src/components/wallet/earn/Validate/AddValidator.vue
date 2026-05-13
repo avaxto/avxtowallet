@@ -30,9 +30,10 @@
                                 <b>{{ bnToAvaxP(maxTxSizeAmount) }} AVAX</b>
                             </p>
                             <AvaxInput
-                                v-model="stakeAmt"
+                                :amount="stakeAmt"
                                 :max="maxFormAmount"
                                 class="amt_in"
+                                @change="stakeAmt = $event"
                             ></AvaxInput>
                         </div>
                         <div style="margin: 30px 0">
@@ -144,7 +145,7 @@
                         :node-i-d="nodeId"
                         :end="formEnd"
                         :amount="formAmt"
-                        :delegation-fee="delegationFee"
+                        :delegation-fee="parseFloat(delegationFee)"
                         :reward-address="rewardIn"
                         :reward-destination="rewardDestination"
                         :bls-public-key="formBlsPublicKey"
@@ -271,7 +272,7 @@ import AvaxInput from '@/components/misc/AvaxInput.vue'
 import { BN } from '@/avalanche'
 import Big from 'big.js'
 import Modal from '@/components/modals/Modal.vue'
-import { QrReader } from '@/vue_components'
+import { QrReader, QrInput } from '@/vue_components'
 import { bintools, pChain } from '@/AVA'
 import MnemonicWallet from '@/js/wallets/MnemonicWallet'
 import ConfirmPage from '@/components/wallet/earn/Validate/ConfirmPage.vue'
@@ -303,6 +304,15 @@ export default defineComponent({
     components: {
         Modal,
         QrReader,
+        QrInput,
+        DateForm,
+        AvaxInput,
+        ConfirmPage,
+        Tooltip,
+        CurrencySelect,
+        Spinner,
+        UtxoSelectForm,
+        Expandable,
     },
     emits: ['cancel'],
     setup(props, { emit }) {
@@ -476,11 +486,13 @@ export default defineComponent({
         })
 
         const estimatedReward = computed((): Big => {
+            const currentSupply = platformStore.currentSupply
+            if (!currentSupply) return Big(0)
+
             const start = new Date(startDate.value)
             const end = new Date(endDate.value)
             const duration = end.getTime() - start.getTime() // in ms
 
-            const currentSupply = platformStore.currentSupply
             const estimation = calculateStakingReward(stakeAmt.value, duration / 1000, currentSupply)
             const res = bnToBig(estimation, 9)
 

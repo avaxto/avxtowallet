@@ -1,24 +1,14 @@
 <template>
     <div class="dates_form">
-        <!--        <div>-->
-        <!--            <label>{{ $t('earn.validate.duration.start') }}</label>-->
-        <!--            <datetime-->
-        <!--                v-model="localStart"-->
-        <!--                type="datetime"-->
-        <!--                class="date hover_border"-->
-        <!--                :min-datetime="startDateMin"-->
-        <!--                :max-datetime="startDateMax"-->
-        <!--            ></datetime>-->
-        <!--        </div>-->
         <div class="hover_border">
             <button class="max_but" @click="maxoutEndDate">Max</button>
-            <datetime
-                v-model="localEnd"
-                type="datetime"
+            <input
+                type="datetime-local"
+                v-model="localEndInput"
                 class="date"
-                :min-datetime="endDateMin"
-                :max-datetime="endDateMax"
-            ></datetime>
+                :min="endDateMinLocal"
+                :max="endDateMaxLocal"
+            />
         </div>
     </div>
 </template>
@@ -30,6 +20,14 @@ const MIN_STAKE_DURATION = DAY_MS * 14
 
 interface Props {
     maxEndDate?: string
+}
+
+/** Convert an ISO string to the "YYYY-MM-DDTHH:MM" format expected by datetime-local inputs */
+function isoToLocal(iso: string): string {
+    if (!iso) return ''
+    const d = new Date(iso)
+    const pad = (n: number) => String(n).padStart(2, '0')
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
 export default defineComponent({
@@ -45,6 +43,17 @@ export default defineComponent({
         const localStart = ref('')
         const localEnd = ref('')
 
+        /** Two-way bridge: the <input type="datetime-local"> uses local time strings */
+        const localEndInput = computed({
+            get(): string {
+                return isoToLocal(localEnd.value)
+            },
+            set(val: string) {
+                // Input value is local time — parse as local and store as ISO
+                localEnd.value = val ? new Date(val).toISOString() : ''
+            }
+        })
+
         const startDateMin = computed(() => {
             let now = Date.now()
             let res = now + MINUTE_MS * 15
@@ -54,37 +63,32 @@ export default defineComponent({
         const endDateMin = computed(() => {
             let start = localStart.value
             let startDate = new Date(start)
-
             let end = startDate.getTime() + MIN_STAKE_DURATION
-            let endDate = new Date(end)
-            return endDate.toISOString()
+            return new Date(end).toISOString()
         })
 
         const endDateMax = computed(() => {
             if (props.maxEndDate) return props.maxEndDate
-
             let start = localStart.value
             let startDate = new Date(start)
-
             let end = startDate.getTime() + DAY_MS * 365
-            let endDate = new Date(end)
-            return endDate.toISOString()
+            return new Date(end).toISOString()
         })
+
+        const endDateMinLocal = computed(() => isoToLocal(endDateMin.value))
+        const endDateMaxLocal = computed(() => isoToLocal(endDateMax.value))
 
         const defaultEndDate = computed(() => {
             let start = localStart.value
             let startDate = new Date(start)
-
             let end = startDate.getTime() + DAY_MS * 21
-            let endDate = new Date(end)
-            return endDate.toISOString()
+            return new Date(end).toISOString()
         })
 
         const stakeDuration = computed((): number => {
             let start = new Date(localStart.value)
             let end = new Date(localEnd.value)
-            let diff = end.getTime() - start.getTime()
-            return diff
+            return end.getTime() - start.getTime()
         })
 
         watch(() => localEnd.value, (val: string) => {
@@ -100,10 +104,7 @@ export default defineComponent({
 
         onMounted(() => {
             localStart.value = startDateMin.value
-
-            // default end date is 3 weeks
             localEnd.value = defaultEndDate.value
-
             setEndDate(localEnd.value)
         })
 
@@ -118,10 +119,9 @@ export default defineComponent({
         return {
             localStart,
             localEnd,
-            startDateMin,
-            endDateMin,
-            endDateMax,
-            defaultEndDate,
+            localEndInput,
+            endDateMinLocal,
+            endDateMaxLocal,
             stakeDuration,
             setEndDate,
             maxoutEndDate

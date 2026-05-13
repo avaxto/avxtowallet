@@ -460,6 +460,12 @@
                 "label": "Delegation Fee",
                 "desc": "You will claim this % of the rewards from the delegators on your node."
             },
+            "bls": {
+                "label": "BLS Signature (ACP-62)",
+                "desc": "BLS public key and signature are required for validator registration.",
+                "generate": "Generate BLS Keys",
+                "generate_desc": "Generate BLS keys deterministically from your wallet seed."
+            },
             "reward": {
                 "label": "Reward Address",
                 "desc": "Where to send the staking rewards.",

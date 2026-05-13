@@ -3,9 +3,6 @@ import App from './App.vue'
 import router from './router'
 import { pinia } from './stores'
 import { createI18n } from 'vue-i18n'
-//@ts-ignore
-import { Datetime } from 'vue-datetime'
-import 'vue-datetime/dist/vue-datetime.css'
 import { createBootstrap, BContainer, BRow, BCol } from 'bootstrap-vue-next'
 import vuetify from './plugins/vuetify'
 // @ts-ignore
@@ -69,7 +66,6 @@ app.use({
 })
 
 app.use(createBootstrap({ components: true, directives: true }))
-app.component('datetime', Datetime)
 app.component('fa', FontAwesomeIcon)
 app.component('b-container', BContainer)
 app.component('b-row', BRow)

@@ -46,7 +46,7 @@ export default defineComponent({
     props: {
         utxos: {
             type: Array as () => UTXO[],
-            required: true
+            default: () => []
         }
     },
     emits: ['change'],

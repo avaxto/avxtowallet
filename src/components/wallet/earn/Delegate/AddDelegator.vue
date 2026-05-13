@@ -597,6 +597,18 @@ export default defineComponent({
             return bnToBig(utxosBalance.value, 9)
         })
 
+        const maxAmt = computed((): BN => {
+            let zero = new BN(0)
+
+            let totAvailable = utxosBalance.value
+
+            if (zero.gt(totAvailable)) return zero
+
+            if (totAvailable.gt(remainingAmt.value)) return remainingAmt.value
+
+            return totAvailable
+        })
+
         watch([formUtxos, maxAmt], () => {
             // Amount of the biggest transaction that can be created with the selected UTXOs
             const set = new UTXOSet()
@@ -624,18 +636,6 @@ export default defineComponent({
 
         const maxTxSizeString = computed(() => {
             return maxTxSizeAmount.value ? bnToAvaxP(maxTxSizeAmount.value) : false
-        })
-
-        const maxAmt = computed((): BN => {
-            let zero = new BN(0)
-
-            let totAvailable = utxosBalance.value
-
-            if (zero.gt(totAvailable)) return zero
-
-            if (totAvailable.gt(remainingAmt.value)) return remainingAmt.value
-
-            return totAvailable
         })
 
         const showMaxTxSizeWarning = computed(() => {
