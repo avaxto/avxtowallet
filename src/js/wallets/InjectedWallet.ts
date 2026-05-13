@@ -376,8 +376,8 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
      * Returns the flat list of all addresses that belonged to non-empty lots.
      */
     private async _scanHdLot(changeIdx: 0 | 1, chainId: 'X' | 'P'): Promise<{ addresses: string[]; lastIdx: number }> {
-        const LOT_SIZE = 50
-        const MAX_EMPTY_LOTS = 5
+        const LOT_SIZE = 200
+        const MAX_EMPTY_LOTS = 1
 
         const netID = ava.getNetworkID()
         const hrp = getPreferredHRP(netID)
@@ -581,15 +581,22 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
         try {
             await this.getEthBalance()
 
-            // Re-run the Glacier HD scan on every refresh so newly-used
-            // addresses (derived after the initial load) are discovered.
-            this._startHdScan()
+            // Only start a new HD scan if one is not already running.
+            // On startup _applyXpKey already kicked off _startHdScan(); we just
+            // await that promise instead of cancelling and restarting it.
+            // On subsequent calls (polling after transactions) _hdScanPromise is
+            // null (cleared below after the scan resolves), so a fresh scan starts.
+            if (!this._hdScanPromise && this._accountKey) {
+                this._startHdScan()
+            }
 
             if (this._hdScanPromise) {
                 // HD mode: wait for the Glacier lot-scan to finish discovering all
                 // addresses that have (or had) UTXOs, then fetch the actual UTXO
                 // objects from the node for each address.
                 await this._hdScanPromise
+                // Clear so the next getUTXOs() call (after a tx) triggers a fresh scan.
+                this._hdScanPromise = null
 
                 // Merge HD-scanned addresses with Core App account addresses (deduplicated).
                 const xSet = new Set([...this._hdXExternal, ...this._hdXInternal])
