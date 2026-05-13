@@ -48,6 +48,7 @@ import { createAvalancheWalletClient } from '@avalanche-sdk/client'
 import { activeNetwork } from '@/avalanche-wallet-sdk/Network/network'
 
 import * as TxHelper from '@/avalanche-wallet-sdk/helpers/tx_helper'
+import * as UtxoHelper from '@/avalanche-wallet-sdk/helpers/utxo_helper'
 import { buildUnsignedTransaction } from '@/js/TxHelper'
 import { sortUTxoSetP } from '@/helpers/sortUTXOs'
 import { defineChain } from 'viem'
@@ -536,6 +537,29 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
         return bintools.addressToString(ava.getHRP(), 'C', addrBuf)
     }
 
+    /**
+     * Returns the active Core account's "Core-Eth" atomic address — the bech32
+     * "C-..." form whose 20 bytes are `ripemd160(sha256(compressed_EVM_pubkey))`.
+     *
+     * This is a THIRD derivation distinct from both the standard EVM address
+     * (keccak256 of the uncompressed EVM pubkey, what `getEvmAddressBech()`
+     * encodes) and the XP-style atomic address (ripemd160 of the *X-chain*
+     * compressed pubkey, what `addressAVM` / `addressPVM` carry).
+     *
+     * Core App's `avalanche_sendTransaction` for chainAlias='C' matches UTXO
+     * owner bytes against EXACTLY this derivation when picking a signing key —
+     * neither of the other two forms works.  Verified empirically against the
+     * `avalanche_getAccounts` response (the `addressCoreEth` field on each
+     * Core account) and the share of bytes with `addressBTC`.
+     *
+     * Returns '' when no Core account is loaded (e.g. providers that don't
+     * expose `avalanche_getAccounts`).  Callers should handle that explicitly.
+     */
+    getActiveCChainAtomicAddress(): string {
+        const active = this.coreAccounts.find((a) => a.active) ?? this.coreAccounts[0]
+        return active?.addressCoreEth || ''
+    }
+
     getAllAddressesX(): string[] {
         const hdCombined = [...this._hdXExternal, ...this._hdXInternal]
         const coreX = this.coreAccounts.map((a) => a.addressAVM).filter(Boolean)
@@ -890,23 +914,141 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
     // ---- Cross-chain operations ----
 
     /**
-     * Override importToCChain to use the new SDK transaction format required by Core App.
+     * Override exportFromXChain to use the XP-style "C-" destination for X→C exports.
      *
-     * avalanche_signTransaction rejects C-chain atomic imports because Core App cannot
-     * match the imported UTXOs to a key from just the raw old-AJS bytes.
+     * Empirical evidence (captured `avalanche_sendTransaction` payload, May 2026):
+     * Core App's matchOwners for chainAlias='C' atomic does NOT match against the
+     * EVM (keccak256) bytes — exports to `getEvmAddressBech()` produce UTXOs whose
+     * inputs Core App rejects with "input 0 has no valid owners".  The SDK's own
+     * test fixtures use `getXPAddress("C", hrp)` which encodes ripemd160(sha256(pk))
+     * with a "C-" alias.  We mirror that: same 20 bytes as the account's
+     * addressAVM / addressPVM, just with the "C-" prefix label.
      *
-     * Strategy: build the unsigned tx with an HTTP wallet client (so prepareImportTxn
-     * can call the Avalanche node API to fetch atomic UTXOs — the injected provider
-     * transport does not support those node API methods). Then sign+submit through a
-     * separate custom-transport wallet client that routes to Core App.
+     * The X→P branch keeps the active P-chain address as before.
+     */
+    async exportFromXChain(amt: BN, destinationChain: ExportChainsX, importFee?: BN): Promise<string> {
+        if (destinationChain === 'C' && !importFee)
+            throw new Error('Exports to C chain must specify an import fee.')
+
+        let amtFee = amt.clone()
+
+        const destinationAddr =
+            destinationChain === 'P'
+                ? this.getCurrentAddressPlatform()
+                : this.getActiveCChainAtomicAddress()
+
+        if (importFee) {
+            amtFee = amt.add(importFee)
+        } else if (destinationChain === 'P') {
+            amtFee = amt.add(pChain.getTxFee())
+        }
+
+        const fromAddresses = this.getAllAddressesX()
+        const changeAddress = this.getChangeAddressAvm()
+        const utxos = this.getUTXOSet()
+        const exportTx = await TxHelper.buildAvmExportTransaction(
+            destinationChain,
+            utxos,
+            fromAddresses,
+            destinationAddr,
+            amtFee,
+            changeAddress
+        )
+
+        const tx = await this.signX(exportTx)
+        return this.issueX(tx)
+    }
+
+    /**
+     * Override evmGetAtomicUTXOs to fetch C-chain atomic UTXOs at every address
+     * Core App might have written to — both the canonical XP-style form (now used)
+     * and the EVM-bytes form (legacy / pre-fix exports that are now stranded).
+     * importToCChain inspects both so it can surface a clear recovery error for
+     * whichever variant Core App can't sign for.
+     */
+    async evmGetAtomicUTXOs(sourceChain: ExportChainsC): Promise<EVMUTXOSet> {
+        const xpStyleAddr = this.getActiveCChainAtomicAddress()
+        const evmBytesAddr = this.getEvmAddressBech()
+        const addrs = [...new Set([xpStyleAddr, evmBytesAddr].filter(Boolean))]
+        return await UtxoHelper.evmGetAtomicUTXOs(addrs, sourceChain)
+    }
+
+    /**
+     * Override importToCChain.
+     *
+     * Core App routes C-chain atomic imports through `avalanche_sendTransaction`
+     * (NOT `avalanche_signTransaction` — that one only signs EVM transactions and
+     * returns "This account has nothing to sign" for any atomic tx).
+     *
+     * Empirical (post captured-payload analysis): Core App's matchOwners for
+     * chainAlias='C' uses the XP-style (ripemd160(sha256(pk))) derivation — the
+     * same bytes as the account's addressAVM / addressPVM — NOT the EVM
+     * keccak256 bytes.  The X→C export side now encodes the destination with
+     * those bytes plus a "C-" alias (see exportFromXChain above), so Core App
+     * can find a matching signer.
+     *
+     * Stranded UTXOs (owned by EVM-bytes from older exports) are detected and
+     * surfaced as a recovery prompt — Core App can't import them and they need
+     * mnemonic recovery.
      */
     async importToCChain(sourceChain: ExportChainsC, fee: BN, utxoSet?: EVMUTXOSet): Promise<string> {
-        // Quick pre-check with the old AJS helper so we can give a clear error early.
         if (!utxoSet) {
             utxoSet = await this.evmGetAtomicUTXOs(sourceChain)
         }
         if (utxoSet.getAllUTXOs().length === 0) {
             throw new Error('Nothing to import.')
+        }
+
+        // Canonical C-prefix bech32 of each UTXO owner, for uniform comparison.
+        const hrp = ava.getHRP()
+        const ownerAddrs = (utxoSet.getAddresses() as any[]).map((addr) =>
+            bintools.addressToString(hrp, 'C', addr)
+        )
+
+        // Core-signable set = each Core account's `addressCoreEth` — the bech32
+        // "C-..." form derived from ripemd160(sha256(compressed_EVM_pubkey)).
+        // Core App's atomic-sign path for chainAlias='C' matches input UTXO
+        // owner bytes against EXACTLY these bytes when picking a signing key
+        // (verified against the avalanche_getAccounts response).  Neither the
+        // standard EVM (keccak256) form nor the XP-style (X-chain pubkey hash)
+        // form works — only this one.
+        const coreSignable = new Set(
+            this.coreAccounts.map((a) => a.addressCoreEth).filter(Boolean)
+        )
+
+        const signableOwners = ownerAddrs.filter((a) => coreSignable.has(a))
+        const strandedOwners = ownerAddrs.filter((a) => !coreSignable.has(a))
+
+        if (signableOwners.length === 0) {
+            const stuckAddr = strandedOwners[0]
+            const isLegacyEvmBytes = stuckAddr === this.getEvmAddressBech()
+            const xpStyleAddr = (() => {
+                const avm = this.coreAccounts.find((a) => a.active)?.addressAVM
+                return avm ? `C-${avm.split('-')[1]}` : ''
+            })()
+            const isLegacyXpStyle = stuckAddr === xpStyleAddr
+            const variant = isLegacyEvmBytes
+                ? 'the EVM-bytes (keccak256) form'
+                : isLegacyXpStyle
+                ? 'the XP-style (X-chain pubkey hash) form'
+                : 'a non-Core-signable form'
+            throw new Error(
+                `Atomic UTXOs are owned by ${variant} of your C-chain address (${stuckAddr}). ` +
+                `An older build of this app exported X→C / P→C to that destination ` +
+                `instead of the addressCoreEth form Core App actually signs for. ` +
+                `These UTXOs are stranded under Core extension. To recover them, ` +
+                `access AVXTO Wallet using your seed phrase — a mnemonic-based wallet ` +
+                `can derive the private key at any HD index and sign the import locally. ` +
+                `If you exported these funds using Core Extension with the same seed phrase, ` +
+                `they will be recoverable.`
+            )
+        }
+
+        if (strandedOwners.length > 0) {
+            console.warn(
+                '[importToCChain] Skipping stranded UTXOs at non-Core addresses:',
+                strandedOwners
+            )
         }
 
         const network = activeNetwork
@@ -917,25 +1059,29 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
             rpcUrls: { default: { http: [network.rpcUrl.c] } },
         })
 
-        // HTTP client: used only to build the transaction via node API calls.
         const buildClient = createAvalancheWalletClient({
             chain: chain as any,
             transport: { type: 'http' as const, url: network.rpcUrl.c },
         })
 
-        // Build in new @avalabs/avalanchejs format so Core App can decode + verify signers.
+        // fromAddresses = the signable subset, deduplicated.
+        const fromAddrs = [...new Set(signableOwners)]
+
         const importTxResult = await buildClient.cChain.prepareImportTxn({
             sourceChain: sourceChain as 'X' | 'P',
             toAddress: '0x' + this.getEvmAddress(),
-            fromAddresses: [this.getEvmAddressBech()],
+            fromAddresses: fromAddrs,
         })
 
-        // Custom-transport client: routes avalanche_sendTransaction to Core App for signing.
+        // Custom-transport client routes avalanche_sendTransaction to Core App.
         const signClient = createAvalancheWalletClient({
             chain: chain as any,
             transport: { type: 'custom' as const, provider: this.provider },
         })
 
+        // Minimum-shape call: just tx + chainAlias.  No externalIndices, no
+        // utxoIds — both produced regressions in our previous tests.  Core App
+        // auto-selects the active account's atomic-C signing key.
         const result = await signClient.sendXPTransaction({
             tx: importTxResult.tx,
             chainAlias: 'C',
@@ -1000,8 +1146,8 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
                 `Atomic UTXOs are owned by ${stuckAddr}${idxStr}, which Core App's signing API ` +
                 `does not expose. These funds were exported by an earlier build of this app that ` +
                 `used a derived (non-primary) X-chain address as the destination. To recover them, ` +
-                `import your seed phrase into a mnemonic-based wallet here (Wallet Wizard → seed) — ` +
-                `that path can derive the private key at any HD index and sign the import locally.`
+                `access AVXTO WAllet using your seed phrase. ` +
+                `A seed phrase wallet can derive the private key at any HD index and sign the import transaction locally. If you exported these funds using the same seed, they will be recoverable.`
             )
         }
 
@@ -1232,9 +1378,13 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
     /**
      * Override exportFromPChain for InjectedWallet.
      *
-     * Uses avmAddress (HD index 0) as the X-chain destination so that importToXChain
-     * can locate the UTXO and Core App's avalanche_signTransaction can sign it
-     * (Core App signs as the primary account address = index 0 = avmAddress).
+     * - P→X: uses Core App's active addressAVM (HD index 0) as the destination so
+     *   avalanche_signTransaction can sign the eventual import (Core App only
+     *   signs for primary account addresses, not HD-derived children).
+     * - P→C: uses `getActiveCChainAtomicAddress()` — the XP-style derivation
+     *   re-prefixed with "C-". Core App's atomic-C matchOwners only recognises
+     *   this form; the EVM-bytes form lands at a destination Core App won't
+     *   sign for (verified via captured `avalanche_sendTransaction` payload).
      */
     async exportFromPChain(amt: BN, destinationChain: ExportChainsP, importFee?: BN): Promise<string> {
         if (destinationChain === 'C' && !importFee)
@@ -1247,10 +1397,10 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
             amtFee = amt.add(avm.getTxFee())
         }
 
-        // Use Core App's active account address for X-destination so importToXChain
-        // finds the UTXO and avalanche_signTransaction can sign it.
         const destinationAddr =
-            destinationChain === 'C' ? this.getEvmAddressBech() : this.getActiveXChainAddress()
+            destinationChain === 'C'
+                ? this.getActiveCChainAtomicAddress()
+                : this.getActiveXChainAddress()
 
         const utxoSet = this.getPlatformUTXOSet()
         const sortedSet = sortUTxoSetP(utxoSet, false)

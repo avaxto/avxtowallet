@@ -408,9 +408,9 @@ export default defineComponent({
             let exportTxId: string
             try {
                 if (src === 'X') {
-                    exportTxId = await w.exportFromXChain(amt, dst as ExportChainsX)
+                    exportTxId = await w.exportFromXChain(amt, dst as ExportChainsX, dst === 'C' ? importFeeBN.value : undefined)
                 } else if (src === 'P') {
-                    exportTxId = await w.exportFromPChain(amt, dst as ExportChainsP)
+                    exportTxId = await w.exportFromPChain(amt, dst as ExportChainsP, dst === 'C' ? importFeeBN.value : undefined)
                 } else {
                     exportTxId = await w.exportFromCChain(amt, dst as ExportChainsC, exportFeeBN.value)
                 }
