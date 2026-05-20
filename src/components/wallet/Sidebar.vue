@@ -46,7 +46,7 @@
                     {{ $t('wallet.sidebar.advanced') }}
                 </router-link>
                 <router-link to="/wallet/addresses" data-cy="wallet_addresses" class="wallet_link">
-                    <span><fa icon="list" class="icon"></fa></span>
+                    <span style="margin-right: 15px;"><fa icon="list" class="icon"></fa></span>
                     Addresses
                 </router-link>
                 <router-link to="/wallet/wizard" data-cy="wallet_wizard" class="wallet_link">

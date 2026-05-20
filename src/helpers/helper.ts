@@ -45,6 +45,9 @@ function calculateStakingReward(amount: BN, duration: number, currentSupply: BN)
 
     const amtBig = Big(amount.div(ONEAVAX).toString())
     const currentSupplyBig = Big(currentSupply.div(ONEAVAX).toString())
+
+    if (currentSupplyBig.eq(0)) return new BN(0)
+
     const remainingSupplyBig = Big(remainingSupply.div(ONEAVAX).toString())
     const portionOfExistingSupplyBig = amtBig.div(currentSupplyBig)
 

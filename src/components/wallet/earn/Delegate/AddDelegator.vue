@@ -28,11 +28,13 @@
                             <b>{{ maxTxSizeString }} AVAX</b>
                         </p>
                         <AvaxInput
-                            v-model="stakeAmt"
+                            :amount="stakeAmt"
                             :max="maxFormAmount"
                             class="amt_in"
                             :balance="utxosBalanceBig"
+                            @change="stakeAmt = $event"
                         ></AvaxInput>
+                        <p v-if="amtErr" class="err">{{ amtErr }}</p>
                     </div>
                     <div class="reward_in" style="margin: 30px 0" :type="rewardDestination">
                         <h4>{{ $t('earn.delegate.form.reward.label') }}</h4>
@@ -74,7 +76,7 @@
                         <template v-slot:content>
                             <UtxoSelectForm
                                 style="margin: 10px 0"
-                                v-model="formUtxos"
+                                @change="formUtxos = $event"
                             ></UtxoSelectForm>
                         </template>
                     </Expandable>
@@ -194,10 +196,7 @@ import { useAssetsStore, useHistoryStore, useMainStore, useNotificationsStore, u
 import { useI18n } from 'vue-i18n'
 
 import AvaxInput from '@/components/misc/AvaxInput.vue'
-//@ts-ignore
-import VueComponents from '@/vue_components'
-//@ts-ignore
-const { QrInput } = VueComponents
+import { QrInput } from '@/vue_components'
 import ValidatorsList from '@/components/misc/ValidatorList/ValidatorsList.vue'
 import { ValidatorRaw } from '@/components/misc/ValidatorList/types'
 import StakingCalculator from '@/components/wallet/earn/StakingCalculator.vue'
@@ -309,7 +308,6 @@ export default defineComponent({
             let startDate = new Date(Date.now() + 5 * MIN_MS)
 
             try {
-                isLoading.value = false
                 let delegationTxId = await wallet.delegate(
                     formNodeID.value,
                     formAmt.value,
@@ -323,6 +321,7 @@ export default defineComponent({
                 updateTxStatus(delegationTxId)
             } catch (e) {
                 onerror(e)
+            } finally {
                 isLoading.value = false
             }
         }
@@ -646,10 +645,24 @@ export default defineComponent({
             return showMaxTxSizeWarning.value ? maxTxSizeAmount.value : maxAmt.value
         })
 
+        const amtErr = computed((): string => {
+            if (stakeAmt.value.isZero()) return ''
+            if (stakeAmt.value.lt(minStake.value)) {
+                let big = bnToBig(minStake.value, 9)
+                return t('earn.delegate.errs.amt', [big.toLocaleString()]) as string
+            }
+            return ''
+        })
+
         // Go Back to earn
         const cancel = () => {
             emit('cancel')
         }
+
+        onMounted(() => {
+            platformStore.fetchValidatorListEarn()
+            platformStore.updateCurrentSupply()
+        })
 
         return {
             startDate,
@@ -710,7 +723,9 @@ export default defineComponent({
             maxAmt,
             showMaxTxSizeWarning,
             maxFormAmount,
-            cancel
+            amtErr,
+            cancel,
+            currency_type
         }
     }
 })

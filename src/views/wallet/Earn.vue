@@ -97,7 +97,7 @@
     </div>
 </template>
 <script lang="ts">
-import { defineComponent, ref, shallowRef, computed, onDeactivated, onUnmounted } from 'vue'
+import { defineComponent, ref, shallowRef, computed, onDeactivated, onMounted, onUnmounted } from 'vue'
 import { useAssetsStore, usePlatformStore } from '@/stores'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
@@ -190,6 +190,10 @@ export default defineComponent({
         const minDelegationAmt = computed((): Big => {
             let bn = platformStore.minStakeDelegation
             return bnToBig(bn, 9)
+        })
+
+        onMounted(() => {
+            platformStore.updateMinStakeAmount()
         })
 
         onDeactivated(() => {

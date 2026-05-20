@@ -948,7 +948,7 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
 
         const destinationAddr =
             destinationChain === 'P'
-                ? this.getCurrentAddressPlatform()
+                ? this.platformAddress
                 : this.getActiveCChainAtomicAddress()
 
         if (importFee) {
@@ -1213,7 +1213,9 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
             } as any,
         })
 
-        const xToAddr = this.getActiveXChainAddress()
+        // Always land imported AVAX at the 0-index X address (m/0/0 of accountKey)
+        // so it stays signable regardless of which Core account is currently active.
+        const xToAddr = this.avmAddress
 
         const importTxResult = await buildClient.xChain.prepareImportTxn({
             sourceChain: sourceChain as 'P' | 'C',
@@ -1298,12 +1300,13 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
 
         // Use all discovered P-chain HD addresses so the SDK fetches atomic UTXOs at
         // every HD index the wallet may have used when exporting.
-        const pAddrs = this._hdP.length > 0 ? this._hdP : [this.getCurrentAddressPlatform()]
+        const pAddrs = this._hdP.length > 0 ? this._hdP : [this.platformAddress]
 
         const importTxResult = await buildClient.pChain.prepareImportTxn({
             sourceChain: sourceChain as 'X' | 'C',
-            // importedOutput.addresses = destination for the imported AVAX.
-            importedOutput: { addresses: [this.getCurrentAddressPlatform()] },
+            // Always land imported AVAX at the 0-index P address (m/0/0 of accountKey)
+            // so it stays signable regardless of which Core account is currently active.
+            importedOutput: { addresses: [this.platformAddress] },
             // fromAddresses = the set of addresses the SDK uses to fetch + claim UTXOs.
             fromAddresses: pAddrs,
         })
@@ -1331,7 +1334,67 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
     // Delegated to AbstractWallet using signX / signP / signC above.
     // Core App (window.avalanche) is required; MetaMask does not support avalanche_signTx.
 
-    // ---- Validation / Delegation (not supported) ----
+    // ---- Validation / Delegation ----
+
+    /**
+     * Override delegate() to restrict inputs/change to Core-signable P-chain addresses.
+     * Including HD-derived addresses lets buildAddDelegatorTx pick UTXOs that Core App
+     * cannot sign for, producing "This account has nothing to sign".
+     */
+    async delegate(
+        nodeID: string,
+        amt: BN,
+        start: Date,
+        end: Date,
+        rewardAddress?: string,
+        utxos?: PlatformUTXO[]
+    ): Promise<string> {
+        // Restrict to addresses Core App can sign for (primary addressPVM per account).
+        const coreSignableP = this.coreAccounts.map((a) => a.addressPVM).filter(Boolean)
+        const pAddressStrings = coreSignableP.length > 0
+            ? coreSignableP
+            : (this.platformAddress ? [this.platformAddress] : [])
+
+        if (pAddressStrings.length === 0) {
+            throw new Error(
+                'No Core-signable P-chain addresses available. Connect a Core extension ' +
+                'account that exposes avalanche_getAccounts.'
+            )
+        }
+
+        let utxoSet = this.getPlatformUTXOSet()
+        if (utxos) {
+            utxoSet = new PlatformUTXOSet()
+            utxoSet.addArray(utxos)
+        }
+
+        const sortedSet = sortUTxoSetP(utxoSet, false)
+
+        if (!rewardAddress) {
+            rewardAddress = pAddressStrings[0]
+        }
+
+        const stakeReturnAddr = pAddressStrings[0]
+        const changeAddress = pAddressStrings[0]
+
+        const startTime = new BN(Math.round(start.getTime() / 1000))
+        const endTime = new BN(Math.round(end.getTime() / 1000))
+
+        const unsignedTx = await pChain.buildAddDelegatorTx(
+            sortedSet,
+            [stakeReturnAddr],
+            pAddressStrings,
+            [changeAddress],
+            nodeID,
+            startTime,
+            endTime,
+            amt,
+            [rewardAddress]
+        )
+
+        const tx = await this.signP(unsignedTx)
+        return this.issueP(tx)
+    }
 
     async validate(
         nodeID: string,
@@ -1345,17 +1408,6 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
         throw new Error('Validation is not supported with injected wallets.')
     }
 
-    async delegate(
-        nodeID: string,
-        amt: BN,
-        start: Date,
-        end: Date,
-        rewardAddress?: string,
-        utxos?: PlatformUTXO[]
-    ): Promise<string> {
-        throw new Error('Delegation is not supported with injected wallets.')
-    }
-
     // ---- Cross-chain export override ----
     // Use the new SDK sendXPTransaction with a custom provider transport so Core App
     // handles signing and submission internally, without any manual signC/issueC dance.
@@ -1365,12 +1417,14 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
         const amtFee = amt.add(importFee)
 
         const hexAddr = this.getEvmAddress()
-        // Use Core App's active account address as the X-chain export destination
-        // so importToXChain can find the UTXO and avalanche_signTransaction can sign it.
+        // Always export to the 0-index X/P address (m/0/0 of accountKey) so the
+        // resulting atomic UTXO lands at a primary, signable address regardless
+        // of HD scan state.  Using getCurrentAddressPlatform / getActiveXChainAddress
+        // here previously stranded UTXOs at derived indices Core App could not sign.
         const destinationAddr =
             destinationChain === 'X'
-                ? this.getActiveXChainAddress()
-                : this.getCurrentAddressPlatform()
+                ? this.avmAddress
+                : this.platformAddress
 
         const exportTxResult = await TxHelper.buildEvmExportTransaction(
             [`0x${hexAddr}`],
@@ -1440,7 +1494,7 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
         const destinationAddr =
             destinationChain === 'C'
                 ? this.getActiveCChainAtomicAddress()
-                : this.getActiveXChainAddress()
+                : this.avmAddress
 
         // Restrict input/change addresses to Core-signable primaries.  Including
         // HD-derived addresses in fromAddrs lets the SDK pick UTXOs Core App

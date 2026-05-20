@@ -23,7 +23,7 @@
             </button>
         </div>
 
-        <UtxoSelectModal ref="modal" v-model="customUtxos" :all="platformUtxos"></UtxoSelectModal>
+        <UtxoSelectModal ref="modal" :utxos="customUtxos" :all="platformUtxos" @change="customUtxos = $event"></UtxoSelectModal>
     </div>
 </template>
 <script lang="ts">

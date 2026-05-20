@@ -10,9 +10,7 @@
             <label>Uptime</label>
             <!--            <p>{{ uptimeText }}</p>-->
             <p style="font-size: 0.8rem">
-                Please refer to
-                <a :href="vscoutURL" target="_blank">VScout</a>
-                or
+                Please refer to                
                 <a :href="avascanURL" target="_blank">Avascan</a>
                 to get more information about a node's uptime.
             </p>

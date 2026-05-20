@@ -40,7 +40,7 @@ export default defineComponent({
     },
     emits: ['change_end'],
     setup(props: Props, { emit }) {
-        const localStart = ref('')
+        const localStart = ref(new Date(Date.now() + MINUTE_MS * 15).toISOString())
         const localEnd = ref('')
 
         /** Two-way bridge: the <input type="datetime-local"> uses local time strings */

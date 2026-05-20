@@ -42,7 +42,10 @@
                 </tbody>
             </table>
         </div>
-        <div v-if="validators.length === 0" class="empty_list">
+        <div v-if="platformStore.isFetchingValidators" class="empty_list">
+            <Spinner></Spinner>
+        </div>
+        <div v-else-if="validators.length === 0" class="empty_list">
             <h4>{{ $t('earn.delegate.list.empty.title') }}</h4>
             <p>{{ $t('earn.delegate.list.empty.desc') }}</p>
         </div>
@@ -55,13 +58,14 @@ import { usePlatformStore } from '@/stores'
 import ValidatorRow from '@/components/misc/ValidatorList/ValidatorRow.vue'
 import FilterSettings from '@/components/misc/ValidatorList/FilterSettings.vue'
 import Tooltip from '@/components/misc/Tooltip.vue'
+import Spinner from '@/components/misc/Spinner.vue'
 import { ValidatorListItem } from '@/types'
 import { ValidatorListFilter } from '@/components/wallet/earn/Delegate/types'
 import { filterValidatorList } from '@/components/wallet/earn/Delegate/helper'
 
 export default defineComponent({
     name: 'ValidatorsList',
-    components: { Tooltip, ValidatorRow, FilterSettings },
+    components: { Tooltip, ValidatorRow, FilterSettings, Spinner },
     props: {
         search: {
             type: String,
@@ -87,7 +91,7 @@ export default defineComponent({
         }
 
         const validators = computed((): ValidatorListItem[] => {
-            let list: ValidatorListItem[] = platformStore.validatorListEarn
+            let list: ValidatorListItem[] = platformStore.validatorListEarn ?? []
 
             if (props.search) {
                 list = list.filter((v) => {
@@ -128,7 +132,8 @@ export default defineComponent({
             applyFilter,
             validators,
             validatorsFiltered,
-            onselect
+            onselect,
+            platformStore
         }
     }
 })
