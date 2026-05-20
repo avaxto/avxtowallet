@@ -35,6 +35,12 @@
                         <router-link to="/wallet/generator">{{ $t('wallet.topnavbar.generator') }}</router-link>
                     </v-list-item-title>
                 </v-list-item>
+                <v-list-item>
+                    <v-list-item-title>
+                        <router-link to="/wallet/addresses/derive">Address Derivation</router-link>
+                    </v-list-item-title>
+                </v-list-item>
+
             </v-list>
         </v-menu>
 
