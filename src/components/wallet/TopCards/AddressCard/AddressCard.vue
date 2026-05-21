@@ -129,7 +129,9 @@ export default defineComponent({
         const savedIndexP = ref<number>(0)
         const newAddrLoading = ref(false)
         const chainNow = ref<ChainIdType>(
-            (mainStore.activeWallet as AvalancheAccount | null)?.type === 'injected' ? 'C' : 'X'
+            (['injected', 'singleton'] as string[]).includes(
+                (mainStore.activeWallet as AvalancheAccount | null)?.type ?? ''
+            ) ? 'C' : 'X'
         )
         const showBech = ref(false)
         
@@ -398,9 +400,9 @@ export default defineComponent({
             addrIndex.value = activeIdx.value
         })
 
-        // Force C-chain view for injected wallets (MetaMask, Core App, etc.)
+        // Force C-chain view for injected and singleton (private key) wallets
         watch(activeWallet, (wallet) => {
-            if (wallet?.type === 'injected') {
+            if (wallet?.type === 'injected' || wallet?.type === 'singleton') {
                 chainNow.value = 'C'
             }
         }, { immediate: true })

@@ -48,70 +48,70 @@
             </div>
             
             <div class="alt_info">
-                <div class="alt_non_breakdown" v-if="!isBreakdown">
-                    <div>
-                        <label>{{ $t('top.balance.available') }}</label>
-                        <p>{{ unlockedText }} AVAX</p>
-                    </div>
-                    <div v-if="hasLocked">
-                        <label>{{ $t('top.locked') }}</label>
-                        <p>{{ balanceTextLocked }} AVAX</p>
-                    </div>
-                    <div v-if="hasMultisig">
-                        <label>Multisig</label>
-                        <p>{{ balanceTextMultisig }} AVAX</p>
-                    </div>
-                    <div>
-                        <label>{{ $t('top.balance.stake') }}</label>
-                        <p>{{ stakingText }} AVAX</p>
-                    </div>
-                </div>
-                <div class="alt_breakdown" v-else>
-                    <div>
-                        <div class="balance-item">
-                            <label>{{ $t('top.balance.available') }} (X)</label>
-                            <p>{{ cleanAvaxBN(avmUnlocked) }} AVAX</p>
+                    <div class="alt_non_breakdown" v-if="!isBreakdown">
+                        <div>
+                            <label>{{ $t('top.balance.available') }}</label>
+                            <p>{{ unlockedText }} AVAX</p>
                         </div>
-                        <div class="balance-item">
-                            <label>{{ $t('top.balance.available') }} (P)</label>
-                            <p>{{ cleanAvaxBN(platformUnlocked) }} AVAX</p>
+                        <div v-if="hasLocked">
+                            <label>{{ $t('top.locked') }}</label>
+                            <p>{{ balanceTextLocked }} AVAX</p>
                         </div>
-                        <div class="balance-item">
-                            <label>{{ $t('top.balance.available') }} (C)</label>
-                            <p>{{ cleanAvaxBN(evmUnlocked) }} AVAX</p>
+                        <div v-if="hasMultisig">
+                            <label>Multisig</label>
+                            <p>{{ balanceTextMultisig }} AVAX</p>
                         </div>
-                    </div>
-                    <div v-if="hasLocked">
-                        <div class="balance-item">
-                            <label>{{ $t('top.balance.locked') }} (X)</label>
-                            <p>{{ cleanAvaxBN(avmLocked) }} AVAX</p>
-                        </div>
-                        <div class="balance-item">
-                            <label>{{ $t('top.balance.locked') }} (P)</label>
-                            <p>{{ cleanAvaxBN(platformLocked) }} AVAX</p>
-                        </div>
-                        <div class="balance-item">
-                            <label>{{ $t('top.balance.locked_stake') }} (P)</label>
-                            <p>{{ cleanAvaxBN(platformLockedStakeable) }} AVAX</p>
-                        </div>
-                    </div>
-                    <div v-if="hasMultisig">
-                        <div class="balance-item">
-                            <label>Multisig (X)</label>
-                            <p>{{ cleanAvaxBN(avmMultisig) }} AVAX</p>
-                        </div>
-                        <div class="balance-item">
-                            <label>Multisig (P)</label>
-                            <p>{{ cleanAvaxBN(platformMultisig) }} AVAX</p>
-                        </div>
-                    </div>
-                    <div>
-                        <div class="balance-item">
+                        <div v-if="!isSingleton">
                             <label>{{ $t('top.balance.stake') }}</label>
                             <p>{{ stakingText }} AVAX</p>
                         </div>
                     </div>
-                </div>
+                    <div class="alt_breakdown" v-else>
+                        <div>
+                            <div class="balance-item" v-if="!isSingleton">
+                                <label>{{ $t('top.balance.available') }} (X)</label>
+                                <p>{{ cleanAvaxBN(avmUnlocked) }} AVAX</p>
+                            </div>
+                            <div class="balance-item" v-if="!isSingleton">
+                                <label>{{ $t('top.balance.available') }} (P)</label>
+                                <p>{{ cleanAvaxBN(platformUnlocked) }} AVAX</p>
+                            </div>
+                            <div class="balance-item">
+                                <label>{{ $t('top.balance.available') }} (C)</label>
+                                <p>{{ cleanAvaxBN(evmUnlocked) }} AVAX</p>
+                            </div>
+                        </div>
+                        <div v-if="hasLocked">
+                            <div class="balance-item">
+                                <label>{{ $t('top.balance.locked') }} (X)</label>
+                                <p>{{ cleanAvaxBN(avmLocked) }} AVAX</p>
+                            </div>
+                            <div class="balance-item">
+                                <label>{{ $t('top.balance.locked') }} (P)</label>
+                                <p>{{ cleanAvaxBN(platformLocked) }} AVAX</p>
+                            </div>
+                            <div class="balance-item">
+                                <label>{{ $t('top.balance.locked_stake') }} (P)</label>
+                                <p>{{ cleanAvaxBN(platformLockedStakeable) }} AVAX</p>
+                            </div>
+                        </div>
+                        <div v-if="hasMultisig">
+                            <div class="balance-item">
+                                <label>Multisig (X)</label>
+                                <p>{{ cleanAvaxBN(avmMultisig) }} AVAX</p>
+                            </div>
+                            <div class="balance-item">
+                                <label>Multisig (P)</label>
+                                <p>{{ cleanAvaxBN(platformMultisig) }} AVAX</p>
+                            </div>
+                        </div>
+                        <div v-if="!isSingleton">
+                            <div class="balance-item">
+                                <label>{{ $t('top.balance.stake') }}</label>
+                                <p>{{ stakingText }} AVAX</p>
+                            </div>
+                        </div>
+                    </div>
             </div>
         </div>
         
@@ -192,6 +192,7 @@ export default defineComponent({
 
         const totalBalance = computed((): BN => {
             if (!ava_asset.value) return new BN(0)
+            if (isSingleton.value) return evmUnlocked.value
 
             let tot = ava_asset.value.getTotalAmount()
             // add EVM balance
@@ -314,10 +315,14 @@ export default defineComponent({
             if (isUpdateBalance.value) return '--'
 
             if (ava_asset.value && ava_asset.value.denomination !== undefined) {
+                let denom = ava_asset.value.denomination
+
+                if (isSingleton.value) {
+                    return bnToBig(evmUnlocked.value, denom).toLocaleString(denom)
+                }
+
                 let xUnlocked = ava_asset.value.amount
                 let pUnlocked = platformUnlocked.value
-
-                let denom = ava_asset.value.denomination
 
                 let tot = xUnlocked.add(pUnlocked).add(evmUnlocked.value)
 
@@ -374,6 +379,11 @@ export default defineComponent({
             return wallet.value.type === 'injected'
         })
 
+        const isSingleton = computed((): boolean => {
+            if (!wallet.value) return false
+            return wallet.value.type === 'singleton'
+        })
+
         const isUpdateBalance = computed((): boolean => {
             if (!wallet.value) return true
             return wallet.value.isFetchUtxos
@@ -384,6 +394,7 @@ export default defineComponent({
         })
 
         const hasLocked = computed((): boolean => {
+            if (isSingleton.value) return false
             return (
                 !avmLocked.value.isZero() ||
                 !platformLocked.value.isZero() ||
@@ -392,6 +403,7 @@ export default defineComponent({
         })
 
         const hasMultisig = computed((): boolean => {
+            if (isSingleton.value) return false
             return !avmMultisig.value.isZero() || !platformMultisig.value.isZero()
         })
 
@@ -428,6 +440,7 @@ export default defineComponent({
             stakingText,
             wallet,
             isInjected,
+            isSingleton,
             isUpdateBalance,
             priceDict,
             hasLocked,

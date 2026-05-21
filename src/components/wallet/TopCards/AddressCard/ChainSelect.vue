@@ -35,18 +35,17 @@ export default defineComponent({
         const isXSupported = computed(() => {
             const wallet: AvalancheAccount | null = mainStore.activeWallet as AvalancheAccount | null
             if (!wallet) return false
+            if (wallet.type === 'singleton') return false
 
             const xAddress = wallet.getCurrentAddressAvm()
-            const xpAddress = wallet.getXPAddress()
-            
             return !!xAddress
         })
 
         const isPSupported = computed(() => {
             const wallet: AvalancheAccount | null = mainStore.activeWallet as AvalancheAccount | null
             if (!wallet) return false
+            if (wallet.type === 'singleton') return false
             const pAddress = wallet.getCurrentAddressPlatform()
-            
             return !!pAddress
         })
 

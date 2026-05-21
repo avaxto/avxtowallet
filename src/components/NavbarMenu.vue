@@ -101,7 +101,19 @@
                             AVXTO Telegram Group
                         </a>
                     </v-list-item-title>
-                </v-list-item>                
+                </v-list-item>
+                
+                <v-list-item>
+                    <v-list-item-title>
+                        <a 
+                        href="https://avax.to/avxto/" 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        class="wallet_link">
+                            AVXTO Manual and Blog
+                        </a>
+                    </v-list-item-title>
+                </v-list-item>
                 <v-list-item>
                     <v-list-item-title>
                         <a 
