@@ -1,6 +1,9 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { getLocalStorageAccounts } from '@/helpers/account_helper'
+import { addAccountToStorage, getLocalStorageAccounts } from '@/helpers/account_helper'
+import { makeKeyfile } from '@/js/Keystore'
+import type { SaveAccountInput, iUserAccountEncrypted as iUserAccountEncryptedType } from '@/types'
+import type { AvalancheAccount } from '@avalanche-sdk/client/accounts'
 
 // Define types locally for now (until we find the original types file)
 export interface iUserAccountEncrypted {
@@ -29,6 +32,30 @@ export const useAccountsStore = defineStore('accounts', () => {
         accounts.value = []
     }
 
+    const saveAccount = async (input: SaveAccountInput): Promise<void> => {
+        // Lazy import to avoid circular dependency
+        const { useMainStore } = await import('./main')
+        const mainStore = useMainStore()
+
+        const walletList = mainStore.wallets as AvalancheAccount[]
+        const activeWallet = mainStore.activeWallet as AvalancheAccount | null
+        if (!walletList.length || !activeWallet) throw new Error('No wallets loaded.')
+
+        const activeIndex = walletList.findIndex((w: any) => w.id === (activeWallet as any).id)
+        const keyfile = await makeKeyfile(walletList as any, input.password, activeIndex)
+
+        const baseAddresses: string[] = walletList.map((w: any) => w.getEvmAddress())
+
+        const account: iUserAccountEncryptedType = {
+            name: input.accountName,
+            baseAddresses,
+            wallet: keyfile,
+        }
+
+        addAccountToStorage(account)
+        loadAccounts()
+    }
+
     // Initialize accounts on store creation
     loadAccounts()
 
@@ -37,6 +64,7 @@ export const useAccountsStore = defineStore('accounts', () => {
         loadAccounts,
         addAccount,
         removeAccount,
-        clearAccounts
+        clearAccounts,
+        saveAccount,
     }
 })

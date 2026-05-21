@@ -135,7 +135,7 @@ export default defineComponent({
         }
 
         const baseAddresses = computed((): string[] => {
-            return accountsStore.baseAddresses
+            return (mainStore.wallets as any[]).map((w) => w.getEvmAddress?.() ?? '')
         })
 
         return {

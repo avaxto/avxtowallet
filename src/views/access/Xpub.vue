@@ -15,7 +15,7 @@
                     v-model="xpubXP"
                     hide-details
                 ></v-text-field>
-                <p class="_label">C-Chain Address</p>
+                <p class="_label">C-Chain Address <span class="derived-note">(derived from xpub)</span></p>
                 <v-text-field
                     class="pass"
                     label="0x..."
@@ -41,13 +41,15 @@
     </div>
 </template>
 <script lang="ts">
-import { defineComponent, ref, computed } from 'vue'
+import { defineComponent, ref, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 
 import Form from '@/components/wallet/earn/ChainTransfer/Form.vue'
 import { PublicMnemonicWallet, getEthAddressKeyFromAccountKey } from '@/avalanche-wallet-sdk'
 import WalletReadonly from '@/views/WalletReadonly.vue'
 import { ethers } from 'ethers'
+import bip32 from '@/avalanche-wallet-sdk/utils/bip32'
+import { computePublicKey, computeAddress } from 'ethers/lib/utils'
 
 export default defineComponent({
     name: 'Xpub',
@@ -64,6 +66,23 @@ export default defineComponent({
 
         const canSubmit = computed(() => {
             return xpubXP.value.length > 10 && evmAddr.value.length > 9
+        })
+
+        // Auto-derive the C-chain address whenever a valid xpub is entered
+        watch(xpubXP, (val) => {
+            if (!val || val.length < 10) {
+                evmAddr.value = ''
+                error.value = ''
+                return
+            }
+            try {
+                const node = bip32.fromBase58(val)
+                const uncompressedKey = computePublicKey(node.publicKey)
+                evmAddr.value = computeAddress(uncompressedKey)
+                error.value = ''
+            } catch {
+                evmAddr.value = ''
+            }
         })
 
         const access = () => {
@@ -132,6 +151,11 @@ h1 {
     margin-top: 1em !important;
     font-size: 0.9em;
     text-align: left !important;
+}
+
+._label .derived-note {
+    font-size: 0.8em;
+    opacity: 0.6;
 }
 
 .ava_button {
