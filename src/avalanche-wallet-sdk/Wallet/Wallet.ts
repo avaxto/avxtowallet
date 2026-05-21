@@ -61,6 +61,7 @@ import { UnsignedTx as EVMUnsignedTx, Tx as EVMTx, UTXOSet as EVMUTXOSet } from 
 
 import { PayloadBase, UnixNow } from '@/avalanche/utils';
 import { getAssetDescription } from '@/avalanche-wallet-sdk/Asset/Assets';
+import type { iAssetDescriptionClean } from '@/avalanche-wallet-sdk/Asset/types';
 import { getErc20Token } from '@/avalanche-wallet-sdk/Asset/Erc20';
 import { NO_NETWORK } from '@/avalanche-wallet-sdk/errors';
 import { avaxCtoX, bnToLocaleString, getTxFeeP, getTxFeeX, waitTxC, waitTxEvm, waitTxP, waitTxX } from '@/avalanche-wallet-sdk/utils';
@@ -613,7 +614,13 @@ export abstract class WalletProvider {
             let asset: AssetBalanceX = res[assetId];
 
             if (!asset) {
-                let assetInfo = await getAssetDescription(assetId);
+                let assetInfo: iAssetDescriptionClean;
+                try {
+                    assetInfo = await getAssetDescription(assetId);
+                } catch {
+                    // Asset metadata not available on this network — skip UTXO
+                    continue;
+                }
                 asset = {
                     locked: new BN(0),
                     unlocked: new BN(0),

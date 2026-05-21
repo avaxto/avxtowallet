@@ -72,12 +72,10 @@ export default defineComponent({
         const utxosP = ref<null | PlatformUTXOSet>(null)
         const stakeOuts = ref<null | TransferableOutput[]>(null)
 
-        const wallet = computed(() => {
-            return route.params.wallet as PublicMnemonicWallet
-        })
+        const wallet = ref<PublicMnemonicWallet | null>(null)
 
         const evmAddress = computed(() => {
-            return route.params.evmAddress as string
+            return (route.query.evm as string) || ''
         })
 
         const isLoading = computed(() => {
@@ -188,6 +186,14 @@ export default defineComponent({
         })
 
         onMounted(() => {
+            const xpub = route.query.xpub as string | undefined
+            if (xpub) {
+                try {
+                    wallet.value = new PublicMnemonicWallet(xpub, xpub)
+                } catch {
+                    wallet.value = null
+                }
+            }
             if (!wallet.value) {
                 logout()
                 return

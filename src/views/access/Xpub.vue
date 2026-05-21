@@ -96,13 +96,12 @@ export default defineComponent({
             try {
                 // Not using real xpub for EVM, instead getting C balance
                 // directly from network
-                const walletInstance = new PublicMnemonicWallet(xpubXP.value, xpubXP.value)
+                new PublicMnemonicWallet(xpubXP.value, xpubXP.value) // validate key first
                 router.push({
                     name: 'wallet_readonly',
-                    params: {
-                        //@ts-ignore
-                        wallet: walletInstance,
-                        evmAddress: evmAddr.value,
+                    query: {
+                        xpub: xpubXP.value,
+                        evm: evmAddr.value,
                     },
                 })
             } catch (e) {
