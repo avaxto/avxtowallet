@@ -4,6 +4,7 @@
             <h1>{{ $t('advanced.title') }}</h1>
         </div>
         <TokenListModal ref="token_list"></TokenListModal>
+        <PendingImports></PendingImports>
         <div class="grids">
             <ChainImport class="grid_box"></ChainImport>
             <SignMessage class="grid_box"></SignMessage>
@@ -15,6 +16,7 @@
 import { defineComponent, ref } from 'vue'
 
 import ChainImport from '@/components/wallet/advanced/ChainImport.vue'
+import PendingImports from '@/components/wallet/advanced/PendingImports.vue'
 import SignMessage from '@/components/wallet/advanced/SignMessage/SignMessage.vue'
 import VerifyMessage from '@/components/wallet/advanced/VerifyMessage.vue'
 import TokenListModal from '@/components/modals/TokenList/TokenListModal.vue'
@@ -24,6 +26,7 @@ export default defineComponent({
     components: {
         TokenListModal,
         ChainImport,
+        PendingImports,
         SignMessage,
         VerifyMessage,
     },
