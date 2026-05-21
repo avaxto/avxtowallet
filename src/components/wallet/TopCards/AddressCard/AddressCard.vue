@@ -125,6 +125,8 @@ export default defineComponent({
         const xAddressOverride = ref<string | null>(null)
         const pAddressOverride = ref<string | null>(null)
         const addrIndex = ref<number>(0)
+        const savedIndexX = ref<number>(0)
+        const savedIndexP = ref<number>(0)
         const newAddrLoading = ref(false)
         const chainNow = ref<ChainIdType>(
             (mainStore.activeWallet as AvalancheAccount | null)?.type === 'injected' ? 'C' : 'X'
@@ -364,22 +366,35 @@ export default defineComponent({
         //     updateQR()
         // }, { immediate: true })
 
-        watch(chainNow, (val: ChainIdType) => {
-            if (val !== 'C') {
-                showBech.value = false
-            }
-            if (val !== 'X') {
-                xAddressOverride.value = null
-            }
-            if (val !== 'P') {
+        watch(chainNow, (val: ChainIdType, oldVal: ChainIdType) => {
+            // Save the user-selected index for the chain we're leaving
+            if (oldVal === 'X') savedIndexX.value = addrIndex.value
+            else if (oldVal === 'P') savedIndexP.value = addrIndex.value
+
+            if (val !== 'C') showBech.value = false
+
+            if (val === 'X') {
                 pAddressOverride.value = null
+                addrIndex.value = savedIndexX.value
+                // Force-update override in case addrIndex value didn't change
+                xAddressOverride.value = getAddressAtIndex(savedIndexX.value)
+            } else if (val === 'P') {
+                xAddressOverride.value = null
+                addrIndex.value = savedIndexP.value
+                // Force-update override in case addrIndex value didn't change
+                pAddressOverride.value = getAddressAtIndex(savedIndexP.value)
+            } else {
+                xAddressOverride.value = null
+                pAddressOverride.value = null
+                addrIndex.value = activeIdx.value
             }
-            addrIndex.value = activeIdx.value
         })
 
         watch(activeWallet, () => {
             xAddressOverride.value = null
             pAddressOverride.value = null
+            savedIndexX.value = activeIdx.value
+            savedIndexP.value = activeIdx.value
             addrIndex.value = activeIdx.value
         })
 
@@ -391,6 +406,8 @@ export default defineComponent({
         }, { immediate: true })
 
         onMounted(() => {
+            savedIndexX.value = activeIdx.value
+            savedIndexP.value = activeIdx.value
             addrIndex.value = activeIdx.value
             updateQR()
         })
