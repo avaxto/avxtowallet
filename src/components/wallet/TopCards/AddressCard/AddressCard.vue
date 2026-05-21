@@ -12,7 +12,19 @@
                 <canvas ref="qrRef"></canvas>
             </div>
             <div class="bottom_rest">
-                <p class="subtitle">{{ addressLabel }}</p>
+                <div class="subtitle-row">
+                    <p class="subtitle">{{ addressLabel }}</p>
+                    <div v-if="showIndexSpinner" class="addr-index-ctrl">
+                        <input
+                            type="number"
+                            class="addr-index-input"
+                            v-model.number="addrIndex"
+                            :min="0"
+                            :max="maxAddrIndex"
+                            step="1"
+                        />
+                    </div>
+                </div>
 
                 <p class="addr_text" data-cy="wallet_address">
                     {{ activeAddress }}
@@ -111,6 +123,8 @@ export default defineComponent({
         const colorLight = ref('#FFF')
         const colorDark = ref('#242729')
         const xAddressOverride = ref<string | null>(null)
+        const pAddressOverride = ref<string | null>(null)
+        const addrIndex = ref<number>(0)
         const newAddrLoading = ref(false)
         const chainNow = ref<ChainIdType>(
             (mainStore.activeWallet as AvalancheAccount | null)?.type === 'injected' ? 'C' : 'X'
@@ -159,16 +173,11 @@ export default defineComponent({
                 case 'X':
                     return xAddressOverride.value ?? address.value
                 case 'P':
-                    return addressPVM.value
+                    return pAddressOverride.value ?? addressPVM.value
                 case 'C':
                     return showBech.value ? addressEVMBech32.value : addressEVM.value
             }
             return address.value
-        })
-
-        const showNewAddressBtn = computed((): boolean => {
-            return chainNow.value === 'X' &&
-                (walletType.value === 'mnemonic' || walletType.value === 'injected')
         })
 
         const walletType = computed((): WalletNameType => {
@@ -177,11 +186,44 @@ export default defineComponent({
             return wallet.type
         })
 
+        const showNewAddressBtn = computed((): boolean => {
+            return chainNow.value === 'X' &&
+                (walletType.value === 'mnemonic' || walletType.value === 'injected')
+        })
+
+        const showIndexSpinner = computed((): boolean => {
+            const type = walletType.value
+            return (chainNow.value === 'X' || chainNow.value === 'P') &&
+                   (type === 'mnemonic' || type === 'ledger')
+        })
+
+        const maxAddrIndex = computed((): number => {
+            const wallet = activeWallet.value as unknown as AbstractHdWallet
+            if (!wallet || typeof wallet.externalHelper === 'undefined') return 0
+            switch (chainNow.value) {
+                case 'X': return wallet.externalHelper.hdIndex
+                case 'P': return wallet.platformHelper.hdIndex
+                default: return 0
+            }
+        })
+
+        const getAddressAtIndex = (idx: number): string => {
+            const wallet = activeWallet.value as unknown as AbstractHdWallet
+            if (!wallet || typeof wallet.externalHelper === 'undefined') return ''
+            switch (chainNow.value) {
+                case 'X': return wallet.externalHelper.getAddressForIndex(idx)
+                case 'P': return wallet.platformHelper.getAddressForIndex(idx)
+                default: return ''
+            }
+        }
+
         const activeIdx = computed((): number => {
             const wallet = activeWallet.value as MnemonicWallet
-            const walletType = wallet.type
+            if (!wallet) return 0
+            const wType = wallet.type
 
-            if (walletType === 'singleton') return 0
+            if (wType === 'singleton' || wType === 'injected') return 0
+            if (typeof wallet.getExternalActiveIndex !== 'function') return 0
 
             switch (chainNow.value) {
                 case 'X':
@@ -297,6 +339,19 @@ export default defineComponent({
             updateQR()
         })
 
+        watch(addrIndex, (val) => {
+            const clamped = Math.max(0, Math.min(maxAddrIndex.value, Math.round(val || 0)))
+            if (clamped !== val) {
+                addrIndex.value = clamped
+                return
+            }
+            if (chainNow.value === 'X') {
+                xAddressOverride.value = getAddressAtIndex(clamped)
+            } else if (chainNow.value === 'P') {
+                pAddressOverride.value = getAddressAtIndex(clamped)
+            }
+        })
+
         // TODO: Add theme store for theme watching
         // watch(() => mainStore.theme, (val: string) => {
         //     if (val === 'night') {
@@ -316,10 +371,16 @@ export default defineComponent({
             if (val !== 'X') {
                 xAddressOverride.value = null
             }
+            if (val !== 'P') {
+                pAddressOverride.value = null
+            }
+            addrIndex.value = activeIdx.value
         })
 
         watch(activeWallet, () => {
             xAddressOverride.value = null
+            pAddressOverride.value = null
+            addrIndex.value = activeIdx.value
         })
 
         // Force C-chain view for injected wallets (MetaMask, Core App, etc.)
@@ -330,6 +391,7 @@ export default defineComponent({
         }, { immediate: true })
 
         onMounted(() => {
+            addrIndex.value = activeIdx.value
             updateQR()
         })
 
@@ -359,6 +421,9 @@ export default defineComponent({
             showNewAddressBtn,
             newAddrLoading,
             getNewXAddress,
+            addrIndex,
+            showIndexSpinner,
+            maxAddrIndex,
         }
     }
 })
@@ -491,6 +556,35 @@ $qr_width: 110px;
         display: flex;
         flex-direction: column;
         justify-content: center;
+    }
+}
+
+.subtitle-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.addr-index-ctrl {
+    display: flex;
+    align-items: center;
+    margin-left: auto;
+}
+
+.addr-index-input {
+    width: 60px;
+    text-align: center;
+    background: var(--bg-light);
+    color: var(--primary-color);
+    border: 1px solid var(--secondary-color);
+    border-radius: 4px;
+    padding: 1px 4px;
+    font-size: 0.78em;
+    outline: none;
+
+    &::-webkit-outer-spin-button,
+    &::-webkit-inner-spin-button {
+        opacity: 1;
     }
 }
 

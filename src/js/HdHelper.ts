@@ -123,6 +123,8 @@ class HdHelper {
         const network: AvaNetwork | null = networkStore.selectedNetwork
         const explorerUrl = network?.explorerUrl
 
+        console.log(`[HdHelper] findHdIndex ${this.chainId} path=${this.changePath} via ${explorerUrl ? 'explorer' : 'node'}`)
+
         if (explorerUrl) {
             this.hdIndex = await this.findAvailableIndexExplorer()
         } else {
@@ -133,10 +135,21 @@ class HdHelper {
             this.updateKeychain()
         }
         this.isInit = true
+        console.log(`[HdHelper] findHdIndex ${this.chainId} path=${this.changePath} done — hdIndex=${this.hdIndex}`)
     }
 
-    // Fetches the utxos for the current keychain
-    // and increments the index if last index has a utxo
+    // Fetches the utxos for the current keychain.
+    //
+    // Scans address space in lots of LOT_SIZE — *past* the cached hdIndex — instead
+    // of stopping at hdIndex like the old implementation did.  Addresses ahead of
+    // hdIndex may have received funds since findHdIndex last ran (e.g. someone sent
+    // to a freshly-derived address from a different wallet/session), and the old
+    // single `getAllDerivedAddresses()` call missed them entirely.
+    //
+    // Lot-scan terminates after MAX_EMPTY_LOTS consecutive empty lots, matching the
+    // `_scanHdLot` pattern used by InjectedWallet for its Glacier-driven HD scan.
+    // hdIndex is advanced if any lot turned up a used address past the previous
+    // hdIndex so downstream consumers see the discovered range.
     async updateUtxos(): Promise<AVMUTXOSet | PlatformUTXOSet> {
         this.isFetchUtxo = true
 
@@ -144,24 +157,62 @@ class HdHelper {
             console.error('HD Index not found yet.')
         }
 
-        const addrs: string[] = this.getAllDerivedAddresses()
-        let result: AVMUTXOSet | PlatformUTXOSet
+        const LOT_SIZE = 200
+        const MAX_EMPTY_LOTS = 2
 
-        if (this.chainId === 'X') {
-            result = await avmGetAllUTXOs(addrs)
-        } else {
-            result = await platformGetAllUTXOs(addrs)
+        let result: AVMUTXOSet | PlatformUTXOSet =
+            this.chainId === 'X' ? new AVMUTXOSet() : new PlatformUTXOSet()
+
+        let emptyLots = 0
+        let addrIdx = 0
+        let highestUsedIdx = -1
+
+        while (emptyLots < MAX_EMPTY_LOTS) {
+            const lotAddrs: string[] = []
+            for (let i = 0; i < LOT_SIZE; i++) {
+                lotAddrs.push(this.getAddressForIndex(addrIdx + i))
+            }
+
+            const lotSet =
+                this.chainId === 'X'
+                    ? await avmGetAllUTXOs(lotAddrs)
+                    : await platformGetAllUTXOs(lotAddrs)
+
+            if (lotSet.getAllUTXOs().length > 0) {
+                // Merge produces a new set; cast keeps the union type alignment.
+                result = (result as any).merge(lotSet)
+                emptyLots = 0
+                // Walk the lot backwards to find the highest index that actually
+                // owns a UTXO (not just any address in the lot).
+                for (let i = LOT_SIZE - 1; i >= 0; i--) {
+                    const addrBuf = bintools.parseAddress(lotAddrs[i], this.chainId)
+                    if (lotSet.getUTXOIDs([addrBuf]).length > 0) {
+                        const idx = addrIdx + i
+                        if (idx > highestUsedIdx) highestUsedIdx = idx
+                        break
+                    }
+                }
+            } else {
+                emptyLots++
+            }
+
+            addrIdx += LOT_SIZE
         }
-        this.utxoSet = result // we can use local copy of utxos as cache for some functions
 
-        // If the hd index is full, increment
-        const currentAddr = this.getCurrentAddress()
-        const currentAddrBuf = bintools.parseAddress(currentAddr, this.chainId)
-        const currentUtxos = result.getUTXOIDs([currentAddrBuf])
+        this.utxoSet = result
+        console.log(
+            `[HdHelper] updateUtxos ${this.chainId} path=${this.changePath} done — ` +
+            `${result.getAllUTXOs().length} UTXOs from lot-scan 0..${addrIdx - 1} ` +
+            `(highestUsed=${highestUsedIdx}, prior hdIndex=${this.hdIndex})`
+        )
 
-        if (currentUtxos.length > 0) {
+        // Advance hdIndex to one past the highest discovered used index, so the
+        // keychain and downstream "current address" logic stay in sync with
+        // what's actually been used on chain.
+        while (this.hdIndex <= highestUsedIdx) {
             this.incrementIndex()
         }
+
         this.isFetchUtxo = false
         return result
     }

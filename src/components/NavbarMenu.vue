@@ -13,7 +13,7 @@
                     <v-list-item-title>Save Account</v-list-item-title>
                 </v-list-item>
                 <v-list-item v-if="isAuth" @click="logout">
-                    <v-list-item-title>{{ $t('logout.button') }}</v-list-item-title>
+                    <v-list-item-title>Exit</v-list-item-title>
                 </v-list-item>
             </v-list>
         </v-menu>
@@ -40,7 +40,11 @@
                         <router-link to="/wallet/addresses/derive">Address Derivation</router-link>
                     </v-list-item-title>
                 </v-list-item>
-
+                <v-list-item>
+                    <v-list-item-title>
+                        <router-link to="/wallet/wizard">New Wallet Wizard]</router-link>
+                    </v-list-item-title>
+                </v-list-item>
             </v-list>
         </v-menu>
 
