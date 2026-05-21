@@ -12,6 +12,7 @@ import { buildUnsignedTransaction } from '../TxHelper'
 import { AbstractWallet } from '@/js/wallets/AbstractWallet'
 import { updateFilterAddresses } from '../../providers'
 import { digestMessage } from '@/helpers/helper'
+import { ExportChainsP, ExportChainsX, UtxoHelper } from '@/avalanche-wallet-sdk'
 
 /**
  * A base class other HD wallets are based on.
@@ -144,6 +145,83 @@ abstract class AbstractHdWallet extends AbstractWallet {
 
     getAllAddressesP() {
         return this.getDerivedAddressesP()
+    }
+
+    /**
+     * Override avmGetAtomicUTXOs to lot-scan the address space past the cached
+     * helpers' hdIndex.  The default implementation in AbstractWallet uses
+     * getAllAddressesX() which only emits addresses up to hdIndex — so atomic
+     * UTXOs sitting in shared memory at owners past hdIndex (e.g. funds exported
+     * to a freshly-derived X address by a different wallet/session) get missed.
+     *
+     * Mirrors the HdHelper.updateUtxos lot-scan: LOT_SIZE=200, stops after
+     * MAX_EMPTY_LOTS=2 consecutive empty lots per helper.  External addresses
+     * are scanned first since exports normally target those; internal/change
+     * addresses are scanned afterwards for completeness.
+     */
+    async avmGetAtomicUTXOs(sourceChain: ExportChainsX): Promise<AVMUTXOSet> {
+        const LOT_SIZE = 200
+        const MAX_EMPTY_LOTS = 2
+
+        let result = new AVMUTXOSet()
+
+        for (const helper of [this.externalHelper, this.internalHelper]) {
+            let emptyLots = 0
+            let addrIdx = 0
+
+            while (emptyLots < MAX_EMPTY_LOTS) {
+                const lotAddrs: string[] = []
+                for (let i = 0; i < LOT_SIZE; i++) {
+                    lotAddrs.push(helper.getAddressForIndex(addrIdx + i))
+                }
+
+                const lotSet = await UtxoHelper.avmGetAtomicUTXOs(lotAddrs, sourceChain)
+                if (lotSet.getAllUTXOs().length > 0) {
+                    result = result.merge(lotSet) as AVMUTXOSet
+                    emptyLots = 0
+                } else {
+                    emptyLots++
+                }
+
+                addrIdx += LOT_SIZE
+            }
+        }
+
+        return result
+    }
+
+    /**
+     * Override platformGetAtomicUTXOs with the same lot-scan strategy — atomic
+     * P-chain UTXOs awaiting import may sit at P addresses past the platform
+     * helper's hdIndex.
+     */
+    async platformGetAtomicUTXOs(sourceChain: ExportChainsP): Promise<PlatformUTXOSet> {
+        const LOT_SIZE = 200
+        const MAX_EMPTY_LOTS = 2
+
+        let result = new PlatformUTXOSet()
+
+        let emptyLots = 0
+        let addrIdx = 0
+
+        while (emptyLots < MAX_EMPTY_LOTS) {
+            const lotAddrs: string[] = []
+            for (let i = 0; i < LOT_SIZE; i++) {
+                lotAddrs.push(this.platformHelper.getAddressForIndex(addrIdx + i))
+            }
+
+            const lotSet = await UtxoHelper.platformGetAtomicUTXOs(lotAddrs, sourceChain)
+            if (lotSet.getAllUTXOs().length > 0) {
+                result = result.merge(lotSet) as PlatformUTXOSet
+                emptyLots = 0
+            } else {
+                emptyLots++
+            }
+
+            addrIdx += LOT_SIZE
+        }
+
+        return result
     }
     // Returns addresses to check for history
     getHistoryAddresses(): string[] {

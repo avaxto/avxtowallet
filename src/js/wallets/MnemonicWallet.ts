@@ -26,6 +26,7 @@ import {
 import {
     KeyChain as EVMKeyChain,
     UnsignedTx as EVMUnsignedTx,
+    UTXOSet as EVMUTXOSet,
     Tx as EvmTx,
 } from '@/avalanche/apis/evm'
 import { getPreferredHRP, PayloadBase } from '@/avalanche/utils'
@@ -45,7 +46,7 @@ import Erc20Token from '@/js/Erc20Token'
 import { WalletHelper } from '@/helpers/wallet_helper'
 import { Transaction } from '@ethereumjs/tx'
 import MnemonicPhrase from '@/js/wallets/MnemonicPhrase'
-import { ExportChainsC, ExportChainsP } from '@/avalanche-wallet-sdk'
+import { ExportChainsC, UtxoHelper, chainIdFromAlias } from '@/avalanche-wallet-sdk'
 
 // HD WALLET
 // Accounts are not used and the account index is fixed to 0
@@ -238,6 +239,144 @@ export default class MnemonicWallet extends AbstractHdWallet implements IAvaHdWa
     async signC(unsignedTx: EVMUnsignedTx): Promise<EvmTx> {
         const keyChain = this.ethKeyChain
         return unsignedTx.sign(keyChain)
+    }
+
+    /** The bech32-C address derived from the keccak256-based EVM bytes
+     *  (i.e. the EVM address re-encoded with the "C-" prefix).  Distinct from
+     *  `getEvmAddressBech()` which returns the XP-style ripemd160(sha256(pk))
+     *  form.  Older buggy exports landed atomic UTXOs at this variant. */
+    private getEvmBytesAddressBech(): string {
+        return bintools.addressToString(
+            ava.getHRP(),
+            'C',
+            BufferAvalanche.from(this.ethAddress, 'hex')
+        )
+    }
+
+    /**
+     * Override of AbstractWallet.evmGetAtomicUTXOs.
+     *
+     * Keeps the current behavior — fetching atomic UTXOs at the canonical
+     * XP-style bech32-C address (`getEvmAddressBech()` = ripemd160(sha256(pk)))
+     * — and additionally queries the EVM-bytes (keccak256) form of the same
+     * underlying EVM address.  An older build of this app (and older Core
+     * Extension exports) sent X→C / P→C atomic UTXOs to that second form
+     * instead of the canonical one; those UTXOs are stranded under Core
+     * Extension's signing API but the mnemonic wallet holds the EVM key and
+     * can sign for either form locally.
+     */
+    async evmGetAtomicUTXOs(sourceChain: ExportChainsC): Promise<EVMUTXOSet> {
+        const xpStyleBech = this.getEvmAddressBech()
+        const evmBytesBech = this.getEvmBytesAddressBech()
+        const addrs = [...new Set([xpStyleBech, evmBytesBech])]
+        return await UtxoHelper.evmGetAtomicUTXOs(addrs, sourceChain)
+    }
+
+    /**
+     * Override of AbstractWallet.createImportTxC.
+     *
+     * Only advertises the XP-style bech32-C address (`getEvmAddressBech()` =
+     * ripemd160(sha256(pk))).  This restricts the SDK's internal re-fetch in
+     * `cChain.buildImportTx` to UTXOs at that owner — i.e. the only ones whose
+     * signature AvalancheGo's atomic-tx verifier will accept from our key.
+     * UTXOs at the EVM-bytes (keccak256) form are deliberately excluded here
+     * because including them would cause the entire tx to fail verification
+     * with "wrong signature: expected X but got Y" — see importToCChain below
+     * for the user-facing detection / warning.
+     */
+    async createImportTxC(sourceChain: ExportChainsC, utxoSet: EVMUTXOSet, fee: BN) {
+        const xpStyleBech = this.getEvmAddressBech()
+        const hexAddr = this.getEvmAddress()
+
+        const toAddress = '0x' + hexAddr
+        const ownerAddresses = [xpStyleBech]
+        const fromAddresses = ownerAddresses
+        const sourceChainId = chainIdFromAlias(sourceChain)
+
+        return await cChain.buildImportTx(
+            utxoSet,
+            toAddress,
+            ownerAddresses,
+            sourceChainId,
+            fromAddresses,
+            fee
+        )
+    }
+
+    /**
+     * Override of AbstractWallet.importToCChain.
+     *
+     * Splits the atomic UTXOs returned by `evmGetAtomicUTXOs` into two buckets:
+     *
+     *   - Signable: UTXOs owned by the XP-style C-chain bech32
+     *     (`getEvmAddressBech()` = ripemd160(sha256(compressed_pk))).
+     *     AvalancheGo's atomic-tx verifier recomputes this same hash from the
+     *     signature's recovered pubkey and matches — so our EVM private key
+     *     can sign these and they import normally.
+     *
+     *   - Stranded: UTXOs owned by the EVM-bytes (keccak256) form, produced by
+     *     a legacy buggy export path.  ripemd160(sha256(pk)) and
+     *     keccak256(pk_uncompressed)[12:32] can never match for the same key
+     *     (different hash functions on the same input — collision probability
+     *     is 2^-160), so AvalancheGo will reject any sig we produce with
+     *     "wrong signature: expected X but got Y".  These funds are
+     *     PERMANENTLY UNRECOVERABLE.  We surface a console.warn so the user
+     *     knows the balance is gone, and proceed with the signable subset
+     *     instead of letting the whole import fail.
+     */
+    async importToCChain(sourceChain: ExportChainsC, fee: BN, utxoSet?: EVMUTXOSet): Promise<string> {
+        if (!utxoSet) {
+            utxoSet = await this.evmGetAtomicUTXOs(sourceChain)
+        }
+
+        if (utxoSet.getAllUTXOs().length === 0) {
+            throw new Error('Nothing to import.')
+        }
+
+        const hrp = ava.getHRP()
+        const xpStyleBech = this.getEvmAddressBech()
+        const evmBytesBech = this.getEvmBytesAddressBech()
+
+        let signableCount = 0
+        let strandedCount = 0
+        let strandedTotal = new BN(0)
+        for (const u of utxoSet.getAllUTXOs()) {
+            const ownerStrs = (u.getOutput().getAddresses() as any[]).map((a: any) =>
+                bintools.addressToString(hrp, 'C', a)
+            )
+            if (ownerStrs.includes(xpStyleBech)) {
+                signableCount++
+            } else if (ownerStrs.includes(evmBytesBech)) {
+                strandedCount++
+                const out = u.getOutput() as any
+                if (typeof out.getAmount === 'function') {
+                    strandedTotal = strandedTotal.add(out.getAmount() as BN)
+                }
+            }
+        }
+
+        if (strandedCount > 0) {
+            const msg =
+                `Detected ${strandedCount} stranded atomic UTXO(s) totaling ` +
+                `${strandedTotal.toString(10)} nAVAX at the EVM-bytes (keccak256) form of ` +
+                `your C-chain address (${evmBytesBech}). These are PERMANENTLY ` +
+                `UNRECOVERABLE: AvalancheGo's atomic-tx verifier recomputes ` +
+                `ripemd160(sha256(pk)) from the signature, but the UTXO owner is ` +
+                `keccak256-derived — no key can hash to both forms. An older build of ` +
+                `this app produced this destination on X→C / P→C exports.`
+            if (signableCount === 0) {
+                throw new Error(msg + ' No signable UTXOs found to import.')
+            }
+            console.warn('[importToCChain]', msg, '— continuing with signable UTXOs only.')
+        }
+
+        if (signableCount === 0) {
+            throw new Error('Nothing to import.')
+        }
+
+        const unsignedTxFee = await this.createImportTxC(sourceChain, utxoSet, fee)
+        const tx = await this.signC(unsignedTxFee)
+        return this.issueC(tx)
     }
 
     async signEvm(tx: Transaction) {

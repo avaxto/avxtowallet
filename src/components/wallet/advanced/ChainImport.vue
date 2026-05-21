@@ -108,22 +108,64 @@ export default defineComponent({
                 const utxoSet = await wallet.value.evmGetAtomicUTXOs(source)
                 const utxos = utxoSet.getAllUTXOs()
 
-                const numIns = utxos.length
-                const baseFee = await GasHelper.getBaseFeeRecommended()
-
-                if (numIns === 0) {
+                if (utxos.length === 0) {
                     throw new Error('Nothing to import.')
                 }
 
-                // Calculate number of signatures
+                const numIns = utxos.length
+                // Calculate number of signatures (sum of owner addresses across all UTXOs).
                 const numSigs = utxos.reduce((acc, utxo) => {
                     return acc + utxo.getOutput().getAddresses().length
                 }, 0)
-
                 const gas = GasHelper.estimateImportGasFeeFromMockTx(numIns, numSigs)
 
-                const totFee = baseFee.mul(new BN(gas))
-                let txIdVal = await wallet.value.importToCChain(source, avaxCtoX(totFee))
+                // Per-gas price (wei).  Try in order:
+                //   1. `eth_baseFee` (AvalancheGo-specific atomic fee source)
+                //   2. `eth_gasPrice` (standard EVM; same source the C send form uses)
+                //   3. Hardcoded 25 gwei floor
+                // The MIN_PER_GAS_WEI = 1 gwei threshold is critical: if perGasWei is below
+                // 1 gwei, `perGasWei * gas` stays under 10^9 wei, and the subsequent
+                // `avaxCtoX(totFee)` (integer-divides by 10^9 to convert wei → nAVAX)
+                // truncates to 0.  That's exactly how the fee silently became 0 even when
+                // baseFee/gasPrice returned a "non-zero" value — they were returning a
+                // value too small to survive the wei→nAVAX rounding.
+                const MIN_PER_GAS_WEI = new BN('1000000000')  // 1 gwei
+                const FALLBACK_PER_GAS_WEI = new BN('25000000000') // 25 gwei
+                let perGasWei: BN
+                let perGasSource = 'baseFee'
+                try {
+                    const bf = await GasHelper.getBaseFeeRecommended()
+                    if (bf.gte(MIN_PER_GAS_WEI)) {
+                        perGasWei = bf
+                    } else {
+                        perGasSource = 'gasPrice'
+                        perGasWei = await GasHelper.getAdjustedGasPrice()
+                    }
+                } catch {
+                    perGasSource = 'gasPrice'
+                    perGasWei = await GasHelper.getAdjustedGasPrice()
+                }
+                if (perGasWei.lt(MIN_PER_GAS_WEI)) {
+                    perGasSource = `${perGasSource}→fallback-25gwei`
+                    perGasWei = FALLBACK_PER_GAS_WEI
+                }
+
+                const totFee = perGasWei.mul(new BN(gas))
+                let feeNAvax = avaxCtoX(totFee)
+                // Defensive: should never trigger now (per-gas ≥ 1 gwei × gas ≥ 10138
+                // always yields ≥ 10138 nAVAX), but if avaxCtoX still rounds to 0
+                // (e.g. gas computation returns 0 for an unexpected input shape),
+                // floor the fee at 1e5 nAVAX (= 0.0001 AVAX) so the node never sees 0.
+                if (feeNAvax.lten(0)) {
+                    perGasSource = `${perGasSource}+navax-floor`
+                    feeNAvax = new BN(100000)
+                }
+                console.log(
+                    `[atomicImportC] per-gas=${perGasWei.toString(10)} wei (${perGasSource}), ` +
+                    `gas=${gas}, totFee=${totFee.toString(10)} wei, ` +
+                    `feeNAvax=${feeNAvax.toString(10)}`
+                )
+                let txIdVal = await wallet.value.importToCChain(source, feeNAvax)
                 onSuccess(txIdVal)
             } catch (e) {
                 onError(e)
