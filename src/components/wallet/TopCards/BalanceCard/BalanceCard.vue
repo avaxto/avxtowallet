@@ -22,7 +22,7 @@
                         {{ $t('top.balance.hide') }}
                     </button>
                 </template>
-                <button @click="showUTXOsModal" class="breakdown_toggle">Show UTXOs</button>
+                <button @click="showUTXOsModal" class="breakdown_toggle" v-if="!isSingleton">Show UTXOs</button>
             </div>
             <div class="balance_row">
                 <p class="balance" data-cy="wallet_balance" v-if="!balanceTextRight">

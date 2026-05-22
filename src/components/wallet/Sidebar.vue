@@ -17,6 +17,7 @@
                     {{ $t('wallet.sidebar.send') }}
                 </router-link>
                 <router-link
+                    v-if="!isSingleton"
                     to="/wallet/cross_chain"
                     data-cy="wallet_export"
                     class="wallet_export wallet_link"
@@ -64,8 +65,9 @@
     </div>
 </template>
 <script>
-import { defineComponent } from 'vue'
+import { defineComponent, computed } from 'vue'
 import { useTheme } from '@/composables/useTheme'
+import { useMainStore } from '@/stores'
 import LanguageSelect from '@/components/misc/LanguageSelect/LanguageSelect.vue'
 import AccountMenu from '@/components/wallet/sidebar/AccountMenu.vue'
 
@@ -77,9 +79,13 @@ export default defineComponent({
     },
     setup() {
         const { isDay } = useTheme()
+        const mainStore = useMainStore()
+
+        const isSingleton = computed(() => mainStore.activeWallet?.type === 'singleton')
 
         return {
-            isDay
+            isDay,
+            isSingleton,
         }
     }
 })

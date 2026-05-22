@@ -56,7 +56,7 @@
                 <template v-if="isAuth">
                     <router-link to="/wallet">{{ $t('wallet.sidebar.portfolio') }}</router-link>
                     <router-link to="/wallet/transfer">{{ $t('wallet.sidebar.send') }}</router-link>
-                    <router-link to="/wallet/cross_chain">
+                    <router-link v-if="!isSingleton" to="/wallet/cross_chain">
                         {{ $t('wallet.sidebar.export') }}
                     </router-link>
                     <router-link to="/wallet/earn">{{ $t('wallet.sidebar.earn') }}</router-link>
@@ -105,7 +105,9 @@ export default defineComponent({
 
         const isAuth = computed((): boolean => {
             return mainStore.isAuth
-        })        
+        })
+
+        const isSingleton = computed(() => mainStore.activeWallet?.type === 'singleton')        
 
         const togglePopup = (): void => {
             popupOpen.value = !popupOpen.value
@@ -128,6 +130,7 @@ export default defineComponent({
             isDrawer,
             popupOpen,
             isAuth,
+            isSingleton,
             isDay,
             isConnecting,
             togglePopup,

@@ -119,6 +119,14 @@ const routes = [
             {
                 path: 'cross_chain',
                 component: Export,
+                beforeEnter: (_to: RouteLocationNormalized, _from: RouteLocationNormalized, next: NavigationGuardNext) => {
+                    const mainStore = useMainStore()
+                    if (mainStore.activeWallet?.type === 'singleton') {
+                        next('/wallet')
+                    } else {
+                        next()
+                    }
+                },
             },
             {
                 path: 'keys',
