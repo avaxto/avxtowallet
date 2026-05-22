@@ -46,7 +46,8 @@
             <p v-if="walletType === 'injected'" class="note">
                 The active wallet is connected via Core App and exposes only an account-level
                 <b>extended public key</b>. Only soft derivation is possible — hardened
-                indices (paths containing <code>'</code>) will fail.
+                indices (paths containing <code>'</code>) will fail. It is highly recommended you only
+                use the default address with Core App. To use extended address indexes, log in using a mnemonic wallet instead.
             </p>
         </template>
     </div>

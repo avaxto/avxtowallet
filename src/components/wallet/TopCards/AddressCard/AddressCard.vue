@@ -14,7 +14,9 @@
             <div class="bottom_rest">
                 <div class="subtitle-row">
                     <p class="subtitle">{{ addressLabel }}</p>
-                    <div v-if="showIndexSpinner" class="addr-index-ctrl">
+                    <div v-if="showIndexSpinner || walletType === 'injected'"
+                         :style="walletType === 'injected' ? { visibility: 'hidden' } : {}"
+                         class="addr-index-ctrl">
                         <input
                             type="number"
                             class="addr-index-input"
@@ -175,9 +177,12 @@ export default defineComponent({
         const activeAddress = computed((): string => {
             switch (chainNow.value) {
                 case 'X':
-                    return xAddressOverride.value ?? address.value
+                    // Use || so an empty-string override (returned when wallet has no
+                    // externalHelper, e.g. InjectedWallet) falls through to the real
+                    // computed address (wallet.getCurrentAddressAvm()).
+                    return xAddressOverride.value || address.value
                 case 'P':
-                    return pAddressOverride.value ?? addressPVM.value
+                    return pAddressOverride.value || addressPVM.value
                 case 'C':
                     return showBech.value ? addressEVMBech32.value : addressEVM.value
             }
@@ -191,8 +196,7 @@ export default defineComponent({
         })
 
         const showNewAddressBtn = computed((): boolean => {
-            return chainNow.value === 'X' &&
-                (walletType.value === 'mnemonic' || walletType.value === 'injected')
+            return chainNow.value === 'X' && walletType.value === 'mnemonic'
         })
 
         const showIndexSpinner = computed((): boolean => {
@@ -213,7 +217,17 @@ export default defineComponent({
 
         const getAddressAtIndex = (idx: number): string => {
             const wallet = activeWallet.value as unknown as AbstractHdWallet
-            if (!wallet || typeof wallet.externalHelper === 'undefined') return ''
+            if (!wallet) return ''
+            if (typeof wallet.externalHelper === 'undefined') {
+                // Injected / singleton wallets without an HdHelper: index into
+                // getAllAddressesX/P so index 0 maps to the base (m/0/0) address.
+                const base = activeWallet.value!
+                switch (chainNow.value) {
+                    case 'X': return base.getAllAddressesX()[idx] ?? ''
+                    case 'P': return base.getAllAddressesP()[idx] ?? ''
+                    default: return ''
+                }
+            }
             switch (chainNow.value) {
                 case 'X': return wallet.externalHelper.getAddressForIndex(idx)
                 case 'P': return wallet.platformHelper.getAddressForIndex(idx)
@@ -277,10 +291,13 @@ export default defineComponent({
             const canvas = qrRef.value
             if (!canvas) return
 
+            const addr = activeAddress.value
+            if (!addr || addr === '-') return
+
             const size = canvas.clientWidth
             QRCode.toCanvas(
                 canvas,
-                activeAddress.value,
+                addr,
                 {
                     scale: 6,
                     color: {
