@@ -59,10 +59,6 @@ export const AVA_ACCOUNT_PATH: string = `m/44'/${AVA_TOKEN_INDEX}'/0'` // Change
 export const ETH_ACCOUNT_PATH: string = `m/44'/60'/0'`
 export const LEDGER_ETH_ACCOUNT_PATH = ETH_ACCOUNT_PATH + '/0/0'
 
-const INDEX_RANGE: number = 20 // a gap of at least 20 indexes is needed to claim an index unused
-const SCAN_SIZE: number = 70 // the total number of utxos to look at initially to calculate last index
-const SCAN_RANGE: number = SCAN_SIZE - INDEX_RANGE // How many items are actually scanned
-
 export default class MnemonicWallet extends AbstractHdWallet implements IAvaHdWallet {
     seed: string
     hdKey: HDKey
@@ -118,6 +114,11 @@ export default class MnemonicWallet extends AbstractHdWallet implements IAvaHdWa
             const privKeyHex = '0x' + avmKeyPair.getPrivateKey().toString('hex')
             this.xpAccount = privateKeyToXPAccount(privKeyHex)
         }
+
+        // Separate account for C-chain (EVM) signing: m/44'/60'/0'/0/0 key.
+        // MnemonicWallet derives EVM key on a different BIP-44 path from the
+        // AVM key, so we need a distinct XPAccount for C-chain export signing.
+        this.evmXpAccount = privateKeyToXPAccount(`0x${this.ethKey}`)
     }
 
     getEvmAddress(): string {

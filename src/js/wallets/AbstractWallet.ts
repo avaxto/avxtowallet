@@ -56,6 +56,10 @@ abstract class AbstractWallet {
 
     // AvalancheAccount conformance
     xpAccount?: XPAccount
+    // Separate XPAccount built from the EVM private key (m/44'/60'/0'/0/0).
+    // Only set for MnemonicWallet (which has distinct X-chain and EVM derivation paths).
+    // For SingletonWallet the same key serves both roles, so this stays undefined.
+    evmXpAccount?: XPAccount
 
     get evmAccount(): Account {
         return {
@@ -366,7 +370,7 @@ abstract class AbstractWallet {
 
         console.log('Built export transaction', exportTxResult)
 
-        if (this.xpAccount) {
+        if (this.xpAccount || this.evmXpAccount) {
             console.log('Wallet has xpAccount, using wallet client to sign and send export transaction...')
             // Local-key wallets (mnemonic / singleton): sign with xpAccount
             const network = activeNetwork
@@ -377,7 +381,10 @@ abstract class AbstractWallet {
                 rpcUrls: { default: { http: [network.rpcUrl.c] } },
             })
             const evmAddress = this.getEVMAddress() as `0x${string}`
-            const xpAcc = this.xpAccount!
+            // C-chain export credentials are owned by the EVM key (m/44'/60'/0'/0/0).
+            // Use evmXpAccount when available (MnemonicWallet); fall back to xpAccount
+            // for SingletonWallet where both chains share the same key.
+            const xpAcc = (this.evmXpAccount ?? this.xpAccount)!
             const avalancheAccount = {
                 evmAccount: { address: evmAddress, type: 'json-rpc' as const },
                 xpAccount: xpAcc,

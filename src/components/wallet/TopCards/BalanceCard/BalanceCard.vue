@@ -10,7 +10,7 @@
                     </button>
                 </div>
                 <h4>{{ $t('top.title2') }}</h4>
-                <span v-if="walletTypeLabel" class="wallet_type_badge">{{ walletTypeLabel }}</span>
+                <span v-if="walletTypeLabel" class="wallet_type_badge badge badge-info">{{ walletTypeLabel }}</span>
                 <template v-if="!isBreakdown">
                     <button class="breakdown_toggle" @click="toggleBreakdown">
                         <fa icon="eye"></fa>
@@ -382,11 +382,11 @@ export default defineComponent({
 
         const walletTypeLabel = computed((): string => {
             const typeMap: Record<string, string> = {
-                mnemonic: 'Mnemonic',
-                singleton: 'Private Key',
-                ledger: 'Ledger',
-                injected: 'Injected',
-                xpub: 'View Only',
+                mnemonic: 'Mnemonic Wallet',
+                singleton: 'Private Key Wallet',
+                ledger: 'Ledger Wallet',
+                injected: 'Extension Wallet',
+                xpub: 'Read-Only Wallet',
             }
             return typeMap[wallet.value?.type ?? ''] ?? ''
         })
