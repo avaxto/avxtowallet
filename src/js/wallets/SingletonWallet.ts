@@ -33,6 +33,7 @@ import Erc20Token from '@/js/Erc20Token'
 import { AbstractWallet } from '@/js/wallets/AbstractWallet'
 import { WalletHelper } from '@/helpers/wallet_helper'
 import { avmGetAllUTXOs, platformGetAllUTXOs } from '@/helpers/utxo_helper'
+import { privateKeyToXPAccount } from '@avalanche-sdk/client/accounts'
 import { UTXO as AVMUTXO } from '@/avalanche/apis/avm/utxos'
 import { Transaction } from '@ethereumjs/tx'
 
@@ -96,32 +97,8 @@ class SingletonWallet extends AbstractWallet implements AvaWalletCore, UnsafeWal
         this.isInit = true
 
         // AvalancheAccount: initialize xpAccount for XP-chain signing
-        const pubKeyBuf = this.keyPair.getPublicKey()
-        const pubKeyHex = '0x' + pubKeyBuf.toString('hex')
-        this.xpAccount = {
-            publicKey: pubKeyHex,
-            signMessage: async (message: string) => {
-                return this.signMessage(message)
-            },
-            signTransaction: async (txHash: string | Uint8Array) => {
-                const hashBuf = typeof txHash === 'string'
-                    ? BufferAvalanche.from(txHash.replace('0x', ''), 'hex')
-                    : BufferAvalanche.from(txHash)
-                const signed = this.keyPair.sign(hashBuf)
-                return bintools.cb58Encode(signed)
-            },
-            verify: (message: string, signature: string) => {
-                try {
-                    const msgBuf = BufferAvalanche.from(message, 'utf8')
-                    const sigBuf = bintools.cb58Decode(signature)
-                    return this.keyPair.verify(msgBuf, sigBuf)
-                } catch {
-                    return false
-                }
-            },
-            type: 'local' as const,
-            source: 'privateKey' as const,
-        }
+        const privKeyHex = '0x' + this.keyPair.getPrivateKey().toString('hex')
+        this.xpAccount = privateKeyToXPAccount(privKeyHex)
     }
 
     getChangeAddressAvm(): string {

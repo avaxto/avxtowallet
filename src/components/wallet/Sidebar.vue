@@ -47,11 +47,11 @@
                     {{ $t('wallet.sidebar.advanced') }}
                 </router-link>
                 <router-link to="/wallet/addresses" data-cy="wallet_addresses" class="wallet_link">
-                    <span style="margin-right: 15px;"><fa icon="list" class="icon"></fa></span>
+                    <span class="sidebar_icon"><fa icon="list" class="icon"></fa></span>
                     Addresses
                 </router-link>
                 <router-link to="/wallet/wizard" data-cy="wallet_wizard" class="wallet_link">
-                    <span><fa icon="magic" class="icon"></fa></span>
+                    <span class="sidebar_icon"><fa icon="magic" class="icon"></fa></span>
                     Wallet Wizard
                 </router-link>
             </div>
@@ -186,4 +186,9 @@ export default defineComponent({
         font-size: 12px;
     }
 }
+
+.sidebar_icon {
+    margin-right: 15px;
+}
+
 </style>

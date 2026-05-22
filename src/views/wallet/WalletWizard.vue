@@ -48,6 +48,13 @@
                     </div>
                 </div>
 
+                <div class="copy_row">
+                    <button class="copy_btn" @click="copyMnemonic">
+                        <fa :icon="copiedMnemonic ? 'check' : 'copy'"></fa>
+                        {{ copiedMnemonic ? 'Copied!' : 'Copy to Clipboard' }}
+                    </button>
+                </div>
+
                 <div class="quiz_section">
                     <p class="quiz_title">
                         To confirm you have recorded your mnemonic, enter the
@@ -169,6 +176,7 @@
                         <span v-else-if="t.status === 'success'" class="ok">✓ Success</span>
                         <span v-else-if="t.status === 'skipped'" class="skip">→ Skipped</span>
                         <span v-else class="fail">✗ {{ t.error }}</span>
+                        <span v-if="t.note" class="transfer_note">{{ t.note }}</span>
                     </span>
                 </div>
                 <div v-if="isExecuting && transfers.length === 0" class="executing_spinner">
@@ -217,6 +225,7 @@
                             {{ t.txId.length > 20 ? t.txId.substring(0, 20) + '…' : t.txId }}
                         </span>
                         <span v-else class="err_detail">{{ t.error || '—' }}</span>
+                        <span v-if="t.note" class="transfer_note">{{ t.note }}</span>
                     </span>
                 </div>
             </div>
@@ -259,6 +268,7 @@ interface TransferRecord {
     status: 'pending' | 'success' | 'error' | 'skipped'
     txId?: string
     error?: string
+    note?: string
 }
 
 export default defineComponent({
@@ -276,6 +286,14 @@ export default defineComponent({
         const quizIndices = ref<number[]>([])
         const quizAnswers = ref<Record<number, string>>({})
         const quizError = ref<string | null>(null)
+        const copiedMnemonic = ref(false)
+
+        const copyMnemonic = async () => {
+            if (!newMnemonic.value) return
+            await navigator.clipboard.writeText(newMnemonic.value)
+            copiedMnemonic.value = true
+            setTimeout(() => { copiedMnemonic.value = false }, 2000)
+        }
 
         // Derived new-wallet addresses (computed once mnemonic is set)
         const _newWallet = ref<MnemonicWallet | null>(null)
@@ -376,18 +394,32 @@ export default defineComponent({
             }
 
             // C-chain ERC20 tokens
+            const baseAssetData = assetsStore.baseAsset
             const allErc20 = [...assetsStore.erc20Tokens, ...assetsStore.erc20TokensCustom]
             for (const token of allErc20) {
                 if (!token.balanceBN.gt(new BN(0))) continue
                 const denom = parseInt(String(token.data.decimals), 10) || 18
+                const isBase =
+                    baseAssetData &&
+                    token.data.address.toLowerCase() === baseAssetData.address.toLowerCase()
+                const thr = isBase ? (baseAssetData!.thr as BN) : null
+                const transferable =
+                    thr && token.balanceBN.gt(thr)
+                        ? token.balanceBN.sub(thr)
+                        : thr
+                        ? new BN(0)
+                        : token.balanceBN.clone()
+                const thrHuman = thr ? bnToBig(thr, denom).toFixed(Math.min(denom, 9)) : null
                 entries.push({
                     chain: 'C',
                     name: token.data.name,
                     symbol: token.data.symbol,
-                    amount: token.balanceBig.toFixed(Math.min(denom, 9)),
+                    amount: bnToBig(transferable, denom).toFixed(Math.min(denom, 9)),
                     assetId: token.data.address,
-                    rawAmount: token.balanceBN.clone(),
-                    note: 'Will be transferred directly',
+                    rawAmount: transferable,
+                    note: isBase
+                        ? `⚠ ${thrHuman} ${token.data.symbol} kept in current wallet (threshold — required to stay usable)`
+                        : 'Will be transferred directly',
                 })
             }
 
@@ -518,8 +550,21 @@ export default defineComponent({
             }
 
             // ── C-chain ERC20 tokens ──────────────────────────────────────────
+            const baseAssetInfo = assetsStore.baseAsset
             const allErc20 = [...assetsStore.erc20Tokens, ...assetsStore.erc20TokensCustom]
-            for (const token of allErc20) {
+            const regularErc20 = allErc20.filter(
+                (t) =>
+                    !baseAssetInfo ||
+                    t.data.address.toLowerCase() !== baseAssetInfo.address.toLowerCase()
+            )
+            const baseErc20 = allErc20.find(
+                (t) =>
+                    baseAssetInfo &&
+                    t.data.address.toLowerCase() === baseAssetInfo.address.toLowerCase()
+            )
+
+            // Transfer all regular ERC20s first
+            for (const token of regularErc20) {
                 if (!token.balanceBN.gt(new BN(0))) continue
 
                 const denom = parseInt(String(token.data.decimals), 10) || 18
@@ -549,6 +594,50 @@ export default defineComponent({
                 }
             }
 
+            // Transfer baseAsset last, keeping thr in the current wallet
+            if (baseErc20 && baseErc20.balanceBN.gt(new BN(0)) && baseAssetInfo) {
+                const denom = parseInt(String(baseErc20.data.decimals), 10) || 18
+                const thr = baseAssetInfo.thr as BN
+                const thrHuman = bnToBig(thr, denom).toFixed(Math.min(denom, 9))
+
+                if (baseErc20.balanceBN.lte(thr)) {
+                    transfers.value.push({
+                        chain: 'C',
+                        asset: baseErc20.data.symbol,
+                        amount: baseErc20.balanceBig.toFixed(Math.min(denom, 9)) + ' ' + baseErc20.data.symbol,
+                        status: 'skipped',
+                        note: `Balance does not exceed threshold (${thrHuman} ${baseErc20.data.symbol}). Nothing transferred — current wallet stays usable.`,
+                    })
+                } else {
+                    const sendAmount = baseErc20.balanceBN.sub(thr)
+                    const txRecord: TransferRecord = {
+                        chain: 'C',
+                        asset: baseErc20.data.symbol,
+                        amount: bnToBig(sendAmount, denom).toFixed(Math.min(denom, 9)) + ' ' + baseErc20.data.symbol,
+                        status: 'pending',
+                        note: `${thrHuman} ${baseErc20.data.symbol} kept in current wallet — required to remain usable (threshold)`,
+                    }
+                    transfers.value.push(txRecord)
+                    currentStep3Label.value = `Sending ${baseErc20.data.symbol} (keeping ${thrHuman} threshold)…`
+
+                    try {
+                        const txHash = await WalletHelper.sendErc20(
+                            wallet,
+                            targetCAddr,
+                            sendAmount,
+                            gasPrice,
+                            100_000,
+                            baseErc20
+                        )
+                        txRecord.txId = txHash
+                        txRecord.status = 'success'
+                    } catch (e: any) {
+                        txRecord.status = 'error'
+                        txRecord.error = e?.message ?? String(e)
+                    }
+                }
+            }
+
             isExecuting.value = false
             currentStep3Label.value = 'All transfers processed.'
         }
@@ -560,7 +649,7 @@ export default defineComponent({
                 (t) =>
                     `${t.chain} | ${t.asset} | ${t.amount} | ${t.status} | ${
                         t.txId ?? t.error ?? '—'
-                    }`
+                    }${t.note ? ' | NOTE: ' + t.note : ''}`
             )
             return [header, ...rows].join('\n')
         }
@@ -607,6 +696,8 @@ export default defineComponent({
             quizIndices,
             quizAnswers,
             quizError,
+            copiedMnemonic,
+            copyMnemonic,
             generateMnemonic,
             goToStep2,
             // step 2
@@ -753,13 +844,36 @@ h2 {
     display: grid;
     grid-template-columns: repeat(6, 1fr);
     gap: 8px;
-    margin-bottom: 28px;
+    margin-bottom: 12px;
 
     @media (max-width: 700px) {
         grid-template-columns: repeat(4, 1fr);
     }
     @media (max-width: 460px) {
         grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+.copy_row {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 20px;
+}
+
+.copy_btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: var(--primary-color-light);
+    border: 1px solid var(--bg-light);
+    border-radius: 4px;
+    padding: 4px 12px;
+    transition: color 0.15s, border-color 0.15s;
+
+    &:hover {
+        color: var(--secondary-color);
+        border-color: var(--secondary-color);
     }
 }
 
@@ -1067,6 +1181,14 @@ h2 {
     color: var(--primary-color-light);
     font-family: inherit;
     font-size: 12px;
+}
+
+.transfer_note {
+    display: block;
+    font-size: 11px;
+    color: var(--primary-color-light);
+    margin-top: 2px;
+    font-style: italic;
 }
 
 /* ── Actions row ─────────────────────────────────────────────────────── */

@@ -402,7 +402,7 @@ export default defineComponent({
             // --- Export phase ---
             exportState.value = TxState.started
             exportId.value = ''
-            exportStatus.value = null
+            exportStatus.value = 'Processing…'
             exportReason.value = null
 
             let exportTxId: string
@@ -416,9 +416,11 @@ export default defineComponent({
                 }
                 exportId.value = exportTxId
                 exportState.value = TxState.success
+                exportStatus.value = 'Committed'
                 console.log('Exported with txId', exportTxId)
             } catch (e: any) {
                 exportState.value = TxState.failed
+                exportStatus.value = 'Failed'
                 exportReason.value = e.message || String(e)
                 console.log('Export failed', e)
                 throw e
@@ -430,7 +432,7 @@ export default defineComponent({
             // --- Import phase ---
             importState.value = TxState.started
             importId.value = ''
-            importStatus.value = null
+            importStatus.value = 'Processing…'
             importReason.value = null
 
             let importTxId: string
@@ -444,8 +446,10 @@ export default defineComponent({
                 }
                 importId.value = importTxId
                 importState.value = TxState.success
+                importStatus.value = 'Committed'
             } catch (e: any) {
                 importState.value = TxState.failed
+                importStatus.value = 'Failed'
                 importReason.value = e.message || String(e)
                 isImportErr.value = true
                 throw e

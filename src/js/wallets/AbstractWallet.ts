@@ -268,10 +268,22 @@ abstract class AbstractWallet {
             destinationChain === 'C' ? this.getEvmAddressBech() : this.getCurrentAddressAvm()
 
         if (this.xpAccount) {
-            // Key-based wallets (mnemonic / singleton): use new SDK prepareExportTxn.
-            // Pass all known P-chain addresses as fromAddresses so the SDK fetches UTXOs
-            // at every HD index — signing addresses are derived from the selected UTXOs,
-            // not just the current active address.
+            // Key-based wallets (mnemonic / singleton): follow the SDK example at
+            // ava-labs/avalanche-sdk-typescript:
+            //   client/examples/prepare-primary-network-txns/p-chain/exportTx.ts
+            //
+            // The SDK signs every input with the single key the account carries
+            // (derived from `xpAccount.publicKey` — the primary m/0/0 address).
+            // Passing `fromAddresses: getAllAddressesP()` (all HD-discovered P
+            // addresses) made the SDK pull in inputs owned by addresses the
+            // single signing key cannot satisfy, producing node-side
+            // "failed verifySpend: failed to verify transfer: invalid signature".
+            //
+            // Omitting `fromAddresses` lets the SDK fetch UTXOs only at the
+            // account's primary P-chain address — every input is then signed by
+            // a key that recovers to its owner.  Funds at non-primary HD-derived
+            // P addresses are not reachable through this path (a known
+            // single-key-account limitation of the new SDK).
             const network = activeNetwork
             const chain = defineChain({
                 id: network.evmChainID,
@@ -299,7 +311,6 @@ abstract class AbstractWallet {
                     amount: BigInt(amtFee.toString()),
                 }],
                 destinationChain: destinationChain as 'X' | 'C',
-                fromAddresses: this.getAllAddressesP(),
             })
 
             const result = await walletClient.sendXPTransaction(pChainExportTxnRequest)

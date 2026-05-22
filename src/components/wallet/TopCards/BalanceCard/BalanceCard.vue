@@ -10,6 +10,7 @@
                     </button>
                 </div>
                 <h4>{{ $t('top.title2') }}</h4>
+                <span v-if="walletTypeLabel" class="wallet_type_badge">{{ walletTypeLabel }}</span>
                 <template v-if="!isBreakdown">
                     <button class="breakdown_toggle" @click="toggleBreakdown">
                         <fa icon="eye"></fa>
@@ -379,6 +380,17 @@ export default defineComponent({
             return wallet.value.type === 'injected'
         })
 
+        const walletTypeLabel = computed((): string => {
+            const typeMap: Record<string, string> = {
+                mnemonic: 'Mnemonic',
+                singleton: 'Private Key',
+                ledger: 'Ledger',
+                injected: 'Injected',
+                xpub: 'View Only',
+            }
+            return typeMap[wallet.value?.type ?? ''] ?? ''
+        })
+
         const isSingleton = computed((): boolean => {
             if (!wallet.value) return false
             return wallet.value.type === 'singleton'
@@ -441,6 +453,7 @@ export default defineComponent({
             wallet,
             isInjected,
             isSingleton,
+            walletTypeLabel,
             isUpdateBalance,
             priceDict,
             hasLocked,
@@ -603,6 +616,17 @@ h4 {
 
 .nft_card {
     padding-left: 20px;
+}
+
+.wallet_type_badge {
+    font-size: 11px;
+    color: var(--primary-color-light);
+    background: var(--bg-light);
+    border-radius: 3px;
+    padding: 1px 6px;
+    margin-left: 8px;
+    flex-shrink: 0;
+    white-space: nowrap;
 }
 
 .breakdown_toggle {

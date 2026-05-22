@@ -46,7 +46,9 @@ import Erc20Token from '@/js/Erc20Token'
 import { WalletHelper } from '@/helpers/wallet_helper'
 import { Transaction } from '@ethereumjs/tx'
 import MnemonicPhrase from '@/js/wallets/MnemonicPhrase'
-import { ExportChainsC, UtxoHelper, chainIdFromAlias } from '@/avalanche-wallet-sdk'
+import { ExportChainsC, ExportChainsP, TxHelper, UtxoHelper, chainIdFromAlias } from '@/avalanche-wallet-sdk'
+import { sortUTxoSetP } from '@/helpers/sortUTXOs'
+import { privateKeyToXPAccount } from '@avalanche-sdk/client/accounts'
 
 // HD WALLET
 // Accounts are not used and the account index is fixed to 0
@@ -113,32 +115,8 @@ export default class MnemonicWallet extends AbstractHdWallet implements IAvaHdWa
         // AvalancheAccount: initialize xpAccount for XP-chain signing
         const avmKeyPair = this.externalHelper.getCurrentKey()
         if (avmKeyPair) {
-            const pubKeyBuf = avmKeyPair.getPublicKey()
-            const pubKeyHex = '0x' + pubKeyBuf.toString('hex')
-            this.xpAccount = {
-                publicKey: pubKeyHex,
-                signMessage: async (message: string) => {
-                    return this.signMessage(message)
-                },
-                signTransaction: async (txHash: string | Uint8Array) => {
-                    const hashBuf = typeof txHash === 'string'
-                        ? BufferAvalanche.from(txHash.replace('0x', ''), 'hex')
-                        : BufferAvalanche.from(txHash)
-                    const signed = avmKeyPair.sign(hashBuf)
-                    return bintools.cb58Encode(signed)
-                },
-                verify: (message: string, signature: string) => {
-                    try {
-                        const msgBuf = BufferAvalanche.from(message, 'utf8')
-                        const sigBuf = bintools.cb58Decode(signature)
-                        return avmKeyPair.verify(msgBuf, sigBuf)
-                    } catch {
-                        return false
-                    }
-                },
-                type: 'local' as const,
-                source: 'mnemonic' as const,
-            }
+            const privKeyHex = '0x' + avmKeyPair.getPrivateKey().toString('hex')
+            this.xpAccount = privateKeyToXPAccount(privKeyHex)
         }
     }
 
@@ -239,6 +217,95 @@ export default class MnemonicWallet extends AbstractHdWallet implements IAvaHdWa
     async signC(unsignedTx: EVMUnsignedTx): Promise<EvmTx> {
         const keyChain = this.ethKeyChain
         return unsignedTx.sign(keyChain)
+    }
+
+    /**
+     * Override of AbstractWallet.exportFromPChain.
+     *
+     * The parent's `xpAccount` branch uses the new SDK's prepareExportTxn +
+     * sendXPTransaction, which signs every input with a single key derived from
+     * `xpAccount.publicKey` (the account's primary m/0/0 address).  That fails
+     * with "failed verifySpend: failed to verify transfer: invalid signature"
+     * whenever the wallet's P-chain UTXOs are spread across multiple HD-derived
+     * addresses — which is the normal state for mnemonic wallets that have
+     * received funds more than once.
+     *
+     * Bypass the SDK and use the old AvalancheJS path instead: build the
+     * ExportTx with the full set of HD-derived P addresses as `fromAddresses`,
+     * and sign with `signP`, whose keychain (via `platformHelper.getKeychain()`)
+     * already contains every derived P key 0..hdIndex.  `incrementIndex` and
+     * the lot-scan in `HdHelper.updateUtxos` keep that keychain in sync with
+     * every used HD index, so any UTXO owner the SDK would normally pull in is
+     * already signable here.
+     */
+    async exportFromPChain(amt: BN, destinationChain: ExportChainsP, importFee?: BN): Promise<string> {
+        if (destinationChain === 'C' && !importFee) {
+            throw new Error('Exports to C chain must specify an import fee.')
+        }
+
+        let amtFee = amt.clone()
+        if (importFee) {
+            amtFee = amt.add(importFee)
+        } else if (destinationChain === 'X') {
+            amtFee = amt.add(avm.getTxFee())
+        }
+
+        const destinationAddr =
+            destinationChain === 'C' ? this.getEvmAddressBech() : this.getCurrentAddressAvm()
+
+        const utxoSet = this.getPlatformUTXOSet()
+        const sortedSet = sortUTxoSetP(utxoSet, false)
+        const pChangeAddr = this.getCurrentAddressPlatform()
+        const fromAddrs = this.getAllAddressesP()
+
+        const exportTx = await TxHelper.buildPlatformExportTransaction(
+            sortedSet,
+            fromAddrs,
+            destinationAddr,
+            amtFee,
+            pChangeAddr,
+            destinationChain
+        )
+
+        const tx = await this.signP(exportTx)
+        return await this.issueP(tx)
+    }
+
+    /**
+     * Override of AbstractWallet.importToPlatformChain.
+     *
+     * Same reasoning as `exportFromPChain` above: the SDK path can only sign
+     * for a single primary address.  The old AvalancheJS path uses the full
+     * P keychain via `signP`, so atomic UTXOs owned by any HD-derived P
+     * address can be claimed in a single tx.
+     */
+    async importToPlatformChain(sourceChain: ExportChainsP): Promise<string> {
+        const utxoSet = await this.platformGetAtomicUTXOs(sourceChain)
+
+        if (utxoSet.getAllUTXOs().length === 0) {
+            throw new Error('Nothing to import.')
+        }
+
+        const sourceChainId = chainIdFromAlias(sourceChain)
+        const pToAddr = this.getCurrentAddressPlatform()
+        const hrp = ava.getHRP()
+        const ownerAddrs = (utxoSet.getAddresses() as any[]).map((addr: any) =>
+            bintools.addressToString(hrp, 'P', addr)
+        )
+
+        const unsignedTx = await pChain.buildImportTx(
+            utxoSet,
+            ownerAddrs,
+            sourceChainId,
+            [pToAddr],
+            [pToAddr],
+            [pToAddr],
+            undefined,
+            undefined
+        )
+
+        const tx = await this.signP(unsignedTx)
+        return this.issueP(tx)
     }
 
     /** The bech32-C address derived from the keccak256-based EVM bytes

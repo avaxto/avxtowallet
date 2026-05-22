@@ -64,6 +64,8 @@ import {
     faUnlink,
     faFileCsv,
     faGlasses,
+    faMagic,
+    faCheck,
 } from '@fortawesome/free-solid-svg-icons'
 
 import { faBtc, faGoogle } from '@fortawesome/free-brands-svg-icons'
@@ -129,7 +131,9 @@ library.add(
     faVideo,
     faUnlink,
     faFileCsv,
-    faGlasses
+    faGlasses,
+    faMagic,
+    faCheck
 )
 
 // Import Vuetify components
