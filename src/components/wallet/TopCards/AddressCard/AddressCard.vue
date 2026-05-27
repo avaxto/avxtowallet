@@ -407,12 +407,14 @@ export default defineComponent({
             }
         })
 
-        watch(activeWallet, () => {
+        watch(activeWallet, (wallet) => {
             xAddressOverride.value = null
             pAddressOverride.value = null
-            savedIndexX.value = activeIdx.value
-            savedIndexP.value = activeIdx.value
-            addrIndex.value = activeIdx.value
+            // Always show index 0 when a mnemonic wallet loads
+            const startIndex = wallet?.type === 'mnemonic' ? 0 : activeIdx.value
+            savedIndexX.value = startIndex
+            savedIndexP.value = startIndex
+            addrIndex.value = startIndex
         })
 
         // Force C-chain view for injected and singleton (private key) wallets
@@ -423,9 +425,11 @@ export default defineComponent({
         }, { immediate: true })
 
         onMounted(() => {
-            savedIndexX.value = activeIdx.value
-            savedIndexP.value = activeIdx.value
-            addrIndex.value = activeIdx.value
+            // Always show index 0 when a mnemonic wallet loads
+            const startIndex = activeWallet.value?.type === 'mnemonic' ? 0 : activeIdx.value
+            savedIndexX.value = startIndex
+            savedIndexP.value = startIndex
+            addrIndex.value = startIndex
             updateQR()
         })
 
