@@ -18,8 +18,10 @@ import '@/vue_components'
 import { useStatusBarStore } from '@/stores'
 import { useThemeStore } from './stores/theme'
 import '@/utils/big-extensions'
+import { installRateLimiter } from '@/providers/rate_limiter'
 
 console.log('Starting AVAX Toolbox')
+installRateLimiter()
 const app = createApp(App)
 app.use(router)
 app.use(pinia)
