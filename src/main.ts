@@ -13,14 +13,24 @@ import 'bootstrap/dist/css/bootstrap.css'
 import 'bootstrap-vue-next/dist/bootstrap-vue-next.css'
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
 import { createUnhead } from '@unhead/vue'
-import { VueHeadMixin } from '@unhead/vue'
 // @ts-ignore
 import '@/vue_components'
 import { useStatusBarStore } from '@/stores'
+import { useThemeStore } from './stores/theme'
+import '@/utils/big-extensions'
 
 console.log('Starting AVAX Toolbox')
-
 const app = createApp(App)
+app.use(router)
+app.use(pinia)
+app.use(vuetify)
+app.use(createBootstrap({ components: true, directives: true }))
+app.component('fa', FontAwesomeIcon)
+app.component('b-container', BContainer)
+app.component('b-row', BRow)
+app.component('b-col', BCol)
+app.config.globalProperties.$productionTip = false
+
 
 // @ts-ignore
 window.Vue = {
@@ -38,14 +48,8 @@ const i18n = createI18n({
     fallbackLocale: 'en',
     messages: i18nMessages
 })
+app.use(i18n)
 
-const head = createUnhead()
-
-app.use(router)
-app.use(pinia)
-
-import { useThemeStore } from './stores/theme'
-import { read } from 'fs'
 const themeStore = useThemeStore()
 themeStore.initTheme()
 
@@ -55,23 +59,14 @@ app.config.globalProperties.$root = {
     }
 }
 
-app.use(vuetify)
-app.use(i18n)
 
+const head = createUnhead()
 app.use({
     install(app) {
         app.config.globalProperties.$head = head
         app.provide('usehead', head)
     }
 })
-
-app.use(createBootstrap({ components: true, directives: true }))
-app.component('fa', FontAwesomeIcon)
-app.component('b-container', BContainer)
-app.component('b-row', BRow)
-app.component('b-col', BCol)
-
-app.config.globalProperties.$productionTip = false
 
 // App lifecycle - equivalent to mounted hook  
 // Register mixin BEFORE mounting
@@ -108,10 +103,10 @@ app.config.errorHandler = (err: any, instance, info) => {
 
 const mountedApp = app.mount('#app')
 const readyMessage = `AVAX Toolbox Version: ${AVAX_TOOLBOX_VERSION}`
-console.log(readyMessage)
-
 const statusBar = useStatusBarStore()
 statusBar.info(readyMessage)
+console.log(readyMessage)
+
 
 // @ts-ignore
 if (window.Cypress) {
@@ -120,4 +115,4 @@ if (window.Cypress) {
     window.app = mountedApp
 }
 
-import '@/utils/big-extensions'
+
