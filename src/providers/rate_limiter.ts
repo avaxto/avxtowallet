@@ -18,6 +18,8 @@ import { PROVIDER_CONFIG } from './provider_config'
 
 // ── Core limiter ─────────────────────────────────────────────────────────────
 
+const RATE_LIMIT_STORAGE_KEY = 'avxto_rate_limit_config'
+
 export class FixedWindowRateLimiter {
     private maxRequests: number
     private windowMs: number
@@ -34,6 +36,37 @@ export class FixedWindowRateLimiter {
     configure(opts: { maxRequests?: number; windowMs?: number }): void {
         if (opts.maxRequests !== undefined) this.maxRequests = opts.maxRequests
         if (opts.windowMs !== undefined) this.windowMs = opts.windowMs
+    }
+
+    get currentMaxRequests(): number {
+        return this.maxRequests
+    }
+
+    get currentWindowMs(): number {
+        return this.windowMs
+    }
+
+    saveConfig(): void {
+        try {
+            localStorage.setItem(
+                RATE_LIMIT_STORAGE_KEY,
+                JSON.stringify({ maxRequests: this.maxRequests, windowMs: this.windowMs }),
+            )
+        } catch (e) {
+            console.warn('[RateLimiter] Failed to persist config:', e)
+        }
+    }
+
+    loadConfig(): void {
+        try {
+            const stored = localStorage.getItem(RATE_LIMIT_STORAGE_KEY)
+            if (!stored) return
+            const cfg = JSON.parse(stored)
+            if (typeof cfg.maxRequests === 'number' && cfg.maxRequests > 0) this.maxRequests = cfg.maxRequests
+            if (typeof cfg.windowMs === 'number' && cfg.windowMs > 0) this.windowMs = cfg.windowMs
+        } catch (e) {
+            console.warn('[RateLimiter] Failed to load config:', e)
+        }
     }
 
     private scheduleReset(): void {
@@ -138,6 +171,7 @@ function installFetchWrapper(): void {
  * Safe to call multiple times (idempotent).
  */
 export function installRateLimiter(): void {
+    globalRateLimiter.loadConfig()
     installAxiosInterceptor()
     installFetchWrapper()
 }

@@ -22,6 +22,7 @@ import Xpub from '@/views/access/Xpub.vue'
 import Injected from '@/views/access/Injected.vue'
 import Addresses from '@/views/wallet/Addresses.vue'
 import AddressesDerive from '@/views/wallet/AddressesDerive.vue'
+import Config from '@/views/wallet/Config.vue'
 import WalletReadonly from '@/views/WalletReadonly.vue'
 import InsufficientBalance from '@/views/InsufficientBalance.vue'
 import { PublicMnemonicWallet } from '@/avalanche-wallet-sdk'
@@ -159,6 +160,10 @@ const routes = [
             {
                 path: 'wizard',
                 component: WalletWizard,
+            },
+            {
+                path: 'config',
+                component: Config,
             },
         ],
         component: Wallet,

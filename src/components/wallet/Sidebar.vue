@@ -54,6 +54,10 @@
                     <span class="sidebar_icon"><fa icon="magic" class="icon"></fa></span>
                     Wallet Wizard
                 </router-link>
+                <router-link to="/wallet/config" data-cy="wallet_config" class="wallet_link">
+                    <span class="sidebar_icon"><fa icon="cog" class="icon"></fa></span>
+                    Config
+                </router-link>
             </div>
             <div class="bottom">
                 <LanguageSelect></LanguageSelect>                
