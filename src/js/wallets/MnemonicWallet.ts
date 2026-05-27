@@ -49,15 +49,18 @@ import MnemonicPhrase from '@/js/wallets/MnemonicPhrase'
 import { ExportChainsC, ExportChainsP, TxHelper, UtxoHelper, chainIdFromAlias } from '@/avalanche-wallet-sdk'
 import { sortUTxoSetP } from '@/helpers/sortUTXOs'
 import { privateKeyToXPAccount } from '@avalanche-sdk/client/accounts'
+import {
+    AVA_ACCOUNT_PATH,
+    ETH_ACCOUNT_PATH,
+    LEDGER_ETH_ACCOUNT_PATH,
+} from '@/js/wallets/constants'
+
+export { AVA_ACCOUNT_PATH, ETH_ACCOUNT_PATH, LEDGER_ETH_ACCOUNT_PATH }
 
 // HD WALLET
 // Accounts are not used and the account index is fixed to 0
 // m / purpose' / coin_type' / account' / change / address_index
 
-const AVA_TOKEN_INDEX: string = '9000'
-export const AVA_ACCOUNT_PATH: string = `m/44'/${AVA_TOKEN_INDEX}'/0'` // Change and index left out
-export const ETH_ACCOUNT_PATH: string = `m/44'/60'/0'`
-export const LEDGER_ETH_ACCOUNT_PATH = ETH_ACCOUNT_PATH + '/0/0'
 
 export default class MnemonicWallet extends AbstractHdWallet implements IAvaHdWallet {
     seed: string

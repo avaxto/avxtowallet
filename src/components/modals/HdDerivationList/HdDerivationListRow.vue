@@ -28,10 +28,6 @@ import { DerivationListBalanceDict } from '@/components/modals/HdDerivationList/
 import { LedgerWallet } from '@/js/wallets/LedgerWallet'
 import { AvalancheAccount } from '@avalanche-sdk/client/accounts'
 
-import { ava } from '@/AVA'
-import { getPreferredHRP } from '@/avalanche/utils'
-import { AVA_ACCOUNT_PATH } from '../../../js/wallets/MnemonicWallet'
-
 export default defineComponent({
     name: 'HdDerivationListRow',
     props: {

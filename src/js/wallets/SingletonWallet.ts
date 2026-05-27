@@ -21,7 +21,6 @@ import { KeyChain, KeyChain as EVMKeyChain, UTXOSet as EVMUTXOSet } from '@/aval
 import { PayloadBase } from '@/avalanche/utils'
 import { buildUnsignedTransaction } from '../TxHelper'
 import { AvaWalletCore, UnsafeWallet } from './types'
-import { UTXO as PlatformUTXO } from '@/avalanche/apis/platformvm/utxos'
 import { privateToAddress } from 'ethereumjs-util'
 import { Tx as AVMTx, UnsignedTx as AVMUnsignedTx } from '@/avalanche/apis/avm/tx'
 import {

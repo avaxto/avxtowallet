@@ -16,11 +16,7 @@ import { defineComponent, computed } from 'vue'
 import { useMainStore } from '@/stores'
 import { useI18n } from 'vue-i18n'
 import { AvalancheAccount } from '@avalanche-sdk/client/accounts'
-
 import { LedgerWallet } from '@/js/wallets/LedgerWallet'
-import { ava } from '@/AVA'
-import { getPreferredHRP } from '@/avalanche/utils'
-import { AVA_ACCOUNT_PATH } from '@/js/wallets/MnemonicWallet'
 
 export default defineComponent({
     name: 'HdEmptyAddressRow',

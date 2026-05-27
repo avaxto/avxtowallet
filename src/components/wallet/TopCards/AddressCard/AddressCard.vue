@@ -90,11 +90,10 @@ import CopyText from '@/components/misc/CopyText.vue'
 import QRModal from '@/components/modals/QRModal.vue'
 import PaperWallet from '@/components/modals/PaperWallet/PaperWallet.vue'
 import QRCode from 'qrcode'
-import { KeyPair as AVMKeyPair } from '@/avalanche/apis/avm'
-import { AvalancheAccount, WalletNameType } from '@/js/wallets/types'
+import { AvalancheAccount } from '@avalanche-sdk/client/accounts'
+import { WalletNameType } from '@/js/wallets/types'
 
 import MnemonicWallet, {
-    AVA_ACCOUNT_PATH,
     LEDGER_ETH_ACCOUNT_PATH,
 } from '@/js/wallets/MnemonicWallet'
 import { LedgerWallet } from '@/js/wallets/LedgerWallet'
@@ -104,7 +103,6 @@ import { InjectedWallet } from '@/js/wallets/InjectedWallet'
 import ChainSelect from '@/components/wallet/TopCards/AddressCard/ChainSelect.vue'
 import { ChainIdType } from '@/constants'
 import { ava } from '@/AVA'
-import { getPreferredHRP } from '@/avalanche/utils'
 
 export default defineComponent({
     name: 'AddressCard',
