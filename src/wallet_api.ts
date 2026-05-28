@@ -1,5 +1,5 @@
-// Doesn't really matter what we set, it will change
 import axios, { AxiosInstance } from 'axios'
+import { handleThrottleResponse } from '@/providers/rate_limiter'
 
 const wallet_api: AxiosInstance = axios.create({
     baseURL: '/api',
@@ -19,8 +19,9 @@ wallet_api.interceptors.response.use(
             
             if (status === 401) {
                 console.warn(`[Wallet API] 401 Unauthorized error for ${url}`)
-            } else if (status === 429) {
-                console.warn(`[Wallet API] Rate limit exceeded for ${url}`)
+            } else if (status === 429 || status === 503) {
+                handleThrottleResponse(status, error.response?.headers?.['retry-after'])
+                console.warn(`[Wallet API] HTTP ${status} for ${url} — traffic paused.`)
             } else if (status >= 500) {
                 console.error(`[Wallet API] Server error (${status}) for ${url}`)
             }

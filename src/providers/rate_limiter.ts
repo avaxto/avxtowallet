@@ -69,6 +69,44 @@ export class FixedWindowRateLimiter {
         }
     }
 
+    // ── Pause / resume ─────────────────────────────────────────────────────
+
+    private isPaused = false
+    private pauseQueue: Array<() => void> = []
+
+    /**
+     * Halt all outgoing requests for `durationMs` ms.
+     * Safe to call multiple times — subsequent calls while paused are no-ops.
+     */
+    pause(durationMs: number, code: number = 429): void {
+        if (this.isPaused) return
+        this.isPaused = true
+        // Cancel any in-flight window timer so it doesn't flush while paused
+        if (this.resetTimer !== null) {
+            clearTimeout(this.resetTimer)
+            this.resetTimer = null
+        }
+        // Move requests already waiting in the rate-limit queue into the pause queue
+        this.pauseQueue.push(...this.queue.splice(0))
+        window.dispatchEvent(new CustomEvent('avxto:network-paused', { detail: { durationMs, code } }))
+        setTimeout(() => this.resume(), durationMs)
+    }
+
+    /** Resume traffic and drain queued requests through normal rate limiting. */
+    resume(): void {
+        if (!this.isPaused) return
+        this.isPaused = false
+        // Fresh window so the first batch of queued requests are released cleanly
+        this.windowStart = Date.now()
+        this.count = 0
+        // Re-inject paused requests at the front of the rate-limit queue
+        this.queue.unshift(...this.pauseQueue.splice(0))
+        this.flushQueue()
+        window.dispatchEvent(new CustomEvent('avxto:network-resumed'))
+    }
+
+    // ── Fixed-window internals ─────────────────────────────────────────────
+
     private scheduleReset(): void {
         if (this.resetTimer !== null) return
         const elapsed = Date.now() - this.windowStart
@@ -96,8 +134,15 @@ export class FixedWindowRateLimiter {
     /**
      * Acquire a slot. Resolves immediately if a slot is available in the
      * current window, otherwise waits until the next window opens.
+     * While the limiter is paused, the caller waits until resume() is called.
      */
     async acquire(): Promise<void> {
+        if (this.isPaused) {
+            return new Promise<void>((resolve) => {
+                this.pauseQueue.push(resolve)
+            })
+        }
+
         const now = Date.now()
         if (now - this.windowStart >= this.windowMs) {
             // Current window has expired — start a fresh one
@@ -122,7 +167,11 @@ export class FixedWindowRateLimiter {
     }
 
     get queueLength(): number {
-        return this.queue.length
+        return this.queue.length + this.pauseQueue.length
+    }
+
+    get paused(): boolean {
+        return this.isPaused
     }
 }
 
@@ -133,6 +182,36 @@ export const globalRateLimiter = new FixedWindowRateLimiter(
     PROVIDER_CONFIG.rateLimit.windowMs,
 )
 
+// ── Throttle helpers ──────────────────────────────────────────────────────────
+
+const DEFAULT_BACKOFF: Record<number, number> = { 429: 30_000, 503: 60_000 }
+
+/**
+ * Parse a Retry-After response header into milliseconds.
+ * Supports both a delay-seconds integer and an HTTP-date string.
+ * Falls back to DEFAULT_BACKOFF for the given status code.
+ */
+function parseRetryAfter(header: string | null | undefined, status: number): number {
+    if (header) {
+        const seconds = Number(header)
+        if (!Number.isNaN(seconds) && seconds > 0) return seconds * 1000
+        const date = Date.parse(header)
+        if (!Number.isNaN(date)) return Math.max(0, date - Date.now())
+    }
+    return DEFAULT_BACKOFF[status] ?? 30_000
+}
+
+/**
+ * Call this when an HTTP 429 or 503 is received.
+ * Parses the Retry-After header and pauses the global rate limiter for
+ * the appropriate duration.
+ */
+export function handleThrottleResponse(status: number, retryAfterHeader?: string | null): void {
+    if (status !== 429 && status !== 503) return
+    const durationMs = parseRetryAfter(retryAfterHeader, status)
+    globalRateLimiter.pause(durationMs, status)
+}
+
 // ── Interceptors ──────────────────────────────────────────────────────────────
 
 let axiosInterceptorId: number | null = null
@@ -140,7 +219,8 @@ let originalFetch: typeof globalThis.fetch | null = null
 
 /**
  * Install an axios request interceptor that acquires a rate-limit slot before
- * each request is dispatched.
+ * each request is dispatched, and a response interceptor that pauses traffic
+ * on HTTP 429 / 503 from bare `axios` calls.
  */
 function installAxiosInterceptor(): void {
     if (axiosInterceptorId !== null) return
@@ -148,6 +228,16 @@ function installAxiosInterceptor(): void {
         await globalRateLimiter.acquire()
         return config
     })
+    axios.interceptors.response.use(
+        undefined,
+        (error) => {
+            const status: number | undefined = error.response?.status
+            if (status === 429 || status === 503) {
+                handleThrottleResponse(status, error.response?.headers?.['retry-after'])
+            }
+            return Promise.reject(error)
+        },
+    )
 }
 
 /**
@@ -162,7 +252,11 @@ function installFetchWrapper(): void {
         init?: RequestInit,
     ): Promise<Response> {
         await globalRateLimiter.acquire()
-        return originalFetch!(input, init)
+        const response = await originalFetch!(input, init)
+        if (response.status === 429 || response.status === 503) {
+            handleThrottleResponse(response.status, response.headers.get('retry-after'))
+        }
+        return response
     }
 }
 

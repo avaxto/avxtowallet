@@ -5,7 +5,7 @@
 
         <div class="head">
             <h1>Addresses</h1>
-            <p class="desc">All derived addresses associated with this wallet. This is an advanced feature, if you're not sure what you're doing, then you probably don't need this.</p>
+            <p class="desc">All derived addresses associated with this wallet. This is an advanced feature, if you're not sure what you're doing, then you probably don't need this. <strong>Important:</strong> When using Core App, use only the 0 (zero) index address or you may end up with unreachable funds.</p>
         </div>
 
         <div v-if="!isSupported" class="unsupported">

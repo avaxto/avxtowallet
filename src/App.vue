@@ -40,9 +40,9 @@ import UpgradeToAccountModal from '@/components/modals/SaveAccount/UpgradeToAcco
 import LedgerWalletLoading from '@/components/modals/LedgerWalletLoading.vue'
 import StatusBar from '@/components/StatusBar.vue'
 import BaseAssetThrModal from '@/components/modals/BaseAssetThrModal.vue'
-import { useAccountsStore, useAssetsStore, useErc721Store, useMainStore, useNetworkStore } from '@/stores'
+import { useAccountsStore, useAssetsStore, useErc721Store, useMainStore, useNetworkStore, useStatusBarStore } from '@/stores'
 import { useThemeStore } from '@/stores/theme'
-import { onMounted, watch } from 'vue'
+import { onMounted, onBeforeUnmount, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useTheme as useVuetifyTheme } from 'vuetify'
 
@@ -66,6 +66,7 @@ export default {
         const networkStore = useNetworkStore()
         const accountsStore = useAccountsStore()
         const erc721Store = useErc721Store()
+        const statusBar = useStatusBarStore()
         const route = useRoute()
         const router = useRouter()
         const themeStore = useThemeStore()
@@ -82,6 +83,8 @@ export default {
         )
                 
         onMounted(async () => {
+            window.addEventListener('avxto:network-paused', onNetworkPaused)
+            window.addEventListener('avxto:network-resumed', onNetworkResumed)
             try {
                 
                 // Init language preference
@@ -113,6 +116,25 @@ export default {
                 console.error('Error stack:', error.stack)
             }
         })
+
+        onBeforeUnmount(() => {
+            window.removeEventListener('avxto:network-paused', onNetworkPaused)
+            window.removeEventListener('avxto:network-resumed', onNetworkResumed)
+        })
+
+        function onNetworkPaused(event) {
+            const { durationMs, code } = event.detail
+            const seconds = Math.ceil(durationMs / 1000)
+            statusBar.error(
+                `Network paused — HTTP ${code} received. All requests suspended for ${seconds}s while server recovers.`
+            )
+        }
+
+        function onNetworkResumed() {
+            statusBar.success('Network requests resumed.')
+            // Auto-clear the success message after 4 s
+            setTimeout(() => statusBar.clear(), 4000)
+        }
         
         return { mainStore }
     },

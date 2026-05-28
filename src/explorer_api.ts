@@ -1,5 +1,6 @@
 import axios, { AxiosInstance } from 'axios'
 import { ITransactionData } from '@/types'
+import { handleThrottleResponse } from '@/providers/rate_limiter'
 
 // Doesn't really matter what we set, it will change
 const api_url: string = 'localhost'
@@ -24,8 +25,9 @@ explorer_api.interceptors.response.use(
                 console.warn(`[Explorer API] 401 Unauthorized error for ${url}. The API may require authentication or the endpoint has changed.`)
                 // Return empty data instead of throwing
                 return Promise.resolve({ data: { transactions: [], addressChains: {} } })
-            } else if (status === 429) {
-                console.warn(`[Explorer API] Rate limit exceeded for ${url}. Please try again later.`)
+            } else if (status === 429 || status === 503) {
+                handleThrottleResponse(status, error.response?.headers?.['retry-after'])
+                console.warn(`[Explorer API] HTTP ${status} for ${url} — traffic paused.`)
             } else if (status >= 500) {
                 console.error(`[Explorer API] Server error (${status}) for ${url}`)
             }

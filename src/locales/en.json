@@ -28,6 +28,8 @@
         "cancel": "Cancel",
         "add": "Add Network",
         "not_mainnet": "This wallet is not connected to Mainnet.",
+        "paused": "Network paused — HTTP {code} received. All requests suspended for {seconds}s while server recovers.",
+        "resumed": "Network requests resumed.",
         "row": {
             "edit": "Edit",
             "delete": "Delete",
@@ -603,7 +605,7 @@
         "title": "Advanced",
         "import": {
             "title": "Chain Import",
-            "desc": "If you have funds stuck in a failed chain transfer, you can finish importing them here.",
+            "desc": "If you have funds stuck in a failed chain transfer, you can finish importing them here. If your funds are still unreachable under Core App, then you may need to log back in using a mnemonic wallet. Some search operations may take a while, please be patient.",
             "submit_x": "Import X (From P Chain)",
             "submit_c_x": "Import X (From C Chain)",
             "submit_p": "Import P",
