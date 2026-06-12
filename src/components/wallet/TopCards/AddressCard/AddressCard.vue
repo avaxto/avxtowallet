@@ -4,7 +4,7 @@
         <paper-wallet
             ref="printModalRef"
             v-if="walletType === 'mnemonic'"
-            :wallet="activeWallet"
+            :wallet="activeWallet as unknown as MnemonicWallet"
         ></paper-wallet>
         <p class="addr_info">{{ addressMsg }}</p>
         <div class="bottom">
@@ -90,8 +90,7 @@ import CopyText from '@/components/misc/CopyText.vue'
 import QRModal from '@/components/modals/QRModal.vue'
 import PaperWallet from '@/components/modals/PaperWallet/PaperWallet.vue'
 import QRCode from 'qrcode'
-import { AvalancheAccount } from '@avalanche-sdk/client/accounts'
-import { WalletNameType } from '@/js/wallets/types'
+import { AvaWalletCore, WalletNameType } from '@/js/wallets/types'
 
 import MnemonicWallet, {
     LEDGER_ETH_ACCOUNT_PATH,
@@ -130,13 +129,13 @@ export default defineComponent({
         const newAddrLoading = ref(false)
         const chainNow = ref<ChainIdType>(
             (['injected', 'singleton'] as string[]).includes(
-                (mainStore.activeWallet as AvalancheAccount | null)?.type ?? ''
+                (mainStore.activeWallet as unknown as AvaWalletCore | null)?.type ?? ''
             ) ? 'C' : 'X'
         )
         const showBech = ref(false)
         
-        const activeWallet = computed((): AvalancheAccount | null => {
-            return mainStore.activeWallet as AvalancheAccount | null
+        const activeWallet = computed((): AvaWalletCore | null => {
+            return mainStore.activeWallet as unknown as AvaWalletCore | null
         })
 
         const address = computed(() => {

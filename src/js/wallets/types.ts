@@ -54,6 +54,7 @@ interface IAddressManager {
     getBaseAddress(): string
     getEvmAddress(): string
     getEvmAddressBech(): string
+    getEvmChecksumAddress(): string
 }
 
 // Every AVA Wallet must implement this.
@@ -116,6 +117,7 @@ export interface AvaWalletCore extends IAddressManager {
     importToXChain(sourceChain: ExportChainsX): Promise<string>
     importToCChain(sourceChain: ExportChainsC, baseFee: BN, utxoSet?: EVMUTXOSet): Promise<string>
     issueBatchTx(orders: (AVMUTXO | ITransaction)[], addr: string, memo?: Buffer): Promise<string>
+    buildUnsignedTransaction(orders: (AVMUTXO | ITransaction)[], addr: string, memo?: Buffer): Promise<AVMUnsignedTx>
     signMessage(msg: string, address: string): Promise<string>
 }
 
