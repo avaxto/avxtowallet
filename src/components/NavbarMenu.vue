@@ -87,6 +87,39 @@
         <v-menu offset-y>
             <template v-slot:activator="{ props }">
                 <v-btn text v-bind="props" class="menu-btn">
+                    Avalanche
+                </v-btn>
+            </template>
+            <v-list>
+                
+             <v-list-item>
+                    <v-list-item-title>
+                        <a 
+                        href="https://notify.avax.network/" 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        class="wallet_link">
+                            Validator Monitoring
+                        </a>
+                    </v-list-item-title>
+                </v-list-item>
+                
+            <v-list-item>
+                    <v-list-item-title>
+                        <a 
+                        href="https://core.app/download" 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        class="wallet_link">
+                            Download Core App
+                        </a>
+                    </v-list-item-title>
+                </v-list-item>    
+            </v-list>
+        </v-menu>
+        <v-menu offset-y>
+            <template v-slot:activator="{ props }">
+                <v-btn text v-bind="props" class="menu-btn">
                     Help
                 </v-btn>
             </template>
@@ -148,8 +181,7 @@
                         </a>
                     </v-list-item-title>
                 </v-list-item>
-             
-                
+                 
             </v-list>
         </v-menu>
    
