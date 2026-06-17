@@ -15,7 +15,7 @@
 import { defineComponent, computed } from 'vue'
 import { useMainStore } from '@/stores'
 import { useI18n } from 'vue-i18n'
-import { AvalancheAccount } from '@avalanche-sdk/client/accounts'
+import { Wallet } from '@/js/wallets/AbstractWallet'
 import { LedgerWallet } from '@/js/wallets/LedgerWallet'
 
 export default defineComponent({
@@ -39,7 +39,7 @@ export default defineComponent({
         const { t } = useI18n()
 
         const wallet = computed(() => {
-            return mainStore.activeWallet as AvalancheAccount
+            return mainStore.activeWallet as Wallet
         })
 
         const walletType = computed(() => {

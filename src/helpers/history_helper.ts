@@ -1,5 +1,5 @@
 import { ITransactionData, UTXO } from '@/types'
-import { AvalancheAccount } from '@avalanche-sdk/client/accounts'
+import { Wallet } from '@/js/wallets/AbstractWallet'
 import { BN } from '@/avalanche'
 import { AVMConstants } from '@/avalanche/apis/avm'
 
@@ -62,7 +62,7 @@ function addToDict(
     }
 }
 
-function getNFTsSummary(tx: ITransactionData, wallet: AvalancheAccount): BaseTxNFTSummary {
+function getNFTsSummary(tx: ITransactionData, wallet: Wallet): BaseTxNFTSummary {
     const nftLoss = getLossNFT(tx, wallet)
     const nftGain = getGainNFT(tx, wallet)
     return {
@@ -71,7 +71,7 @@ function getNFTsSummary(tx: ITransactionData, wallet: AvalancheAccount): BaseTxN
     }
 }
 
-function getLossNFT(tx: ITransactionData, wallet: AvalancheAccount): NFTSummaryResultDict {
+function getLossNFT(tx: ITransactionData, wallet: Wallet): NFTSummaryResultDict {
     const walletAddrs = wallet.getHistoryAddresses()
     const addrsStripped = walletAddrs.map((addr) => addr.split('-')[1])
 
@@ -128,7 +128,7 @@ function getLossNFT(tx: ITransactionData, wallet: AvalancheAccount): NFTSummaryR
     return loss
 }
 
-function getGainNFT(tx: ITransactionData, wallet: AvalancheAccount): NFTSummaryResultDict {
+function getGainNFT(tx: ITransactionData, wallet: Wallet): NFTSummaryResultDict {
     const walletAddrs = wallet.getHistoryAddresses()
     const addrsStripped = walletAddrs.map((addr) => addr.split('-')[1])
 
@@ -184,7 +184,7 @@ function getGainNFT(tx: ITransactionData, wallet: AvalancheAccount): NFTSummaryR
     return gain
 }
 
-function getLoss(tx: ITransactionData, wallet: AvalancheAccount): TokenSummaryResult {
+function getLoss(tx: ITransactionData, wallet: Wallet): TokenSummaryResult {
     const ins = tx.inputs || []
     const outs = tx.outputs
 
@@ -232,7 +232,7 @@ function getLoss(tx: ITransactionData, wallet: AvalancheAccount): TokenSummaryRe
     return loss
 }
 
-function getProfit(tx: ITransactionData, wallet: AvalancheAccount): TokenSummaryResult {
+function getProfit(tx: ITransactionData, wallet: Wallet): TokenSummaryResult {
     const outs = tx.outputs
     const ins = tx.inputs || []
 
@@ -282,7 +282,7 @@ function getProfit(tx: ITransactionData, wallet: AvalancheAccount): TokenSummary
 }
 
 // Finds the absolute gains and losses for the active wallet given transaction data from the explorer
-function getTransactionSummary(tx: ITransactionData, wallet: AvalancheAccount) {
+function getTransactionSummary(tx: ITransactionData, wallet: Wallet) {
     const losses = getLoss(tx, wallet)
     const profits = getProfit(tx, wallet)
 

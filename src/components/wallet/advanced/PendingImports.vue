@@ -85,7 +85,7 @@
 <script lang="ts">
 import { defineComponent, ref, computed, onMounted, reactive } from 'vue'
 import { useMainStore, useNotificationsStore } from '@/stores'
-import { AvalancheAccount } from '@avalanche-sdk/client/accounts'
+import { Wallet } from '@/js/wallets/AbstractWallet'
 import CopyText from '@/components/misc/CopyText.vue'
 import Tooltip from '@/components/misc/Tooltip.vue'
 import Spinner from '@/components/misc/Spinner.vue'
@@ -123,7 +123,7 @@ export default defineComponent({
         const lastError = ref('')
         const rows = ref<PendingRow[]>([])
 
-        const wallet = computed((): null | AvalancheAccount => {
+        const wallet = computed((): null | Wallet => {
             return mainStore.activeWallet
         })
 

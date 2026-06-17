@@ -21,7 +21,7 @@ import {
     UnsignedTx as PlatformUnsignedTx,
 } from '@/avalanche/apis/platformvm/tx'
 import { Tx as AVMTx, UnsignedTx as AVMUnsignedTx } from '@/avalanche/apis/avm/tx'
-import { AvmImportChainType } from '@/js/wallets/types'
+import { AvmImportChainType, AvaWalletCore } from '@/js/wallets/types'
 import type { Account, Address } from 'viem'
 import { defineChain } from 'viem'
 import type { XPAccount } from '@avalanche-sdk/client/accounts'
@@ -724,3 +724,8 @@ abstract class AbstractWallet {
     }
 }
 export { AbstractWallet }
+
+// Common interface implemented by every concrete AbstractWallet subclass
+// (MnemonicWallet, SingletonWallet, LedgerWallet, InjectedWallet) — the real
+// shape of activeWallet, wallets and volatileWallets in the main store.
+export type Wallet = AvaWalletCore

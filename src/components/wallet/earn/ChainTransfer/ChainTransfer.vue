@@ -134,7 +134,7 @@ import { ChainIdType } from '@/constants'
 
 import ChainSwapForm from '@/components/wallet/earn/ChainTransfer/Form.vue'
 
-import { AvalancheAccount } from '@avalanche-sdk/client/accounts'
+import { Wallet } from '@/js/wallets/AbstractWallet'
 import {
     ExportChainsC,
     ExportChainsP,
@@ -357,7 +357,7 @@ export default defineComponent({
         }
 
         const wallet = computed(() => {
-            let wallet: AvalancheAccount = mainStore.activeWallet
+            let wallet: Wallet = mainStore.activeWallet
             return wallet
         })
 

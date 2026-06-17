@@ -38,7 +38,7 @@ import Hexagon from '@/components/misc/Hexagon.vue'
 import { BN } from '@/avalanche'
 import { bnToBig } from '../../../helpers/helper'
 import { priceDict } from '@/types'
-import { AvalancheAccount } from '@avalanche-sdk/client/accounts'
+import { Wallet } from '@/js/wallets/AbstractWallet'
 
 import Big from 'big.js'
 
@@ -86,7 +86,7 @@ export default defineComponent({
         })
 
         const evmAvaxBalance = computed((): BN => {
-            let wallet: AvalancheAccount | null = mainStore.activeWallet
+            let wallet: Wallet | null = mainStore.activeWallet
 
             if (!isAvaxToken.value || !wallet) {
                 return new BN(0)

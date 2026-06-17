@@ -33,7 +33,7 @@
 <script lang="ts">
 import { defineComponent, ref, computed, watch, onBeforeUnmount } from 'vue'
 import { useLedgerStore, useMainStore } from '@/stores'
-import { AvalancheAccount } from '@avalanche-sdk/client/accounts'
+import { Wallet } from '@/js/wallets/AbstractWallet'
 
 import Modal from './Modal.vue'
 import { MIN_LEDGER_V } from '@/js/wallets/constants'
@@ -69,7 +69,7 @@ export default defineComponent({
         })
 
         const wallet = computed(() => {
-            return mainStore.activeWallet as AvalancheAccount
+            return mainStore.activeWallet as Wallet
         })
 
         // Watch isActive for changes

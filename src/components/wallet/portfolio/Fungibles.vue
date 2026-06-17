@@ -64,7 +64,6 @@ import ERC20Row from '@/components/wallet/portfolio/ERC20Row.vue'
 import CChainSdkRow from '@/components/wallet/portfolio/CChainSdkRow.vue'
 import AddERC20TokenModal from '@/components/modals/AddERC20TokenModal.vue'
 import TokenListModal from '@/components/modals/TokenList/TokenListModal.vue'
-import { AvalancheAccount } from '@avalanche-sdk/client/accounts'
 import { useCChainSdkBalances } from '@/composables/useCChainSdkBalances'
 import type { CChainSdkAsset } from '@/composables/useCChainSdkBalances'
 

@@ -39,7 +39,7 @@ import { useAssetsStore, useErc721Store, useMainStore } from '@/stores'
 import Modal from '@/components/modals/Modal.vue'
 import Erc20Token from '@/js/Erc20Token'
 import Big from 'big.js'
-import { AvalancheAccount } from '@avalanche-sdk/client/accounts'
+import { Wallet } from '@/js/wallets/AbstractWallet'
 import { bnToBig } from '@/helpers/helper'
 import ERC721Token from '@/js/ERC721Token'
 import ERC721Row from '@/components/modals/EvmTokenSelect/ERC721Row.vue'
@@ -73,12 +73,12 @@ export default defineComponent({
         })
 
         const erc721s = computed((): ERC721Token[] => {
-            let w: AvalancheAccount = mainStore.activeWallet
+            let w: Wallet = mainStore.activeWallet
             return erc721Store.networkContracts
         })
 
         const avaxBalance = computed((): Big => {
-            let w: AvalancheAccount | null = mainStore.activeWallet
+            let w: Wallet | null = mainStore.activeWallet
             if (!w) return Big(0)
             let balBN = w.ethBalance
             return bnToBig(balBN, 18)

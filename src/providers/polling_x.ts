@@ -1,7 +1,7 @@
 import { AvaNetwork } from '@/js/AvaNetwork'
 import { pinia, useMainStore, useAssetsStore } from '@/stores'
 import { bnToBig } from '@/helpers/helper'
-import { AvalancheAccount } from '@avalanche-sdk/client/accounts'
+import { Wallet } from '@/js/wallets/AbstractWallet'
 
 /**
  * REST API equivalent of socket_x.ts
@@ -68,7 +68,7 @@ async function checkForXChainUpdates() {
 
 function updateWalletBalanceX() {
     const mainStore = useMainStore(pinia)
-    const wallet: null | AvalancheAccount = mainStore.activeWallet as AvalancheAccount | null
+    const wallet: null | Wallet = mainStore.activeWallet as Wallet | null
     if (!wallet) return
     
     // Refresh the wallet balance
@@ -86,7 +86,7 @@ export function updatePollingFilterAddresses(): void {
     // In REST mode, we don't need to maintain address filters
     // We simply poll for updates and let the wallet update logic handle filtering
     const mainStore = useMainStore(pinia)
-    const wallet: null | AvalancheAccount = mainStore.activeWallet as AvalancheAccount | null
+    const wallet: null | Wallet = mainStore.activeWallet as Wallet | null
     if (!wallet || !currentNetwork) {
         return
     }

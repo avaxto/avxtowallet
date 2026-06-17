@@ -1,6 +1,6 @@
 import { AvaNetwork } from '@/js/AvaNetwork'
 import { pinia, useNetworkStore, useMainStore, useStatusBarStore, useAssetsStore, useHistoryStore } from '@/stores'
-import { AvalancheAccount } from '@avalanche-sdk/client/accounts'
+import { Wallet } from '@/js/wallets/AbstractWallet'
 import { PROVIDER_CONFIG } from '@/providers/provider_config'
 
 /**
@@ -165,7 +165,7 @@ class PollingManager {
      * Update wallet balance for X-Chain (replaces xOnMessage functionality)
      */
     private async updateWalletBalanceX() {
-        const wallet: null | AvalancheAccount = useMainStore(pinia).activeWallet as AvalancheAccount | null
+        const wallet: null | Wallet = useMainStore(pinia).activeWallet as Wallet | null
         if (!wallet) return
 
         try {
@@ -181,7 +181,7 @@ class PollingManager {
      * Update wallet balance for C-Chain (replaces blockHeaderCallback functionality)
      */
     private async updateWalletBalanceC() {
-        const wallet: null | AvalancheAccount = useMainStore(pinia).activeWallet as AvalancheAccount | null
+        const wallet: null | Wallet = useMainStore(pinia).activeWallet as Wallet | null
         if (!wallet) return
 
         try {

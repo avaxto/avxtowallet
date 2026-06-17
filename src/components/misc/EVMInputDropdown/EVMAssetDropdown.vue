@@ -14,7 +14,7 @@
 import { defineComponent, ref, computed } from 'vue'
 import { useMainStore } from '@/stores'
 import Erc20Token from '@/js/Erc20Token'
-import { AvalancheAccount } from '@avalanche-sdk/client/accounts'
+import { Wallet } from '@/js/wallets/AbstractWallet'
 
 import { bnToBig } from '@/helpers/helper'
 import Big from 'big.js'
@@ -52,7 +52,7 @@ export default defineComponent({
         }
 
         const avaxBalance = computed((): Big => {
-            let w: AvalancheAccount | null = mainStore.activeWallet
+            let w: Wallet | null = mainStore.activeWallet
             if (!w) return Big(0)
             let balBN = w.ethBalance
             return bnToBig(balBN, 18)

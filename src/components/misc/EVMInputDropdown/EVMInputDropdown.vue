@@ -49,7 +49,7 @@ import { BN } from '@/avalanche'
 import EVMAssetDropdown from '@/components/misc/EVMInputDropdown/EVMAssetDropdown.vue'
 import Erc20Token from '@/js/Erc20Token'
 import Big from 'big.js'
-import { AvalancheAccount } from '@avalanche-sdk/client/accounts'
+import { Wallet } from '@/js/wallets/AbstractWallet'
 
 import { bnToBig } from '@/helpers/helper'
 import EVMTokenSelectModal from '@/components/modals/EvmTokenSelect/EVMTokenSelectModal.vue'
@@ -145,7 +145,7 @@ export default defineComponent({
         })
 
         const avaxBalanceBN = computed((): BN => {
-            let w: AvalancheAccount | null = mainStore.activeWallet
+            let w: Wallet | null = mainStore.activeWallet
             if (!w) return new BN(0)
             return w.ethBalance
         })

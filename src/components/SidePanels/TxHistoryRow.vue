@@ -46,7 +46,7 @@ import { Utxo, PChainTransaction, PChainUtxo } from '@avalabs/glacier-sdk'
 import { getUrlFromTransaction } from '@/js/Glacier/getUrlFromTransaction'
 import { ava } from '@/AVA'
 import { isOwnedUTXO } from '@/js/Glacier/isOwnedUtxo'
-import { AvalancheAccount } from '@avalanche-sdk/client/accounts'
+import { Wallet } from '@/js/wallets/AbstractWallet'
 
 interface Props {
     transaction: XChainTransaction | PChainTransaction
@@ -75,7 +75,7 @@ export default defineComponent({
         })
 
         const addresses = computed(() => {
-            const wallet: AvalancheAccount | null = mainStore.activeWallet
+            const wallet: Wallet | null = mainStore.activeWallet
             if (!wallet) return []
             return wallet.getHistoryAddresses()
         })

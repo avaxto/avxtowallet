@@ -27,7 +27,7 @@
 <script lang="ts">
 import { defineComponent, ref, computed, onDeactivated } from 'vue'
 import { useMainStore } from '@/stores'
-import { AvalancheAccount } from '@avalanche-sdk/client/accounts'
+import { Wallet } from '@/js/wallets/AbstractWallet'
 import SearchAddress from '@/components/wallet/advanced/SignMessage/SearchAddress.vue'
 import { SingletonWallet } from '@/js/wallets/SingletonWallet'
 
@@ -43,7 +43,7 @@ export default defineComponent({
         const signed = ref('')
         const error = ref('')
 
-        const wallet = computed((): AvalancheAccount => {
+        const wallet = computed((): Wallet => {
             return mainStore.activeWallet
         })
 

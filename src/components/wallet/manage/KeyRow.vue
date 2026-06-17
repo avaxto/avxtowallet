@@ -128,7 +128,8 @@ import Tooltip from '@/components/misc/Tooltip.vue'
 
 import ExportKeys from '@/components/modals/ExportKeys.vue'
 import PrivateKey from '@/components/modals/PrivateKey.vue'
-import { WalletNameType, AvalancheAccount } from '@/js/wallets/types'
+import { WalletNameType } from '@/js/wallets/types'
+import { Wallet } from '@/js/wallets/AbstractWallet'
 
 import { SingletonWallet } from '../../../js/wallets/SingletonWallet'
 import MnemonicPhrase from '@/js/wallets/MnemonicPhrase'
@@ -151,7 +152,7 @@ export default defineComponent({
     },
     props: {
         wallet: {
-            type: Object as () => AvalancheAccount,
+            type: Object as () => Wallet,
             required: true
         },
         is_default: {
@@ -172,7 +173,7 @@ export default defineComponent({
         const modal_xpub = ref<InstanceType<typeof XpubModal>>()
 
         const isVolatile = computed(() => {
-            const volatileWallets = mainStore.volatileWallets as AvalancheAccount[]
+            const volatileWallets = mainStore.volatileWallets as Wallet[]
             return volatileWallets.includes(props.wallet)
         })
 

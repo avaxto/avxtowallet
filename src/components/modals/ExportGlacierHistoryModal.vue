@@ -83,7 +83,7 @@ import { useMainStore } from '@/stores'
 
 import Modal from '@/components/modals/Modal.vue'
 import { BlockchainId, Glacier, OperationStatus } from '@avalabs/glacier-sdk'
-import { AvalancheAccount } from '@avalanche-sdk/client/accounts'
+import { Wallet } from '@/js/wallets/AbstractWallet'
 import MultiSelect from '../misc/MultiSelect.vue'
 import glacier from '@/js/Glacier/Glacier'
 import Spinner from '@/components/misc/Spinner.vue'
@@ -256,7 +256,7 @@ export default defineComponent({
         }, { immediate: true })
 
         const generateCSVData = () => {
-            const w = mainStore.activeWallet as AvalancheAccount
+            const w = mainStore.activeWallet as Wallet
             if (!w) return
             w.startTxExportJob(formStartDate.value, formEndDate.value, includeChains.value).then((res) => {
                 operationID.value = res.operationId

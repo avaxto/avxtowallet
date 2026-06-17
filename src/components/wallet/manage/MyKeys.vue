@@ -28,7 +28,7 @@ import { useI18n } from 'vue-i18n'
 
 import KeyRow from '@/components/wallet/manage/KeyRow.vue'
 import RememberKey from '@/components/misc/RememberKey.vue'
-import { AvalancheAccount } from '@avalanche-sdk/client/accounts'
+import { Wallet } from '@/js/wallets/AbstractWallet'
 
 export default defineComponent({
     name: 'MyKeys',
@@ -43,7 +43,7 @@ export default defineComponent({
         const accountsStore = useAccountsStore()
         const { t } = useI18n()
 
-        const selectWallet = (wallet: AvalancheAccount) => {
+        const selectWallet = (wallet: Wallet) => {
             mainStore.activateWallet(wallet)
             historyStore.updateTransactionHistory()
         }
@@ -52,7 +52,7 @@ export default defineComponent({
             return accountsStore.account
         })
 
-        const removeWallet = async (wallet: AvalancheAccount) => {
+        const removeWallet = async (wallet: Wallet) => {
             let msg = t('keys.del_check') as string
             let isConfirm = confirm(msg)
 
@@ -66,10 +66,10 @@ export default defineComponent({
             }
         }
 
-        const inactiveWallets = computed((): AvalancheAccount[] => {
-            const wallets = mainStore.wallets as AvalancheAccount[]
+        const inactiveWallets = computed((): Wallet[] => {
+            const wallets = mainStore.wallets as Wallet[]
 
-            const res = wallets.filter((wallet: AvalancheAccount) => {
+            const res = wallets.filter((wallet: Wallet) => {
                 if (activeWallet.value === wallet) return false
                 return true
             })
@@ -77,12 +77,12 @@ export default defineComponent({
             return res
         })
 
-        const wallets = computed((): AvalancheAccount[] => {
-            return mainStore.wallets as AvalancheAccount[]
+        const wallets = computed((): Wallet[] => {
+            return mainStore.wallets as Wallet[]
         })
 
-        const activeWallet = computed((): AvalancheAccount => {
-            return mainStore.activeWallet as AvalancheAccount
+        const activeWallet = computed((): Wallet => {
+            return mainStore.activeWallet as Wallet
         })
 
         return {

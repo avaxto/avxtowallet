@@ -83,7 +83,7 @@ import { useMainStore } from '@/stores'
 import { TransactionValueDict } from '@/components/SidePanels/types'
 import { PayloadBase, PayloadTypes } from '@/avalanche/utils'
 import { BN, Buffer } from '@/avalanche'
-import { AvalancheAccount } from '@avalanche-sdk/client/accounts'
+import { Wallet } from '@/js/wallets/AbstractWallet'
 import { avm, pChain } from '@/AVA'
 
 import TxHistoryValue from '@/components/SidePanels/TxHistoryValue.vue'
@@ -128,7 +128,7 @@ export default defineComponent({
          * All X/P addresses used by the wallet
          */
         const addresses = computed(() => {
-            let wallet: AvalancheAccount | null = mainStore.activeWallet
+            let wallet: Wallet | null = mainStore.activeWallet
             if (!wallet) return []
             return wallet.getHistoryAddresses()
         })

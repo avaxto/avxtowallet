@@ -1,6 +1,6 @@
 import { AvaNetwork } from '@/js/AvaNetwork'
 import { pinia, useMainStore } from '@/stores'
-import { AvalancheAccount } from '@avalanche-sdk/client/accounts'
+import { Wallet } from '@/js/wallets/AbstractWallet'
 
 /**
  * REST API equivalent of socket_c.ts  
@@ -75,7 +75,7 @@ function blockHeaderCallback() {
 
 function updateWalletBalanceC() {
     const mainStore = useMainStore(pinia)
-    const wallet: null | AvalancheAccount = mainStore.activeWallet as AvalancheAccount | null
+    const wallet: null | Wallet = mainStore.activeWallet as Wallet | null
     if (!wallet) return
     
     // Refresh the wallet balance

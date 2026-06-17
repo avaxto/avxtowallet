@@ -25,7 +25,7 @@ import { ChainIdType } from '@/constants'
 import { BN } from '@/avalanche'
 import AvaAsset from '@/js/AvaAsset'
 import MnemonicWallet from '@/js/wallets/MnemonicWallet'
-import { AvalancheAccount } from '@avalanche-sdk/client/accounts'
+import { Wallet } from '@/js/wallets/AbstractWallet'
 
 import { bnToBig } from '@/helpers/helper'
 import NumberCounter from '@/components/misc/NumberCounter.vue'
@@ -66,7 +66,7 @@ export default defineComponent({
             return ava
         })
 
-        const wallet = computed((): AvalancheAccount => {
+        const wallet = computed((): Wallet => {
             let wallet: MnemonicWallet = mainStore.activeWallet
             return wallet
         })

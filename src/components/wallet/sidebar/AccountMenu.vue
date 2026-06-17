@@ -17,7 +17,7 @@ import { useAccountsStore, useMainStore } from '@/stores'
 import { iUserAccountEncrypted } from '@/types'
 import Identicon from '@/components/misc/Identicon.vue'
 import AccountSettingsModal from '@/components/modals/AccountSettings/AccountSettingsModal.vue'
-import { AvalancheAccount } from '@avalanche-sdk/client/accounts'
+import { Wallet } from '@/js/wallets/AbstractWallet'
 
 export default defineComponent({
     name: 'AccountMenu',
@@ -34,7 +34,7 @@ export default defineComponent({
             return accountsStore.account
         })
 
-        const wallet = computed((): AvalancheAccount | null => {
+        const wallet = computed((): Wallet | null => {
             return mainStore.activeWallet
         })
 

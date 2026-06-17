@@ -6,7 +6,7 @@ import MnemonicWallet from '@/js/wallets/MnemonicWallet'
 import { LedgerWallet } from '@/js/wallets/LedgerWallet'
 import { SingletonWallet } from '@/js/wallets/SingletonWallet'
 import { InjectedWallet } from '@/js/wallets/InjectedWallet'
-import { AvalancheAccount } from '@avalanche-sdk/client/accounts'
+import { Wallet } from '@/js/wallets/AbstractWallet'
 import { Buffer } from '@/avalanche'
 import { privateToAddress } from 'ethereumjs-util'
 import { updateFilterAddresses } from '../providers'
@@ -37,10 +37,10 @@ export const useMainStore = defineStore('main', () => {
     // State
     const isAuth = ref(false)
     const isSwitchingAccount = ref(false)
-    const activeWallet = ref<AvalancheAccount | null>(null)
+    const activeWallet = ref<Wallet | null>(null)
     const address = ref<string | null>(null)
-    const wallets = ref<AvalancheAccount[]>([])
-    const volatileWallets = ref<AvalancheAccount[]>([]) // will be forgotten when tab is closed
+    const wallets = ref<Wallet[]>([])
+    const volatileWallets = ref<Wallet[]>([]) // will be forgotten when tab is closed
     const warnUpdateKeyfile = ref(false) // If true will prompt the user to export a new keyfile
     const prices = ref({
         usd: 0,
@@ -103,7 +103,7 @@ export const useMainStore = defineStore('main', () => {
             }
         }
 
-        await activateWallet(wallets.value[activeIndex])
+        await activateWallet(wallets.value[activeIndex] as Wallet)
 
         onAccess()
     }
@@ -231,7 +231,7 @@ export const useMainStore = defineStore('main', () => {
 
         while (currentWallets.length > 0) {
             const wallet = currentWallets[0]
-            await removeWallet(wallet)
+            await removeWallet(wallet as Wallet)
 
             notificationsStore.add({
                 title: 'Key Removed',
@@ -250,7 +250,7 @@ export const useMainStore = defineStore('main', () => {
 
         // Make sure wallet doesnt exist already
         for (let i = 0; i < wallets.value.length; i++) {
-            const w = wallets.value[i] as AvalancheAccount
+            const w = wallets.value[i] as Wallet
             if (w.type === 'mnemonic') {
                 if ((w as MnemonicWallet).getMnemonic() === mnemonic) {
                     throw new Error('Wallet already exists.')
@@ -280,7 +280,7 @@ export const useMainStore = defineStore('main', () => {
 
         // Make sure wallet doesnt exist already
         for (let i = 0; i < wallets.value.length; i++) {
-            const w = wallets.value[i] as AvalancheAccount
+            const w = wallets.value[i] as Wallet
             if (w.type === 'singleton') {
                 if ((w as SingletonWallet).key === pk) {
                     throw new Error('Wallet already exists.')
@@ -294,7 +294,7 @@ export const useMainStore = defineStore('main', () => {
         return wallet
     }
 
-    const removeWallet = (wallet: AvalancheAccount) => {
+    const removeWallet = (wallet: Wallet) => {
         // TODO: This might cause an error use wallet id instead
         const index = wallets.value.indexOf(wallet)
         wallets.value.splice(index, 1)
@@ -319,7 +319,7 @@ export const useMainStore = defineStore('main', () => {
     /*
         Called from accessWallet
     */
-    const activateWallet = async (wallet: AvalancheAccount) => {
+    const activateWallet = async (wallet: Wallet) => {
         activeWallet.value = wallet
 
         const assetsStore = useAssetsStore()

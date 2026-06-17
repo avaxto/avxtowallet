@@ -20,7 +20,7 @@ import { defineComponent, ref, computed } from 'vue'
 
 import Modal from '@/components/modals/Modal.vue'
 import { useMainStore } from '@/stores'
-import { AvalancheAccount } from '@avalanche-sdk/client/accounts'
+import { Wallet } from '@/js/wallets/AbstractWallet'
 
 interface Props {
     privateKey: string
@@ -41,7 +41,7 @@ export default defineComponent({
         const mainStore = useMainStore()
         const modalRef = ref<InstanceType<typeof Modal>>()
         const wallet = computed(() => {
-            return mainStore.activeWallet as AvalancheAccount
+            return mainStore.activeWallet as Wallet
         })
 
         const walletType = computed(() => {

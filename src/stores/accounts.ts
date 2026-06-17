@@ -3,7 +3,7 @@ import { ref, computed } from 'vue'
 import { addAccountToStorage, getLocalStorageAccounts } from '@/helpers/account_helper'
 import { makeKeyfile } from '@/js/Keystore'
 import type { SaveAccountInput, iUserAccountEncrypted as iUserAccountEncryptedType } from '@/types'
-import type { AvalancheAccount } from '@avalanche-sdk/client/accounts'
+import type { Wallet } from '@/js/wallets/AbstractWallet'
 
 // Define types locally for now (until we find the original types file)
 export interface iUserAccountEncrypted {
@@ -37,8 +37,8 @@ export const useAccountsStore = defineStore('accounts', () => {
         const { useMainStore } = await import('./main')
         const mainStore = useMainStore()
 
-        const walletList = mainStore.wallets as AvalancheAccount[]
-        const activeWallet = mainStore.activeWallet as AvalancheAccount | null
+        const walletList = mainStore.wallets as Wallet[]
+        const activeWallet = mainStore.activeWallet as Wallet | null
         if (!walletList.length || !activeWallet) throw new Error('No wallets loaded.')
 
         const activeIndex = walletList.findIndex((w: any) => w.id === (activeWallet as any).id)
