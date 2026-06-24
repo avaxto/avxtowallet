@@ -226,7 +226,7 @@ export const useAssetsStore = defineStore('assets', () => {
 
     const onUtxosUpdated = async (retries = 0) => {
         const mainStore = useMainStore()
-        const wallet = mainStore.activeWallet as any
+        const wallet = mainStore.activeWallet
 
         if (!wallet) return
 
@@ -309,7 +309,7 @@ export const useAssetsStore = defineStore('assets', () => {
         // Save token state to storage
         erc20TokensCustom.value.push(t)
 
-        const w = mainStore.activeWallet as any
+        const w = mainStore.activeWallet
         if (w && w.ethAddress) {
             // Access through the reactive array so Vue's proxy tracks the
             // property mutations triggered inside updateBalance.
@@ -462,7 +462,7 @@ export const useAssetsStore = defineStore('assets', () => {
 
     const updateERC20Balances = async () => {
         const mainStore = useMainStore()
-        const wallet = mainStore.activeWallet as any
+        const wallet = mainStore.activeWallet
         if (!wallet) return
         // Old ledger wallets do not have an eth address
         if (!wallet.ethAddress) return
@@ -666,9 +666,9 @@ export const useAssetsStore = defineStore('assets', () => {
 
     const walletAvmUtxoSet = computed((): AVMUTXOSet | null => {
         const mainStore = useMainStore()
-        const wallet = mainStore.activeWallet as any
+        const wallet = mainStore.activeWallet
         if (!wallet) return null
-        return wallet.utxoset as any
+        return wallet.utxoset
     })
 
     const nftFamilies = computed((): AvaNftFamily[] => {
@@ -677,14 +677,14 @@ export const useAssetsStore = defineStore('assets', () => {
 
     const walletStakingBalance = computed((): BN => {
         const mainStore = useMainStore()
-        const wallet = mainStore.activeWallet as any
+        const wallet = mainStore.activeWallet
         if (!wallet) return new BN(0)
         return wallet.stakeAmount || new BN(0)
     })
 
     const walletPlatformBalance = computed(() => {
         const mainStore = useMainStore()
-        const wallet = mainStore.activeWallet as any
+        const wallet = mainStore.activeWallet
         const balances = {
             available: new BN(0),
             locked: new BN(0),

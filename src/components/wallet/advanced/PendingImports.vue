@@ -91,7 +91,8 @@ import Tooltip from '@/components/misc/Tooltip.vue'
 import Spinner from '@/components/misc/Spinner.vue'
 import { ava, avm, bintools, cChain, pChain } from '@/AVA'
 import { BN, Buffer as BufferAvalanche } from '@/avalanche'
-import { GasHelper, avaxCtoX } from '@/avalanche-wallet-sdk'
+import { GasHelper, avaxCtoX, ExportChainsP, ExportChainsC } from '@/avalanche-wallet-sdk'
+import { AvmImportChainType } from '@/js/wallets/types'
 import { Tx as AVMTx } from '@/avalanche/apis/avm/tx'
 import { Tx as PlatformTx } from '@/avalanche/apis/platformvm/tx'
 import { Tx as EvmTx } from '@/avalanche/apis/evm/tx'
@@ -140,7 +141,7 @@ export default defineComponent({
 
         /** Walk every (source, dest) atomic-UTXO query and flatten into per-UTXO rows. */
         const loadRows = async (): Promise<PendingRow[]> => {
-            const w = wallet.value as any
+            const w = wallet.value
             if (!w) return []
 
             interface Probe {
@@ -324,16 +325,18 @@ export default defineComponent({
         }
 
         const importRow = async (row: PendingRow) => {
-            const w = wallet.value as any
+            const w = wallet.value
             if (!w) return
             row.importing = true
             lastError.value = ''
             try {
                 let txId: string
+                // The probe table guarantees source≠dest, so each branch's
+                // source is one of the two valid origin chains for that import.
                 if (row.dest === 'X') {
-                    txId = await w.importToXChain(row.source)
+                    txId = await w.importToXChain(row.source as AvmImportChainType)
                 } else if (row.dest === 'P') {
-                    txId = await w.importToPlatformChain(row.source)
+                    txId = await w.importToPlatformChain(row.source as ExportChainsP)
                 } else {
                     // C-chain — compute a fee like ChainImport.vue does, sized for the
                     // total pending UTXOs in this source→C combination (not just this one
@@ -348,7 +351,7 @@ export default defineComponent({
                     const totFee = perGasWei.mul(new BN(gas))
                     let feeNAvax = avaxCtoX(totFee)
                     if (feeNAvax.lten(0)) feeNAvax = new BN(100000)
-                    txId = await w.importToCChain(row.source, feeNAvax)
+                    txId = await w.importToCChain(row.source as ExportChainsC, feeNAvax)
                 }
                 notificationsStore.add({
                     type: 'success',

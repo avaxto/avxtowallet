@@ -37,8 +37,8 @@ export const useAccountsStore = defineStore('accounts', () => {
         const { useMainStore } = await import('./main')
         const mainStore = useMainStore()
 
-        const walletList = mainStore.wallets as Wallet[]
-        const activeWallet = mainStore.activeWallet as Wallet | null
+        const walletList = mainStore.wallets
+        const activeWallet = mainStore.activeWallet
         if (!walletList.length || !activeWallet) throw new Error('No wallets loaded.')
 
         const activeIndex = walletList.findIndex((w: any) => w.id === (activeWallet as any).id)

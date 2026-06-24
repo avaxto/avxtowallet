@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { ref, shallowRef, computed } from 'vue'
 import router from '@/router'
 import { ava, avm, bintools } from '@/AVA'
 import MnemonicWallet from '@/js/wallets/MnemonicWallet'
@@ -37,10 +37,17 @@ export const useMainStore = defineStore('main', () => {
     // State
     const isAuth = ref(false)
     const isSwitchingAccount = ref(false)
-    const activeWallet = ref<Wallet | null>(null)
+    // shallowRef (not ref): wallets are class instances (AbstractWallet) whose
+    // nested avalanche.js objects carry private members. Vue's deep ref-unwrapping
+    // would strip those, mangling the exposed type so call sites needed `as any`
+    // / `as unknown` casts. shallowRef preserves the exact `Wallet` type — and
+    // balances flow through the assets store's balanceDict, not deep reactivity
+    // of the wallet object, so no reactivity is lost. Mutations below reassign
+    // `.value` (instead of push/splice) so the shallow ref still triggers updates.
+    const activeWallet = shallowRef<Wallet | null>(null)
     const address = ref<string | null>(null)
-    const wallets = ref<Wallet[]>([])
-    const volatileWallets = ref<Wallet[]>([]) // will be forgotten when tab is closed
+    const wallets = shallowRef<Wallet[]>([])
+    const volatileWallets = shallowRef<Wallet[]>([]) // will be forgotten when tab is closed
     const warnUpdateKeyfile = ref(false) // If true will prompt the user to export a new keyfile
     const prices = ref({
         usd: 0,
@@ -103,7 +110,7 @@ export const useMainStore = defineStore('main', () => {
             }
         }
 
-        await activateWallet(wallets.value[activeIndex] as Wallet)
+        await activateWallet(wallets.value[activeIndex])
 
         onAccess()
     }
@@ -227,11 +234,10 @@ export const useMainStore = defineStore('main', () => {
     // used with logout
     const removeAllKeys = async () => {
         const notificationsStore = useNotificationsStore()
-        const currentWallets = wallets.value
 
-        while (currentWallets.length > 0) {
-            const wallet = currentWallets[0]
-            await removeWallet(wallet as Wallet)
+        while (wallets.value.length > 0) {
+            const wallet = wallets.value[0]
+            await removeWallet(wallet)
 
             notificationsStore.add({
                 title: 'Key Removed',
@@ -250,7 +256,7 @@ export const useMainStore = defineStore('main', () => {
 
         // Make sure wallet doesnt exist already
         for (let i = 0; i < wallets.value.length; i++) {
-            const w = wallets.value[i] as Wallet
+            const w = wallets.value[i]
             if (w.type === 'mnemonic') {
                 if ((w as MnemonicWallet).getMnemonic() === mnemonic) {
                     throw new Error('Wallet already exists.')
@@ -259,8 +265,8 @@ export const useMainStore = defineStore('main', () => {
         }
 
         const wallet = new MnemonicWallet(mnemonic)
-        wallets.value.push(wallet)
-        volatileWallets.value.push(wallet)
+        wallets.value = [...wallets.value, wallet]
+        volatileWallets.value = [...volatileWallets.value, wallet]
         return wallet
     }
 
@@ -280,7 +286,7 @@ export const useMainStore = defineStore('main', () => {
 
         // Make sure wallet doesnt exist already
         for (let i = 0; i < wallets.value.length; i++) {
-            const w = wallets.value[i] as Wallet
+            const w = wallets.value[i]
             if (w.type === 'singleton') {
                 if ((w as SingletonWallet).key === pk) {
                     throw new Error('Wallet already exists.')
@@ -289,15 +295,14 @@ export const useMainStore = defineStore('main', () => {
         }
 
         const wallet = new SingletonWallet(pk)
-        wallets.value.push(wallet)
-        volatileWallets.value.push(wallet)
+        wallets.value = [...wallets.value, wallet]
+        volatileWallets.value = [...volatileWallets.value, wallet]
         return wallet
     }
 
     const removeWallet = (wallet: Wallet) => {
-        // TODO: This might cause an error use wallet id instead
-        const index = wallets.value.indexOf(wallet)
-        wallets.value.splice(index, 1)
+        // Reassign (not splice) so the shallowRef triggers reactivity.
+        wallets.value = wallets.value.filter((w) => w !== wallet)
     }
 
     const issueBatchTx = async (data: IssueBatchTxInput) => {

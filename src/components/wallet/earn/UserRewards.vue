@@ -34,7 +34,6 @@
 import 'reflect-metadata'
 import { defineComponent, ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useEarnStore, useMainStore } from '@/stores'
-import { AvaWalletCore } from '../../../js/wallets/types'
 import UserRewardRow from '@/components/wallet/earn/UserRewardRow.vue'
 import { bnToBig } from '@/helpers/helper'
 import Big from 'big.js'
@@ -52,7 +51,7 @@ export default defineComponent({
         const updateInterval = ref<ReturnType<typeof setInterval> | undefined>(undefined)
 
         const userAddresses = computed(() => {
-            let wallet: AvaWalletCore = mainStore.activeWallet
+            const wallet = mainStore.activeWallet
             if (!wallet) return []
 
             return wallet.getAllAddressesP()

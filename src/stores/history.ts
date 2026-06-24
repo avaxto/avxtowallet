@@ -44,7 +44,7 @@ export const useHistoryStore = defineStore('history', () => {
         // eslint-disable-next-line @typescript-eslint/no-var-requires
         const { useMainStore } = await import('@/stores/main')
         const mainStore = useMainStore()
-        const wallet = mainStore.activeWallet as any
+        const wallet = mainStore.activeWallet
         if (!wallet) return
 
         isUpdatingAll.value = true

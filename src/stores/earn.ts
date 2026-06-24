@@ -3,14 +3,13 @@ import { ref } from 'vue'
 import { PChainTransaction } from '@avalabs/glacier-sdk'
 import { listStakingForAddresses } from '@/js/Glacier/listStakingForAddresses'
 import { useMainStore } from './main'
-import { AvaWalletCore } from '@/js/wallets/types'
 
 export const useEarnStore = defineStore('earn', () => {
     const stakingTxs = ref<PChainTransaction[]>([])
 
     async function refreshRewards() {
         const mainStore = useMainStore()
-        const wallet = mainStore.activeWallet as unknown as AvaWalletCore | null
+        const wallet = mainStore.activeWallet
         if (!wallet) {
             stakingTxs.value = []
             return

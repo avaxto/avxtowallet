@@ -1,8 +1,8 @@
 /*
 The base wallet class used for common functionality
 */
-import { BN } from '@/avalanche'
-import { UTXOSet as AVMUTXOSet } from '@/avalanche/apis/avm'
+import { BN, Buffer } from '@/avalanche'
+import { UTXOSet as AVMUTXOSet, UTXO as AVMUTXO } from '@/avalanche/apis/avm'
 import { UTXOSet as PlatformUTXOSet } from '@/avalanche/apis/platformvm'
 import {
     ExportChainsC,
@@ -21,7 +21,11 @@ import {
     UnsignedTx as PlatformUnsignedTx,
 } from '@/avalanche/apis/platformvm/tx'
 import { Tx as AVMTx, UnsignedTx as AVMUnsignedTx } from '@/avalanche/apis/avm/tx'
-import { AvmImportChainType, AvaWalletCore } from '@/js/wallets/types'
+import { AvmImportChainType, AvaWalletCore, WalletNameType } from '@/js/wallets/types'
+import { PayloadBase } from '@/avalanche/utils'
+import { ITransaction } from '@/components/wallet/transfer/types'
+import Erc20Token from '@/js/Erc20Token'
+import { Transaction } from '@ethereumjs/tx'
 import type { Account, Address } from 'viem'
 import { defineChain } from 'viem'
 import type { XPAccount } from '@avalanche-sdk/client/accounts'
@@ -43,8 +47,13 @@ import {
 import { toChecksumAddress } from 'ethereumjs-util'
 import uniqid from 'uniqid'
 
-abstract class AbstractWallet {
+abstract class AbstractWallet implements AvaWalletCore {
     id: string
+
+    // AvaWalletCore identity members — concrete classes provide the values.
+    abstract type: WalletNameType
+    abstract chainId: string
+    abstract ethAddress: string
 
     utxoset: AVMUTXOSet
     platformUtxoset: PlatformUTXOSet
@@ -88,12 +97,44 @@ abstract class AbstractWallet {
     abstract getAllChangeAddressesX(): string[]
     abstract getAllExternalAddressesX(): string[]
     abstract getHistoryAddresses(): string[]
+    abstract getDerivedAddresses(): string[]
+    abstract getDerivedAddressesP(): string[]
+    abstract getAllDerivedExternalAddresses(): string[]
+    abstract getBaseAddress(): string
     abstract signC(unsignedTx: EVMUnsignedTx): Promise<EVMTx>
     abstract signX(unsignedTx: AVMUnsignedTx): Promise<AVMTx>
     abstract signP(unsignedTx: PlatformUnsignedTx): Promise<PlatformTx>
+    abstract signEvm(tx: Transaction): Promise<Transaction>
 
     abstract signMessage(msg: string, address?: string): Promise<string>
     abstract getPlatformUTXOSet(): PlatformUTXOSet
+
+    // Lifecycle / balance / NFT / EVM members of AvaWalletCore, implemented by
+    // the concrete wallets (MnemonicWallet, SingletonWallet, LedgerWallet,
+    // InjectedWallet).
+    abstract onnetworkchange(): void
+    abstract getUTXOs(): Promise<void>
+    abstract createNftFamily(name: string, symbol: string, groupNum: number): Promise<string>
+    abstract mintNft(mintUtxo: AVMUTXO, payload: PayloadBase, quantity: number): Promise<string>
+    abstract sendEth(to: string, amount: BN, gasPrice: BN, gasLimit: number): Promise<string>
+    abstract sendERC20(
+        to: string,
+        amount: BN,
+        gasPrice: BN,
+        gasLimit: number,
+        token: Erc20Token
+    ): Promise<string>
+    abstract estimateGas(to: string, amount: BN, token: Erc20Token): Promise<number>
+    abstract issueBatchTx(
+        orders: (AVMUTXO | ITransaction)[],
+        addr: string,
+        memo?: Buffer
+    ): Promise<string>
+    abstract buildUnsignedTransaction(
+        orders: (AVMUTXO | ITransaction)[],
+        addr: string,
+        memo?: Buffer
+    ): Promise<AVMUnsignedTx>
 
     /**
      *
@@ -201,15 +242,18 @@ abstract class AbstractWallet {
         return this.issueC(tx)
     }
 
-    protected async issueX(tx: AVMTx) {
+    // Public (not protected): AbstractWallet is the project-wide `Wallet` type,
+    // and protected members would brand it nominally — values flowing through
+    // Pinia's reactive unwrapping would then no longer satisfy `AbstractWallet`.
+    async issueX(tx: AVMTx) {
         return issueX(tx)
     }
 
-    protected async issueP(tx: PlatformTx) {
+    async issueP(tx: PlatformTx) {
         return issueP(tx)
     }
 
-    protected async issueC(tx: EVMTx) {
+    async issueC(tx: EVMTx) {
         return issueC(tx)
     }
 
@@ -725,7 +769,10 @@ abstract class AbstractWallet {
 }
 export { AbstractWallet }
 
-// Common interface implemented by every concrete AbstractWallet subclass
-// (MnemonicWallet, SingletonWallet, LedgerWallet, InjectedWallet) — the real
-// shape of activeWallet, wallets and volatileWallets in the main store.
-export type Wallet = AvaWalletCore
+// The single canonical superclass for every wallet in the project.
+// AbstractWallet `implements AvaWalletCore`, so it carries the full wallet
+// surface, and every concrete wallet (MnemonicWallet, SingletonWallet,
+// LedgerWallet, InjectedWallet) extends it.  This is the real shape of
+// activeWallet, wallets and volatileWallets in the main store — no `as any`
+// / `as unknown` / null-typed fallbacks needed at call sites.
+export type Wallet = AbstractWallet

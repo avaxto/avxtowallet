@@ -129,13 +129,13 @@ export default defineComponent({
         const newAddrLoading = ref(false)
         const chainNow = ref<ChainIdType>(
             (['injected', 'singleton'] as string[]).includes(
-                (mainStore.activeWallet as unknown as AvaWalletCore | null)?.type ?? ''
+                mainStore.activeWallet?.type ?? ''
             ) ? 'C' : 'X'
         )
         const showBech = ref(false)
         
         const activeWallet = computed((): AvaWalletCore | null => {
-            return mainStore.activeWallet as unknown as AvaWalletCore | null
+            return mainStore.activeWallet
         })
 
         const address = computed(() => {

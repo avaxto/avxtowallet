@@ -75,7 +75,7 @@ function blockHeaderCallback() {
 
 function updateWalletBalanceC() {
     const mainStore = useMainStore(pinia)
-    const wallet: null | Wallet = mainStore.activeWallet as Wallet | null
+    const wallet: null | Wallet = mainStore.activeWallet
     if (!wallet) return
     
     // Refresh the wallet balance

@@ -165,7 +165,7 @@ class PollingManager {
      * Update wallet balance for X-Chain (replaces xOnMessage functionality)
      */
     private async updateWalletBalanceX() {
-        const wallet: null | Wallet = useMainStore(pinia).activeWallet as Wallet | null
+        const wallet: null | Wallet = useMainStore(pinia).activeWallet
         if (!wallet) return
 
         try {
@@ -181,7 +181,7 @@ class PollingManager {
      * Update wallet balance for C-Chain (replaces blockHeaderCallback functionality)
      */
     private async updateWalletBalanceC() {
-        const wallet: null | Wallet = useMainStore(pinia).activeWallet as Wallet | null
+        const wallet: null | Wallet = useMainStore(pinia).activeWallet
         if (!wallet) return
 
         try {
