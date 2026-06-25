@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref, shallowRef, computed } from 'vue'
+import { ref, computed } from 'vue'
 import router from '@/router'
 import { ava, avm, bintools } from '@/AVA'
 import MnemonicWallet from '@/js/wallets/MnemonicWallet'
@@ -37,17 +37,41 @@ export const useMainStore = defineStore('main', () => {
     // State
     const isAuth = ref(false)
     const isSwitchingAccount = ref(false)
-    // shallowRef (not ref): wallets are class instances (AbstractWallet) whose
-    // nested avalanche.js objects carry private members. Vue's deep ref-unwrapping
-    // would strip those, mangling the exposed type so call sites needed `as any`
-    // / `as unknown` casts. shallowRef preserves the exact `Wallet` type — and
-    // balances flow through the assets store's balanceDict, not deep reactivity
-    // of the wallet object, so no reactivity is lost. Mutations below reassign
-    // `.value` (instead of push/splice) so the shallow ref still triggers updates.
-    const activeWallet = shallowRef<Wallet | null>(null)
+    // Wallets are class instances whose internal balance/UTXO/fetch state mutates
+    // asynchronously, and components read those fields reactively (P-chain balance,
+    // EVM balance, staking, the refresh spinner). So the wallets must stay DEEPLY
+    // reactive — a plain deep `ref` provides that.
+    //
+    // The catch: Vue's deep ref-unwrapping strips private members from the nested
+    // avalanche.js objects (UTXOSet etc.), mangling the exposed type and forcing
+    // `as any` casts at every call site. To get both deep reactivity AND a clean
+    // `Wallet` type, each is held in a private deep ref and exposed through a
+    // writable computed that re-asserts the type with a single internal cast. The
+    // computed passes the reactive proxy straight through, so deep reactivity is
+    // preserved (verified: cross-store computeds recompute on internal mutations).
+    const _activeWallet = ref<Wallet | null>(null)
+    const activeWallet = computed<Wallet | null>({
+        get: () => _activeWallet.value as unknown as Wallet | null,
+        set: (w) => {
+            _activeWallet.value = w
+        },
+    })
     const address = ref<string | null>(null)
-    const wallets = shallowRef<Wallet[]>([])
-    const volatileWallets = shallowRef<Wallet[]>([]) // will be forgotten when tab is closed
+    const _wallets = ref<Wallet[]>([])
+    const wallets = computed<Wallet[]>({
+        get: () => _wallets.value as unknown as Wallet[],
+        set: (w) => {
+            _wallets.value = w
+        },
+    })
+    // will be forgotten when tab is closed
+    const _volatileWallets = ref<Wallet[]>([])
+    const volatileWallets = computed<Wallet[]>({
+        get: () => _volatileWallets.value as unknown as Wallet[],
+        set: (w) => {
+            _volatileWallets.value = w
+        },
+    })
     const warnUpdateKeyfile = ref(false) // If true will prompt the user to export a new keyfile
     const prices = ref({
         usd: 0,
