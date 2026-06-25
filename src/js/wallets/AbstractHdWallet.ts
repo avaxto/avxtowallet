@@ -62,7 +62,7 @@ abstract class AbstractHdWallet extends AbstractWallet {
     }
 
     updateAvmUTXOSet(): void {
-        // if (this.isFetchUtxos) return
+        // if (this.isFetchingUtxos) return
         const setExternal = this.externalHelper.utxoSet as AVMUTXOSet
         const setInternal = this.internalHelper.utxoSet as AVMUTXOSet
 
@@ -71,7 +71,7 @@ abstract class AbstractHdWallet extends AbstractWallet {
     }
 
     updateFetchState() {
-        this.isFetchUtxos =
+        this.isFetchingUtxos =
             this.externalHelper.isFetchUtxo ||
             this.internalHelper.isFetchUtxo ||
             this.platformHelper.isFetchUtxo

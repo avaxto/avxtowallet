@@ -577,7 +577,7 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
     // Injected wallets are primarily EVM; X/P UTXO sets remain empty (check this)
 
     async getUTXOs(): Promise<void> {
-        this.isFetchUtxos = true
+        this.isFetchingUtxos = true
         try {
             await this.getEthBalance()
 
@@ -627,7 +627,7 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
                 }
             }
         } finally {
-            this.isFetchUtxos = false
+            this.isFetchingUtxos = false
         }
     }
 
@@ -996,7 +996,9 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
      */
     async evmGetAtomicUTXOs(sourceChain: ExportChainsC): Promise<EVMUTXOSet> {
         const xpStyleAddr = this.getActiveCChainAtomicAddress()
+        console.log(`evm xpStyleAddr `, xpStyleAddr)
         const evmBytesAddr = this.getEvmAddressBech()
+        console.log(`evm evmBytesAddr `, evmBytesAddr)
         const addrs = [...new Set([xpStyleAddr, evmBytesAddr].filter(Boolean))]
         return await UtxoHelper.evmGetAtomicUTXOs(addrs, sourceChain)
     }

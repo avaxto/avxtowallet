@@ -326,7 +326,7 @@ export default defineComponent({
         }
 
         const updateSendAgainLock = () => {
-            if (!wallet.value.isFetchUtxos) {
+            if (!wallet.value.isFetchingUtxos) {
                 canSendAgain.value = true
             } else {
                 setTimeout(() => {

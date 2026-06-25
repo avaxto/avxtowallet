@@ -60,7 +60,7 @@ abstract class AbstractWallet implements AvaWalletCore {
     stakeAmount: BN
     ethBalance: BN
 
-    isFetchUtxos: boolean
+    isFetchingUtxos: boolean
     isInit: boolean
 
     // AvalancheAccount conformance
@@ -156,7 +156,7 @@ abstract class AbstractWallet implements AvaWalletCore {
         this.ethBalance = new BN(0)
 
         this.isInit = false
-        this.isFetchUtxos = false
+        this.isFetchingUtxos = false
     }
 
     /**
@@ -174,6 +174,7 @@ abstract class AbstractWallet implements AvaWalletCore {
     }
 
     async evmGetAtomicUTXOs(sourceChain: ExportChainsC) {
+        console.log(`evm address bech {}`, this.getEvmAddressBech())
         const addrs = [this.getEvmAddressBech()]
         return await UtxoHelper.evmGetAtomicUTXOs(addrs, sourceChain)
     }

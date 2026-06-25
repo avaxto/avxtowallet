@@ -172,7 +172,7 @@ class SingletonWallet extends AbstractWallet implements AvaWalletCore, UnsafeWal
     }
 
     async getUTXOs(): Promise<void> {
-        this.isFetchUtxos = true
+        this.isFetchingUtxos = true
 
         await this.updateUTXOsX()
         await this.updateUTXOsP()
@@ -180,7 +180,7 @@ class SingletonWallet extends AbstractWallet implements AvaWalletCore, UnsafeWal
         await this.getStake()
         await this.getEthBalance()
 
-        this.isFetchUtxos = false
+        this.isFetchingUtxos = false
 
         return
     }

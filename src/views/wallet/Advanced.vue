@@ -50,6 +50,7 @@ export default defineComponent({
 h1 {
     font-weight: normal;
 }
+
 .grids {
     display: grid;
     column-gap: 14px;

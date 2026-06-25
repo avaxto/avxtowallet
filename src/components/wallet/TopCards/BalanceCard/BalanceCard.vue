@@ -4,7 +4,7 @@
         <div class="fungible_card">
             <div class="header">
                 <div class="refresh">
-                    <Spinner v-if="isUpdateBalance" class="spinner"></Spinner>
+                    <Spinner v-if="isUpdatingBalance" class="spinner"></Spinner>
                     <button v-else @click="updateBalance">
                         <fa icon="sync"></fa>
                     </button>
@@ -224,7 +224,7 @@ export default defineComponent({
         })
 
         const totalBalanceUSDText = computed((): string => {
-            if (isUpdateBalance.value) return '--'
+            if (isUpdatingBalance.value) return '--'
             return totalBalanceUSD.value.toLocaleString(2)
         })
 
@@ -238,7 +238,7 @@ export default defineComponent({
         })
 
         const balanceTextLeft = computed((): string => {
-            if (isUpdateBalance.value) return '--'
+            if (isUpdatingBalance.value) return '--'
             let text = balanceText.value
             if (text.includes('.')) {
                 let left = text.split('.')[0]
@@ -248,7 +248,7 @@ export default defineComponent({
         })
 
         const balanceTextRight = computed((): string => {
-            if (isUpdateBalance.value) return ''
+            if (isUpdatingBalance.value) return ''
             let text = balanceText.value
             if (text.includes('.')) {
                 let right = text.split('.')[1]
@@ -258,7 +258,7 @@ export default defineComponent({
         })
 
         const balanceTextLocked = computed((): string => {
-            if (isUpdateBalance.value) return '--'
+            if (isUpdatingBalance.value) return '--'
 
             if (ava_asset.value && ava_asset.value.denomination !== undefined) {
                 let denom = ava_asset.value.denomination
@@ -274,7 +274,7 @@ export default defineComponent({
         })
 
         const balanceTextMultisig = computed(() => {
-            if (isUpdateBalance.value) return '--'
+            if (isUpdatingBalance.value) return '--'
 
             if (ava_asset.value && ava_asset.value.denomination !== undefined) {
                 let denom = ava_asset.value.denomination
@@ -313,7 +313,7 @@ export default defineComponent({
         })
 
         const unlockedText = computed(() => {
-            if (isUpdateBalance.value) return '--'
+            if (isUpdatingBalance.value) return '--'
 
             if (ava_asset.value && ava_asset.value.denomination !== undefined) {
                 let denom = ava_asset.value.denomination
@@ -337,7 +337,7 @@ export default defineComponent({
 
         const pBalanceText = computed(() => {
             if (!ava_asset.value || ava_asset.value.denomination === undefined) return '--'
-            if (isUpdateBalance.value) return '--'
+            if (isUpdatingBalance.value) return '--'
 
             let denom = ava_asset.value.denomination
             let bal = platformUnlocked.value
@@ -358,7 +358,7 @@ export default defineComponent({
         const stakingText = computed(() => {
             let balance = stakingAmount.value
             if (!balance) return '0'
-            if (isUpdateBalance.value) return '--'
+            if (isUpdatingBalance.value) return '--'
 
             let denom = 9
             let bigBal = Big(balance.toString())
@@ -396,9 +396,9 @@ export default defineComponent({
             return wallet.value.type === 'singleton'
         })
 
-        const isUpdateBalance = computed((): boolean => {
+        const isUpdatingBalance = computed((): boolean => {
             if (!wallet.value) return true
-            return wallet.value.isFetchUtxos
+            return wallet.value.isFetchingUtxos
         })
 
         const priceDict = computed((): priceDict => {
@@ -454,7 +454,7 @@ export default defineComponent({
             isInjected,
             isSingleton,
             walletTypeLabel,
-            isUpdateBalance,
+            isUpdatingBalance,
             priceDict,
             hasLocked,
             hasMultisig,

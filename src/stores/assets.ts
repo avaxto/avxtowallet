@@ -230,9 +230,9 @@ export const useAssetsStore = defineStore('assets', () => {
 
         if (!wallet) return
 
-        if (wallet.isFetchUtxos) {
+        if (wallet.isFetchingUtxos) {
             if (retries >= 20) {
-                console.warn('onUtxosUpdated: gave up waiting for isFetchUtxos after 20 retries')
+                console.warn('onUtxosUpdated: gave up waiting for isFetchingUtxos after 20 retries')
                 return
             }
             setTimeout(() => {
