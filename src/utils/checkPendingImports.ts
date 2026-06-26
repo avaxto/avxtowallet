@@ -1,3 +1,9 @@
+/*
+  Copyright (c) 2026 @REKTBuildr
+
+  Licensed under the BSD 3 Clause License. See LICENSE file in the project root for details.
+
+*/
 import { AbstractWallet } from '@/js/wallets/AbstractWallet'
 import { useStatusBarStore } from '@/stores/statusbar'
 import { ava, bintools } from '@/AVA'

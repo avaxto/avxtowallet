@@ -1,3 +1,9 @@
+/*
+  Copyright (c) 2026 @REKTBuildr
+
+  Licensed under the BSD 3 Clause License. See LICENSE file in the project root for details.
+
+*/
 /**
  * InjectedWallet - A wallet implementation that connects to injected browser providers
  * (MetaMask, Core App, etc.) using viem.

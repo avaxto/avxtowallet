@@ -1,3 +1,9 @@
+/*
+  Copyright (c) 2026 @REKTBuildr
+
+  Licensed under the BSD 3 Clause License. See LICENSE file in the project root for details.
+
+*/
 import { AvaNetwork } from '@/js/AvaNetwork'
 import { pinia, useMainStore } from '@/stores'
 import { Wallet } from '@/js/wallets/AbstractWallet'

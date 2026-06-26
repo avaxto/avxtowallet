@@ -1,3 +1,9 @@
+/*
+  Copyright (c) 2026 @REKTBuildr
+
+  Licensed under the BSD 3 Clause License. See LICENSE file in the project root for details.
+
+*/
 // Export all vue_components for use in the application
 export { BigNumInput, default as BigNumInputDefault } from './bignum_input.vue'
 export { QrReader, default as QrReaderDefault } from './qr_reader.vue'

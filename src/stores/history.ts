@@ -1,3 +1,9 @@
+/*
+  Copyright (c) 2026 @REKTBuildr
+
+  Licensed under the BSD 3 Clause License. See LICENSE file in the project root for details.
+
+*/
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { GetTransactionsParams, TransactionType, EvmTransactionDetails } from '@/js/Glacier/models'
