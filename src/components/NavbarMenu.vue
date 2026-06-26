@@ -9,6 +9,12 @@
                 </v-btn>
             </template>
             <v-list>
+                <v-list-item>
+                    <v-list-item-title>
+                        <router-link to="/wallet/config">Settings</router-link>
+                    </v-list-item-title>
+                </v-list-item>
+                
                 <v-list-item v-if="isAuth && !isInjected" @click="saveAccount">
                     <v-list-item-title>Save Account</v-list-item-title>
                 </v-list-item>

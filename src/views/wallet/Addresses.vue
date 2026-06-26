@@ -69,8 +69,10 @@
                     <span class="count">{{ xInternal.length }}</span>
                 </div>
                 <div class="addr_list">
-                    <div v-if="xInternal.length === 0" class="empty">No addresses found.</div>
+                    <div v-if="isInjectedWallet" class="empty">Core App uses the default external address for change.</div>
+                    <div v-else-if="xInternal.length === 0" class="empty">No addresses found.</div>
                     <div
+                        v-else
                         v-for="(item, i) in xInternal"
                         :key="'xint-' + i"
                         class="addr_row"
@@ -243,6 +245,11 @@ export default defineComponent({
 
         const canRevealPrivateKey = computed(() => wallet.value instanceof MnemonicWallet)
 
+        // Core App has no separate change-address concept — it reuses the
+        // external/default address for change, so there's no internal HD
+        // chain to list.
+        const isInjectedWallet = computed(() => wallet.value instanceof InjectedWallet)
+
         // ---- InjectedWallet address collections ----
 
         const injectedXExternal = computed((): AddrEntry[] => {
@@ -376,6 +383,7 @@ export default defineComponent({
         return {
             isSupported,
             canRevealPrivateKey,
+            isInjectedWallet,
             xExternal,
             xInternal,
             pChainAddrs,

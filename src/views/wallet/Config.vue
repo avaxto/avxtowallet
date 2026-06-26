@@ -9,8 +9,12 @@
             <div class="grid_box">
                 <h3>Rate Limiting</h3>
                 <p class="description">
-                    Fixed-window limit applied to all outgoing network requests (axios + fetch).
+                    To preserve the Avalanche APIs, AVXTO applies rate limiting on network requests. 
+                    
+                    It is a fixed-window limit applied to all outgoing network requests (axios + fetch).
                     Excess requests are queued and released at the start of the next window.
+                    If AVXTO feels slow when loading AVAX and token balances, you may tweak these values.
+                    Increasing max requests per window and decreasing window size will speed the wallet up, but you may start receving HTTP 429 responses, meaning it has overwhelmed the API endpoints.
                 </p>
 
                 <div class="form_row">
@@ -241,11 +245,12 @@ h1 {
     .description {
         font-size: 13px;
         color: var(--primary-color-light);
-        margin-bottom: 18px;
     }
 }
 
 .form_row {
+
+    margin-top: 18px;
     display: flex;
     flex-direction: column;
     margin-bottom: 14px;

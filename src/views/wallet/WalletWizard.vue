@@ -2,7 +2,7 @@
     <div class="wallet_wizard">
         <h1 class="wizard_heading">Wallet Wizard</h1>
         <p class="wizard_intro">
-            Wallet Wizard is an AVXTO Toolbox tool that allows you to create a brand new wallet and
+            Wallet Wizard is an AVXTO Toolbox feature that allows you to create a brand new wallet and
             migrate all assets to the newly created wallet. Refer to
             <a href="https://avax.to" target="_blank" rel="noopener noreferrer">avax.to</a>
             website for more about Wallet Wizard.

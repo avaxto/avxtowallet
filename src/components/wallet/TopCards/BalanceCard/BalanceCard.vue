@@ -382,11 +382,11 @@ export default defineComponent({
 
         const walletTypeLabel = computed((): string => {
             const typeMap: Record<string, string> = {
-                mnemonic: 'Mnemonic Wallet',
-                singleton: 'Private Key Wallet',
-                ledger: 'Ledger Wallet',
-                injected: 'Extension Wallet',
-                xpub: 'Read-Only Wallet',
+                mnemonic: 'Mnemonic',
+                singleton: 'PKey',
+                ledger: 'Ledger',
+                injected: 'Core',
+                xpub: 'R.O.',
             }
             return typeMap[wallet.value?.type ?? ''] ?? ''
         })

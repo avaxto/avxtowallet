@@ -56,7 +56,7 @@
                 </router-link>
                 <router-link to="/wallet/config" data-cy="wallet_config" class="wallet_link">
                     <span class="sidebar_icon"><fa icon="cog" class="icon"></fa></span>
-                    Config
+                    Settings
                 </router-link>
             </div>
             <div class="bottom">
