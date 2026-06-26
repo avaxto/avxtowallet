@@ -65,7 +65,21 @@
                                 {{ err }}
                             </li>
                         </ul>
-                        <template v-if="!isConfirm">
+                        <template v-if="isInjectedWallet && !isSuccess">
+                            <p class="err">{{ err }}</p>
+                            <v-btn
+                                depressed
+                                class="button_primary"
+                                :loading="isAjax"
+                                :ripple="false"
+                                @click="sendOneClick"
+                                :disabled="!canSend || isAjax"
+                                block
+                            >
+                                {{ $t('transfer.send') }}
+                            </v-btn>
+                        </template>
+                        <template v-else-if="!isConfirm">
                             <v-btn
                                 depressed
                                 class="button_primary"
@@ -214,6 +228,20 @@ export default defineComponent({
             formMemo.value = memo.value
 
             isConfirm.value = true
+        }
+
+        // Injected wallets (Core App / MetaMask) sign+broadcast through the
+        // extension's own confirmation UI, so this app's separate Confirm step
+        // is redundant friction — collapse Confirm+Submit into a single click.
+        // Mnemonic (and other local-key) wallets keep the 2-step flow since
+        // there's no external confirmation prompt to lean on.
+        const isInjectedWallet = computed(() => wallet.value?.type === 'injected')
+
+        const sendOneClick = () => {
+            confirm()
+            if (isConfirm.value) {
+                submit()
+            }
         }
 
         const cancelConfirm = () => {
@@ -531,6 +559,8 @@ export default defineComponent({
             txState,
             txList,
             nftList,
+            isInjectedWallet,
+            sendOneClick,
             confirm,
             cancelConfirm,
             updateTxList,

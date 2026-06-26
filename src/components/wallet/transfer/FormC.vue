@@ -67,12 +67,23 @@
             <template v-if="!isSuccess">
                 <p class="err">{{ err }}</p>
                 <v-btn
+                    v-if="isInjectedWallet"
+                    class="button_primary checkout"
+                    depressed
+                    block
+                    @click="sendOneClick"
+                    :disabled="!canConfirm || isLoading"
+                    :loading="isLoading"
+                >
+                    {{ $t('transfer.send') }}
+                </v-btn>
+                <v-btn
                     class="button_primary checkout"
                     depressed
                     block
                     @click="confirm"
                     :disabled="!canConfirm"
-                    v-if="!isConfirm"
+                    v-else-if="!isConfirm"
                 >
                     {{ $t('transfer.c_chain.confirm') }}
                 </v-btn>
@@ -285,6 +296,13 @@ export default defineComponent({
 
         const wallet = computed(() => mainStore.activeWallet as any)
 
+        // Injected wallets (Core App / MetaMask) sign+broadcast through the
+        // extension's own confirmation UI, so this app's separate Confirm step
+        // is redundant friction — collapse Confirm+Submit into a single click.
+        // Mnemonic (and other local-key) wallets keep the 2-step flow since
+        // there's no external confirmation prompt to lean on.
+        const isInjectedWallet = computed((): boolean => wallet.value?.type === 'injected')
+
         const gasPriceNumber = computed({
             get: () => gasPriceGwei.value,
             set: (val: number) => {
@@ -359,6 +377,13 @@ export default defineComponent({
         const cancel = () => {
             isConfirm.value = false
             err.value = ''
+        }
+
+        const sendOneClick = async () => {
+            await confirm()
+            if (isConfirm.value) {
+                await submit()
+            }
         }
 
         const submit = async () => {
@@ -436,12 +461,14 @@ export default defineComponent({
             maxFeeText,
             maxFeeUSD,
             canConfirm,
+            isInjectedWallet,
             onAmountChange,
             onTokenChange,
             onCollectibleChange,
             confirm,
             cancel,
             submit,
+            sendOneClick,
             startAgain,
         }
     }

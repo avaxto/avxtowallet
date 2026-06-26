@@ -770,6 +770,7 @@ h2 {
     align-items: flex-start;
     gap: 0;
     margin-bottom: 28px;
+    margin-top: 18px;
     max-width: 520px;
 }
 
