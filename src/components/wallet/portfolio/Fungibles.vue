@@ -187,6 +187,14 @@ export default defineComponent({
 
         const sdkAssetsFiltered = computed((): CChainSdkAsset[] => {
             let list = sdkAssets.value
+
+            // Drop anything already shown under "Default Assets" (manually
+            // added / known ERC20 tokens) so it isn't listed twice.
+            const defaultAddrs = new Set(
+                erc20Balances.value.map((erc) => erc.data.address.toLowerCase())
+            )
+            list = list.filter((a) => !defaultAddrs.has(a.address.toLowerCase()))
+
             if (props.search) {
                 const query = props.search.toUpperCase()
                 list = list.filter((a) => {

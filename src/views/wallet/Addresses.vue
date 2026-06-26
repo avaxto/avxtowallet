@@ -1,3 +1,8 @@
+<!--
+  Copyright (c) 2026 @REKTBuildr
+
+  Licensed under the BSD 3 Clause License. See LICENSE file in the project root for details.
+-->
 <template>
     <div class="addresses_page">
         <PrivateKey :privateKey="revealKey" ref="privKeyModal" />
@@ -167,38 +172,39 @@
                     <span class="count">{{ coreAppAddrs.length }}</span>
                 </div>
                 <div class="section_head">
-                    <p class="desc">These are the main account addresses provided by the Core App extension. Only Account 1 is used by default. The other accounts are reserved in Core App but not shown in this wallet. It is strongly recommended you do not use any of these addresses as <b>you may lose funds</b> (although the Core extension holds these private keys, they're not immediately accessible by the user). <strong>Provided for advanced users only.</strong></p>
+                    <p class="desc">These are the current accounts available on your Core App extension.</p>
                 </div>
                 <div class="addr_list">
-                    <div
-                        v-for="(item, i) in coreAppAddrs"
-                        :key="'core-' + i"
-                        class="addr_row core_row"
-                        :class="{ even: i % 2 === 0 }"
-                    >
-                        <span class="idx">{{ item.index }}</span>
-                        <span class="label">{{ item.label }}</span>
-                        <span class="addr">{{ item.address }}</span>
-                        <span class="actions">
-                            <Tooltip text="Copy address to clipboard" class="icon_btn">
-                                <CopyText :value="item.address" />
-                            </Tooltip>
-                            <Tooltip
-                                text="Private key is held by Core App and cannot be exported"
-                                class="icon_btn disabled"
-                            >
-                                <fa icon="lock"></fa>
-                            </Tooltip>
-                            <Tooltip
-                                text="Show this Core account's extended public key (xpub)"
-                                class="icon_btn"
-                                :class="{ disabled: !item.xpub }"
-                                @click="item.xpub && openXpubRaw(item.xpub)"
-                            >
-                                <fa icon="share"></fa>
-                            </Tooltip>
-                        </span>
-                    </div>
+                    <template v-for="(item, i) in coreAppAddrs" :key="'core-' + i">
+                        <div v-if="item.isAccountStart" class="core_wallet_header">{{ item.walletName }}</div>
+                        <div
+                            class="addr_row core_row"
+                            :class="{ even: i % 2 === 0 }"
+                        >
+                            <span class="idx">{{ item.index }}</span>
+                            <span class="label">{{ item.label }}</span>
+                            <span class="addr">{{ item.address }}</span>
+                            <span class="actions">
+                                <Tooltip text="Copy address to clipboard" class="icon_btn">
+                                    <CopyText :value="item.address" />
+                                </Tooltip>
+                                <Tooltip
+                                    text="Private key is held by Core App and cannot be exported"
+                                    class="icon_btn disabled"
+                                >
+                                    <fa icon="lock"></fa>
+                                </Tooltip>
+                                <Tooltip
+                                    text="Show this Core account's extended public key (xpub)"
+                                    class="icon_btn"
+                                    :class="{ disabled: !item.xpub }"
+                                    @click="item.xpub && openXpubRaw(item.xpub)"
+                                >
+                                    <fa icon="share"></fa>
+                                </Tooltip>
+                            </span>
+                        </div>
+                    </template>
                 </div>
             </div>
         </div>
@@ -225,6 +231,12 @@ interface CoreAddrEntry {
     label: string
     address: string
     xpub: string
+    walletName: string
+    // True for the first address row of an account — the wallet-name header
+    // is rendered above it so each account's address set is clearly
+    // attributed to its source wallet (a single Core connection can expose
+    // many wallets/seeds, each with its own "Account 1", "Account 2", ...).
+    isAccountStart: boolean
 }
 
 type PrivKeySource = 'xExternal' | 'xInternal' | 'p'
@@ -274,11 +286,28 @@ export default defineComponent({
             const w = wallet.value
             if (!(w instanceof InjectedWallet)) return []
             const result: CoreAddrEntry[] = []
-            for (const acct of w.coreAccounts) {
-                const name = acct.name || acct.walletName || `Account ${acct.index}`
-                if (acct.addressAVM) result.push({ index: acct.index, label: `${name} (X)`, address: acct.addressAVM, xpub: acct.xpubXP })
-                if (acct.addressPVM) result.push({ index: acct.index, label: `${name} (P)`, address: acct.addressPVM, xpub: acct.xpubXP })
-            }
+            // acct.index/acct.name are correct and unique *within* one Core
+            // wallet/seed (e.g. "Account 1"/0, "Account 2"/1, ...) — but Core
+            // can have many separate wallets connected at once, each with its
+            // own "Account 1". walletName is what actually distinguishes them,
+            // so it's surfaced as a header before each account's address rows.
+            w.coreAccounts.forEach((acct) => {
+                const name = acct.name || `Account ${acct.index + 1}`
+                const walletName = acct.walletName || 'Imported Key'
+                let isAccountStart = true
+                const push = (label: string, address: string) => {
+                    if (!address) return
+                    result.push({ index: acct.index, label: `${name} (${label})`, address, xpub: acct.xpubXP, walletName, isAccountStart })
+                    isAccountStart = false
+                }
+                push('X', acct.addressAVM)
+                push('C', acct.addressC)
+                push('P', acct.addressPVM)
+                push('BTC', acct.addressBTC)
+                push('C Atomic', acct.addressCoreEth)
+                push('SVM', acct.addressSVM)
+                push('xpub', acct.xpubXP)
+            })
             return result
         })
 
@@ -482,6 +511,21 @@ h1 {
     padding: 14px 16px;
     color: var(--primary-color-light);
     font-size: 0.85em;
+}
+
+.core_wallet_header {
+    font-family: sans-serif;
+    font-size: 0.75em;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--primary-color-light);
+    padding: 10px 16px 4px;
+    border-top: 1px solid var(--bg);
+
+    &:first-child {
+        border-top: none;
+    }
 }
 
 .addr_row {

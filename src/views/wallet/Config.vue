@@ -1,3 +1,8 @@
+<!--
+  Copyright (c) 2026 @REKTBuildr
+
+  Licensed under the BSD 3 Clause License. See LICENSE file in the project root for details.
+-->
 <template>
     <div class="config_view">
         <div class="page_header">
