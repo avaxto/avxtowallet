@@ -194,6 +194,46 @@
                 </div>
             </div>
 
+            <div v-if="hasPChainFunds" class="pchain_action_section">
+                <p class="preview_label">What should happen to your P-Chain AVAX?</p>
+                <div class="source_toggle">
+                    <button
+                        type="button"
+                        class="source_btn"
+                        :class="{ active: pChainAction === 'leave' }"
+                        @click="pChainAction = 'leave'"
+                    >
+                        Leave on P-Chain
+                    </button>
+                    <button
+                        type="button"
+                        class="source_btn"
+                        :class="{ active: pChainAction === 'toX' }"
+                        @click="pChainAction = 'toX'"
+                    >
+                        Transfer to X-Chain
+                    </button>
+                    <button
+                        type="button"
+                        class="source_btn"
+                        :class="{ active: pChainAction === 'toC' }"
+                        @click="pChainAction = 'toC'"
+                    >
+                        Transfer to C-Chain
+                    </button>
+                </div>
+                <p class="pchain_action_desc">
+                    <template v-if="pChainAction === 'leave'">
+                        P-chain AVAX will not be touched — migrate it manually later via Cross Chain.
+                    </template>
+                    <template v-else>
+                        P-chain AVAX will be exported and imported into the
+                        {{ pChainAction === 'toX' ? 'X' : 'C' }}-chain before that chain's assets are
+                        sent, so it's included in the transfer to your new wallet.
+                    </template>
+                </p>
+            </div>
+
             <div class="new_wallet_preview">
                 <p class="preview_label">Assets will be sent to your new wallet addresses:</p>
                 <div class="addr_row">
@@ -328,7 +368,8 @@ import { useAssetsStore } from '@/stores/assets'
 import { WalletHelper } from '@/helpers/wallet_helper'
 import { BN } from '@/avalanche'
 import { web3 } from '@/evm'
-import { avm, isValidAddress } from '@/AVA'
+import { avm, pChain, isValidAddress } from '@/AVA'
+import { GasHelper, avaxCtoX } from '@/avalanche-wallet-sdk'
 import { ITransaction } from '@/components/wallet/transfer/types'
 import { bnToBig } from '@/helpers/helper'
 import { IssueBatchTxInput } from '@/types'
@@ -448,6 +489,14 @@ export default defineComponent({
         // ─── Step 2: Asset discovery ─────────────────────────────────────────
         const confirmWord = ref('')
         const discoveredAssets = ref<AssetEntry[]>([])
+
+        // What to do with P-chain AVAX: leave it there, or move it to X/C
+        // first so it's included in that chain's transfer to the new wallet.
+        const pChainAction = ref<'leave' | 'toX' | 'toC'>('leave')
+
+        const hasPChainFunds = computed(() =>
+            discoveredAssets.value.some((a) => a.chain === 'P')
+        )
 
         const discoverAssets = () => {
             const wallet = mainStore.activeWallet as any
@@ -633,6 +682,91 @@ export default defineComponent({
         const transfers = ref<TransferRecord[]>([])
         const currentStep3Label = ref('')
 
+        // Time for an export tx's UTXOs to land in shared/atomic memory
+        // before the matching import is attempted (matches ChainTransfer.vue).
+        const PCHAIN_IMPORT_DELAY = 5000
+
+        // If the user chose to move P-chain AVAX to X or C, export it now
+        // and import it on the destination chain, *before* that chain's own
+        // assets are sent — so the just-imported AVAX is included in the
+        // transfer to the new wallet. On success, refreshes balances and
+        // re-runs discoverAssets() so the upcoming X/C-chain section sees
+        // the new balance instead of the stale step-2 snapshot.
+        const transferPChainFunds = async (): Promise<void> => {
+            if (pChainAction.value === 'leave') return
+
+            const wallet = mainStore.activeWallet as any
+            const pBalance = assetsStore.walletPlatformBalance.available
+            if (!pBalance.gt(new BN(0))) return
+
+            const destChain = pChainAction.value === 'toX' ? 'X' : 'C'
+            const exportFee = pChain.getTxFee()
+
+            let importFee: BN
+            if (destChain === 'X') {
+                importFee = avm.getTxFee()
+            } else {
+                let baseFee = new BN('25000000000') // 25 gwei fallback
+                try {
+                    baseFee = await GasHelper.getBaseFeeRecommended()
+                } catch {
+                    // use fallback
+                }
+                const gas = GasHelper.estimateImportGasFeeFromMockTx(1, 1)
+                importFee = avaxCtoX(baseFee.mul(new BN(gas)))
+                if (importFee.lten(0)) importFee = new BN(100000)
+            }
+
+            const amtToExport = pBalance.sub(exportFee).sub(importFee)
+            if (amtToExport.lte(new BN(0))) {
+                transfers.value.push({
+                    chain: 'P',
+                    asset: 'AVAX',
+                    amount: bnToBig(pBalance, 9).toFixed(9) + ' AVAX',
+                    status: 'skipped',
+                    error: `Balance too low to cover the P-chain export and ${destChain}-chain import fees`,
+                })
+                return
+            }
+
+            const txRecord: TransferRecord = {
+                chain: 'P',
+                asset: 'AVAX',
+                amount: bnToBig(amtToExport, 9).toFixed(9) + ' AVAX',
+                status: 'pending',
+                note: `Moving to ${destChain}-chain first — will be included in the ${destChain}-chain transfer below`,
+            }
+            transfers.value.push(txRecord)
+            currentStep3Label.value = `Exporting P-chain AVAX to ${destChain}-chain…`
+
+            try {
+                const exportTxId =
+                    destChain === 'C'
+                        ? await wallet.exportFromPChain(amtToExport, 'C', importFee)
+                        : await wallet.exportFromPChain(amtToExport, 'X')
+
+                await new Promise((resolve) => setTimeout(resolve, PCHAIN_IMPORT_DELAY))
+
+                currentStep3Label.value = `Importing AVAX into ${destChain}-chain…`
+                const importTxId =
+                    destChain === 'C'
+                        ? await wallet.importToCChain('P', importFee)
+                        : await wallet.importToXChain('P')
+
+                txRecord.txId = importTxId
+                txRecord.status = 'success'
+                txRecord.note = `Exported (${String(exportTxId).slice(0, 10)}…) and imported into ${destChain}-chain — included below`
+
+                // Refresh balances so the X/C-chain section below sees the
+                // newly-imported funds instead of the stale step-2 snapshot.
+                await assetsStore.updateUTXOs()
+                discoverAssets()
+            } catch (e: any) {
+                txRecord.status = 'error'
+                txRecord.error = e?.message ?? String(e)
+            }
+        }
+
         const executeTransfers = async () => {
             if (walletSource.value === 'new') {
                 if (!newMnemonic.value || !_newWallet.value) return
@@ -645,6 +779,11 @@ export default defineComponent({
             const wallet = mainStore.activeWallet as any
             const targetXAddr = newXAddr.value
             const targetCAddr = newCAddr.value
+
+            // ── P-chain: move funds to X/C first if requested, so they're
+            // included in that chain's transfer below. Must run before the
+            // X-chain and C-chain sections.
+            await transferPChainFunds()
 
             // ── X-chain: batch all available X assets in one TX ──────────────
             const xAssets = discoveredAssets.value.filter((a) => a.chain === 'X')
@@ -691,16 +830,20 @@ export default defineComponent({
                 }
             }
 
-            // ── P-chain: skip — requires manual cross-chain export ────────────
-            const pAssets = discoveredAssets.value.filter((a) => a.chain === 'P')
-            for (const pa of pAssets) {
-                transfers.value.push({
-                    chain: 'P',
-                    asset: pa.symbol,
-                    amount: `${pa.amount} ${pa.symbol}`,
-                    status: 'skipped',
-                    error: 'Use Cross Chain → Export to move P-chain AVAX to X or C, then transfer to new wallet',
-                })
+            // ── P-chain: left in place — only when the user chose "leave"
+            // (the 'toX'/'toC' cases were already handled by
+            // transferPChainFunds() above, which pushed its own record).
+            if (pChainAction.value === 'leave') {
+                const pAssets = discoveredAssets.value.filter((a) => a.chain === 'P')
+                for (const pa of pAssets) {
+                    transfers.value.push({
+                        chain: 'P',
+                        asset: pa.symbol,
+                        amount: `${pa.amount} ${pa.symbol}`,
+                        status: 'skipped',
+                        error: 'Use Cross Chain → Export to move P-chain AVAX to X or C, then transfer to new wallet',
+                    })
+                }
             }
 
             // ── C-chain: explicit, locally-incrementing nonce ─────────────────
@@ -921,6 +1064,7 @@ export default defineComponent({
             confirmWord.value = ''
             discoveredAssets.value = []
             gasWarning.value = null
+            pChainAction.value = 'leave'
             // step 3 / 4
             isExecuting.value = false
             transfers.value = []
@@ -952,6 +1096,8 @@ export default defineComponent({
             confirmWord,
             discoveredAssets,
             gasWarning,
+            pChainAction,
+            hasPChainFunds,
             newXAddr,
             newCAddr,
             goToStep3,
@@ -1382,6 +1528,31 @@ h2 {
             color: #a5d6a7;
         }
     }
+}
+
+/* ── P-chain action selector ─────────────────────────────────────────── */
+.pchain_action_section {
+    background: var(--bg-body);
+    border-radius: 6px;
+    padding: 16px;
+    margin-bottom: 24px;
+
+    .preview_label {
+        font-size: 13px;
+        color: var(--primary-color-light);
+        margin-bottom: 10px;
+    }
+
+    .source_toggle {
+        margin-bottom: 10px;
+    }
+}
+
+.pchain_action_desc {
+    font-size: 12px;
+    color: var(--primary-color-light);
+    line-height: 1.5;
+    margin: 0;
 }
 
 /* ── New wallet preview ──────────────────────────────────────────────── */
