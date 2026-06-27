@@ -328,7 +328,7 @@ import { useAssetsStore } from '@/stores/assets'
 import { WalletHelper } from '@/helpers/wallet_helper'
 import { BN } from '@/avalanche'
 import { web3 } from '@/evm'
-import { isValidAddress } from '@/AVA'
+import { avm, isValidAddress } from '@/AVA'
 import { ITransaction } from '@/components/wallet/transfer/types'
 import { bnToBig } from '@/helpers/helper'
 import { IssueBatchTxInput } from '@/types'
@@ -456,20 +456,44 @@ export default defineComponent({
             // X-chain assets from balance dict
             const balDict = assetsStore.balanceDict
             const assDict = assetsStore.assetsDict
+            const xFee = avm.getTxFee()
             for (const [assetId, bal] of Object.entries(balDict)) {
                 if (!bal.available.gt(new BN(0))) continue
                 const asset = assDict[assetId]
                 if (!asset) continue
                 const denom = asset.denomination ?? 0
-                const big = bnToBig(bal.available, denom)
+
+                // AVAX itself pays the X-chain transaction fee, so it must be
+                // reserved before transferring the rest of the balance —
+                // otherwise the batch tx needs (amount + fee) but only has
+                // (amount) available and fails with "insufficient funds".
+                const isAvax = assetId === assetsStore.AVA_ASSET_ID
+                if (isAvax && bal.available.lte(xFee)) {
+                    const big = bnToBig(bal.available, denom)
+                    entries.push({
+                        chain: 'X',
+                        name: asset.name || assetId.substring(0, 8),
+                        symbol: asset.symbol || '?',
+                        amount: big.toFixed(denom > 0 ? Math.min(denom, 9) : 0),
+                        assetId,
+                        rawAmount: new BN(0),
+                        note: 'Balance too low to cover the X-chain transaction fee — nothing transferred',
+                    })
+                    continue
+                }
+
+                const transferable = isAvax ? bal.available.sub(xFee) : bal.available.clone()
+                const big = bnToBig(transferable, denom)
                 entries.push({
                     chain: 'X',
                     name: asset.name || assetId.substring(0, 8),
                     symbol: asset.symbol || '?',
                     amount: big.toFixed(denom > 0 ? Math.min(denom, 9) : 0),
                     assetId,
-                    rawAmount: bal.available.clone(),
-                    note: 'Will be transferred directly',
+                    rawAmount: transferable,
+                    note: isAvax
+                        ? 'Will be transferred (X-chain fee reserved)'
+                        : 'Will be transferred directly',
                 })
             }
 
@@ -631,7 +655,7 @@ export default defineComponent({
                         asset: assetsStore.assetsDict[a.assetId],
                         amount: a.rawAmount,
                     }))
-                    .filter((o) => o.asset != null)
+                    .filter((o) => o.asset != null && o.amount.gt(new BN(0)))
 
                 if (orders.length > 0) {
                     const combinedLabel = orders
