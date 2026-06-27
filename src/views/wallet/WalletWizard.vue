@@ -7,10 +7,7 @@
     <div class="wallet_wizard">
         <h1 class="wizard_heading">Wallet Wizard</h1>
         <p class="wizard_intro">
-            Wallet Wizard is an AVXTO Toolbox feature that allows you to create a brand new wallet and
-            migrate all assets to the newly created wallet. Refer to
-            <a href="https://avax.to" target="_blank" rel="noopener noreferrer">avax.to</a>
-            website for more about Wallet Wizard.
+            Wallet Wizard is an AVXTO Toolbox feature that allows you to quickly migrate all assets from this wallet to either a newly created wallet or an existing one. 
         </p>
 
         <!-- Step indicator -->
@@ -170,6 +167,11 @@
                 Assets on P-chain require a manual Cross Chain export and cannot be migrated
                 automatically.
             </p>
+
+            <div v-if="gasWarning" class="warning_box">
+                <fa icon="exclamation-triangle" class="warn_icon"></fa>
+                <p>{{ gasWarning }}</p>
+            </div>
 
             <div v-if="discoveredAssets.length === 0" class="empty_state">
                 <p>No transferable assets found in your wallet.</p>
@@ -534,6 +536,74 @@ export default defineComponent({
             discoveredAssets.value = entries
         }
 
+        // ─── C-chain gas reservation (shared by the step 2 warning and the
+        // actual step 3 reservation, so they can never drift apart) ─────────
+        const NATIVE_GAS_LIMIT = 21000
+        const ERC20_GAS_LIMIT = 100_000
+
+        const computeCGasNeed = async () => {
+            let gasPrice = new BN(String(25_000_000_000)) // 25 nAVAX fallback
+            try {
+                const gp = await web3.eth.getGasPrice()
+                gasPrice = new BN(String(gp))
+            } catch {
+                // use fallback
+            }
+
+            const baseAssetInfo = assetsStore.baseAsset
+            const allErc20 = [...assetsStore.erc20Tokens, ...assetsStore.erc20TokensCustom]
+            const regularErc20 = allErc20.filter(
+                (t) =>
+                    !baseAssetInfo ||
+                    t.data.address.toLowerCase() !== baseAssetInfo.address.toLowerCase()
+            )
+            const baseErc20 = allErc20.find(
+                (t) =>
+                    baseAssetInfo &&
+                    t.data.address.toLowerCase() === baseAssetInfo.address.toLowerCase()
+            )
+
+            // How many C-chain token sends will actually be attempted.
+            const pendingErc20Sends = regularErc20.filter((t) => t.balanceBN.gt(new BN(0))).length
+            const baseAssetWillSend =
+                !!baseErc20 && !!baseAssetInfo && baseErc20.balanceBN.gt(baseAssetInfo.thr as BN)
+            const tokenSendCount = pendingErc20Sends + (baseAssetWillSend ? 1 : 0)
+
+            // Gas for the native AVAX transfer itself, plus every C-chain
+            // token transfer — their gas is paid in AVAX, never the token.
+            // A 20% buffer covers minor variance between the nominal gas
+            // limit and gas actually used.
+            const totalGasUnits = NATIVE_GAS_LIMIT + tokenSendCount * ERC20_GAS_LIMIT
+            const gasCost = gasPrice.muln(totalGasUnits).muln(12).divn(10)
+
+            return { gasPrice, gasCost, regularErc20, baseErc20, baseAssetInfo, tokenSendCount }
+        }
+
+        // Populated by goToStep2 — warns on the review screen if the
+        // wallet's C-chain AVAX balance won't cover gas for every C-chain
+        // token transfer that's about to be attempted.
+        const gasWarning = ref<string | null>(null)
+
+        const checkGasSufficiency = async () => {
+            gasWarning.value = null
+
+            const cEthEntry = discoveredAssets.value.find((a) => a.assetId === '__AVAX_C__')
+            const cBalance = cEthEntry ? cEthEntry.rawAmount : new BN(0)
+
+            const { gasCost, tokenSendCount } = await computeCGasNeed()
+            if (tokenSendCount === 0) return
+
+            if (cBalance.lt(gasCost)) {
+                const haveText = bnToBig(cBalance, 18).toFixed(9)
+                const needText = bnToBig(gasCost, 18).toFixed(9)
+                gasWarning.value =
+                    `Not enough C-Chain AVAX to cover gas for all ${tokenSendCount} token ` +
+                    `transfer${tokenSendCount > 1 ? 's' : ''}. You have ${haveText} AVAX but need ` +
+                    `approximately ${needText} AVAX for gas alone. Some C-chain token transfers ` +
+                    `may fail during execution.`
+            }
+        }
+
         // ─── Step 3: Execute transfers ────────────────────────────────────────
         const isExecuting = ref(false)
         const transfers = ref<TransferRecord[]>([])
@@ -551,15 +621,6 @@ export default defineComponent({
             const wallet = mainStore.activeWallet as any
             const targetXAddr = newXAddr.value
             const targetCAddr = newCAddr.value
-
-            // Get C-chain gas price
-            let gasPrice = new BN(String(25_000_000_000)) // 25 nAVAX fallback
-            try {
-                const gp = await web3.eth.getGasPrice()
-                gasPrice = new BN(String(gp))
-            } catch {
-                // use fallback
-            }
 
             // ── X-chain: batch all available X assets in one TX ──────────────
             const xAssets = discoveredAssets.value.filter((a) => a.chain === 'X')
@@ -636,12 +697,17 @@ export default defineComponent({
                 return cNonce++
             }
 
+            // ── C-chain: gas price + reservation, and the ERC20 lists to
+            // send — computed via the same helper the step 2 warning uses,
+            // so the reservation here can never drift from what was shown
+            // to the user before they clicked Execute.
+            const { gasPrice, gasCost, regularErc20, baseErc20, baseAssetInfo } =
+                await computeCGasNeed()
+
             // ── C-chain AVAX ──────────────────────────────────────────────────
             const cEthAsset = discoveredAssets.value.find((a) => a.assetId === '__AVAX_C__')
             if (cEthAsset) {
-                const gasLimit = 21000
-                // Reserve 3× the gas cost to be safe
-                const gasCost = gasPrice.muln(gasLimit).muln(3)
+                const gasLimit = NATIVE_GAS_LIMIT
                 const sendAmount = cEthAsset.rawAmount.sub(gasCost)
 
                 if (sendAmount.gt(new BN(0))) {
@@ -680,20 +746,6 @@ export default defineComponent({
                 }
             }
 
-            // ── C-chain ERC20 tokens ──────────────────────────────────────────
-            const baseAssetInfo = assetsStore.baseAsset
-            const allErc20 = [...assetsStore.erc20Tokens, ...assetsStore.erc20TokensCustom]
-            const regularErc20 = allErc20.filter(
-                (t) =>
-                    !baseAssetInfo ||
-                    t.data.address.toLowerCase() !== baseAssetInfo.address.toLowerCase()
-            )
-            const baseErc20 = allErc20.find(
-                (t) =>
-                    baseAssetInfo &&
-                    t.data.address.toLowerCase() === baseAssetInfo.address.toLowerCase()
-            )
-
             // Transfer all regular ERC20s first
             for (const token of regularErc20) {
                 if (!token.balanceBN.gt(new BN(0))) continue
@@ -714,7 +766,7 @@ export default defineComponent({
                         targetCAddr,
                         token.balanceBN,
                         gasPrice,
-                        100_000,
+                        ERC20_GAS_LIMIT,
                         token,
                         await nextCNonce()
                     )
@@ -758,7 +810,7 @@ export default defineComponent({
                             targetCAddr,
                             sendAmount,
                             gasPrice,
-                            100_000,
+                            ERC20_GAS_LIMIT,
                             baseErc20,
                             await nextCNonce()
                         )
@@ -803,7 +855,7 @@ export default defineComponent({
         }
 
         // ─── Navigation ───────────────────────────────────────────────────────
-        const goToStep2 = () => {
+        const goToStep2 = async () => {
             if (walletSource.value === 'new') {
                 if (!verifyQuiz()) return
             } else if (!canProceedExisting.value) {
@@ -811,6 +863,7 @@ export default defineComponent({
             }
             discoverAssets()
             confirmWord.value = ''
+            await checkGasSufficiency()
             step.value = 2
         }
 
@@ -843,6 +896,7 @@ export default defineComponent({
             // step 2
             confirmWord.value = ''
             discoveredAssets.value = []
+            gasWarning.value = null
             // step 3 / 4
             isExecuting.value = false
             transfers.value = []
@@ -873,6 +927,7 @@ export default defineComponent({
             // step 2
             confirmWord,
             discoveredAssets,
+            gasWarning,
             newXAddr,
             newCAddr,
             goToStep3,
@@ -1000,6 +1055,30 @@ h2 {
     border-radius: 8px;
     padding: 32px;
     max-width: 860px;
+}
+
+/* ── Warning box (e.g. insufficient C-chain gas) ────────────────────────── */
+.warning_box {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    background-color: color-mix(in srgb, var(--warning) 14%, transparent);
+    border: 1px solid color-mix(in srgb, var(--warning) 40%, transparent);
+    border-radius: 4px;
+    padding: 14px 16px;
+    margin-bottom: 20px;
+
+    p {
+        font-size: 13px;
+        line-height: 1.5;
+        margin: 0;
+    }
+
+    .warn_icon {
+        color: var(--warning);
+        margin-top: 2px;
+        flex-shrink: 0;
+    }
 }
 
 /* ── Destination wallet source toggle ───────────────────────────────────── */
