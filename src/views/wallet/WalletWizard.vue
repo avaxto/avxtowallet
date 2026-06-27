@@ -26,63 +26,136 @@
             </div>
         </div>
 
-        <!-- ─── Step 1: Generate & Verify Mnemonic ─── -->
+        <!-- ─── Step 1: Choose Destination Wallet ─── -->
         <div v-if="step === 1" class="card">
-            <h2>Generate New Wallet</h2>
+            <h2>Choose Destination Wallet</h2>
             <p class="desc">
-                A new 24-word recovery phrase will be generated. Write it down on paper and store it
-                somewhere safe — it cannot be recovered if lost. Do not share it with anyone.
+                Migrate to a brand new wallet, or send the assets to a wallet you already control.
             </p>
 
-            <div v-if="!newMnemonic" class="empty_state">
-                <v-btn class="button_primary" @click="generateMnemonic">
-                    Generate New Mnemonic
-                </v-btn>
+            <div class="source_toggle">
+                <button
+                    type="button"
+                    class="source_btn"
+                    :class="{ active: walletSource === 'new' }"
+                    @click="walletSource = 'new'"
+                >
+                    Create New Wallet
+                </button>
+                <button
+                    type="button"
+                    class="source_btn"
+                    :class="{ active: walletSource === 'existing' }"
+                    @click="walletSource = 'existing'"
+                >
+                    Use Existing Wallet
+                </button>
             </div>
 
-            <template v-else>
-                <div class="mnemonic_grid">
-                    <div
-                        v-for="(word, idx) in newWords"
-                        :key="idx"
-                        class="mnemonic_word"
-                        :class="{ highlight: quizIndices.includes(idx) }"
-                    >
-                        <span class="word_num">{{ idx + 1 }}</span>
-                        <span class="word_val notranslate" translate="no">{{ word }}</span>
+            <template v-if="walletSource === 'new'">
+                <p class="desc">
+                    A new 24-word recovery phrase will be generated. Write it down on paper and store
+                    it somewhere safe — it cannot be recovered if lost. Do not share it with anyone.
+                </p>
+
+                <div v-if="!newMnemonic" class="empty_state">
+                    <v-btn class="button_primary" @click="generateMnemonic">
+                        Generate New Mnemonic
+                    </v-btn>
+                </div>
+
+                <template v-else>
+                    <div class="mnemonic_grid">
+                        <div
+                            v-for="(word, idx) in newWords"
+                            :key="idx"
+                            class="mnemonic_word"
+                            :class="{ highlight: quizIndices.includes(idx) }"
+                        >
+                            <span class="word_num">{{ idx + 1 }}</span>
+                            <span class="word_val notranslate" translate="no">{{ word }}</span>
+                        </div>
                     </div>
-                </div>
 
-                <div class="copy_row">
-                    <button class="copy_btn" @click="copyMnemonic">
-                        <fa :icon="copiedMnemonic ? 'check' : 'copy'"></fa>
-                        {{ copiedMnemonic ? 'Copied!' : 'Copy to Clipboard' }}
-                    </button>
-                </div>
+                    <div class="copy_row">
+                        <button class="copy_btn" @click="copyMnemonic">
+                            <fa :icon="copiedMnemonic ? 'check' : 'copy'"></fa>
+                            {{ copiedMnemonic ? 'Copied!' : 'Copy to Clipboard' }}
+                        </button>
+                    </div>
 
-                <div class="quiz_section">
-                    <p class="quiz_title">
-                        To confirm you have recorded your mnemonic, enter the
-                        <strong>highlighted</strong> words below:
-                    </p>
-                    <div v-for="idx in quizIndices" :key="idx" class="quiz_row">
-                        <label class="quiz_label">Word #{{ idx + 1 }}</label>
+                    <div class="quiz_section">
+                        <p class="quiz_title">
+                            To confirm you have recorded your mnemonic, enter the
+                            <strong>highlighted</strong> words below:
+                        </p>
+                        <div v-for="idx in quizIndices" :key="idx" class="quiz_row">
+                            <label class="quiz_label">Word #{{ idx + 1 }}</label>
+                            <input
+                                v-model="quizAnswers[idx]"
+                                type="text"
+                                class="quiz_input"
+                                :placeholder="`Word ${idx + 1}`"
+                                autocomplete="off"
+                                autocorrect="off"
+                                spellcheck="false"
+                            />
+                        </div>
+                        <p v-if="quizError" class="err_msg">{{ quizError }}</p>
+                    </div>
+
+                    <div class="actions">
+                        <v-btn class="button_secondary" @click="generateMnemonic">Regenerate</v-btn>
+                        <v-btn class="button_primary" @click="goToStep2">
+                            Next: Review Assets
+                        </v-btn>
+                    </div>
+                </template>
+            </template>
+
+            <template v-else>
+                <p class="desc">
+                    Enter the X-Chain and C-Chain addresses of the wallet you already control.
+                    Double-check these addresses carefully — asset transfers cannot be reversed.
+                </p>
+
+                <div class="existing_wallet_form">
+                    <div class="field_row">
+                        <label class="field_label">X-Chain Address</label>
                         <input
-                            v-model="quizAnswers[idx]"
+                            v-model.trim="existingXAddr"
                             type="text"
-                            class="quiz_input"
-                            :placeholder="`Word ${idx + 1}`"
+                            class="addr_input notranslate"
+                            translate="no"
+                            placeholder="X-avax1..."
                             autocomplete="off"
                             autocorrect="off"
                             spellcheck="false"
                         />
+                        <p v-if="existingXAddr && !isExistingXValid" class="err_msg">
+                            Not a valid X-chain address.
+                        </p>
                     </div>
-                    <p v-if="quizError" class="err_msg">{{ quizError }}</p>
+                    <div class="field_row">
+                        <label class="field_label">C-Chain Address</label>
+                        <input
+                            v-model.trim="existingCAddr"
+                            type="text"
+                            class="addr_input notranslate"
+                            translate="no"
+                            placeholder="0x..."
+                            autocomplete="off"
+                            autocorrect="off"
+                            spellcheck="false"
+                        />
+                        <p v-if="existingCAddr && !isExistingCValid" class="err_msg">
+                            Not a valid C-chain (0x) address.
+                        </p>
+                    </div>
                 </div>
 
                 <div class="actions">
-                    <v-btn class="button_secondary" @click="generateMnemonic">Regenerate</v-btn>
-                    <v-btn class="button_primary" @click="goToStep2">
+                    <v-btn class="button_primary" :disabled="!canProceedExisting" @click="goToStep2">
                         Next: Review Assets
                     </v-btn>
                 </div>
@@ -238,6 +311,7 @@
             <div class="report_actions">
                 <v-btn class="button_secondary" @click="copyReport">Copy to Clipboard</v-btn>
                 <v-btn class="button_secondary" @click="downloadReport">Download as TXT</v-btn>
+                <v-btn class="button_primary" @click="resetWizard">Start Again</v-btn>
             </div>
         </div>
     </div>
@@ -252,6 +326,7 @@ import { useAssetsStore } from '@/stores/assets'
 import { WalletHelper } from '@/helpers/wallet_helper'
 import { BN } from '@/avalanche'
 import { web3 } from '@/evm'
+import { isValidAddress } from '@/AVA'
 import { ITransaction } from '@/components/wallet/transfer/types'
 import { bnToBig } from '@/helpers/helper'
 import { IssueBatchTxInput } from '@/types'
@@ -283,7 +358,26 @@ export default defineComponent({
         const assetsStore = useAssetsStore()
 
         const step = ref<1 | 2 | 3 | 4>(1)
-        const stepLabels = ['Generate', 'Review', 'Execute', 'Report']
+        const stepLabels = ['Destination', 'Review', 'Execute', 'Report']
+
+        // ─── Step 1: Destination wallet — new (mnemonic) vs existing ────────
+        const walletSource = ref<'new' | 'existing'>('new')
+
+        // "Use Existing Wallet" — addresses entered directly, no key material involved.
+        const existingXAddr = ref('')
+        const existingCAddr = ref('')
+
+        const isExistingXValid = computed(() => {
+            const addr = existingXAddr.value.trim()
+            if (!addr.startsWith('X-')) return false
+            return isValidAddress(addr)
+        })
+
+        const isExistingCValid = computed(() => web3.utils.isAddress(existingCAddr.value.trim()))
+
+        const canProceedExisting = computed(
+            () => isExistingXValid.value && isExistingCValid.value
+        )
 
         // ─── Step 1: Mnemonic generation & quiz ─────────────────────────────
         const newMnemonic = ref<string | null>(null)
@@ -300,10 +394,19 @@ export default defineComponent({
             setTimeout(() => { copiedMnemonic.value = false }, 2000)
         }
 
-        // Derived new-wallet addresses (computed once mnemonic is set)
+        // Derived new-wallet addresses (computed once mnemonic is set), or the
+        // manually entered addresses when the user picked "Use Existing Wallet".
+        // Everything downstream (step 2 preview, step 3 execution) reads these
+        // two regardless of which source mode is active.
         const _newWallet = ref<MnemonicWallet | null>(null)
-        const newXAddr = computed(() => _newWallet.value?.getCurrentAddressAvm() ?? '')
-        const newCAddr = computed(() => _newWallet.value?.getEvmChecksumAddress() ?? '')
+        const newXAddr = computed(() => {
+            if (walletSource.value === 'existing') return existingXAddr.value.trim()
+            return _newWallet.value?.getCurrentAddressAvm() ?? ''
+        })
+        const newCAddr = computed(() => {
+            if (walletSource.value === 'existing') return existingCAddr.value.trim()
+            return _newWallet.value?.getEvmChecksumAddress() ?? ''
+        })
 
         const generateMnemonic = () => {
             const mnemonic = bip39.generateMnemonic(256)
@@ -437,7 +540,11 @@ export default defineComponent({
         const currentStep3Label = ref('')
 
         const executeTransfers = async () => {
-            if (!newMnemonic.value || !_newWallet.value) return
+            if (walletSource.value === 'new') {
+                if (!newMnemonic.value || !_newWallet.value) return
+            } else if (!canProceedExisting.value) {
+                return
+            }
             isExecuting.value = true
             transfers.value = []
 
@@ -511,6 +618,24 @@ export default defineComponent({
                 })
             }
 
+            // ── C-chain: explicit, locally-incrementing nonce ─────────────────
+            // Several C-chain sends happen back-to-back below (native AVAX,
+            // then each ERC20). Letting each one ask the wallet/RPC for "the"
+            // current nonce independently is racy — the previous send may not
+            // be confirmed (or even visible as pending, on a load-balanced
+            // public RPC) by the time the next one asks, so two sends can get
+            // the same nonce and the second is rejected as "nonce too low" /
+            // "already used". Fetching the starting nonce once and
+            // incrementing it locally for each subsequent send avoids that.
+            let cNonce: number | undefined
+            const nextCNonce = async (): Promise<number> => {
+                if (cNonce === undefined) {
+                    const evmAddr = '0x' + wallet.getEvmAddress()
+                    cNonce = await web3.eth.getTransactionCount(evmAddr, 'pending')
+                }
+                return cNonce++
+            }
+
             // ── C-chain AVAX ──────────────────────────────────────────────────
             const cEthAsset = discoveredAssets.value.find((a) => a.assetId === '__AVAX_C__')
             if (cEthAsset) {
@@ -535,7 +660,8 @@ export default defineComponent({
                             targetCAddr,
                             sendAmount,
                             gasPrice,
-                            gasLimit
+                            gasLimit,
+                            await nextCNonce()
                         )
                         txRecord.txId = txHash
                         txRecord.status = 'success'
@@ -589,7 +715,8 @@ export default defineComponent({
                         token.balanceBN,
                         gasPrice,
                         100_000,
-                        token
+                        token,
+                        await nextCNonce()
                     )
                     txRecord.txId = txHash
                     txRecord.status = 'success'
@@ -632,7 +759,8 @@ export default defineComponent({
                             sendAmount,
                             gasPrice,
                             100_000,
-                            baseErc20
+                            baseErc20,
+                            await nextCNonce()
                         )
                         txRecord.txId = txHash
                         txRecord.status = 'success'
@@ -676,7 +804,11 @@ export default defineComponent({
 
         // ─── Navigation ───────────────────────────────────────────────────────
         const goToStep2 = () => {
-            if (!verifyQuiz()) return
+            if (walletSource.value === 'new') {
+                if (!verifyQuiz()) return
+            } else if (!canProceedExisting.value) {
+                return
+            }
             discoverAssets()
             confirmWord.value = ''
             step.value = 2
@@ -692,10 +824,43 @@ export default defineComponent({
             step.value = 4
         }
 
+        // Reset every piece of wizard state back to its step-1 default so the
+        // whole flow (new mnemonic, asset discovery, transfers) can be re-run
+        // from scratch — e.g. to migrate a different set of assets, or after
+        // resolving an error from a previous run.
+        const resetWizard = () => {
+            // step 1
+            walletSource.value = 'new'
+            existingXAddr.value = ''
+            existingCAddr.value = ''
+            newMnemonic.value = null
+            newWords.value = []
+            quizIndices.value = []
+            quizAnswers.value = {}
+            quizError.value = null
+            copiedMnemonic.value = false
+            _newWallet.value = null
+            // step 2
+            confirmWord.value = ''
+            discoveredAssets.value = []
+            // step 3 / 4
+            isExecuting.value = false
+            transfers.value = []
+            currentStep3Label.value = ''
+
+            step.value = 1
+        }
+
         return {
             step,
             stepLabels,
             // step 1
+            walletSource,
+            existingXAddr,
+            existingCAddr,
+            isExistingXValid,
+            isExistingCValid,
+            canProceedExisting,
             newMnemonic,
             newWords,
             quizIndices,
@@ -719,6 +884,7 @@ export default defineComponent({
             // step 4
             copyReport,
             downloadReport,
+            resetWizard,
         }
     },
 })
@@ -770,7 +936,7 @@ h2 {
     align-items: flex-start;
     gap: 0;
     margin-bottom: 28px;
-    margin-top: 18px;
+    margin-top: 28px;
     max-width: 520px;
 }
 
@@ -834,6 +1000,70 @@ h2 {
     border-radius: 8px;
     padding: 32px;
     max-width: 860px;
+}
+
+/* ── Destination wallet source toggle ───────────────────────────────────── */
+.source_toggle {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 24px;
+}
+
+.source_btn {
+    flex: 1;
+    max-width: 220px;
+    padding: 10px 16px;
+    border-radius: 6px;
+    border: 1px solid var(--bg-body);
+    background: var(--bg-body);
+    color: var(--primary-color-light);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s;
+
+    &:hover {
+        color: var(--primary-color);
+    }
+
+    &.active {
+        border-color: var(--secondary-color);
+        color: var(--secondary-color);
+    }
+}
+
+/* ── Existing wallet address form ───────────────────────────────────────── */
+.existing_wallet_form {
+    margin-bottom: 24px;
+}
+
+.field_row {
+    margin-bottom: 16px;
+}
+
+.field_label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--primary-color-light);
+    margin-bottom: 6px;
+}
+
+.addr_input {
+    background: var(--bg-body);
+    border: 1px solid var(--bg-light-2, #d0d0d0);
+    border-radius: 4px;
+    padding: 8px 12px;
+    font-size: 13px;
+    font-family: monospace;
+    color: var(--primary-color);
+    width: 100%;
+    max-width: 480px;
+    outline: none;
+
+    &:focus {
+        border-color: var(--secondary-color);
+    }
 }
 
 /* ── Empty state ─────────────────────────────────────────────────────── */

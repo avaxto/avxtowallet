@@ -96,16 +96,17 @@ class WalletHelper {
         to: string,
         amount: BN, // in wei
         gasPrice: BN,
-        gasLimit: number
+        gasLimit: number,
+        nonce?: number
     ) {
         // Injected wallets handle sending directly via the provider
         if (wallet.type === 'injected') {
-            return await (wallet as InjectedWallet).sendEth(to, amount, gasPrice, gasLimit)
+            return await (wallet as InjectedWallet).sendEth(to, amount, gasPrice, gasLimit, nonce)
         }
 
         const fromAddr = '0x' + wallet.getEvmAddress()
 
-        const tx = await buildEvmTransferNativeTx(fromAddr, to, amount, gasPrice, gasLimit)
+        const tx = await buildEvmTransferNativeTx(fromAddr, to, amount, gasPrice, gasLimit, nonce)
 
         const signedTx = await wallet.signEvm(tx)
 
@@ -120,15 +121,31 @@ class WalletHelper {
         amount: BN,
         gasPrice: BN,
         gasLimit: number,
-        token: Erc20Token
+        token: Erc20Token,
+        nonce?: number
     ) {
         // Injected wallets handle sending directly via the provider
         if (wallet.type === 'injected') {
-            return await (wallet as InjectedWallet).sendERC20(to, amount, gasPrice, gasLimit, token)
+            return await (wallet as InjectedWallet).sendERC20(
+                to,
+                amount,
+                gasPrice,
+                gasLimit,
+                token,
+                nonce
+            )
         }
 
         const fromAddr = '0x' + wallet.getEvmAddress()
-        const tx = await buildEvmTransferErc20Tx(fromAddr, to, amount, gasPrice, gasLimit, token)
+        const tx = await buildEvmTransferErc20Tx(
+            fromAddr,
+            to,
+            amount,
+            gasPrice,
+            gasLimit,
+            token,
+            nonce
+        )
 
         const signedTx = await wallet.signEvm(tx)
         const txHex = signedTx.serialize().toString('hex')
@@ -142,7 +159,8 @@ class WalletHelper {
         gasPrice: BN,
         gasLimit: number,
         token: ERC721Token,
-        tokenId: string
+        tokenId: string,
+        nonce?: number
     ) {
         // Injected wallets: build and send ERC721 transfer via the provider
         if (wallet.type === 'injected') {
@@ -170,6 +188,9 @@ class WalletHelper {
                 data: data,
                 gasPrice: BigInt(gasPrice.toString()),
                 gas: BigInt(gasLimit),
+                // See InjectedWallet.sendEth — explicit nonce avoids provider
+                // nonce races when sending several transactions back-to-back.
+                ...(nonce !== undefined ? { nonce } : {}),
                 chain: null,
             } as any)
 
@@ -177,7 +198,15 @@ class WalletHelper {
         }
 
         const fromAddr = '0x' + wallet.getEvmAddress()
-        const tx = await buildEvmTransferErc721Tx(fromAddr, to, gasPrice, gasLimit, token, tokenId)
+        const tx = await buildEvmTransferErc721Tx(
+            fromAddr,
+            to,
+            gasPrice,
+            gasLimit,
+            token,
+            tokenId,
+            nonce
+        )
         const signedTx = await wallet.signEvm(tx)
         const txHex = signedTx.serialize().toString('hex')
         const hash = await web3.eth.sendSignedTransaction('0x' + txHex)

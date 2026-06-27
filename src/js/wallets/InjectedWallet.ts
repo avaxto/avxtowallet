@@ -850,7 +850,8 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
         to: string,
         amount: BN, // in wei
         gasPrice: BN,
-        gasLimit: number
+        gasLimit: number,
+        nonce?: number
     ): Promise<string> {
         const fromAddr = ('0x' + this.ethAddress) as `0x${string}`
         const toAddr = to as `0x${string}`
@@ -861,6 +862,14 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
             value: BigInt(amount.toString()),
             gasPrice: BigInt(gasPrice.toString()),
             gas: BigInt(gasLimit),
+            // account is a plain address (JSON-RPC account), so nonce
+            // assignment is normally left to the provider. When sending
+            // several transactions back-to-back (e.g. Wallet Wizard's batch
+            // migration), some providers don't track their own pending nonce
+            // fast enough between calls, causing "nonce too low" /
+            // "nonce already used" errors. Passing an explicit nonce when
+            // the caller is sequencing a batch avoids that race.
+            ...(nonce !== undefined ? { nonce } : {}),
             chain: null, // let the provider determine the chain
         } as any)
 
@@ -875,7 +884,8 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
         amount: BN,
         gasPrice: BN,
         gasLimit: number,
-        token: Erc20Token
+        token: Erc20Token,
+        nonce?: number
     ): Promise<string> {
         const fromAddr = ('0x' + this.ethAddress) as `0x${string}`
         const tokenAddr = token.data.address as `0x${string}`
@@ -895,6 +905,9 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
             data: data,
             gasPrice: BigInt(gasPrice.toString()),
             gas: BigInt(gasLimit),
+            // See sendEth — explicit nonce avoids provider nonce races when
+            // a caller sends several transactions back-to-back.
+            ...(nonce !== undefined ? { nonce } : {}),
             chain: null,
         } as any)
 

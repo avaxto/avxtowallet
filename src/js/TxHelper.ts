@@ -219,9 +219,16 @@ export async function buildEvmTransferNativeTx(
     to: string,
     amount: BN, // in wei
     gasPrice: BN,
-    gasLimit: number
+    gasLimit: number,
+    nonce?: number
 ) {
-    const nonce = await web3.eth.getTransactionCount(from)
+    // 'pending' (not the default 'latest') includes this account's own
+    // not-yet-mined transactions, and an explicit nonce lets callers
+    // sequence several sends in a row (e.g. Wallet Wizard's batch
+    // migration) without re-querying the RPC between each one.
+    if (nonce === undefined) {
+        nonce = await web3.eth.getTransactionCount(from, 'pending')
+    }
     const chainId = await web3.eth.getChainId()
     const networkId = await web3.eth.net.getId()
     const chainParams = {
@@ -248,9 +255,14 @@ export async function buildEvmTransferErc20Tx(
     amount: BN, // in wei
     gasPrice: BN,
     gasLimit: number,
-    token: Erc20Token
+    token: Erc20Token,
+    nonce?: number
 ) {
-    const nonce = await web3.eth.getTransactionCount(from)
+    // See buildEvmTransferNativeTx — 'pending' + explicit nonce avoid nonce
+    // races when sending several transactions in a row.
+    if (nonce === undefined) {
+        nonce = await web3.eth.getTransactionCount(from, 'pending')
+    }
     const chainId = await web3.eth.getChainId()
     const networkId = await web3.eth.net.getId()
     const chainParams = {
@@ -279,9 +291,14 @@ export async function buildEvmTransferErc721Tx(
     gasPrice: BN,
     gasLimit: number,
     token: ERC721Token,
-    tokenId: string
+    tokenId: string,
+    nonce?: number
 ) {
-    const nonce = await web3.eth.getTransactionCount(from)
+    // See buildEvmTransferNativeTx — 'pending' + explicit nonce avoid nonce
+    // races when sending several transactions in a row.
+    if (nonce === undefined) {
+        nonce = await web3.eth.getTransactionCount(from, 'pending')
+    }
     const chainId = await web3.eth.getChainId()
     const networkId = await web3.eth.net.getId()
     const chainParams = {
