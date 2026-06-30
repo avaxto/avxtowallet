@@ -4,10 +4,16 @@ import { resolve } from 'path'
 import { nodePolyfills } from 'vite-plugin-node-polyfills'
 import wasm from "vite-plugin-wasm";
 import topLevelAwait from "vite-plugin-top-level-await";
+import { execSync } from 'child_process'
 
-
-// Set version environment variable
-process.env.VITE_APP_VERSION = 0.01
+// Inject the latest git tag as the app version
+let appVersion
+try {
+  appVersion = execSync('git describe --tags --abbrev=0').toString().trim()
+} catch {
+  appVersion = 'dev'
+}
+process.env.VITE_APP_VERSION = appVersion
 
 export default defineConfig({
   plugins: [
