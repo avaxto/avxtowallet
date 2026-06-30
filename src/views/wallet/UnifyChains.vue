@@ -235,7 +235,33 @@ export default defineComponent({
 
             const totFeeWei = baseFee.value.mul(new BN(gas))
             // wei (18 decimals) → nAVAX (9 decimals)
-            return avaxCtoX(totFeeWei)
+            const feeNAvax = avaxCtoX(totFeeWei)
+
+            // The export-from-C-chain fee param is "legacy" and IGNORED by the
+            // underlying @avalanche-sdk/client builder (buildEvmExportTransaction) —
+            // it auto-calculates its own gas at broadcast time using a fresh
+            // base-fee fetch. This estimate is therefore only a self-imposed
+            // budget reservation, not a value that actually caps the real
+            // transaction cost, so it needs a generous buffer to survive base-fee
+            // drift between this estimate and the SDK's own calculation moments
+            // later — without it, "amount" can end up larger than the wallet can
+            // actually cover once real gas is deducted, and broadcast fails with
+            // "insufficient funds". The import-into-C leg's fee *is* used
+            // directly to build the real import tx (see createImportTxC), so a
+            // smaller buffer is enough there.
+            if (!isExport) return feeNAvax.muln(12).divn(10)
+
+            // For injected wallets (Core App etc.), exportFromCChain hands the
+            // whole sign+broadcast step to the extension itself
+            // (sendXPTransaction → avalanche_sendTransaction) — Core determines
+            // gas on its own, independent of GasHelper's estimate entirely, and
+            // appears to retry with adjusted gas (re-prompting each time) before
+            // giving up if there isn't enough headroom for any attempt to land.
+            // A flat floor on top of the proportional buffer keeps real-world
+            // gas-price spikes and Core's own retry margin from exhausting it.
+            const FLOOR_NAVAX = new BN(20_000_000) // 0.02 AVAX
+            const buffered = feeNAvax.muln(15).divn(10)
+            return BN.max(buffered, FLOOR_NAVAX)
         }
 
         const updateBaseFee = async () => {
@@ -280,10 +306,13 @@ export default defineComponent({
             const target = targetChain.value
             const sources = allChains.filter((c) => c !== target)
 
-            await updateBaseFee()
-
             for (const source of sources) {
                 if (balanceForChain(source).lte(zero)) continue
+
+                // Refresh right before planning each leg (not just once for the
+                // whole run) — with a 5s export→import delay per leg, the C-chain
+                // base fee can drift noticeably between legs.
+                await updateBaseFee()
 
                 const { amount, exportFee, importFee } = planTransfer(source, target)
 
