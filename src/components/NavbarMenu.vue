@@ -62,7 +62,7 @@
      <v-menu offset-y>
             <template v-slot:activator="{ props }">
                 <v-btn text v-bind="props" class="menu-btn">
-                    Trade
+                    AVXTO
                 </v-btn>
             </template>
             <v-list>
@@ -74,7 +74,7 @@
                         target="_blank" 
                         rel="noopener noreferrer"
                         class="wallet_link">
-                            Trade AVXTO at LFJ
+                            Buy AVXTO at LFJ
                         </a>
                     </v-list-item-title>
                 </v-list-item>
@@ -87,10 +87,23 @@
                         target="_blank" 
                         rel="noopener noreferrer"
                         class="wallet_link"> 
-                            Trade AVXTO at ArenaTrade
+                            Buy AVXTO at ArenaTrade
                         </a>
                     </v-list-item-title>
                 </v-list-item>
+
+                <v-list-item>
+                    <v-list-item-title>
+                        <a 
+                        href="https://dexscreener.com/avalanche/0x2bdebde7e1088e42aafef104b5f7457aca5ab86f" 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        class="wallet_link"> 
+                            DEXScreener
+                        </a>
+                    </v-list-item-title>
+                </v-list-item>                
+                
                 
             </v-list>
         </v-menu>
