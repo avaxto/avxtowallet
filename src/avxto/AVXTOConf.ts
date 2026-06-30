@@ -15,7 +15,7 @@ export const C_CHAIN_POLLING_INTERVAL = 10000
 // Global rate limit for all outgoing network requests (fixed-window strategy)
 export const RATE_LIMIT_MAX_REQUESTS = 20  // max requests per window
 export const RATE_LIMIT_WINDOW_MS = 1000   // window size in milliseconds
-export const AVAX_TOOLBOX_VERSION = '0.0.1'
+export const AVAX_TOOLBOX_VERSION = '0.0.47-beta'
 export const AVXTO_CONTRACT_ADDRESS = '0xf56CeCc07d97Ac50630022CF84C19e612ae8C93D'
 export const AVXTO_THR = new BN(1000000)
 export const AVXTO_SYMBOL = 'AVXTO'
