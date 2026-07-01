@@ -48,12 +48,17 @@
                 </v-list-item>
                 <v-list-item>
                     <v-list-item-title>
-                        <router-link to="/wallet/wizard">New Wallet Wizard</router-link>
+                        <router-link to="/wallet/wizard">Wallet Wizard</router-link>
                     </v-list-item-title>
                 </v-list-item>
                 <v-list-item>
                     <v-list-item-title>
                         <router-link to="/wallet/unifychains">Unify Chains</router-link>
+                    </v-list-item-title>
+                </v-list-item>
+                <v-list-item>
+                    <v-list-item-title>
+                        <router-link to="/wallet/launcher">Token Launcher</router-link>
                     </v-list-item-title>
                 </v-list-item>
             </v-list>
