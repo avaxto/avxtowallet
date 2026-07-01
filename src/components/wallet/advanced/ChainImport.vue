@@ -45,6 +45,8 @@ import { useAssetsStore, useHistoryStore, useMainStore, useNotificationsStore } 
 import Spinner from '@/components/misc/Spinner.vue'
 import { Wallet } from '@/js/wallets/AbstractWallet'
 import { BN } from '@/avalanche'
+import { bintools } from '@/AVA'
+import { bnToBig } from '@/helpers/helper'
 import {
     avaxCtoX,
     ExportChainsC,
@@ -130,52 +132,63 @@ export default defineComponent({
                 }, 0)
                 const gas = GasHelper.estimateImportGasFeeFromMockTx(numIns, numSigs)
 
-                // Per-gas price (wei).  Try in order:
-                //   1. `eth_baseFee` (AvalancheGo-specific atomic fee source)
-                //   2. `eth_gasPrice` (standard EVM; same source the C send form uses)
-                //   3. Hardcoded 25 gwei floor
-                // The MIN_PER_GAS_WEI = 1 gwei threshold is critical: if perGasWei is below
-                // 1 gwei, `perGasWei * gas` stays under 10^9 wei, and the subsequent
-                // `avaxCtoX(totFee)` (integer-divides by 10^9 to convert wei → nAVAX)
-                // truncates to 0.  That's exactly how the fee silently became 0 even when
-                // baseFee/gasPrice returned a "non-zero" value — they were returning a
-                // value too small to survive the wei→nAVAX rounding.
-                const MIN_PER_GAS_WEI = new BN('1000000000')  // 1 gwei
-                const FALLBACK_PER_GAS_WEI = new BN('25000000000') // 25 gwei
+                // Per-gas price (wei).
+                // We use 2× the raw baseFee rather than the 1.25× "recommended"
+                // value because Avalanche allows baseFee to rise 12.5% per block.
+                // Over the ~5 s between export and import (≈4 blocks), the fee
+                // can increase by up to 1.125^4 ≈ 1.6×.  A 25% buffer fails
+                // consistently under mild congestion; 2× covers the drift.
+                // Floor: 50 gwei (2× the Avalanche C-chain minimum of 25 gwei).
+                const FALLBACK_PER_GAS_WEI = new BN('50000000000') // 50 gwei
                 let perGasWei: BN
-                let perGasSource = 'baseFee'
+                let perGasSource = 'baseFee×2'
                 try {
-                    const bf = await GasHelper.getBaseFeeRecommended()
-                    if (bf.gte(MIN_PER_GAS_WEI)) {
-                        perGasWei = bf
-                    } else {
-                        perGasSource = 'gasPrice'
-                        perGasWei = await GasHelper.getAdjustedGasPrice()
-                    }
+                    const bf = await GasHelper.getBaseFee()
+                    perGasWei = BN.max(bf.muln(2), FALLBACK_PER_GAS_WEI)
                 } catch {
-                    perGasSource = 'gasPrice'
-                    perGasWei = await GasHelper.getAdjustedGasPrice()
-                }
-                if (perGasWei.lt(MIN_PER_GAS_WEI)) {
-                    perGasSource = `${perGasSource}→fallback-25gwei`
-                    perGasWei = FALLBACK_PER_GAS_WEI
+                    try {
+                        perGasSource = 'gasPrice×2'
+                        perGasWei = BN.max((await GasHelper.getGasPrice()).muln(2), FALLBACK_PER_GAS_WEI)
+                    } catch {
+                        perGasSource = 'fallback-50gwei'
+                        perGasWei = FALLBACK_PER_GAS_WEI
+                    }
                 }
 
                 const totFee = perGasWei.mul(new BN(gas))
                 let feeNAvax = avaxCtoX(totFee)
-                // Defensive: should never trigger now (per-gas ≥ 1 gwei × gas ≥ 10138
-                // always yields ≥ 10138 nAVAX), but if avaxCtoX still rounds to 0
-                // (e.g. gas computation returns 0 for an unexpected input shape),
-                // floor the fee at 1e5 nAVAX (= 0.0001 AVAX) so the node never sees 0.
                 if (feeNAvax.lten(0)) {
                     perGasSource = `${perGasSource}+navax-floor`
-                    feeNAvax = new BN(100000)
+                    // ~2× the Avalanche minimum import fee (25 gwei × 11228 gas ≈ 280 700 nAVAX)
+                    feeNAvax = new BN(600000)
                 }
                 console.log(
                     `[atomicImportC] per-gas=${perGasWei.toString(10)} wei (${perGasSource}), ` +
                     `gas=${gas}, totFee=${totFee.toString(10)} wei, ` +
                     `feeNAvax=${feeNAvax.toString(10)}`
                 )
+                // Guard: ensure the atomic UTXOs contain enough AVAX to cover
+                // the import fee — the node rejects with "import tx flow check
+                // failed due to: insufficient funds" if they don't.
+                const avaxAssetId = assetsStore.AVA_ASSET_ID
+                if (avaxAssetId) {
+                    const avaxIdBuf = bintools.cb58Decode(avaxAssetId)
+                    const totalAvax = utxos.reduce((sum: BN, u: any) => {
+                        if (u.getAssetID().equals(avaxIdBuf)) {
+                            return sum.add((u.getOutput() as any).getAmount() as BN)
+                        }
+                        return sum
+                    }, new BN(0))
+                    if (totalAvax.lte(feeNAvax)) {
+                        const totalStr = bnToBig(totalAvax, 9).toFixed(4)
+                        const feeStr = bnToBig(feeNAvax, 9).toFixed(4)
+                        throw new Error(
+                            `Import fee (${feeStr} AVAX) is too high for the importable amount (${totalStr} AVAX). ` +
+                            `Export a larger AVAX amount to C-chain first.`
+                        )
+                    }
+                }
+
                 let txIdVal = await wallet.value.importToCChain(source, feeNAvax)
                 onSuccess(txIdVal)
             } catch (e) {

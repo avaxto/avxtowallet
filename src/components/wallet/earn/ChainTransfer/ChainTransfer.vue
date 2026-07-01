@@ -362,7 +362,13 @@ export default defineComponent({
         })
 
         const updateBaseFee = async () => {
-            baseFee.value = await GasHelper.getBaseFeeRecommended()
+            // Use 2× raw baseFee instead of the 1.25× "recommended" value.
+            // Avalanche allows 12.5%/block fee increase; over the ~5 s window
+            // between export and import (≈4 blocks) baseFee can rise by ~1.6×,
+            // which exceeds the 1.25× buffer and triggers the node's flow-check
+            // "insufficient funds" rejection.  2× covers that drift safely.
+            const bf = await GasHelper.getBaseFee()
+            baseFee.value = BN.max(bf.muln(2), new BN('50000000000')) // min 50 gwei
         }
 
         watch([sourceChain, targetChain, balanceBN, feeBN, wallet], () => {
@@ -399,6 +405,13 @@ export default defineComponent({
         const chainExport = async (amt: BN, src: ChainIdType, dst: ChainIdType) => {
             const w = wallet.value as any
 
+            // Refresh baseFee right before the export so that the import fee
+            // embedded in the atomic UTXO matches what the C-chain will require
+            // at inclusion time. Snapshot the computed BN so both the export
+            // embedding and the later import call use the exact same value.
+            if (dst === 'C' || src === 'C') await updateBaseFee()
+            const importFeeSnapshot = importFeeBN.value
+
             // --- Export phase ---
             exportState.value = TxState.started
             exportId.value = ''
@@ -408,9 +421,9 @@ export default defineComponent({
             let exportTxId: string
             try {
                 if (src === 'X') {
-                    exportTxId = await w.exportFromXChain(amt, dst as ExportChainsX, dst === 'C' ? importFeeBN.value : undefined)
+                    exportTxId = await w.exportFromXChain(amt, dst as ExportChainsX, dst === 'C' ? importFeeSnapshot : undefined)
                 } else if (src === 'P') {
-                    exportTxId = await w.exportFromPChain(amt, dst as ExportChainsP, dst === 'C' ? importFeeBN.value : undefined)
+                    exportTxId = await w.exportFromPChain(amt, dst as ExportChainsP, dst === 'C' ? importFeeSnapshot : undefined)
                 } else {
                     exportTxId = await w.exportFromCChain(amt, dst as ExportChainsC, exportFeeBN.value)
                 }
@@ -429,6 +442,13 @@ export default defineComponent({
             // Wait for UTXOs to appear in atomic memory
             await new Promise((resolve) => setTimeout(resolve, IMPORT_DELAY))
 
+            // Refresh X/P UTXOs and C-chain balance so the import sees the
+            // post-export state rather than stale pre-export data.
+            await Promise.allSettled([
+                assetsStore.updateUTXOs(),
+                w.getEthBalance(),
+            ])
+
             // --- Import phase ---
             importState.value = TxState.started
             importId.value = ''
@@ -442,7 +462,7 @@ export default defineComponent({
                 } else if (dst === 'P') {
                     importTxId = await w.importToPlatformChain(src as ExportChainsP)
                 } else {
-                    importTxId = await w.importToCChain(src as ExportChainsC, importFeeBN.value)
+                    importTxId = await w.importToCChain(src as ExportChainsC, importFeeSnapshot)
                 }
                 importId.value = importTxId
                 importState.value = TxState.success

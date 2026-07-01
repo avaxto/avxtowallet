@@ -305,19 +305,17 @@ export default defineComponent({
         }
 
         /** Resolves the per-gas wei value (with safe fallback) for C-chain imports.
-         * Mirrors the fee chain used by ChainImport.vue's atomicImportC. */
+         * Uses 2× raw baseFee — mirrors ChainImport.vue's atomicImportC logic. */
         const resolvePerGasWei = async (): Promise<BN> => {
-            const MIN_PER_GAS_WEI = new BN('1000000000') // 1 gwei
-            const FALLBACK_PER_GAS_WEI = new BN('25000000000') // 25 gwei
+            const FALLBACK_PER_GAS_WEI = new BN('50000000000') // 50 gwei (2× Avalanche minimum)
             try {
-                const bf = await GasHelper.getBaseFeeRecommended()
-                if (bf.gte(MIN_PER_GAS_WEI)) return bf
+                const bf = await GasHelper.getBaseFee()
+                return BN.max(bf.muln(2), FALLBACK_PER_GAS_WEI)
             } catch {
                 /* fall through */
             }
             try {
-                const gp = await GasHelper.getAdjustedGasPrice()
-                if (gp.gte(MIN_PER_GAS_WEI)) return gp
+                return BN.max((await GasHelper.getGasPrice()).muln(2), FALLBACK_PER_GAS_WEI)
             } catch {
                 /* fall through */
             }
@@ -350,7 +348,7 @@ export default defineComponent({
                     const perGasWei = await resolvePerGasWei()
                     const totFee = perGasWei.mul(new BN(gas))
                     let feeNAvax = avaxCtoX(totFee)
-                    if (feeNAvax.lten(0)) feeNAvax = new BN(100000)
+                    if (feeNAvax.lten(0)) feeNAvax = new BN(600000)
                     txId = await w.importToCChain(row.source as ExportChainsC, feeNAvax)
                 }
                 notificationsStore.add({
@@ -358,7 +356,9 @@ export default defineComponent({
                     title: `Imported ${row.source}→${row.dest}`,
                     message: txId,
                 })
-                // Reload list — the claimed UTXOs (potentially multiple) are gone.
+                // Wait for the node to finalize the import tx before refreshing,
+                // otherwise consumed UTXOs may still appear in the query result.
+                await new Promise((resolve) => setTimeout(resolve, 3000))
                 await refresh()
             } catch (e: any) {
                 row.importing = false
