@@ -53,6 +53,7 @@ class Erc20Token {
                 sessionStorage.setItem('insufficientBalance_thr', thrHuman)
                 sessionStorage.setItem('insufficientBalance_symbol', baseAsset.symbol)
                 sessionStorage.setItem('insufficientBalance_address', baseAsset.address)
+                sessionStorage.setItem('insufficientBalance_cChainAddress', '0x' + address)
                 window.location.href = '/insufficient-balance'
             }
         }

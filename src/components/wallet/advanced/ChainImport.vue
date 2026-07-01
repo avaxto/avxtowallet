@@ -76,9 +76,18 @@ export default defineComponent({
             return wallet.value.ethAddress
         })
 
+        const refreshBeforeImport = async () => {
+            if (!wallet.value) return
+            await Promise.allSettled([
+                assetsStore.updateUTXOs(),
+                wallet.value.getEthBalance(),
+            ])
+        }
+
         const atomicImportX = async (sourceChain: ExportChainsX) => {
             beforeSubmit()
             if (!wallet.value) return
+            await refreshBeforeImport()
 
             // // Import from C
             try {
@@ -93,6 +102,7 @@ export default defineComponent({
         const atomicImportP = async (source: ExportChainsP) => {
             beforeSubmit()
             if (!wallet.value) return
+            await refreshBeforeImport()
             try {
                 let txIdVal = await wallet.value.importToPlatformChain(source)
                 onSuccess(txIdVal)
@@ -104,6 +114,7 @@ export default defineComponent({
         const atomicImportC = async (source: ExportChainsC) => {
             beforeSubmit()
             if (!wallet.value) return
+            await refreshBeforeImport()
             try {
                 const utxoSet = await wallet.value.evmGetAtomicUTXOs(source)
                 const utxos = utxoSet.getAllUTXOs()

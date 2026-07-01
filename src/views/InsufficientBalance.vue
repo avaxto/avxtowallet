@@ -7,19 +7,33 @@
     <div class="insufficient_page">
         <div class="insufficient_body">
             <p class="insufficient_message">
-                The <a href="https://dexscreener.com/avalanche/0x2bdebde7e1088e42aafef104b5f7457aca5ab86f" target="_blank" rel="noopener noreferrer">{{ thrSymbol }}</a> balance on this account is below the required minimum threshold to use this wallet.
+                The <a href="https://dexscreener.com/avalanche/0x2bdebde7e1088e42aafef104b5f7457aca5ab86f" target="_blank" rel="noopener noreferrer">{{ thrSymbol }}</a> balance on this account is below the required minimum threshold to use AVXTO Wallet
                 <template v-if="thrValue">
                     <br /><br />
                     Minimum required: <strong>{{ thrValue }} {{ thrSymbol }}</strong>
                 </template>
-                <br /><br />
-                Please acquire more <strong>{{ thrSymbol }}</strong> tokens to continue.
-                <br /><br />
+                <br>
+                Please deposit <strong>{{ thrSymbol }}</strong> tokens to continue.
+                <template v-if="cChainAddress">
+                    <br /><br />
+                    <div class="alert alert-warning" role="alert">
+                        Make a deposit to your C-Chain deposit address to continue:<br />
+                        <code>{{ cChainAddress }}</code>
+                    </div>
+                </template>
+                
                 You can swap <strong>{{ thrSymbol }}</strong> at <a href="https://lfj.gg/avalanche/trade/0xf56cecc07d97ac50630022cf84c19e612ae8c93d" target="_blank" rel="noopener noreferrer">LFJ</a>
-                or <a href="https://arenatrade.ai/token/0xf56cecc07d97ac50630022cf84c19e612ae8c93d" target="_blank" rel="noopener noreferrer">ArenaTrade</a>. (<em>Or any other DEX with <strong>{{ thrSymbol }}</strong> support.</em>.)
-                <br /><br />    
-                Always check the contract address before making a purchase : <code>{{ thrAddress || '0xf56CeCc07d97Ac50630022CF84C19e612ae8C93D' }}</code>
-
+                or <a href="https://arenatrade.ai/token/0xf56cecc07d97ac50630022cf84c19e612ae8c93d" target="_blank" rel="noopener noreferrer">ArenaTrade</a>. <br/>(<em>Or any other DEX with <strong>{{ thrSymbol }}</strong> support.</em>)
+                <template v-if="cChainAddress">
+                    <br /><br />
+                    <div class="alert alert-warning" role="alert">
+                        Double check your C-Chain deposit address:<br />
+                        <code>{{ cChainAddress }}</code>
+                    </div>  
+                </template>
+                
+                Always verify the <strong>{{ thrSymbol }}</strong> CA - Contract Address before making a purchase : <code>{{ thrAddress || '0xf56CeCc07d97Ac50630022CF84C19e612ae8C93D' }}</code> (Do NOT deposit to the contract address.)
+                
             </p>
             <button class="restart_btn" @click="restart">Back to AVXTO Wallet Home</button>
         </div>
@@ -35,15 +49,18 @@ export default defineComponent({
         const thrValue = ref(sessionStorage.getItem('insufficientBalance_thr') ?? '')
         const thrSymbol = ref(sessionStorage.getItem('insufficientBalance_symbol') ?? 'AVXTO')
         const thrAddress = ref(sessionStorage.getItem('insufficientBalance_address') ?? '')
+        const storedCChainAddress = sessionStorage.getItem('insufficientBalance_cChainAddress') ?? ''
         sessionStorage.removeItem('insufficientBalance_thr')
         sessionStorage.removeItem('insufficientBalance_symbol')
         sessionStorage.removeItem('insufficientBalance_address')
+        sessionStorage.removeItem('insufficientBalance_cChainAddress')
         const provider = (window as any).avalanche ?? (window as any).ethereum
 
         // Snapshot the account that caused us to land here so we can
         // distinguish a real switch from the provider re-emitting the
         // current account on listener registration.
         let currentAccount: string | null = null
+        const cChainAddress = ref<string | null>(storedCChainAddress || null)
 
         const onAccountsChanged = (accounts: string[]) => {
             const newAccount = accounts?.[0]?.toLowerCase() ?? null
@@ -57,6 +74,7 @@ export default defineComponent({
             try {
                 const accounts: string[] = await provider?.request({ method: 'eth_accounts' })
                 currentAccount = accounts?.[0]?.toLowerCase() ?? null
+                cChainAddress.value = accounts?.[0] ?? (storedCChainAddress || null)
             } catch {
                 // Provider unavailable — leave currentAccount null so any
                 // accountsChanged event will still trigger a redirect.
@@ -72,7 +90,7 @@ export default defineComponent({
             window.location.href = '/'
         }
 
-        return { restart, thrValue, thrSymbol, thrAddress }
+        return { restart, thrValue, thrSymbol, thrAddress, cChainAddress }
     },
 })
 </script>
