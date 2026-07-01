@@ -6,19 +6,15 @@
         </p>
         <div class="address_row">
             <span class="addr_label">From</span>
-            <span class="addr">{{ shortAddr(transaction.nativeTransaction.from.address) }}</span>
+            <span class="addr">{{ fromLabel }}</span>
             <span class="arr">→</span>
             <span class="addr_label">To</span>
-            <span class="addr">{{ shortAddr(transaction.nativeTransaction.to.address) }}</span>
+            <span class="addr">{{ toLabel }}</span>
         </div>
-        <div v-if="transaction.erc20Transfers && transaction.erc20Transfers.length" class="erc20_transfers">
-            <div
-                v-for="(t, i) in transaction.erc20Transfers"
-                :key="i"
-                class="erc20_transfer"
-            >
-                <span class="erc20_symbol">{{ t.erc20Token.symbol ?? t.erc20Token.name }}</span>
-                <span class="erc20_value">{{ formatErc20(t.value, t.erc20Token.decimals) }}</span>
+        <div v-if="erc20Transfers.length" class="erc20_transfers">
+            <div v-for="(t, i) in erc20Transfers" :key="i" class="erc20_transfer">
+                <span class="erc20_symbol">{{ tokenSymbol(t) }}</span>
+                <span class="erc20_value">{{ formatErc20(t.value, tokenDecimals(t)) }}</span>
             </div>
         </div>
     </div>
@@ -41,30 +37,65 @@ export default defineComponent({
     setup(props) {
         const mainStore = useMainStore()
 
+        // Known 4-byte selectors → friendly labels, so contract calls without a
+        // decoded methodName still read meaningfully.
+        const SELECTORS: Record<string, string> = {
+            '0xa9059cbb': 'Transfer',
+            '0x23b872dd': 'Transfer From',
+            '0x095ea7b3': 'Approve',
+            '0x2e1a7d4d': 'Withdraw',
+            '0xd0e30db0': 'Deposit',
+            '0x42842e0e': 'Safe Transfer',
+        }
+
+        // Null-safe views over the raw (possibly incomplete) Glacier payload.
+        const nt = computed((): any => props.transaction?.nativeTransaction || {})
+        const fromAddr = computed((): string => nt.value.from?.address || '')
+        const toAddr = computed((): string => nt.value.to?.address || '')
+        const method = computed((): any => nt.value.method || {})
+
         const walletAddress = computed((): string => {
             const wallet = mainStore.activeWallet as any
-            return ('0x' + (wallet?.ethAddress ?? '')).toLowerCase()
+            const raw = (wallet?.ethAddress ?? wallet?.getEvmAddress?.() ?? '').toString()
+            const hex = raw.startsWith('0x') ? raw : '0x' + raw
+            return hex.toLowerCase()
         })
 
         const isOut = computed((): boolean => {
-            return (
-                props.transaction.nativeTransaction.from.address.toLowerCase() ===
-                walletAddress.value
-            )
+            const from = fromAddr.value.toLowerCase()
+            return !!from && from === walletAddress.value
+        })
+
+        const isCreation = computed((): boolean => {
+            return method.value.callType === 'CONTRACT_CREATION' || (!toAddr.value && !!fromAddr.value)
         })
 
         const methodLabel = computed((): string => {
-            const m = props.transaction.nativeTransaction.method
-            if (m?.name) return m.name
-            const value = props.transaction.nativeTransaction.value
-            const isZero = !value || value === '0' || value === '0x0'
+            const m = method.value
+            if (isCreation.value) return 'Contract Deployment'
+            if (m.callType === 'NATIVE_TRANSFER') return isOut.value ? 'Send' : 'Receive'
+            // Prefer a decoded method name (strip the parameter signature).
+            const name = m.methodName || m.name
+            if (name && name !== 'Native Transfer') return prettify(String(name).split('(')[0])
+            if (m.methodHash && SELECTORS[m.methodHash]) return SELECTORS[m.methodHash]
+
+            const raw = nt.value.value
+            const isZero = !raw || raw === '0' || raw === '0x0' || Number(raw) === 0
             if (!isZero) return isOut.value ? 'Send' : 'Receive'
-            return isOut.value ? 'Contract Call' : 'Contract Interaction'
+            return m.methodHash ? 'Contract Call' : 'Contract Interaction'
         })
 
+        const prettify = (s: string): string => {
+            // camelCase / snake_case method name → Title Case words.
+            const spaced = s.replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/[_-]+/g, ' ')
+            return spaced.charAt(0).toUpperCase() + spaced.slice(1)
+        }
+
         const valueLabel = computed((): string | null => {
-            const raw = props.transaction.nativeTransaction.value
-            if (!raw || raw === '0' || raw === '0x0') return null
+            const raw = nt.value.value
+            if (raw === undefined || raw === null || raw === '' || raw === '0' || raw === '0x0') {
+                return null
+            }
             try {
                 const wei = BigInt(raw)
                 if (wei === 0n) return null
@@ -80,17 +111,54 @@ export default defineComponent({
             return addr.slice(0, 6) + '…' + addr.slice(-4)
         }
 
+        const fromLabel = computed((): string => {
+            const name = nt.value.from?.name
+            return name || shortAddr(fromAddr.value) || '—'
+        })
+
+        const toLabel = computed((): string => {
+            if (isCreation.value) return toAddr.value ? shortAddr(toAddr.value) : 'New contract'
+            const name = nt.value.to?.name
+            return name || shortAddr(toAddr.value) || '—'
+        })
+
+        const erc20Transfers = computed((): any[] => {
+            return Array.isArray(props.transaction?.erc20Transfers)
+                ? props.transaction.erc20Transfers
+                : []
+        })
+
+        const tokenSymbol = (t: any): string => {
+            const tok = t?.erc20Token || {}
+            return tok.symbol || tok.name || shortAddr(tok.address || '') || 'Token'
+        }
+
+        const tokenDecimals = (t: any): number => {
+            const d = t?.erc20Token?.decimals
+            return typeof d === 'number' ? d : 18
+        }
+
         const formatErc20 = (rawValue: string, decimals?: number): string => {
             try {
                 const dec = decimals ?? 18
                 const val = new Big(rawValue).div(new Big(10).pow(dec))
                 return val.toFixed(4).replace(/\.?0+$/, '')
             } catch {
-                return rawValue
+                return rawValue ?? ''
             }
         }
 
-        return { isOut, methodLabel, valueLabel, shortAddr, formatErc20 }
+        return {
+            isOut,
+            methodLabel,
+            valueLabel,
+            fromLabel,
+            toLabel,
+            erc20Transfers,
+            tokenSymbol,
+            tokenDecimals,
+            formatErc20,
+        }
     },
 })
 </script>

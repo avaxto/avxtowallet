@@ -58,12 +58,21 @@ export type EvmTransactionDetails = {
         chainId: string
         blockIndex: number
         txStatus: string
-        from: { address: string; name?: string }
-        to: { address: string; name?: string }
+        from?: { address?: string; name?: string; symbol?: string } | null
+        to?: { address?: string; name?: string; symbol?: string } | null
         value: string
         gasUsed: string
         gasPrice: string
-        method?: { name?: string; selector?: string }
+        // Glacier/chainkit shape: callType (NATIVE_TRANSFER | CONTRACT_CALL |
+        // CONTRACT_CREATION), methodHash (4-byte selector), methodName. The
+        // legacy name/selector fields are kept for backwards-compatibility.
+        method?: {
+            callType?: string
+            methodHash?: string
+            methodName?: string
+            name?: string
+            selector?: string
+        } | null
     }
     erc20Transfers?: Array<{
         from: { address: string; name?: string }
