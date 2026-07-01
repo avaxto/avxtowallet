@@ -233,40 +233,46 @@ export default defineComponent({
                   )
                 : GasHelper.estimateImportGasFeeFromMockTx(1, 1)
 
-            const totFeeWei = baseFee.value.mul(new BN(gas))
+            // Per-gas price (wei). We use 2× the raw base fee rather than the
+            // 1.25× "recommended" value because Avalanche allows the base fee to
+            // rise 12.5% per block. Over the ~5 s export→import window (≈4
+            // blocks) it can climb ~1.6×; a smaller buffer fails consistently
+            // with "import tx flow check failed due to: insufficient funds".
+            // Floor: 50 gwei (2× the Avalanche C-chain minimum of 25 gwei).
+            const FLOOR_PER_GAS_WEI = new BN('50000000000') // 50 gwei
+            const perGasWei = BN.max(baseFee.value.muln(2), FLOOR_PER_GAS_WEI)
+            const totFeeWei = perGasWei.mul(new BN(gas))
             // wei (18 decimals) → nAVAX (9 decimals)
-            const feeNAvax = avaxCtoX(totFeeWei)
+            let feeNAvax = avaxCtoX(totFeeWei)
+
+            // The import-into-C leg's fee *is* used directly to build the real
+            // import tx (see createImportTxC), so the 2× buffer above is what
+            // keeps the node's flow check satisfied. Guard against a rounded-to-
+            // zero nAVAX value with a floor (~2× the Avalanche minimum).
+            if (!isExport) {
+                if (feeNAvax.lten(0)) feeNAvax = new BN(600000)
+                return feeNAvax
+            }
 
             // The export-from-C-chain fee param is "legacy" and IGNORED by the
             // underlying @avalanche-sdk/client builder (buildEvmExportTransaction) —
             // it auto-calculates its own gas at broadcast time using a fresh
             // base-fee fetch. This estimate is therefore only a self-imposed
             // budget reservation, not a value that actually caps the real
-            // transaction cost, so it needs a generous buffer to survive base-fee
-            // drift between this estimate and the SDK's own calculation moments
-            // later — without it, "amount" can end up larger than the wallet can
-            // actually cover once real gas is deducted, and broadcast fails with
-            // "insufficient funds". The import-into-C leg's fee *is* used
-            // directly to build the real import tx (see createImportTxC), so a
-            // smaller buffer is enough there.
-            if (!isExport) return feeNAvax.muln(12).divn(10)
-
-            // For injected wallets (Core App etc.), exportFromCChain hands the
-            // whole sign+broadcast step to the extension itself
-            // (sendXPTransaction → avalanche_sendTransaction) — Core determines
-            // gas on its own, independent of GasHelper's estimate entirely, and
-            // appears to retry with adjusted gas (re-prompting each time) before
-            // giving up if there isn't enough headroom for any attempt to land.
-            // A flat floor on top of the proportional buffer keeps real-world
-            // gas-price spikes and Core's own retry margin from exhausting it.
+            // transaction cost. For injected wallets (Core App etc.),
+            // exportFromCChain hands the whole sign+broadcast step to the
+            // extension, which determines gas on its own and retries with
+            // adjusted gas before giving up. A flat floor on top of the 2×
+            // buffer keeps gas-price spikes and Core's retry margin from
+            // exhausting it.
             const FLOOR_NAVAX = new BN(20_000_000) // 0.02 AVAX
-            const buffered = feeNAvax.muln(15).divn(10)
-            return BN.max(buffered, FLOOR_NAVAX)
+            return BN.max(feeNAvax, FLOOR_NAVAX)
         }
 
         const updateBaseFee = async () => {
             try {
-                baseFee.value = await GasHelper.getBaseFeeRecommended()
+                // Raw base fee — the 2× buffer is applied in chainFee().
+                baseFee.value = await GasHelper.getBaseFee()
             } catch {
                 baseFee.value = new BN('25000000000') // 25 gwei fallback
             }
