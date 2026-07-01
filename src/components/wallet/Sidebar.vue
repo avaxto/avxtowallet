@@ -54,6 +54,10 @@
                     <span class="sidebar_icon"><fa icon="magic" class="icon"></fa></span>
                     Wallet Wizard
                 </router-link>
+                <router-link to="/wallet/launcher" data-cy="wallet_launcher" class="wallet_link">
+                    <span class="sidebar_icon"><fa icon="rocket" class="icon"></fa></span>
+                    Token Launcher
+                </router-link>
                 <router-link to="/wallet/config" data-cy="wallet_config" class="wallet_link">
                     <span class="sidebar_icon"><fa icon="cog" class="icon"></fa></span>
                     Settings

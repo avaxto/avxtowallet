@@ -65,6 +65,7 @@ import {
     faFileCsv,
     faGlasses,
     faMagic,
+    faRocket,
     faCheck,
 } from '@fortawesome/free-solid-svg-icons'
 
@@ -133,6 +134,7 @@ library.add(
     faFileCsv,
     faGlasses,
     faMagic,
+    faRocket,
     faCheck
 )
 
