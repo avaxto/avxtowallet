@@ -1,7 +1,15 @@
 <template>
     <div class="cols">
-        <div class="form">
+        <div class="batch_toggle_row">
             <slot></slot>
+            <label class="batch_switch">
+                <input type="checkbox" v-model="batchMode" />
+                Batch send (multiple recipients)
+            </label>
+        </div>
+        <BatchFormC v-if="batchMode"></BatchFormC>
+        <template v-else>
+        <div class="form">
             <div class="table_title">
                 <p>{{ $t('transfer.tx_list.amount') }}</p>
                 <p>{{ $t('transfer.tx_list.token') }}</p>
@@ -132,6 +140,7 @@
                 </v-btn>
             </template>
         </div>
+        </template>
     </div>
 </template>
 <script lang="ts">
@@ -158,6 +167,7 @@ import EVMInputDropdown from '@/components/misc/EVMInputDropdown/EVMInputDropdow
 import Erc20Token from '@/js/Erc20Token'
 import { iErc721SelectInput } from '@/components/misc/EVMInputDropdown/types'
 import { WalletHelper } from '@/helpers/wallet_helper'
+import BatchFormC from '@/components/wallet/transfer/BatchFormC.vue'
 
 export default defineComponent({
     name: 'FormC',
@@ -165,6 +175,7 @@ export default defineComponent({
         EVMInputDropdown,
         AvaxInput,
         QrInput,
+        BatchFormC,
     },
     setup() {
         const mainStore = useMainStore()
@@ -174,6 +185,7 @@ export default defineComponent({
 
         const isConfirm = ref(false)
         const isSuccess = ref(false)
+        const batchMode = ref(false)
         const addressIn = ref('')
         const amountIn = ref(markRaw(new BN(0)))
         const gasPrice = ref(markRaw(new BN(225000000000)))
@@ -442,6 +454,7 @@ export default defineComponent({
         return {
             isConfirm,
             isSuccess,
+            batchMode,
             addressIn,
             amountIn,
             gasPrice,
@@ -488,6 +501,30 @@ h4 {
 .cols {
     display: block;
     padding: 0;
+}
+
+.batch_toggle_row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 14px;
+}
+
+.batch_switch {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: var(--primary-color-light);
+    cursor: pointer;
+    margin: 0 !important;
+    font-weight: normal;
+
+    input {
+        cursor: pointer;
+    }
 }
 
 .form {

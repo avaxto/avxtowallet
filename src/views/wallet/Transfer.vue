@@ -9,8 +9,19 @@
                 <ChainInput v-model="formType" :disabled="isConfirm"></ChainInput>
             </FormC>
             <div class="new_order_Form" v-show="formType === 'X'">
+                <div class="batch_toggle_row">
+                    <ChainInput
+                        v-model="formType"
+                        :disabled="isConfirm || batchMode"
+                    ></ChainInput>
+                    <label class="batch_switch">
+                        <input type="checkbox" v-model="batchMode" :disabled="isConfirm" />
+                        Batch send (multiple recipients)
+                    </label>
+                </div>
+                <BatchFormX v-if="batchMode"></BatchFormX>
+                <template v-else>
                 <div class="lists">
-                    <ChainInput v-model="formType" :disabled="isConfirm"></ChainInput>
                     <div>
                         <tx-list
                             class="tx_list"
@@ -137,6 +148,7 @@
                         </template>
                     </div>
                 </div>
+                </template>
             </div>
         </div>
     </div>
@@ -170,6 +182,7 @@ import FormC from '@/components/wallet/transfer/FormC.vue'
 import { ChainIdType } from '@/constants'
 
 import ChainInput from '@/components/wallet/transfer/ChainInput.vue'
+import BatchFormX from '@/components/wallet/transfer/BatchFormX.vue'
 import AvaAsset from '../../js/AvaAsset'
 import { TxState } from '@/components/wallet/earn/ChainTransfer/types'
 
@@ -183,6 +196,7 @@ export default defineComponent({
         TxSummary,
         FormC,
         ChainInput,
+        BatchFormX,
     },
     setup() {
         const mainStore = useMainStore()
@@ -194,6 +208,7 @@ export default defineComponent({
         const { t } = useI18n()
 
         const formType = ref<ChainIdType>('X')
+        const batchMode = ref(false)
         const showAdvanced = ref(false)
         const isAjax = ref(false)
         const addressIn = ref('')
@@ -540,6 +555,7 @@ export default defineComponent({
 
         return {
             formType,
+            batchMode,
             showAdvanced,
             isAjax,
             addressIn,
@@ -696,6 +712,30 @@ h4 {
 
 .new_order_Form {
     display: block;
+}
+
+.batch_toggle_row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 14px;
+}
+
+.batch_switch {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: var(--primary-color-light);
+    cursor: pointer;
+    margin: 0 !important;
+    font-weight: normal;
+
+    input {
+        cursor: pointer;
+    }
 }
 
 .new_order_Form > div {

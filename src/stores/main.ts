@@ -14,6 +14,8 @@ import { SingletonWallet } from '@/js/wallets/SingletonWallet'
 import { InjectedWallet } from '@/js/wallets/InjectedWallet'
 import { Wallet } from '@/js/wallets/AbstractWallet'
 import { Buffer } from '@/avalanche'
+import { WalletHelper } from '@/helpers/wallet_helper'
+import { IBatchRecipient } from '@/js/TxHelper'
 import { privateToAddress } from 'ethereumjs-util'
 import { updateFilterAddresses } from '../providers'
 import { getAvaxPriceUSD } from '@/helpers/price_helper'
@@ -351,6 +353,16 @@ export const useMainStore = defineStore('main', () => {
         }
     }
 
+    /**
+     * Sends a single X-chain transaction to multiple recipients (batch send).
+     * Returns the resulting tx id.
+     */
+    const issueBatchTxMulti = async (recipients: IBatchRecipient[], memo?: Buffer) => {
+        const wallet = activeWallet.value
+        if (!wallet) throw new Error('No active wallet.')
+        return await WalletHelper.issueBatchTxMultiRecipient(wallet, recipients, memo)
+    }
+
     /*
         Called from accessWallet
     */
@@ -500,6 +512,7 @@ export const useMainStore = defineStore('main', () => {
         addWalletSingleton,
         removeWallet,
         issueBatchTx,
+        issueBatchTxMulti,
         activateWallet,
         exportWallets,
         importKeyfile,

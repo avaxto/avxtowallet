@@ -7,7 +7,7 @@
     <div class="wallet_wizard">
         <h1 class="wizard_heading">Wallet Wizard</h1>
         <p class="wizard_intro">
-            Wallet Wizard is an AVXTO Toolbox feature that allows you to quickly migrate all assets from this wallet to either a newly created wallet or an existing one. 
+            Wallet Wizard is an AVXTO Wallet feature that allows you to quickly migrate all assets from this wallet to either a newly created wallet or an existing one. 
         </p>
 
         <!-- Step indicator -->

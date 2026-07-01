@@ -14,6 +14,8 @@ import {
     buildEvmTransferErc721Tx,
     buildEvmTransferNativeTx,
     buildMintNftTx,
+    buildMultiRecipientTransaction,
+    IBatchRecipient,
 } from '@/js/TxHelper'
 import { PayloadBase } from '@/avalanche/utils'
 import { ITransaction } from '@/components/wallet/transfer/types'
@@ -89,6 +91,30 @@ class WalletHelper {
         const txId: string = await issueX(tx)
 
         return txId
+    }
+
+    /**
+     * Issues a single X-chain transaction that pays multiple recipients, each
+     * with their own amount/asset. Returns the one resulting tx id.
+     */
+    static async issueBatchTxMultiRecipient(
+        wallet: AvaWalletCore,
+        recipients: IBatchRecipient[],
+        memo: Buffer | undefined
+    ): Promise<string> {
+        const changeAddress = wallet.getChangeAddressAvm()
+        const derivedAddresses = wallet.getDerivedAddresses()
+        const utxoset = wallet.getUTXOSet()
+
+        const unsignedTx = await buildMultiRecipientTransaction(
+            recipients,
+            derivedAddresses,
+            utxoset,
+            changeAddress,
+            memo
+        )
+        const tx = await wallet.signX(unsignedTx)
+        return await issueX(tx)
     }
 
     static async sendEth(

@@ -6,6 +6,7 @@ import {
     BaseTx,
     MinterSet,
     NFTMintOutput,
+    SECPTransferOutput,
     TransferableInput,
     TransferableOutput,
     UnsignedTx as AVMUnsignedTx,
@@ -147,6 +148,103 @@ export async function buildUnsignedTransaction(
         unsignedTx = new AVMUnsignedTx(baseTx)
     }
     return unsignedTx
+}
+
+/**
+ * A single destination in a batch (multi-recipient) X-chain transfer:
+ * one address receiving one amount of one fungible asset.
+ */
+export interface IBatchRecipient {
+    address: string
+    asset: { id: string }
+    amount: BN
+}
+
+/**
+ * Builds a single X-chain transaction paying multiple recipients, each with
+ * their own amount/asset. Unlike buildUnsignedTransaction (which sends all
+ * orders to one address), this creates one output per recipient.
+ *
+ * Coin selection is delegated to getMinimumSpendable: we ask the AAD to cover
+ * the summed per-asset totals (plus the AVAX fee) and keep only the selected
+ * inputs and change outputs, then substitute our own per-recipient outputs.
+ * The input/output value balance holds because the recipient outputs sum to
+ * exactly the totals the AAD was asked to spend.
+ */
+export async function buildMultiRecipientTransaction(
+    recipients: IBatchRecipient[],
+    derivedAddresses: string[],
+    utxoset: AVMUTXOSet,
+    changeAddress?: string,
+    memo?: Buffer
+): Promise<AVMUnsignedTx> {
+    if (!changeAddress) {
+        throw 'Unable to issue transaction. Ran out of change index.'
+    }
+    if (recipients.length === 0) {
+        throw new Error('No recipients provided.')
+    }
+
+    const fromAddrs: Buffer[] = derivedAddresses.map((val) => bintools.parseAddress(val, 'X'))
+    const changeAddr: Buffer = bintools.stringToAddress(changeAddress)
+
+    const AVAX_ID_BUF = await avm.getAVAXAssetID()
+    const AVAX_ID_STR = AVAX_ID_BUF.toString('hex')
+    const ZERO = new BN(0)
+    const fee = avm.getTxFee()
+
+    // Sum the required amount per asset across all recipients.
+    const totals: { [assetHex: string]: BN } = {}
+    for (const r of recipients) {
+        const key = bintools.cb58Decode(r.asset.id).toString('hex')
+        totals[key] = (totals[key] ?? new BN(0)).add(r.amount)
+    }
+
+    // The AAD destination is irrelevant here — its destination outputs are
+    // discarded — so point it at the change address. It is used purely for
+    // input selection and change calculation.
+    const aad: AssetAmountDestination = new AssetAmountDestination(
+        [changeAddr],
+        fromAddrs,
+        [changeAddr]
+    )
+    let isFeeAdded = false
+    for (const key of Object.keys(totals)) {
+        const assetId = Buffer.from(key, 'hex')
+        if (key === AVAX_ID_STR) {
+            aad.addAssetAmount(assetId, totals[key], fee)
+            isFeeAdded = true
+        } else {
+            aad.addAssetAmount(assetId, totals[key], ZERO)
+        }
+    }
+    if (!isFeeAdded && fee.gt(ZERO)) {
+        aad.addAssetAmount(AVAX_ID_BUF, ZERO, fee)
+    }
+
+    const success: Error = utxoset.getMinimumSpendable(aad)
+    if (typeof success !== 'undefined') {
+        throw success
+    }
+
+    const ins: TransferableInput[] = aad.getInputs()
+    const changeOuts: TransferableOutput[] = aad.getChangeOutputs()
+
+    // One output per recipient.
+    const recipientOuts: TransferableOutput[] = recipients.map((r) => {
+        const assetId = bintools.cb58Decode(r.asset.id)
+        const toBuf = bintools.stringToAddress(r.address)
+        const out = new SECPTransferOutput(r.amount, [toBuf], ZERO, 1)
+        return new TransferableOutput(assetId, out)
+    })
+
+    const outs: TransferableOutput[] = [...recipientOuts, ...changeOuts]
+
+    const networkId: number = ava.getNetworkID()
+    const chainId: Buffer = bintools.cb58Decode(avm.getBlockchainID())
+    // BaseTx sorts ins/outs into canonical order internally.
+    const baseTx: BaseTx = new BaseTx(networkId, chainId, outs, ins, memo)
+    return new AVMUnsignedTx(baseTx)
 }
 
 export async function buildCreateNftFamilyTx(
