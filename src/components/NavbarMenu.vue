@@ -61,6 +61,11 @@
                         <router-link to="/wallet/launcher">Token Launcher</router-link>
                     </v-list-item-title>
                 </v-list-item>
+                <v-list-item>
+                    <v-list-item-title>
+                        <router-link to="/wallet/swap">Token Swap</router-link>
+                    </v-list-item-title>
+                </v-list-item>
             </v-list>
         </v-menu>
 

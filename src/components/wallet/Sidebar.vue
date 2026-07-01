@@ -54,6 +54,10 @@
                     <span class="sidebar_icon"><fa icon="magic" class="icon"></fa></span>
                     Wallet Wizard
                 </router-link>
+                <router-link to="/wallet/swap" data-cy="wallet_swap" class="wallet_link">
+                    <span class="sidebar_icon"><fa icon="exchange-alt" class="icon"></fa></span>
+                    Swap
+                </router-link>
                 <router-link to="/wallet/launcher" data-cy="wallet_launcher" class="wallet_link">
                     <span class="sidebar_icon"><fa icon="rocket" class="icon"></fa></span>
                     Token Launcher
