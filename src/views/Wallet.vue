@@ -13,7 +13,7 @@
                 <router-view id="wallet_router" v-slot="{ Component }">
                     <transition name="page_fade" mode="out-in">
                         <keep-alive
-                            exclude="cross_chain,activity,advanced,earn,manage,studio">
+                            exclude="cross_chain,activity,advanced,earn,manage,studio,iceberg">
                             <component :is="Component" :key="$route.path" />
                         </keep-alive>
                     </transition>

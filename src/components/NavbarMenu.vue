@@ -61,14 +61,28 @@
                         <router-link to="/wallet/launcher">Token Launcher</router-link>
                     </v-list-item-title>
                 </v-list-item>
+                
+            </v-list>
+        </v-menu>
+ <v-menu offset-y>
+            <template v-slot:activator="{ props }">
+                <v-btn text v-bind="props" class="menu-btn">
+                    Trading
+                </v-btn>
+            </template>
+            <v-list>
                 <v-list-item>
+                    <v-list-item-title>
+                        <router-link to="/wallet/iceberg">Iceberg Order</router-link>
+                    </v-list-item-title>
+                </v-list-item>
+               <v-list-item>
                     <v-list-item-title>
                         <router-link to="/wallet/swap">Token Swap</router-link>
                     </v-list-item-title>
                 </v-list-item>
             </v-list>
         </v-menu>
-
      <v-menu offset-y>
             <template v-slot:activator="{ props }">
                 <v-btn text v-bind="props" class="menu-btn">

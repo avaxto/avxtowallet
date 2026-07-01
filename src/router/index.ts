@@ -18,6 +18,7 @@ import WalletWizard from '@/views/wallet/WalletWizard.vue'
 import UnifyChains from '@/views/wallet/UnifyChains.vue'
 import Launcher from '@/views/wallet/Launcher.vue'
 import Swap from '@/views/wallet/Swap.vue'
+import Iceberg from '@/views/wallet/Iceberg.vue'
 import Account from '@/views/access/Account.vue'
 import { useMainStore } from '@/stores'
 import Export from '@/views/wallet/CrossChain.vue'
@@ -179,6 +180,10 @@ const routes = [
             {
                 path: 'config',
                 component: Config,
+            },
+            {
+                path: 'iceberg',
+                component: Iceberg,
             },
         ],
         component: Wallet,
