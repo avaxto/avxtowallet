@@ -8,13 +8,14 @@
         <div class="blocked_body">
             <p class="warn_icon">⚠️</p>
             <p>
-                The server responded with <strong>HTTP 429 (rate limited)</strong>. To avoid
-                making the problem worse, all further network requests from this tab have been
+                The network API is <strong>rate limiting this app (HTTP 429)</strong>. To avoid
+                extending the penalty, all further network requests from this tab have been
                 stopped.
             </p>
             <p>
-                <strong>Please close this browser tab and come back later.</strong> Reloading or
-                continuing to use this tab will not help — the server needs time to recover.
+                <strong>Please close this browser tab and come back later</strong> — the API's
+                penalty can last up to an hour. Reloading or continuing to use this tab will
+                only prolong it.
             </p>
         </div>
     </modal>

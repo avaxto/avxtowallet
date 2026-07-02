@@ -8,6 +8,7 @@ import { AvaNetwork } from '@/js/AvaNetwork'
 import { pinia, useNetworkStore, useMainStore, useStatusBarStore, useAssetsStore, useHistoryStore } from '@/stores'
 import { Wallet } from '@/js/wallets/AbstractWallet'
 import { PROVIDER_CONFIG } from '@/providers/provider_config'
+import { globalRateLimiter } from '@/providers/rate_limiter'
 
 /**
  * Polling Manager
@@ -107,6 +108,9 @@ class PollingManager {
      */
     private async checkXChainUpdates() {
         if (!this.network) return
+        // Don't add poll traffic while the server is throttling us (429/503) —
+        // every extra request extends the penalty window.
+        if (globalRateLimiter.blocked || globalRateLimiter.paused) return
 
         try {
             const response = await fetch(this.network.getFullURL() + '/ext/bc/X', {
@@ -139,6 +143,8 @@ class PollingManager {
      */
     private async checkCChainUpdates() {
         if (!this.network) return
+        // Skip poll ticks while throttled (see checkXChainUpdates).
+        if (globalRateLimiter.blocked || globalRateLimiter.paused) return
 
         try {
             const response = await fetch(this.network.getFullURL() + '/ext/bc/C/rpc', {

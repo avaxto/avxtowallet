@@ -10,7 +10,7 @@ import { AvaNetwork } from '@/js/AvaNetwork'
 import { BN } from '@/avalanche'
 import { ava, avm, cChain, infoApi, pChain } from '@/AVA'
 import { explorer_api } from '@/explorer_api'
-import { web3 } from '@/evm'
+import { web3, FetchHttpProvider } from '@/evm'
 import router from '@/router'
 import { setCurrentNetwork } from '@/providers'
 import {
@@ -179,9 +179,12 @@ export const useNetworkStore = defineStore('network', () => {
             // Update explorer API base URL
             explorer_api.defaults.baseURL = net.explorerUrl
 
-            // Set web3 provider to the C-chain RPC
-            const web3Provider = `${net.protocol}://${net.ip}:${net.port}/ext/bc/C/rpc`
-            web3.setProvider(web3Provider)
+            // Set web3 provider to the C-chain RPC. Use the fetch-based
+            // provider so web3 traffic goes through the global rate limiter
+            // and 429 detection (web3's default HttpProvider uses XHR, which
+            // bypasses both).
+            const web3ProviderUrl = `${net.protocol}://${net.ip}:${net.port}/ext/bc/C/rpc`
+            web3.setProvider(new FetchHttpProvider(web3ProviderUrl) as any)
 
             // Start REST polling for this network
             setCurrentNetwork(net)

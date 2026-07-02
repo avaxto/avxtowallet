@@ -12,8 +12,11 @@ import BN from "bn.js"
 export const X_CHAIN_POLLING_INTERVAL = 10000
 export const C_CHAIN_POLLING_INTERVAL = 10000
 
-// Global rate limit for all outgoing network requests (fixed-window strategy)
-export const RATE_LIMIT_MAX_REQUESTS = 20  // max requests per window
+// Global rate limit for all outgoing network requests (fixed-window strategy).
+// Keep this well under api.avax.network's public-endpoint tolerance: bursts of
+// ~20 req/s during HD wallet scans triggered HTTP 429 penalty-boxing that
+// lasted minutes.
+export const RATE_LIMIT_MAX_REQUESTS = 8   // max requests per window
 export const RATE_LIMIT_WINDOW_MS = 1000   // window size in milliseconds
 export const AVAX_TOOLBOX_VERSION = (import.meta.env.VITE_APP_VERSION as string) ?? 'dev'
 export const AVXTO_CONTRACT_ADDRESS = '0xf56CeCc07d97Ac50630022CF84C19e612ae8C93D'

@@ -255,10 +255,90 @@ export function handleThrottleResponse(status: number, retryAfterHeader?: string
     globalRateLimiter.pause(durationMs, status)
 }
 
+// ── Opaque (CORS-blocked) throttle detection ─────────────────────────────────
+//
+// When api.avax.network rate-limits a client, Cloudflare returns the 429
+// WITHOUT CORS headers. The browser then hides the response from JavaScript
+// entirely: fetch() rejects with a bare TypeError and axios reports a network
+// error with no `error.response`. The status check above never sees the 429,
+// which is exactly what a captured HAR showed — 41 429s on the wire, zero
+// visible to the app, so the hard-block never engaged.
+//
+// Since the status is unreadable, infer throttling instead: N consecutive
+// opaque network failures to the SAME host, while the browser is online,
+// with no success from that host in between, is treated as a 429 and
+// triggers the global hard block.
+
+const OPAQUE_FAILURE_THRESHOLD = 3
+const OPAQUE_FAILURE_WINDOW_MS = 60_000
+
+const opaqueFailures: { [host: string]: { count: number; last: number } } = {}
+
+function hostOf(url: string | undefined): string | null {
+    if (!url) return null
+    try {
+        return new URL(url, window.location.href).host
+    } catch {
+        return null
+    }
+}
+
+/** Call when a request to `url` failed at the network/CORS level (no readable response). */
+export function registerOpaqueNetworkFailure(url: string | undefined): void {
+    // A real connectivity loss also rejects fetches — don't punish that.
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) return
+
+    const host = hostOf(url)
+    if (!host) return
+
+    const now = Date.now()
+    const entry = opaqueFailures[host]
+    if (!entry || now - entry.last > OPAQUE_FAILURE_WINDOW_MS) {
+        opaqueFailures[host] = { count: 1, last: now }
+        return
+    }
+
+    entry.count++
+    entry.last = now
+
+    if (entry.count >= OPAQUE_FAILURE_THRESHOLD) {
+        console.warn(
+            `[RateLimiter] ${entry.count} consecutive opaque network failures for ${host} — ` +
+                'treating as a CORS-hidden HTTP 429 and blocking all requests.'
+        )
+        globalRateLimiter.block(429)
+    }
+}
+
+/** Call when a request to `url` succeeded — resets that host's failure streak. */
+export function registerNetworkSuccess(url: string | undefined): void {
+    const host = hostOf(url)
+    if (host && opaqueFailures[host]) {
+        delete opaqueFailures[host]
+    }
+}
+
 // ── Interceptors ──────────────────────────────────────────────────────────────
 
 let axiosInterceptorId: number | null = null
 let originalFetch: typeof globalThis.fetch | null = null
+
+/** Resolve the full request URL from an axios config (url may be relative to baseURL). */
+function axiosRequestUrl(config?: { url?: string; baseURL?: string }): string | undefined {
+    if (!config?.url) return undefined
+    try {
+        return config.baseURL ? new URL(config.url, config.baseURL).href : config.url
+    } catch {
+        return config.url
+    }
+}
+
+/** Extract a URL string from the fetch input argument. */
+function fetchInputUrl(input: RequestInfo | URL): string | undefined {
+    if (typeof input === 'string') return input
+    if (input instanceof URL) return input.href
+    return input?.url
+}
 
 /**
  * Install an axios request interceptor that acquires a rate-limit slot before
@@ -268,15 +348,27 @@ let originalFetch: typeof globalThis.fetch | null = null
 function installAxiosInterceptor(): void {
     if (axiosInterceptorId !== null) return
     axiosInterceptorId = axios.interceptors.request.use(async (config) => {
-        await globalRateLimiter.acquire()
+        // Requests with a custom adapter (avalanchejs sets the fetch adapter)
+        // are executed through the wrapped global fetch, which acquires its
+        // own slot — acquiring here too would double-count every request.
+        if (!config.adapter) {
+            await globalRateLimiter.acquire()
+        }
         return config
     })
     axios.interceptors.response.use(
-        undefined,
+        (response) => {
+            registerNetworkSuccess(axiosRequestUrl(response.config))
+            return response
+        },
         (error) => {
             const status: number | undefined = error.response?.status
             if (status === 429 || status === 503) {
                 handleThrottleResponse(status, error.response?.headers?.['retry-after'])
+            } else if (!error.response && error.request) {
+                // Network-level failure with no readable response — possibly a
+                // CORS-hidden 429 (see registerOpaqueNetworkFailure).
+                registerOpaqueNetworkFailure(axiosRequestUrl(error.config))
             }
             return Promise.reject(error)
         },
@@ -295,9 +387,22 @@ function installFetchWrapper(): void {
         init?: RequestInit,
     ): Promise<Response> {
         await globalRateLimiter.acquire()
-        const response = await originalFetch!(input, init)
+
+        let response: Response
+        try {
+            response = await originalFetch!(input, init)
+        } catch (err) {
+            // fetch rejected without a readable response. When the server's
+            // rate limiter answers 429 without CORS headers, the browser
+            // reports exactly this — track it so a streak triggers the block.
+            registerOpaqueNetworkFailure(fetchInputUrl(input))
+            throw err
+        }
+
         if (response.status === 429 || response.status === 503) {
             handleThrottleResponse(response.status, response.headers.get('retry-after'))
+        } else {
+            registerNetworkSuccess(fetchInputUrl(input))
         }
         return response
     }

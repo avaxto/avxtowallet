@@ -10,6 +10,7 @@ import { web3 } from '@/evm'
 import { C_CHAIN_POLLING_INTERVAL } from '@/avxto/AVXTOConf'
 import { useMainStore } from './main'
 import { useAssetsStore } from './assets'
+import { globalRateLimiter } from '@/providers/rate_limiter'
 
 // Minimal ERC20 ABI — only balanceOf
 const ERC20_BALANCE_ABI = [
@@ -33,6 +34,10 @@ export const useAvxtoStore = defineStore('avxto', () => {
      * Fetch the AVXTO ERC20 token balance for the current wallet's C-chain address.
      */
     const fetchAvxtoBalance = async () => {
+        // Skip poll ticks while the server is throttling us (429/503) —
+        // queuing more balance polls only extends the penalty window.
+        if (globalRateLimiter.blocked || globalRateLimiter.paused) return
+
         const mainStore = useMainStore()
         const assetsStore = useAssetsStore()
         const wallet = mainStore.activeWallet

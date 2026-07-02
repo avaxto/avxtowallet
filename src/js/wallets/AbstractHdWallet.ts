@@ -87,13 +87,18 @@ abstract class AbstractHdWallet extends AbstractWallet {
     }
     // Fetches the utxos
     async getUTXOs(): Promise<void> {
-        // Awaited (in parallel) so callers can rely on X and P chain balances
-        // being loaded when this resolves.
-        await Promise.all([this.updateUTXOsX(), this.updateUTXOsP()])
+        // Sequential on purpose: each helper lot-scans the address space with
+        // heavy getUTXOs calls, and a wallet with many HD addresses firing
+        // X-external, X-internal and P scans in parallel bursts past the
+        // public API's rate limit (HTTP 429). Callers can still rely on X and
+        // P balances being loaded when this resolves.
+        await this.updateUTXOsX()
+        await this.updateUTXOsP()
     }
 
     async updateUTXOsX() {
-        await Promise.all([this.updateUTXOsExternal(), this.updateUTXOsInternal()])
+        await this.updateUTXOsExternal()
+        await this.updateUTXOsInternal()
     }
 
     async updateUTXOsExternal() {
