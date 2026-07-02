@@ -24,6 +24,12 @@ const INDEX_RANGE: number = 20 // a gap of at least 20 indexes is needed to clai
 const SCAN_SIZE: number = 100 // the total number of utxos to look at initially to calculate last index
 const SCAN_RANGE: number = SCAN_SIZE - INDEX_RANGE // How many items are actually scanned
 
+// Default for the fast initial-scan heuristic (see fastScanCheck()). If this
+// share of the last SCAN_SIZE addresses have no UTXOs, the wallet is treated
+// as sparsely used and the normal (potentially multi-round, and for the
+// explorer path much larger per-request) hd scan is skipped entirely.
+const FAST_SCAN_EMPTY_THRESHOLD_DEFAULT: number = 0.6
+
 class HdHelper {
     chainId: ChainAlias
     keyChain: AVMKeyChain | PlatformVMKeyChain
@@ -43,6 +49,9 @@ class HdHelper {
     isPublic: boolean
     isFetchingUTXOs: boolean // true if updating balance
     isInit: boolean // true if HD index is found
+
+    // Configurable threshold for the fast initial-scan heuristic (0-1).
+    fastScanEmptyThreshold: number = FAST_SCAN_EMPTY_THRESHOLD_DEFAULT
 
     constructor(
         changePath: string,
@@ -116,7 +125,7 @@ class HdHelper {
         return newIndex
     }
 
-    async findHdIndex() {        
+    async findHdIndex() {
 
         const networkStore = useNetworkStore(pinia)
         const network: AvaNetwork | null = networkStore.selectedNetwork
@@ -124,7 +133,19 @@ class HdHelper {
 
         console.log(`[HdHelper] findHdIndex ${this.chainId} path=${this.changePath} via ${explorerUrl ? 'explorer' : 'node'}`)
 
-        if (explorerUrl) {
+        // Fast path: one direct RPC call for the first SCAN_SIZE addresses.
+        // If it confirms the wallet is sparsely used, skip the normal scan —
+        // which, on the explorer path, otherwise queries in much larger
+        // (512-address) rounds even for wallets that barely use any address.
+        const fastIndex = await this.fastScanCheck()
+
+        if (fastIndex !== null) {
+            this.hdIndex = fastIndex
+            console.log(
+                `[HdHelper] findHdIndex ${this.chainId} path=${this.changePath} — ` +
+                `fast scan confirmed sparse usage, skipping normal scan (hdIndex=${fastIndex})`
+            )
+        } else if (explorerUrl) {
             this.hdIndex = await this.findAvailableIndexExplorer()
         } else {
             this.hdIndex = await this.findAvailableIndexNode()
@@ -135,6 +156,70 @@ class HdHelper {
         }
         this.isInit = true
         console.log(`[HdHelper] findHdIndex ${this.chainId} path=${this.changePath} done — hdIndex=${this.hdIndex}`)
+    }
+
+    // Fast pre-check for findHdIndex(): fetch UTXO existence for the first
+    // SCAN_SIZE (100) addresses in a single batch, then walk the batch
+    // backwards (from the highest index down) counting how many addresses
+    // have no UTXOs. If at least `fastScanEmptyThreshold` (default 60%) of
+    // the 100 addresses are unused, the wallet is almost certainly sparsely
+    // used this far out. In that case resolve the hd index directly from
+    // this one batch (reusing the same gap-of-INDEX_RANGE rule as the normal
+    // scan) instead of running the full — and, on the explorer path, far
+    // more expensive — scan.
+    //
+    // Returns the resolved index, or null if the threshold isn't met (or the
+    // check itself fails), in which case the caller should fall back to the
+    // normal scan.
+    async fastScanCheck(): Promise<number | null> {
+        try {
+            const addrs = this.getAllDerivedAddresses(SCAN_SIZE - 1, 0)
+
+            const utxoSet =
+                this.chainId === 'X'
+                    ? (await avm.getUTXOs(addrs)).utxos
+                    : (await pChain.getUTXOs(addrs)).utxos
+
+            let emptyCount = 0
+            for (let i = addrs.length - 1; i >= 0; i--) {
+                const addrBuf = bintools.parseAddress(addrs[i], this.chainId)
+                const hasUtxos = utxoSet.getUTXOIDs([addrBuf]).length > 0
+                if (!hasUtxos) emptyCount++
+            }
+
+            const emptyPct = emptyCount / addrs.length
+            if (emptyPct < this.fastScanEmptyThreshold) {
+                return null
+            }
+
+            // Threshold met — resolve the index from this same batch. If no
+            // clean INDEX_RANGE gap exists within it (an unusual interleaved
+            // pattern), fall back to the normal scan instead of guessing.
+            return this.findGapStart(addrs, utxoSet)
+        } catch (e) {
+            console.warn(`[HdHelper] fastScanCheck ${this.chainId} path=${this.changePath} failed, falling back to normal scan:`, e)
+            return null
+        }
+    }
+
+    // Given a batch of addresses and their fetched UTXO set, find the index
+    // (within the batch) where a run of INDEX_RANGE consecutive unused
+    // addresses begins. Returns null if no such run exists in the batch.
+    findGapStart(addrs: string[], utxoSet: AVMUTXOSet | PlatformUTXOSet): number | null {
+        for (let i = 0; i < addrs.length - INDEX_RANGE; i++) {
+            let gapSize = 0
+            for (let n = 0; n < INDEX_RANGE; n++) {
+                const addrBuf = bintools.parseAddress(addrs[i + n], this.chainId)
+                if (utxoSet.getUTXOIDs([addrBuf]).length === 0) {
+                    gapSize++
+                } else {
+                    i = i + n
+                    break
+                }
+            }
+            if (gapSize === INDEX_RANGE) return i
+        }
+        return null
     }
 
     // Fetches the utxos for the current keychain.
@@ -343,28 +428,9 @@ class HdHelper {
         }
 
         // Scan UTXOs of these indexes and try to find a gap of INDEX_RANGE
-        for (let i: number = 0; i < addrs.length - INDEX_RANGE; i++) {
-            let gapSize: number = 0
-            // console.log(`Scan index: ${this.chainId} ${this.changePath}/${i+start}`);
-            for (let n: number = 0; n < INDEX_RANGE; n++) {
-                const scanIndex: number = i + n
-                const addr: string = addrs[scanIndex]
-                const addrBuf = bintools.parseAddress(addr, this.chainId)
-                const addrUTXOs: string[] = utxoSet.getUTXOIDs([addrBuf])
-                if (addrUTXOs.length === 0) {
-                    gapSize++
-                } else {
-                    // Potential improvement
-                    i = i + n
-                    break
-                }
-            }
-
-            // If we found a gap of 20, we can return the last fullIndex+1
-            if (gapSize === INDEX_RANGE) {
-                const targetIndex = start + i
-                return targetIndex
-            }
+        const gapStart = this.findGapStart(addrs, utxoSet)
+        if (gapStart !== null) {
+            return start + gapStart
         }
         return await this.findAvailableIndexNode(start + SCAN_RANGE)
     }
