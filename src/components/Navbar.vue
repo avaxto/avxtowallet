@@ -198,7 +198,7 @@ button {
         }
 
         img {
-            height: 30px;
+            height: 50px;
             max-height: none !important;
             object-fit: contain;
             margin-right: 5px;

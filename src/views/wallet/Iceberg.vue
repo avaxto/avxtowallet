@@ -7,8 +7,8 @@
     <div class="iceberg_page">
         <h1>Iceberg Order</h1>
         <p class="desc">
-            Split one large swap into smaller chunks executed one after another, reducing price
-            impact. Routing uses the ArenaTrade / Odos aggregator (same engine as Token Swap).
+            Split one large swap into smaller chunks executed sequentially, reducing price
+            impact. Routing uses ArenaTrade / Odos aggregator.
             Keep this screen open while the order runs — the order lives only in this tab, so
             closing the wallet or leaving the page cancels it and you must start over.
         </p>

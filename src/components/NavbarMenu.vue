@@ -90,11 +90,16 @@
                 </v-btn>
             </template>
             <v-list>
-               
                 <v-list-item>
                     <v-list-item-title>
-                        <a 
-                        href="https://lfj.gg/avalanche/trade/0xf56cecc07d97ac50630022cf84c19e612ae8c93d" 
+                        <router-link to="/wallet/avxto">AVXTO Activity</router-link>
+                    </v-list-item-title>
+                </v-list-item>
+
+                <v-list-item>
+                    <v-list-item-title>
+                        <a
+                        href="https://lfj.gg/avalanche/trade/0xf56cecc07d97ac50630022cf84c19e612ae8c93d"
                         target="_blank" 
                         rel="noopener noreferrer"
                         class="wallet_link">

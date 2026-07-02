@@ -190,8 +190,6 @@ export default defineComponent({
     }
 
     padding-bottom: 14px;
-    overflow-y: auto;
-    max-height: 100%;
 }
 label {
     color: var(--primary-color);
