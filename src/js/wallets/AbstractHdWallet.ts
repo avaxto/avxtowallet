@@ -72,9 +72,9 @@ abstract class AbstractHdWallet extends AbstractWallet {
 
     updateFetchState() {
         this.isFetchingUtxos =
-            this.externalHelper.isFetchUtxo ||
-            this.internalHelper.isFetchUtxo ||
-            this.platformHelper.isFetchUtxo
+            this.externalHelper.isFetchingUTXOs ||
+            this.internalHelper.isFetchingUTXOs ||
+            this.platformHelper.isFetchingUTXOs
     }
 
     updateInitState() {

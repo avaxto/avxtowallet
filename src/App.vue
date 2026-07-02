@@ -22,6 +22,7 @@
             <TestNetBanner></TestNetBanner>
             <StatusBar></StatusBar>
             <BaseAssetThrModal></BaseAssetThrModal>
+            <NetworkBlockedModal></NetworkBlockedModal>
         </template>
         <transition name="fade">
             <div v-if="mainStore.isSwitchingAccount" class="account_switch_overlay"></div>
@@ -40,6 +41,7 @@ import UpgradeToAccountModal from '@/components/modals/SaveAccount/UpgradeToAcco
 import LedgerWalletLoading from '@/components/modals/LedgerWalletLoading.vue'
 import StatusBar from '@/components/StatusBar.vue'
 import BaseAssetThrModal from '@/components/modals/BaseAssetThrModal.vue'
+import NetworkBlockedModal from '@/components/modals/NetworkBlockedModal.vue'
 import { useAccountsStore, useAssetsStore, useErc721Store, useMainStore, useNetworkStore, useStatusBarStore } from '@/stores'
 import { useThemeStore } from '@/stores/theme'
 import { onMounted, onBeforeUnmount, watch } from 'vue'
@@ -59,6 +61,7 @@ export default {
         TestNetBanner,
         StatusBar,
         BaseAssetThrModal,
+        NetworkBlockedModal,
     },
     setup() {
         const mainStore = useMainStore()

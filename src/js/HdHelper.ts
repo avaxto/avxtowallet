@@ -13,18 +13,17 @@ import {
     KeyChain as PlatformVMKeyChain,
     KeyPair as PlatformVMKeyPair,
 } from '@/avalanche/apis/platformvm'
-import { pinia, useMainStore, useNetworkStore } from '@/stores'
+import { pinia, useNetworkStore } from '@/stores'
 
 import { AvaNetwork } from '@/js/AvaNetwork'
 import { ChainAlias } from './wallets/types'
 import { avmGetAllUTXOs, platformGetAllUTXOs } from '@/helpers/utxo_helper'
-import { updateFilterAddresses } from '../providers'
 import { listChainsForAddresses } from '@/js/Glacier/listChainsForAddresses'
 
 const INDEX_RANGE: number = 20 // a gap of at least 20 indexes is needed to claim an index unused
-
 const SCAN_SIZE: number = 100 // the total number of utxos to look at initially to calculate last index
 const SCAN_RANGE: number = SCAN_SIZE - INDEX_RANGE // How many items are actually scanned
+
 class HdHelper {
     chainId: ChainAlias
     keyChain: AVMKeyChain | PlatformVMKeyChain
@@ -42,7 +41,7 @@ class HdHelper {
     hdIndex: number
     utxoSet: AVMUTXOSet | PlatformUTXOSet
     isPublic: boolean
-    isFetchUtxo: boolean // true if updating balance
+    isFetchingUTXOs: boolean // true if updating balance
     isInit: boolean // true if HD index is found
 
     constructor(
@@ -52,7 +51,7 @@ class HdHelper {
         isPublic: boolean = false
     ) {
         this.changePath = changePath
-        this.isFetchUtxo = false
+        this.isFetchingUTXOs = false
         this.isInit = false
 
         this.chainId = chainId
@@ -151,13 +150,13 @@ class HdHelper {
     // hdIndex is advanced if any lot turned up a used address past the previous
     // hdIndex so downstream consumers see the discovered range.
     async updateUtxos(): Promise<AVMUTXOSet | PlatformUTXOSet> {
-        this.isFetchUtxo = true
+        this.isFetchingUTXOs = true
 
         if (!this.isInit) {
             console.error('HD Index not found yet.')
         }
 
-        const LOT_SIZE = 200
+        const LOT_SIZE = 300
         const MAX_EMPTY_LOTS = 2
 
         let result: AVMUTXOSet | PlatformUTXOSet =
@@ -213,7 +212,7 @@ class HdHelper {
             this.incrementIndex()
         }
 
-        this.isFetchUtxo = false
+        this.isFetchingUTXOs = false
         return result
     }
 

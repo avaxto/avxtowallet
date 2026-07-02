@@ -75,6 +75,30 @@ export class FixedWindowRateLimiter {
         }
     }
 
+    // ── Hard block (HTTP 429) ────────────────────────────────────────────
+
+    private isBlocked = false
+
+    /**
+     * Permanently halt all outgoing requests. Unlike `pause()`, this never
+     * auto-resumes — the only way out is a full page reload. Used when the
+     * server responds with HTTP 429 (rate limited), signalling that retrying
+     * from this tab would only make things worse.
+     */
+    block(code: number = 429): void {
+        if (this.isBlocked) return
+        this.isBlocked = true
+        if (this.resetTimer !== null) {
+            clearTimeout(this.resetTimer)
+            this.resetTimer = null
+        }
+        window.dispatchEvent(new CustomEvent('avxto:network-blocked', { detail: { code } }))
+    }
+
+    get blocked(): boolean {
+        return this.isBlocked
+    }
+
     // ── Pause / resume ─────────────────────────────────────────────────────
 
     private isPaused = false
@@ -143,6 +167,13 @@ export class FixedWindowRateLimiter {
      * While the limiter is paused, the caller waits until resume() is called.
      */
     async acquire(): Promise<void> {
+        if (this.isBlocked) {
+            throw new Error(
+                'Network requests are blocked: the server returned HTTP 429 (rate limited). ' +
+                    'Close this tab and try again later.'
+            )
+        }
+
         if (this.isPaused) {
             return new Promise<void>((resolve) => {
                 this.pauseQueue.push(resolve)
@@ -209,11 +240,17 @@ function parseRetryAfter(header: string | null | undefined, status: number): num
 
 /**
  * Call this when an HTTP 429 or 503 is received.
- * Parses the Retry-After header and pauses the global rate limiter for
- * the appropriate duration.
+ * A 429 (rate limited) permanently blocks all further requests — the caller
+ * is expected to close the tab, so auto-resuming would just trigger another
+ * 429. A 503 (temporarily unavailable) is treated as transient and pauses
+ * traffic for the parsed/default backoff duration before auto-resuming.
  */
 export function handleThrottleResponse(status: number, retryAfterHeader?: string | null): void {
-    if (status !== 429 && status !== 503) return
+    if (status === 429) {
+        globalRateLimiter.block(status)
+        return
+    }
+    if (status !== 503) return
     const durationMs = parseRetryAfter(retryAfterHeader, status)
     globalRateLimiter.pause(durationMs, status)
 }
