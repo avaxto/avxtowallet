@@ -13,6 +13,7 @@ import { explorer_api } from '@/explorer_api'
 import { web3, FetchHttpProvider } from '@/evm'
 import router from '@/router'
 import { setCurrentNetwork } from '@/providers'
+import { resetRpcFailover } from '@/providers/rpc_failover'
 import {
     getConfigFromUrl,
     setNetworkAsync,
@@ -145,6 +146,9 @@ export const useNetworkStore = defineStore('network', () => {
         const platformStore = usePlatformStore()
 
         try {
+            // Fresh network — clear any RPC failover state from the old one
+            resetRpcFailover()
+
             // Check if the network supports credentials
             await net.updateCredentials()
             ava.setRequestConfig('withCredentials', net.withCredentials)

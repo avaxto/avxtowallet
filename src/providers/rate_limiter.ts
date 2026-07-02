@@ -26,12 +26,17 @@ import { PROVIDER_CONFIG } from './provider_config'
 
 const RATE_LIMIT_STORAGE_KEY = 'avxto_rate_limit_config'
 
+interface QueueEntry {
+    resolve: () => void
+    reject: (e: Error) => void
+}
+
 export class FixedWindowRateLimiter {
     private maxRequests: number
     private windowMs: number
     private count = 0
     private windowStart = Date.now()
-    private queue: Array<() => void> = []
+    private queue: QueueEntry[] = []
     private resetTimer: ReturnType<typeof setTimeout> | null = null
 
     constructor(maxRequests: number, windowMs: number) {
@@ -92,6 +97,14 @@ export class FixedWindowRateLimiter {
             clearTimeout(this.resetTimer)
             this.resetTimer = null
         }
+        // Reject everyone already waiting for a slot — leaving them queued
+        // forever would hang their callers silently.
+        const blockError = new Error(
+            'Network requests are blocked: the server rate limited this app (HTTP 429). ' +
+                'Close this tab and try again later.'
+        )
+        const waiters = [...this.queue.splice(0), ...this.pauseQueue.splice(0)]
+        waiters.forEach((w) => w.reject(blockError))
         window.dispatchEvent(new CustomEvent('avxto:network-blocked', { detail: { code } }))
     }
 
@@ -102,7 +115,7 @@ export class FixedWindowRateLimiter {
     // ── Pause / resume ─────────────────────────────────────────────────────
 
     private isPaused = false
-    private pauseQueue: Array<() => void> = []
+    private pauseQueue: QueueEntry[] = []
 
     /**
      * Halt all outgoing requests for `durationMs` ms.
@@ -151,9 +164,9 @@ export class FixedWindowRateLimiter {
 
     private flushQueue(): void {
         while (this.queue.length > 0 && this.count < this.maxRequests) {
-            const resolve = this.queue.shift()!
+            const entry = this.queue.shift()!
             this.count++
-            resolve()
+            entry.resolve()
         }
         if (this.queue.length > 0) {
             // More items remain; schedule another window reset
@@ -175,8 +188,8 @@ export class FixedWindowRateLimiter {
         }
 
         if (this.isPaused) {
-            return new Promise<void>((resolve) => {
-                this.pauseQueue.push(resolve)
+            return new Promise<void>((resolve, reject) => {
+                this.pauseQueue.push({ resolve, reject })
             })
         }
 
@@ -198,8 +211,8 @@ export class FixedWindowRateLimiter {
 
         // Window is full — queue and wait
         this.scheduleReset()
-        return new Promise<void>((resolve) => {
-            this.queue.push(resolve)
+        return new Promise<void>((resolve, reject) => {
+            this.queue.push({ resolve, reject })
         })
     }
 
@@ -240,19 +253,63 @@ function parseRetryAfter(header: string | null | undefined, status: number): num
 
 /**
  * Call this when an HTTP 429 or 503 is received.
- * A 429 (rate limited) permanently blocks all further requests — the caller
- * is expected to close the tab, so auto-resuming would just trigger another
- * 429. A 503 (temporarily unavailable) is treated as transient and pauses
- * traffic for the parsed/default backoff duration before auto-resuming.
+ * A 429 (rate limited) escalates: first try to fail over to a public backup
+ * RPC endpoint; only when all endpoints are exhausted does the permanent
+ * hard block (and its modal) engage. A 503 (temporarily unavailable) is
+ * treated as transient and pauses traffic for the parsed/default backoff
+ * duration before auto-resuming.
  */
-export function handleThrottleResponse(status: number, retryAfterHeader?: string | null): void {
+export function handleThrottleResponse(
+    status: number,
+    retryAfterHeader?: string | null,
+    url?: string
+): void {
     if (status === 429) {
-        globalRateLimiter.block(status)
+        escalateThrottle(url)
         return
     }
     if (status !== 503) return
     const durationMs = parseRetryAfter(retryAfterHeader, status)
     globalRateLimiter.pause(durationMs, status)
+}
+
+// One escalation at a time; repeats while one is running are no-ops (the
+// failed host is already recorded by the failover module or is moot once
+// the block engages).
+let isEscalating = false
+
+/**
+ * A request to `url` was rate limited (explicit 429 or the CORS-hidden
+ * equivalent). Pause traffic, try to switch to a backup RPC endpoint, and
+ * only hard-block when none are left.
+ */
+function escalateThrottle(url: string | undefined): void {
+    if (isEscalating || globalRateLimiter.blocked) return
+    isEscalating = true
+
+    // Hold all traffic while probing backups; resume() on success releases
+    // the queued requests against the new endpoint. Long timeout — we exit
+    // via resume() or block(), not the timer.
+    globalRateLimiter.pause(600_000, 429)
+
+    void (async () => {
+        try {
+            // Dynamic import to avoid a static dependency cycle
+            // (rpc_failover imports this module for getRawFetch).
+            const { tryEndpointFailover } = await import('./rpc_failover')
+            const switched = await tryEndpointFailover(url)
+            if (switched) {
+                globalRateLimiter.resume()
+            } else {
+                globalRateLimiter.block(429)
+            }
+        } catch (e) {
+            console.error('[RateLimiter] RPC failover failed:', e)
+            globalRateLimiter.block(429)
+        } finally {
+            isEscalating = false
+        }
+    })()
 }
 
 // ── Opaque (CORS-blocked) throttle detection ─────────────────────────────────
@@ -304,9 +361,10 @@ export function registerOpaqueNetworkFailure(url: string | undefined): void {
     if (entry.count >= OPAQUE_FAILURE_THRESHOLD) {
         console.warn(
             `[RateLimiter] ${entry.count} consecutive opaque network failures for ${host} — ` +
-                'treating as a CORS-hidden HTTP 429 and blocking all requests.'
+                'treating as a CORS-hidden HTTP 429.'
         )
-        globalRateLimiter.block(429)
+        delete opaqueFailures[host]
+        escalateThrottle(url)
     }
 }
 
@@ -364,7 +422,11 @@ function installAxiosInterceptor(): void {
         (error) => {
             const status: number | undefined = error.response?.status
             if (status === 429 || status === 503) {
-                handleThrottleResponse(status, error.response?.headers?.['retry-after'])
+                handleThrottleResponse(
+                    status,
+                    error.response?.headers?.['retry-after'],
+                    axiosRequestUrl(error.config)
+                )
             } else if (!error.response && error.request) {
                 // Network-level failure with no readable response — possibly a
                 // CORS-hidden 429 (see registerOpaqueNetworkFailure).
@@ -400,7 +462,11 @@ function installFetchWrapper(): void {
         }
 
         if (response.status === 429 || response.status === 503) {
-            handleThrottleResponse(response.status, response.headers.get('retry-after'))
+            handleThrottleResponse(
+                response.status,
+                response.headers.get('retry-after'),
+                fetchInputUrl(input)
+            )
         } else {
             registerNetworkSuccess(fetchInputUrl(input))
         }
@@ -416,6 +482,15 @@ export function installRateLimiter(): void {
     globalRateLimiter.loadConfig()
     installAxiosInterceptor()
     installFetchWrapper()
+}
+
+/**
+ * The unwrapped `fetch` — bypasses the rate limiter and all throttle
+ * tracking. Used by the RPC failover probes, which must run while the
+ * limiter is paused and must not feed the opaque-failure counters.
+ */
+export function getRawFetch(): typeof globalThis.fetch {
+    return originalFetch ?? globalThis.fetch.bind(globalThis)
 }
 
 /**

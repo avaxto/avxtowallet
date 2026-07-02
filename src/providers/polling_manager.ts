@@ -9,6 +9,7 @@ import { pinia, useNetworkStore, useMainStore, useStatusBarStore, useAssetsStore
 import { Wallet } from '@/js/wallets/AbstractWallet'
 import { PROVIDER_CONFIG } from '@/providers/provider_config'
 import { globalRateLimiter } from '@/providers/rate_limiter'
+import { getNodeApiBase } from '@/providers/rpc_failover'
 
 /**
  * Polling Manager
@@ -113,7 +114,7 @@ class PollingManager {
         if (globalRateLimiter.blocked || globalRateLimiter.paused) return
 
         try {
-            const response = await fetch(this.network.getFullURL() + '/ext/bc/X', {
+            const response = await fetch(getNodeApiBase(this.network.getFullURL()) + '/ext/bc/X', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -147,7 +148,7 @@ class PollingManager {
         if (globalRateLimiter.blocked || globalRateLimiter.paused) return
 
         try {
-            const response = await fetch(this.network.getFullURL() + '/ext/bc/C/rpc', {
+            const response = await fetch(getNodeApiBase(this.network.getFullURL()) + '/ext/bc/C/rpc', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
