@@ -897,9 +897,9 @@ class LedgerWallet extends AbstractHdWallet implements AvaWalletCore {
             return
         }
 
-        super.getUTXOs()
-        this.getStake()
-        this.getEthBalance()
+        // Await X/P UTXOs, stake and C-chain balance so chain balances load
+        // before the caller starts ERC20 token balance updates.
+        await Promise.all([super.getUTXOs(), this.getStake(), this.getEthBalance()])
         return
     }
 

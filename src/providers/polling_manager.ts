@@ -176,8 +176,16 @@ class PollingManager {
 
         try {
             // Refresh the wallet balance
+            const before = wallet.utxoset.getUTXOIDs().sort().join(',')
             await useAssetsStore(pinia).updateUTXOsExternal()
-            useHistoryStore(pinia).updateTransactionHistory()
+            const after = wallet.utxoset.getUTXOIDs().sort().join(',')
+
+            // The X-chain height moves with network-wide activity; only
+            // refetch the (expensive) transaction history when this wallet's
+            // own UTXO set actually changed.
+            if (before !== after) {
+                useHistoryStore(pinia).updateTransactionHistory()
+            }
         } catch (error) {
             console.warn('X-Chain balance update error:', error)
         }
@@ -191,25 +199,13 @@ class PollingManager {
         if (!wallet) return
 
         try {
-            // Refresh the wallet balance
+            // Refresh the native C-chain balance. The AVXTO (base asset)
+            // ERC20 balance is NOT updated here — the avxto store polls it
+            // on its own interval; doing it here too doubled the eth_calls.
             await wallet.getEthBalance()
-
-            // Update ERC20 balance for the base asset (AVXTO)
-            const assetsStore = useAssetsStore(pinia)
-            const baseAsset = assetsStore.baseAsset
-            if (baseAsset) {
-                const token = assetsStore.networkErc20Tokens.find(
-                    (t) => t.data.address.toLowerCase() === baseAsset.address.toLowerCase()
-                )
-                if (token) {
-                    token.updateBalance((wallet as any).ethAddress)
-                }
-            }
         } catch (error) {
             console.warn('C-Chain balance update error:', error)
         }
-
-        
     }
 
     /**

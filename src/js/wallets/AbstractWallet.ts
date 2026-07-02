@@ -180,18 +180,19 @@ abstract class AbstractWallet implements AvaWalletCore {
     }
 
     async getEthBalance() {
-        const netID = ava.getNetworkID()
-        const isMainnet = isMainnetNetworkID(netID)
-        const isFuji = isTestnetNetworkID(netID)
-
-        let bal
-        // Can't use glacier if not mainnet/fuji
-        if (!isMainnet && !isFuji) {
+        // Use the C-chain RPC directly — polling Glacier for the native
+        // balance was the app's most frequent request and a source of
+        // HTTP 429 rate limiting. Glacier remains as a fallback only.
+        let bal: BN
+        try {
             bal = new BN(await web3.eth.getBalance(this.getEvmAddress()))
-        } else {
-            const chainId = isMainnet ? '43114' : '43113'
+        } catch (rpcErr) {
+            const netID = ava.getNetworkID()
+            const isMainnet = isMainnetNetworkID(netID)
+            const isFuji = isTestnetNetworkID(netID)
+            if (!isMainnet && !isFuji) throw rpcErr
             const res = await glacier.evm.getNativeBalance({
-                chainId: chainId,
+                chainId: isMainnet ? '43114' : '43113',
                 address: '0x' + this.getEvmAddress(),
             })
             bal = new BN(res.nativeTokenBalance.balance)

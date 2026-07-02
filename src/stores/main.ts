@@ -240,9 +240,9 @@ export const useMainStore = defineStore('main', () => {
         isAuth.value = true
         isSwitchingAccount.value = false
 
+        // activateWallet() (always called right before this) has already run
+        // updateAvaAsset()/updateBaseAsset() — don't repeat them here.
         const assetsStore = useAssetsStore()
-        assetsStore.updateAvaAsset()
-        assetsStore.updateBaseAsset()
         router.push('/wallet')
         assetsStore.updateUTXOs()
 

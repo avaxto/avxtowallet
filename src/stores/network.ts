@@ -13,7 +13,12 @@ import { explorer_api } from '@/explorer_api'
 import { web3 } from '@/evm'
 import router from '@/router'
 import { setCurrentNetwork } from '@/providers'
-import { getConfigFromUrl, setNetworkAsync } from '@/avalanche-wallet-sdk/Network'
+import {
+    getConfigFromUrl,
+    setNetworkAsync,
+    MainnetConfig as SdkMainnetConfig,
+    TestnetConfig as SdkTestnetConfig,
+} from '@/avalanche-wallet-sdk/Network'
 
 // Default network configurations — must match the explorer API endpoints
 const MainnetConfig = new AvaNetwork(
@@ -161,9 +166,12 @@ export const useNetworkStore = defineStore('network', () => {
             cChain.refreshBlockchainID(chainIdC)
             cChain.setBlockchainAlias('C')
 
-            avm.getAVAXAssetID(true)
-            pChain.getAVAXAssetID(true)
-            cChain.getAVAXAssetID(true)
+            // Fetch the AVAX asset descriptor once and share the ID with all
+            // three chain APIs — it is the same asset on X, P and C.
+            const avaxDesc = await avm.getAssetDescription('AVAX')
+            avm.setAVAXAssetID(avaxDesc.assetID)
+            pChain.setAVAXAssetID(avaxDesc.assetID)
+            cChain.setAVAXAssetID(avaxDesc.assetID)
 
             selectedNetwork.value = net
             saveSelectedNetwork()
@@ -178,9 +186,10 @@ export const useNetworkStore = defineStore('network', () => {
             // Start REST polling for this network
             setCurrentNetwork(net)
 
-            // Reset assets and fetch the AVAX asset descriptor
+            // Reset assets and register the AVAX asset from the descriptor
+            // fetched above (no second network round-trip).
             assetsStore.removeAllAssets()
-            await assetsStore.updateAvaAsset()
+            await assetsStore.updateAvaAsset(avaxDesc)
 
             // If a wallet is active, notify it and refresh
             if (mainStore.isAuth) {
@@ -204,9 +213,17 @@ export const useNetworkStore = defineStore('network', () => {
             // Transaction history
             historyStore.updateTransactionHistory()
 
-            // Point the embedded SDK at the same network
+            // Point the embedded SDK at the same network. For the built-in
+            // Mainnet/Fuji networks the SDK ships hardcoded configs, so avoid
+            // getConfigFromUrl which re-queries networkID, the three blockchain
+            // IDs, the EVM chain ID and the AVAX asset ID over the network.
             try {
-                const sdkNetConf = await getConfigFromUrl(net.getFullURL())
+                const sdkNetConf =
+                    net.networkId === 1
+                        ? SdkMainnetConfig
+                        : net.networkId === 5
+                        ? SdkTestnetConfig
+                        : await getConfigFromUrl(net.getFullURL())
                 await setNetworkAsync({
                     ...sdkNetConf,
                     explorerURL: net.explorerUrl,

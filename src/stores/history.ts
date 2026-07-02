@@ -38,6 +38,10 @@ export const useHistoryStore = defineStore('history', () => {
     }
 
     const updateAllTransactionHistory = async () => {
+        // A full refresh is expensive (Glacier for X/P/C + ChainKit paging) —
+        // never run two concurrently.
+        if (isUpdatingAll.value) return
+
         const netID = ava.getNetworkID()
         if (!isMainnetNetworkID(netID) && !isTestnetNetworkID(netID)) {
             allTransactions.value = []

@@ -8,6 +8,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { BN } from '@/avalanche'
 import { AmountOutput, UTXOSet as AVMUTXOSet, UTXO, NFTMintOutput } from '@/avalanche/apis/avm'
+import { GetAssetDescriptionResponse } from '@/avalanche/apis/avm/interfaces'
 import { UnixNow } from '@/avalanche/utils'
 import { UTXOSet as PlatformUTXOSet } from '@/avalanche/apis/platformvm/utxos'
 import { PlatformVMConstants, StakeableLockOut } from '@/avalanche/apis/platformvm'
@@ -495,11 +496,16 @@ export const useAssetsStore = defineStore('assets', () => {
         await addErc20Token(baseAsset.value)
     }
 
-    const updateAvaAsset = async () => {
-        const res = await avm.getAssetDescription('AVAX')
-        const id = bintools.cb58Encode(res.assetID)
+    const updateAvaAsset = async (desc?: GetAssetDescriptionResponse) => {
+        if (!desc) {
+            // Already registered (set by a previous call for this network) —
+            // avoid a redundant avm.getAssetDescription round-trip.
+            if (AVA_ASSET_ID.value && assetsDict.value[AVA_ASSET_ID.value]) return
+            desc = await avm.getAssetDescription('AVAX')
+        }
+        const id = bintools.cb58Encode(desc.assetID)
         AVA_ASSET_ID.value = id
-        const asset = new AvaAsset(id, res.name, res.symbol, res.denomination)
+        const asset = new AvaAsset(id, desc.name, desc.symbol, desc.denomination)
         addAsset(asset)
     }
 

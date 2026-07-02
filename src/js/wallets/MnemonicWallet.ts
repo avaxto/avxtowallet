@@ -159,9 +159,10 @@ export default class MnemonicWallet extends AbstractHdWallet implements IAvaHdWa
             return
         }
 
-        super.getUTXOs()
-        this.getStake()
-        this.getEthBalance()
+        // X/P UTXOs, staking amount and the C-chain balance are awaited in
+        // parallel so ERC20 token balance updates (triggered by the caller
+        // afterwards) only start once the chain balances are in.
+        await Promise.all([super.getUTXOs(), this.getStake(), this.getEthBalance()])
         return
     }
 

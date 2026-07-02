@@ -47,16 +47,27 @@ export const useAvxtoStore = defineStore('avxto', () => {
             return
         }
 
-        const evmAddress = '0x' + wallet.getEvmAddress()
-        if (!evmAddress || evmAddress === '0x') {
+        const evmAddress = wallet.getEvmAddress()
+        if (!evmAddress) {
             avxtoBalance.value = '0'
             return
         }
 
         try {
-            const contract = new web3.eth.Contract(ERC20_BALANCE_ABI as any, contractAddress)
-            const balance: string = await contract.methods.balanceOf(evmAddress).call()            
-            avxtoBalance.value = balance.toString()
+            // Share a single balanceOf call with the portfolio token list:
+            // update the AVXTO Erc20Token object and read the result from it,
+            // instead of issuing a second identical eth_call.
+            const token = assetsStore.networkErc20Tokens.find(
+                (t) => t.data.address.toLowerCase() === contractAddress.toLowerCase()
+            )
+            if (token) {
+                await token.updateBalance(evmAddress)
+                avxtoBalance.value = token.balanceRaw
+            } else {
+                const contract = new web3.eth.Contract(ERC20_BALANCE_ABI as any, contractAddress)
+                const balance: string = await contract.methods.balanceOf('0x' + evmAddress).call()
+                avxtoBalance.value = balance.toString()
+            }
         } catch (e) {
             console.error('Failed to fetch AVXTO token balance:', e)
         }
