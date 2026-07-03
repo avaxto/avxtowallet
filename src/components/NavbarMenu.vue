@@ -239,6 +239,9 @@
         </v-menu>
    
         <v-spacer></v-spacer>
+        <p v-if="avaxPriceText" class="avax_price">
+            AVAX <b>${{ avaxPriceText }}</b>
+        </p>
         <network-menu class="net_menu"></network-menu>
         &nbsp;        &nbsp;
         <DayNightToggle class="hover_but"></DayNightToggle>
@@ -271,6 +274,12 @@ export default defineComponent({
 
         const isInjected = computed(() => mainStore.activeWallet?.type === 'injected')
 
+        const avaxPriceText = computed((): string | null => {
+            const usd = mainStore.prices.usd
+            if (typeof usd !== 'number' || isNaN(usd) || usd <= 0) return null
+            return usd.toFixed(2)
+        })
+
         const saveAccount = () => {
             if (isInjected.value) {
                 notificationsStore.add({
@@ -288,7 +297,7 @@ export default defineComponent({
             logoutRef.value?.open()
         }
 
-        return { isAuth, isInjected, saveModal, logoutRef, saveAccount, logout }
+        return { isAuth, isInjected, avaxPriceText, saveModal, logoutRef, saveAccount, logout }
     },
 })
 </script>
@@ -313,6 +322,17 @@ export default defineComponent({
 
 .menu-btn {
     font-size: 14px !important;
+}
+
+.avax_price {
+    font-size: 14px;
+    color: var(--primary-color);
+    white-space: nowrap;
+    margin: 0 12px !important;
+
+    b {
+        color: var(--secondary-color);
+    }
 }
 
 .v-list-item-title {

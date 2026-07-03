@@ -22,6 +22,12 @@ export const useStatusBarStore = defineStore('statusbar', () => {
     const visible = ref(false)
     const loading = ref(false)
 
+    // Right-side status — a separate, independent slot pinned to the far
+    // right of the bar (like the clock in a Windows taskbar). It doesn't
+    // interact with the left-side message/type/visible/loading state above:
+    // it can be set and stays put regardless of what's happening on the left.
+    const rightMessage = ref('')
+
     /**
      * Show a status message in the status bar.
      */
@@ -51,16 +57,29 @@ export const useStatusBarStore = defineStore('statusbar', () => {
         message.value = ''
     }
 
+    /** Set the far-right status text (persists until changed or cleared). */
+    const setRightStatus = (msg: string) => {
+        rightMessage.value = msg
+    }
+
+    /** Clear the far-right status text. */
+    const clearRightStatus = () => {
+        rightMessage.value = ''
+    }
+
     return {
         message,
         type,
         visible,
         loading,
+        rightMessage,
         setStatus,
         info,
         success,
         warning,
         error,
         clear,
+        setRightStatus,
+        clearRightStatus,
     }
 })

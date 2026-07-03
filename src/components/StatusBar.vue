@@ -1,22 +1,69 @@
 <template>
-    <transition name="statusbar-slide">
-        <div v-if="store.visible" class="status-bar" :class="store.type">
-            <span v-if="store.loading" class="status-bar__spinner"></span>
-            <span class="status-bar__message">{{ store.message }}</span>
-            <button class="status-bar__close" @click="store.clear" aria-label="Dismiss">&#x2715;</button>
-        </div>
-    </transition>
+    <div class="status-bar" :class="store.visible ? store.type : 'idle'">
+        <span v-if="store.visible && store.loading" class="status-bar__spinner"></span>
+        <span v-else class="status-bar__dot" :style="{ backgroundColor: dotColor }"></span>
+        <span class="status-bar__message">{{ displayMessage }}</span>
+        <button
+            v-if="store.visible"
+            class="status-bar__close"
+            @click="store.clear"
+            aria-label="Dismiss"
+        >
+            &#x2715;
+        </button>
+        <span v-if="store.rightMessage" class="status-bar__right">{{ store.rightMessage }}</span>
+    </div>
 </template>
 
 <script lang="ts">
-import { defineComponent } from 'vue'
+import { defineComponent, computed } from 'vue'
 import { useStatusBarStore } from '@/stores/statusbar'
+import { useNetworkStore } from '@/stores'
 
 export default defineComponent({
     name: 'StatusBar',
     setup() {
         const store = useStatusBarStore()
-        return { store }
+        const networkStore = useNetworkStore()
+
+        // When there's no active transient message, the bar falls back to
+        // showing live connection status — so it always reads something,
+        // like a native app's persistent status line, instead of just
+        // vanishing when idle.
+        const idleMessage = computed(() => {
+            const net = networkStore.selectedNetwork
+            switch (networkStore.status) {
+                case 'connected':
+                    return net ? `Connected — ${net.name}` : 'Connected'
+                case 'connecting':
+                    return 'Connecting…'
+                default:
+                    return 'Disconnected'
+            }
+        })
+
+        const dotColor = computed(() => {
+            if (store.visible) {
+                return {
+                    info: '#2196f3',
+                    success: '#4caf50',
+                    warning: '#ff9800',
+                    error: '#f44336',
+                }[store.type]
+            }
+            switch (networkStore.status) {
+                case 'connected':
+                    return '#4caf50'
+                case 'connecting':
+                    return '#ff9800'
+                default:
+                    return '#f44336'
+            }
+        })
+
+        const displayMessage = computed(() => (store.visible ? store.message : idleMessage.value))
+
+        return { store, displayMessage, dotColor }
     },
 })
 </script>
@@ -31,15 +78,15 @@ export default defineComponent({
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 6px 20px;
-    font-size: 13px;
-    min-height: 30px;
-    box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.2);
+    padding: 4px 20px;
+    font-size: 12px;
+    min-height: 26px;
 
-    &.info    { background-color: #2196f3; color: #fff; }
-    &.success { background-color: #4caf50; color: #fff; }
-    &.warning { background-color: #ff9800; color: #fff; }
-    &.error   { background-color: #f44336; color: #fff; }
+    // Always the same subtle, native-status-line look — no colored ribbon.
+    // Severity (info/success/warning/error) is conveyed only by the small
+    // dot next to the message, not by the bar's background.
+    background-color: var(--bg-light);
+    color: var(--primary-color-light);
 }
 
 .status-bar__message {
@@ -62,13 +109,33 @@ export default defineComponent({
     &:hover { opacity: 1; }
 }
 
-/* Spinner */
+// Far-right status slot — like the clock in a Windows taskbar. Always the
+// last item, so .status-bar__message's flex:1 pushes it to the far edge.
+.status-bar__right {
+    flex-shrink: 0;
+    white-space: nowrap;
+    padding-left: 10px;
+    margin-left: 4px;
+    border-left: 1px solid currentColor;
+    opacity: 0.85;
+}
+
+.status-bar__dot {
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+/* Spinner (only shown while an active message is loading) */
 .status-bar__spinner {
     display: inline-block;
     width: 13px;
     height: 13px;
-    border: 2px solid rgba(255, 255, 255, 0.4);
-    border-top-color: #fff;
+    border: 2px solid currentColor;
+    border-top-color: transparent;
+    opacity: 0.7;
     border-radius: 50%;
     animation: spin 0.7s linear infinite;
     flex-shrink: 0;
@@ -76,16 +143,5 @@ export default defineComponent({
 
 @keyframes spin {
     to { transform: rotate(360deg); }
-}
-
-/* Slide-up / slide-down transition */
-.statusbar-slide-enter-active,
-.statusbar-slide-leave-active {
-    transition: transform 0.25s ease, opacity 0.25s ease;
-}
-.statusbar-slide-enter-from,
-.statusbar-slide-leave-to {
-    transform: translateY(100%);
-    opacity: 0;
 }
 </style>

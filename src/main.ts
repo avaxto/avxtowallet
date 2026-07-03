@@ -106,7 +106,7 @@ app.config.errorHandler = (err: any, instance, info) => {
 const mountedApp = app.mount('#app')
 const readyMessage = `AVAX Toolbox Version: ${AVAX_TOOLBOX_VERSION}`
 const statusBar = useStatusBarStore()
-statusBar.info(readyMessage)
+statusBar.setRightStatus(readyMessage)
 console.log(readyMessage)
 
 

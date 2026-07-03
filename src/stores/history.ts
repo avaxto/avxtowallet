@@ -81,6 +81,11 @@ export const useHistoryStore = defineStore('history', () => {
                         blockchainId,
                         network,
                         sortOrder: SortOrder.DESC,
+                        // Glacier defaults to pageSize 10 when omitted (max
+                        // is 100) — omitting it here meant paginating through
+                        // ~25 requests per refresh to fill the TX_LIMIT
+                        // budget, all carrying the identical address list.
+                        pageSize: 100,
                     }
                     return getTransactionsForAddresses(params, TX_LIMIT)
                 })

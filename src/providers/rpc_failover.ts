@@ -363,7 +363,7 @@ async function runFailover(): Promise<boolean> {
             // Reflect the new endpoint in useNetworkStore's selectedNetwork so
             // the UI (network menu, etc.) shows what's actually in use, and
             // re-affirm the store's connection status.
-            void applyFailoverToNetworkStore(name, activeNodeEndpoint?.nodeApiBase)
+            applyFailoverToNetworkStore(name, activeNodeEndpoint?.nodeApiBase)
         }
         return true
     }

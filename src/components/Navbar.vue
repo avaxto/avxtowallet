@@ -27,6 +27,9 @@
                     {{ $t('nav.create') }}
                 </router-link>
             </template>
+            <p v-if="avaxPriceText" class="avax_price">
+                AVAX ${{ avaxPriceText }}
+            </p>
             <network-menu></network-menu>
             <LanguageSelect class="lang_web"></LanguageSelect>
             
@@ -107,7 +110,13 @@ export default defineComponent({
             return mainStore.isAuth
         })
 
-        const isSingleton = computed(() => mainStore.activeWallet?.type === 'singleton')        
+        const isSingleton = computed(() => mainStore.activeWallet?.type === 'singleton')
+
+        const avaxPriceText = computed((): string | null => {
+            const usd = mainStore.prices.usd
+            if (typeof usd !== 'number' || isNaN(usd) || usd <= 0) return null
+            return usd.toFixed(2)
+        })
 
         const togglePopup = (): void => {
             popupOpen.value = !popupOpen.value
@@ -131,6 +140,7 @@ export default defineComponent({
             popupOpen,
             isAuth,
             isSingleton,
+            avaxPriceText,
             isDay,
             isConnecting,
             togglePopup,
@@ -219,6 +229,17 @@ button {
     color: var(--primary-color) !important;
     padding: 0 12px;
     border-radius: 4px;
+}
+
+.avax_price {
+    font-size: 14px;
+    color: var(--primary-color);
+    white-space: nowrap;
+    margin: 0 12px !important;
+
+    b {
+        color: var(--secondary-color);
+    }
 }
 
 .mobile_right {

@@ -188,7 +188,10 @@ export default {
         #router_view {
             overflow: auto;
             padding: 0;
-            padding-bottom: 0px;
+            // Reserve space for the always-present fixed status bar at the
+            // bottom of the viewport so it doesn't cover the last bit of
+            // scrolled content.
+            padding-bottom: 26px;
         }
     }
 
@@ -196,7 +199,8 @@ export default {
         min-height: calc(100vh - 80px);
         position: relative;
         padding: main.$container_padding_m;
-        
+        padding-bottom: calc(#{main.$container_padding_m} + 26px);
+
         // Remove horizontal padding for home page to allow proper centering
         &:has(.home) {
             padding-left: 0;
@@ -209,8 +213,9 @@ export default {
     min-height: calc(100vh - 80px);
     position: relative;
     padding: main.$container_padding_m;
+    padding-bottom: calc(#{main.$container_padding_m} + 26px);
     overflow: auto;
-    
+
     // Remove horizontal padding for home page to allow proper centering
     &:has(.home) {
         padding-left: 0;
