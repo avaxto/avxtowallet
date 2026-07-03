@@ -249,6 +249,44 @@ export const useNetworkStore = defineStore('network', () => {
         }
     }
 
+    /**
+     * Called by the RPC failover system (src/providers/rpc_failover.ts) once
+     * it has switched to a working public backup endpoint. Reflects the
+     * change in `selectedNetwork` — so the UI shows which endpoint is
+     * actually in use — and re-affirms `status` as connected.
+     *
+     * Replaces (rather than mutates) the current network object: the active
+     * `selectedNetwork` may be the SAME shared instance as the built-in
+     * Mainnet/Fuji config or a saved custom network. Mutating its ip/port in
+     * place would permanently corrupt that config for the rest of the
+     * session (e.g. a later manual "reconnect to official" would silently
+     * reconnect to the stale fallback host instead), and could get persisted
+     * if the user edits/saves a custom network while failed over.
+     */
+    const applyFailoverEndpoint = (opts: { providerName: string; nodeApiUrl?: string }) => {
+        const current = selectedNetwork.value
+        if (!current) return
+
+        const baseName = current.name.replace(/ \(via .+\)$/, '')
+        const url = opts.nodeApiUrl ?? current.url
+
+        const failoverNetwork = new AvaNetwork(
+            `${baseName} (via ${opts.providerName})`,
+            url,
+            current.networkId,
+            current.explorerUrl,
+            current.explorerSiteUrl,
+            current.readonly
+        )
+        // Public fallback RPCs don't support credentialed CORS (see
+        // rpc_failover.ts's applyNodeEndpoint) — keep the store's copy of
+        // this flag consistent with what the transport layer is doing.
+        failoverNetwork.withCredentials = false
+
+        selectedNetwork.value = failoverNetwork
+        status.value = 'connected'
+    }
+
     const updateTxFee = async () => {
         try {
             const feeResult = await infoApi.getTxFee()
@@ -300,6 +338,7 @@ export const useNetworkStore = defineStore('network', () => {
         // Actions
         init,
         setNetwork,
+        applyFailoverEndpoint,
         addNetwork,
         addCustomNetwork,
         removeCustomNetwork,

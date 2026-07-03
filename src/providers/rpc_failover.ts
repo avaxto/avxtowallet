@@ -120,6 +120,56 @@ export function getActiveFallbackName(): string | null {
     return activeEvmEndpoint?.name ?? activeNodeEndpoint?.name ?? null
 }
 
+/**
+ * Rewrite a request URL that failed against a now-dead host to the endpoint
+ * currently active for its track (EVM RPC vs node X/P/C/info API),
+ * preserving the request's own path. Called by the rate limiter's fetch
+ * wrapper to retry a failed request transparently once failover succeeds —
+ * without this, a caller like setNetwork() would still see its ORIGINAL
+ * request fail even though the very next request would have succeeded.
+ *
+ * Returns null if the URL isn't a known/current RPC host, or the relevant
+ * track hasn't (yet) switched away from that host.
+ */
+export function rewriteUrlForActiveEndpoint(failedUrl: string): string | null {
+    const endpoints = endpointsForNetwork()
+    if (!endpoints) return null
+
+    let parsed: URL
+    try {
+        parsed = new URL(failedUrl)
+    } catch {
+        return null
+    }
+
+    const knownHost =
+        endpoints.some((e) => hostOf(e.evmRpcUrl) === parsed.host) ||
+        endpoints.some((e) => e.nodeApiBase && hostOf(e.nodeApiBase) === parsed.host) ||
+        isCurrentAvaHost(parsed.host)
+    if (!knownHost) return null
+
+    // The EVM RPC path is always exactly "/ext/bc/C/rpc" against the
+    // official node, or the provider's bare root for single-purpose EVM
+    // endpoints — use the PATH (not the host) to tell EVM calls apart from
+    // node-API calls, since the official endpoint serves both from the same
+    // host.
+    const isEvmPath = parsed.pathname === '/ext/bc/C/rpc' || parsed.pathname === '/' || parsed.pathname === ''
+
+    if (isEvmPath) {
+        if (activeEvmEndpoint && hostOf(activeEvmEndpoint.evmRpcUrl) !== parsed.host) {
+            return activeEvmEndpoint.evmRpcUrl
+        }
+        return null
+    }
+
+    if (activeNodeEndpoint?.nodeApiBase && hostOf(activeNodeEndpoint.nodeApiBase) !== parsed.host) {
+        const extIdx = parsed.pathname.indexOf('/ext/')
+        const suffix = extIdx >= 0 ? parsed.pathname.slice(extIdx) : parsed.pathname
+        return `${activeNodeEndpoint.nodeApiBase}${suffix}${parsed.search}`
+    }
+    return null
+}
+
 // ── Internals ────────────────────────────────────────────────────────────────
 
 function hostOf(url: string): string | null {
@@ -127,6 +177,14 @@ function hostOf(url: string): string | null {
         return new URL(url).host
     } catch {
         return null
+    }
+}
+
+function isCurrentAvaHost(host: string): boolean {
+    try {
+        return new URL(`${ava.getProtocol()}://${ava.getHost()}:${ava.getPort()}`).host === host
+    } catch {
+        return false
     }
 }
 
@@ -204,6 +262,14 @@ function applyNodeEndpoint(e: RpcEndpoint): void {
     const port = u.port ? parseInt(u.port) : u.protocol === 'https:' ? 443 : 80
     const basePath = u.pathname !== '/' ? u.pathname : ''
     ava.setAddress(u.hostname, port, u.protocol.replace(':', ''), basePath)
+    // The official endpoint reflects the specific Origin + sets
+    // Access-Control-Allow-Credentials: true, so setNetwork() enables
+    // withCredentials on the shared `ava` singleton. Public fallback
+    // providers send Access-Control-Allow-Origin: * instead — a combination
+    // browsers reject outright for credentialed requests — so every
+    // avm/pChain/cChain/info call would fail with a CORS error unless this
+    // is cleared here.
+    ava.removeRequestConfig('withCredentials')
     activeNodeEndpoint = e
     console.warn(`[RpcFailover] Node API (X/P/C) switched to ${e.name} (${e.nodeApiBase})`)
 }
@@ -244,12 +310,7 @@ export async function tryEndpointFailover(failedUrl: string | undefined): Promis
             if (h2) knownHosts.add(h2)
         }
     }
-    try {
-        knownHosts.add(new URL(`${ava.getProtocol()}://${ava.getHost()}:${ava.getPort()}`).host)
-    } catch {
-        /* ignore */
-    }
-    if (!knownHosts.has(failedHost)) return false
+    if (!knownHosts.has(failedHost) && !isCurrentAvaHost(failedHost)) return false
 
     deadHosts.add(failedHost)
 
@@ -299,10 +360,23 @@ async function runFailover(): Promise<boolean> {
         const name = getActiveFallbackName()
         if (name) {
             void notifyStatusBar(`Primary RPC rate limited — switched to backup endpoint: ${name}`)
+            // Reflect the new endpoint in useNetworkStore's selectedNetwork so
+            // the UI (network menu, etc.) shows what's actually in use, and
+            // re-affirm the store's connection status.
+            void applyFailoverToNetworkStore(name, activeNodeEndpoint?.nodeApiBase)
         }
         return true
     }
 
     console.warn('[RpcFailover] All public RPC endpoints exhausted for this session.')
     return false
+}
+
+async function applyFailoverToNetworkStore(providerName: string, nodeApiUrl?: string): Promise<void> {
+    try {
+        const { pinia, useNetworkStore } = await import('@/stores')
+        useNetworkStore(pinia).applyFailoverEndpoint({ providerName, nodeApiUrl })
+    } catch (e) {
+        console.warn('[RpcFailover] Failed to update networkStore with the failover endpoint:', e)
+    }
 }

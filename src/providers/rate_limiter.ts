@@ -265,7 +265,7 @@ export function handleThrottleResponse(
     url?: string
 ): void {
     if (status === 429) {
-        escalateThrottle(url)
+        void escalateThrottle(url)
         return
     }
     if (status !== 503) return
@@ -273,26 +273,29 @@ export function handleThrottleResponse(
     globalRateLimiter.pause(durationMs, status)
 }
 
-// One escalation at a time; repeats while one is running are no-ops (the
-// failed host is already recorded by the failover module or is moot once
-// the block engages).
-let isEscalating = false
+// Single in-flight escalation; concurrent 429s share the same run and result
+// instead of racing independent failover attempts.
+let escalationPromise: Promise<boolean> | null = null
 
 /**
  * A request to `url` was rate limited (explicit 429 or the CORS-hidden
  * equivalent). Pause traffic, try to switch to a backup RPC endpoint, and
  * only hard-block when none are left.
+ *
+ * Returns whether a working endpoint was found — callers that can retry
+ * their own failed request (see the fetch wrapper below) use this to do so
+ * transparently instead of surfacing the original 429 to their caller.
  */
-function escalateThrottle(url: string | undefined): void {
-    if (isEscalating || globalRateLimiter.blocked) return
-    isEscalating = true
+function escalateThrottle(url: string | undefined): Promise<boolean> {
+    if (globalRateLimiter.blocked) return Promise.resolve(false)
+    if (escalationPromise) return escalationPromise
 
     // Hold all traffic while probing backups; resume() on success releases
     // the queued requests against the new endpoint. Long timeout — we exit
     // via resume() or block(), not the timer.
     globalRateLimiter.pause(600_000, 429)
 
-    void (async () => {
+    escalationPromise = (async () => {
         try {
             // Dynamic import to avoid a static dependency cycle
             // (rpc_failover imports this module for getRawFetch).
@@ -303,13 +306,17 @@ function escalateThrottle(url: string | undefined): void {
             } else {
                 globalRateLimiter.block(429)
             }
+            return switched
         } catch (e) {
             console.error('[RateLimiter] RPC failover failed:', e)
             globalRateLimiter.block(429)
+            return false
         } finally {
-            isEscalating = false
+            escalationPromise = null
         }
     })()
+
+    return escalationPromise
 }
 
 // ── Opaque (CORS-blocked) throttle detection ─────────────────────────────────
@@ -340,19 +347,24 @@ function hostOf(url: string | undefined): string | null {
     }
 }
 
-/** Call when a request to `url` failed at the network/CORS level (no readable response). */
-export function registerOpaqueNetworkFailure(url: string | undefined): void {
+/**
+ * Call when a request to `url` failed at the network/CORS level (no readable
+ * response). Returns the escalation promise when this failure crossed the
+ * streak threshold (so the caller can await it and retry), or null when it
+ * didn't — a lone failure could just be a transient blip, not a 429.
+ */
+export function registerOpaqueNetworkFailure(url: string | undefined): Promise<boolean> | null {
     // A real connectivity loss also rejects fetches — don't punish that.
-    if (typeof navigator !== 'undefined' && navigator.onLine === false) return
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) return null
 
     const host = hostOf(url)
-    if (!host) return
+    if (!host) return null
 
     const now = Date.now()
     const entry = opaqueFailures[host]
     if (!entry || now - entry.last > OPAQUE_FAILURE_WINDOW_MS) {
         opaqueFailures[host] = { count: 1, last: now }
-        return
+        return null
     }
 
     entry.count++
@@ -364,8 +376,9 @@ export function registerOpaqueNetworkFailure(url: string | undefined): void {
                 'treating as a CORS-hidden HTTP 429.'
         )
         delete opaqueFailures[host]
-        escalateThrottle(url)
+        return escalateThrottle(url)
     }
+    return null
 }
 
 /** Call when a request to `url` succeeded — resets that host's failure streak. */
@@ -438,6 +451,21 @@ function installAxiosInterceptor(): void {
 }
 
 /**
+ * If a rewritten (failover) URL exists for `url`, return it — otherwise null.
+ * Isolated behind a function so the fetch wrapper doesn't need a static
+ * import of rpc_failover (which itself imports this module for getRawFetch).
+ */
+async function rewriteForFailover(url: string | undefined): Promise<string | null> {
+    if (!url) return null
+    try {
+        const { rewriteUrlForActiveEndpoint } = await import('./rpc_failover')
+        return rewriteUrlForActiveEndpoint(url)
+    } catch {
+        return null
+    }
+}
+
+/**
  * Replace `globalThis.fetch` with a wrapper that acquires a rate-limit slot
  * before every call.  The original `fetch` is saved so it can be restored.
  */
@@ -447,28 +475,47 @@ function installFetchWrapper(): void {
     globalThis.fetch = async function rateLimitedFetch(
         input: RequestInfo | URL,
         init?: RequestInit,
+        _retried = false,
     ): Promise<Response> {
         await globalRateLimiter.acquire()
 
+        const url = fetchInputUrl(input)
         let response: Response
         try {
             response = await originalFetch!(input, init)
         } catch (err) {
             // fetch rejected without a readable response. When the server's
             // rate limiter answers 429 without CORS headers, the browser
-            // reports exactly this — track it so a streak triggers the block.
-            registerOpaqueNetworkFailure(fetchInputUrl(input))
+            // reports exactly this. If this failure crossed the opaque-streak
+            // threshold and failover found a working endpoint, retry THIS
+            // request against it so the original caller sees success instead
+            // of the transient failure.
+            const escalation = registerOpaqueNetworkFailure(url)
+            if (escalation && !_retried) {
+                const switched = await escalation
+                if (switched) {
+                    const newUrl = await rewriteForFailover(url)
+                    if (newUrl) return rateLimitedFetch(newUrl, init, true)
+                }
+            }
             throw err
         }
 
         if (response.status === 429 || response.status === 503) {
-            handleThrottleResponse(
-                response.status,
-                response.headers.get('retry-after'),
-                fetchInputUrl(input)
-            )
+            if (response.status === 429 && !_retried) {
+                // Await the escalation (pause -> failover -> resume/block)
+                // and, on success, retry THIS request against the new
+                // endpoint instead of returning the 429 to the caller.
+                const switched = await escalateThrottle(url)
+                if (switched) {
+                    const newUrl = await rewriteForFailover(url)
+                    if (newUrl) return rateLimitedFetch(newUrl, init, true)
+                }
+            } else {
+                handleThrottleResponse(response.status, response.headers.get('retry-after'), url)
+            }
         } else {
-            registerNetworkSuccess(fetchInputUrl(input))
+            registerNetworkSuccess(url)
         }
         return response
     }

@@ -131,7 +131,7 @@ class HdHelper {
         const network: AvaNetwork | null = networkStore.selectedNetwork
         const explorerUrl = network?.explorerUrl
 
-        console.log(`[HdHelper] findHdIndex ${this.chainId} path=${this.changePath} via ${explorerUrl ? 'explorer' : 'node'}`)
+        console.log(`[HdHelper] findHdIndex ${this.chainId} path=${this.changePath} via ${explorerUrl ? explorerUrl : 'node'}`)
 
         // Fast path: one direct RPC call for the first SCAN_SIZE addresses.
         // If it confirms the wallet is sparsely used, skip the normal scan —
