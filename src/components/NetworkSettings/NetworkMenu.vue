@@ -12,7 +12,7 @@
                 }"
             ></span>
             <p class="net_status_name" v-if="activeNetwork" :style="{ color: !isDay ? '#ccc' : '' }">{{ activeNetwork.name }}</p>
-            <p class="net_status_name" v-else :style="{ color: !isDay ? '#ccc' : '' }">Disconnected</p>
+            <p class="net_status_name" v-else :style="{ color: !isDay ? '#ccc' : '' }">Network Unstable</p>
         </div>
         <transition name="fade">
             <div class="network_dispose_bg" v-if="isActive" key="bg" @click="closeMenu"></div>

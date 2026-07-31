@@ -71,6 +71,25 @@ function digestMessage(msgStr: string) {
     return createHash('sha256').update(msgBuf).digest()
 }
 
+// Normalizes anything caught in a `catch (e)` into a displayable string.
+// `e.message` is not always a string (e.g. some SDK/RPC errors attach an
+// object as `message`), which otherwise renders as the unhelpful literal
+// "[object Object]" when interpolated directly into a template.
+function errorToString(e: unknown): string {
+    if (typeof e === 'string') return e
+    const message = (e as { message?: unknown } | null)?.message
+    if (typeof message === 'string' && message) return message
+    const target = message ?? e
+    if (target && typeof target === 'object') {
+        try {
+            return JSON.stringify(target)
+        } catch {
+            /* falls through to String() below, e.g. circular references */
+        }
+    }
+    return String(target)
+}
+
 const payloadtypes = PayloadTypes.getInstance()
 
 function getPayloadFromUTXO(utxo: UTXO): PayloadBase {
@@ -84,4 +103,4 @@ function getPayloadFromUTXO(utxo: UTXO): PayloadBase {
     return payloadbase
 }
 
-export { keyToKeypair, calculateStakingReward, bnToBig, digestMessage, getPayloadFromUTXO }
+export { keyToKeypair, calculateStakingReward, bnToBig, digestMessage, getPayloadFromUTXO, errorToString }

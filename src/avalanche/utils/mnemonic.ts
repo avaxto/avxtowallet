@@ -7,7 +7,6 @@ import { Buffer } from "buffer/"
 import { Wordlist } from "ethers"
 import { InvalidEntropy } from "./errors"
 import * as bip39 from "bip39"
-import randomBytes from "randombytes"
 
 /**
  * BIP39 Mnemonic code for generating deterministic keys.
@@ -137,14 +136,16 @@ export default class Mnemonic {
    */
   generateMnemonic(
     strength?: number,
-    rng?: (size: number) => Buffer,
+    rng?: (size: number) => globalThis.Buffer,
     wordlist?: string[]
   ): string {
     strength = strength || 256
     if (strength % 32 !== 0) {
       throw new InvalidEntropy("Error - Invalid entropy")
     }
-    rng = rng || randomBytes
-    return bip39.generateMnemonic(strength, rng, wordlist)
+
+    const rBytes = require('crypto').randomBytes as (size: number) => globalThis.Buffer
+    const generator = rng || rBytes
+    return bip39.generateMnemonic(strength, generator, wordlist)
   }
 }

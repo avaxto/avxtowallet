@@ -8,6 +8,10 @@ class AvaNetwork {
     protocol: string
     port: number
     ip: string
+    // Optional path prefix for providers that serve the node API under a
+    // sub-path (e.g. OnFinality's https://host/public/ext/bc/X). Empty
+    // string for providers serving from the root.
+    basePath = ''
     networkId: number
     // chainId: string;
     url: string
@@ -81,29 +85,19 @@ class AvaNetwork {
     }
 
     updateURL(url: string) {
-        const split: string[] = url.split('://')
-
-        this.protocol = split[0]
-
-        // port is set
-        if (split[1].includes(':')) {
-            const urlSplit: string[] = split[1].split(':')
-            const ip: string = urlSplit[0]
-            const port: string = urlSplit[1]
-
-            this.ip = ip
-            this.port = parseInt(port)
-        } else {
-            this.ip = split[1]
-            if (this.protocol === 'http') {
-                this.port = 80
-            } else {
-                this.port = 443
-            }
-        }
+        const parsed = new URL(url)
+        this.protocol = parsed.protocol.replace(':', '')
+        this.ip = parsed.hostname
+        this.port = parsed.port
+            ? parseInt(parsed.port)
+            : this.protocol === 'http'
+            ? 80
+            : 443
+        // Keep any sub-path (e.g. OnFinality's /public), without a trailing slash
+        this.basePath = parsed.pathname !== '/' ? parsed.pathname.replace(/\/+$/, '') : ''
     }
     getFullURL() {
-        return `${this.protocol}://${this.ip}:${this.port}`
+        return `${this.protocol}://${this.ip}:${this.port}${this.basePath}`
     }
 
     getWsUrlX(): string {

@@ -18,6 +18,11 @@
                 <v-list-item v-if="isAuth && !isInjected" @click="saveAccount">
                     <v-list-item-title>Save Account</v-list-item-title>
                 </v-list-item>
+                <v-list-item v-if="isAuth">
+                    <v-list-item-title>
+                        <router-link to="/wallet/log">Log</router-link>
+                    </v-list-item-title>
+                </v-list-item>
                 <v-list-item v-if="isAuth" @click="logout">
                     <v-list-item-title>Exit</v-list-item-title>
                 </v-list-item>
@@ -240,7 +245,7 @@
    
         <v-spacer></v-spacer>
         <p v-if="avaxPriceText" class="avax_price">
-            AVAX <b>${{ avaxPriceText }}</b>
+            AVAX ${{ avaxPriceText }}
         </p>
         <network-menu class="net_menu"></network-menu>
         &nbsp;        &nbsp;

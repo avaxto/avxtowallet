@@ -9,6 +9,7 @@ import { ref, computed } from 'vue'
 import { AvaNetwork } from '@/js/AvaNetwork'
 import { BN } from '@/avalanche'
 import { ava, avm, cChain, infoApi, pChain } from '@/AVA'
+import { Defaults } from '@/avalanche/utils'
 import { explorer_api } from '@/explorer_api'
 import { web3, FetchHttpProvider } from '@/evm'
 import router from '@/router'
@@ -21,24 +22,81 @@ import {
     TestnetConfig as SdkTestnetConfig,
 } from '@/avalanche-wallet-sdk/Network'
 
-// Default network configurations — must match the explorer API endpoints
-const MainnetConfig = new AvaNetwork(
-    'Mainnet',
-    'https://api.avax.network:443',
-    1,
-    'https://explorerapi.avax.network',
-    'https://explorer-xp.avax.network',
-    true
-)
+// Default network configurations — must match the explorer API endpoints.
+// The official endpoint is listed first in each array (preferred/default
+// choice); the public backups double as the RPC failover candidate pool
+// (see src/providers/rpc_failover.ts) and as user-selectable networks.
+// Indexer/explorer URLs are the same as the official network for all of
+// them — only the RPC endpoint differs.
+//
+// Public backup providers serve the FULL node API (X/P/C by path),
+// live-verified 2026-07-03 with avm.getHeight, platform.getHeight and
+// eth_chainId + browser CORS checks. Note: EVM-only public RPCs (dRPC,
+// 1RPC, Tenderly gateway…) are NOT listed — they cannot serve the X/P chain
+// APIs a full network switch requires. Also verified dead/keyed as of
+// 2026-07-03: Ankr, Blast, MeowRPC, Omnia, Nodies, BlockPI, Lava, SubQuery,
+// Stakely.
+const MAINNET_NETWORKS: AvaNetwork[] = [
+    new AvaNetwork(
+        'Mainnet',
+        'https://api.avax.network:443',
+        1,
+        'https://explorerapi.avax.network',
+        'https://explorer-xp.avax.network',
+        true
+    ),
+    new AvaNetwork(
+        'Mainnet (PublicNode)',
+        'https://avalanche-c-chain-rpc.publicnode.com',
+        1,
+        'https://explorerapi.avax.network',
+        'https://explorer-xp.avax.network',
+        true
+    ),
+    new AvaNetwork(
+        'Mainnet (OnFinality)',
+        'https://avalanche.api.onfinality.io/public',
+        1,
+        'https://explorerapi.avax.network',
+        'https://explorer-xp.avax.network',
+        true
+    ),
+    new AvaNetwork(
+        'Mainnet (ZAN)',
+        'https://api.zan.top/avax-mainnet',
+        1,
+        'https://explorerapi.avax.network',
+        'https://explorer-xp.avax.network',
+        true
+    ),
+]
 
-const TestnetConfig = new AvaNetwork(
-    'Fuji',
-    'https://api.avax-test.network:443',
-    5,
-    'https://explorerapi.avax-test.network',
-    'https://explorer-xp.avax-test.network',
-    true
-)
+const TESTNET_NETWORKS: AvaNetwork[] = [
+    new AvaNetwork(
+        'Fuji',
+        'https://api.avax-test.network:443',
+        5,
+        'https://explorerapi.avax-test.network',
+        'https://explorer-xp.avax-test.network',
+        true
+    ),
+    new AvaNetwork(
+        'Fuji (PublicNode)',
+        'https://avalanche-fuji-c-chain-rpc.publicnode.com',
+        5,
+        'https://explorerapi.avax-test.network',
+        'https://explorer-xp.avax-test.network',
+        true
+    ),
+    new AvaNetwork(
+        'Fuji (ZAN)',
+        'https://api.zan.top/avax-fuji',
+        5,
+        'https://explorerapi.avax-test.network',
+        'https://explorer-xp.avax-test.network',
+        true
+    ),
+]
 
 export const useNetworkStore = defineStore('network', () => {
     // State
@@ -130,8 +188,14 @@ export const useNetworkStore = defineStore('network', () => {
      * Connect to the given network. This is the core network-switching action
      * that configures the Avalanche SDK, web3, explorer API, and notifies all
      * other stores so that balances / history / platform data refresh.
+     *
+     * @param net Network to connect to
+     * @param isFailover True when called by the RPC failover system
+     * (src/providers/rpc_failover.ts). A failover switch keeps the session's
+     * dead-endpoint list (so exhausted RPCs aren't retried) and does not
+     * persist the fallback as the user's saved network choice.
      */
-    const setNetwork = async (net: AvaNetwork) => {
+    const setNetwork = async (net: AvaNetwork, isFailover = false) => {
         status.value = 'connecting'
 
         // Lazy-import stores to avoid circular dependency at module load time
@@ -146,22 +210,37 @@ export const useNetworkStore = defineStore('network', () => {
         const platformStore = usePlatformStore()
 
         try {
-            // Fresh network — clear any RPC failover state from the old one
-            resetRpcFailover()
+            // Fresh network — clear any RPC failover state from the old one.
+            // (Not on failover switches: the dead-host list must survive.)
+            if (!isFailover) resetRpcFailover()
 
             // Check if the network supports credentials
             await net.updateCredentials()
             ava.setRequestConfig('withCredentials', net.withCredentials)
-            ava.setAddress(net.ip, net.port, net.protocol)
+            ava.setAddress(net.ip, net.port, net.protocol, net.basePath)
             ava.setNetworkID(net.networkId)
 
             // Clear old history
             historyStore.setRecentTransactions([])
 
-            // Query the network to get blockchain IDs for X/P/C
-            const chainIdX = await infoApi.getBlockchainID('X')
-            const chainIdP = await infoApi.getBlockchainID('P')
-            const chainIdC = await infoApi.getBlockchainID('C')
+            // Blockchain IDs for X/P/C. For the known public networks
+            // (Mainnet/Fuji) these are compile-time constants — importantly,
+            // the public backup RPC providers don't serve /ext/info at all,
+            // so querying is not even an option there. Only custom networks
+            // (local, subnets…) query the node.
+            let chainIdX: string
+            let chainIdP: string
+            let chainIdC: string
+            const knownNet = Defaults.network[net.networkId]
+            if (knownNet && net.networkId in { 1: true, 5: true }) {
+                chainIdX = knownNet.X.blockchainID
+                chainIdP = knownNet.P.blockchainID
+                chainIdC = knownNet.C.blockchainID
+            } else {
+                chainIdX = await infoApi.getBlockchainID('X')
+                chainIdP = await infoApi.getBlockchainID('P')
+                chainIdC = await infoApi.getBlockchainID('C')
+            }
 
             avm.refreshBlockchainID(chainIdX)
             avm.setBlockchainAlias('X')
@@ -178,7 +257,9 @@ export const useNetworkStore = defineStore('network', () => {
             cChain.setAVAXAssetID(avaxDesc.assetID)
 
             selectedNetwork.value = net
-            saveSelectedNetwork()
+            // A failover pick is session-only — don't overwrite the user's
+            // persisted network choice with it.
+            if (!isFailover) saveSelectedNetwork()
 
             // Update explorer API base URL
             explorer_api.defaults.baseURL = net.explorerUrl
@@ -187,7 +268,7 @@ export const useNetworkStore = defineStore('network', () => {
             // provider so web3 traffic goes through the global rate limiter
             // and 429 detection (web3's default HttpProvider uses XHR, which
             // bypasses both).
-            const web3ProviderUrl = `${net.protocol}://${net.ip}:${net.port}/ext/bc/C/rpc`
+            const web3ProviderUrl = `${net.getFullURL()}/ext/bc/C/rpc`
             web3.setProvider(new FetchHttpProvider(web3ProviderUrl) as any)
 
             // Start REST polling for this network
@@ -249,45 +330,16 @@ export const useNetworkStore = defineStore('network', () => {
         }
     }
 
-    /**
-     * Called by the RPC failover system (src/providers/rpc_failover.ts) once
-     * it has switched to a working public backup endpoint. Reflects the
-     * change in `selectedNetwork` — so the UI shows which endpoint is
-     * actually in use — and re-affirms `status` as connected.
-     *
-     * Replaces (rather than mutates) the current network object: the active
-     * `selectedNetwork` may be the SAME shared instance as the built-in
-     * Mainnet/Fuji config or a saved custom network. Mutating its ip/port in
-     * place would permanently corrupt that config for the rest of the
-     * session (e.g. a later manual "reconnect to official" would silently
-     * reconnect to the stale fallback host instead), and could get persisted
-     * if the user edits/saves a custom network while failed over.
-     */
-    const applyFailoverEndpoint = (opts: { providerName: string; nodeApiUrl?: string }) => {
-        const current = selectedNetwork.value
-        if (!current) return
-
-        const baseName = current.name.replace(/ \(via .+\)$/, '')
-        const url = opts.nodeApiUrl ?? current.url
-
-        const failoverNetwork = new AvaNetwork(
-            `${baseName} (via ${opts.providerName})`,
-            url,
-            current.networkId,
-            current.explorerUrl,
-            current.explorerSiteUrl,
-            current.readonly
-        )
-        // Public fallback RPCs don't support credentialed CORS (see
-        // rpc_failover.ts's applyNodeEndpoint) — keep the store's copy of
-        // this flag consistent with what the transport layer is doing.
-        failoverNetwork.withCredentials = false
-
-        selectedNetwork.value = failoverNetwork
-        status.value = 'connected'
-    }
-
     const updateTxFee = async () => {
+        const net = selectedNetwork.value
+        const knownNet = net ? Defaults.network[net.networkId] : undefined
+        // Known networks (Mainnet/Fuji): compile-time constant, and the
+        // public backup RPCs don't serve /ext/info anyway.
+        if (knownNet && net && net.networkId in { 1: true, 5: true }) {
+            txFee.value = knownNet.X.txFee
+            avm.setTxFee(knownNet.X.txFee)
+            return
+        }
         try {
             const feeResult = await infoApi.getTxFee()
             txFee.value = feeResult.txFee
@@ -305,9 +357,9 @@ export const useNetworkStore = defineStore('network', () => {
             console.error(e)
         }
 
-        // Register built-in networks
-        addNetwork(MainnetConfig)
-        addNetwork(TestnetConfig)
+        // Register built-in networks.
+        MAINNET_NETWORKS.forEach(addNetwork)
+        TESTNET_NETWORKS.forEach(addNetwork)
 
         try {
             // Attempt to restore the previously selected network
@@ -338,7 +390,6 @@ export const useNetworkStore = defineStore('network', () => {
         // Actions
         init,
         setNetwork,
-        applyFailoverEndpoint,
         addNetwork,
         addCustomNetwork,
         removeCustomNetwork,

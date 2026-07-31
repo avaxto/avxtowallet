@@ -10,12 +10,10 @@ import createHash from 'create-hash'
  * Encryption is using AES-GCM with a random public nonce.
  */
 export default class CryptoHelpers {
+
     protected ivSize: number = 12
-
     protected saltSize: number = 16
-
     protected tagLength: number = 128
-
     protected aesLength: number = 256
 
     public keygenIterations: number = 200000 //3.0, 2.0 uses 100000

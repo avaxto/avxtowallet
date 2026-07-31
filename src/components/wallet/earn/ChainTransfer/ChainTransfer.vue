@@ -151,6 +151,7 @@ import {
 } from '@/avalanche-wallet-sdk'
 import { sortUTxoSetP } from '@/helpers/sortUTXOs'
 import { selectMaxUtxoForExportP } from '@/helpers/utxoSelection/selectMaxUtxoForExportP'
+import { errorToString } from '@/helpers/helper'
 
 const IMPORT_DELAY = 5000 // in ms
 const BALANCE_DELAY = 2000 // in ms
@@ -434,7 +435,7 @@ export default defineComponent({
             } catch (e: any) {
                 exportState.value = TxState.failed
                 exportStatus.value = 'Failed'
-                exportReason.value = e.message || String(e)
+                exportReason.value = errorToString(e)
                 console.log('Export failed', e)
                 throw e
             }
@@ -470,7 +471,7 @@ export default defineComponent({
             } catch (e: any) {
                 importState.value = TxState.failed
                 importStatus.value = 'Failed'
-                importReason.value = e.message || String(e)
+                importReason.value = errorToString(e)
                 isImportErr.value = true
                 throw e
             }
@@ -481,7 +482,7 @@ export default defineComponent({
 
         const onerror = (error: any) => {
             isLoading.value = false
-            err.value = error.message || error
+            err.value = errorToString(error)
         }
 
         const startAgain = () => {

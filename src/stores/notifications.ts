@@ -7,6 +7,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { Notification, NotificationInput } from '@/types'
+import { useSessionLogStore } from './sessionlog'
 
 export const useNotificationsStore = defineStore('notifications', () => {
     // State
@@ -28,7 +29,9 @@ export const useNotificationsStore = defineStore('notifications', () => {
             id: Date.now() + Math.random(), // Simple ID generation
             duration: data.duration || 5000,
         }
-        
+
+        useSessionLogStore().log(data.type, `${data.title}: ${data.message}`, 'notification')
+
         items.value.push(item)
 
         // Auto remove after 5 seconds

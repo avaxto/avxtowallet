@@ -161,7 +161,7 @@ import {
 import { QrInput } from '@/vue_components'
 import Big from 'big.js'
 import { BN } from '@/avalanche'
-import { bnToBig } from '@/helpers/helper'
+import { bnToBig, errorToString } from '@/helpers/helper'
 import { web3 } from '@/evm'
 import EVMInputDropdown from '@/components/misc/EVMInputDropdown/EVMInputDropdown.vue'
 import Erc20Token from '@/js/Erc20Token'
@@ -434,7 +434,7 @@ export default defineComponent({
                 isSuccess.value = true
                 canSendAgain.value = true
             } catch (e: any) {
-                err.value = e.message || String(e)
+                err.value = errorToString(e)
             } finally {
                 isLoading.value = false
             }

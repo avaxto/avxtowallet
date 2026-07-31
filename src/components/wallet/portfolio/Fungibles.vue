@@ -8,10 +8,10 @@
             <p class="send_col">{{ $t('portfolio.send') }}</p>
             <p class="balance_col balance_header">{{ $t('portfolio.balance') }}</p>
         </div>
-        <div v-show="networkStatus !== 'connected'" class="empty">
-            <p>{{ $t('portfolio.error_network') }}</p>
+        <div v-show="networkStatus !== 'connected'" class="empty alert alert-danger">
+            <p>Network is unstable. Some assets may not show.</p>
         </div>
-        <div v-show="networkStatus === 'connected'" style="flex-grow: 1">
+        <div style="flex-grow: 1">
             <div class="sdk_section_header">Default Assets</div>
             <div v-if="walletBalances.length === 0 && erc20Balances.length === 0 && sdkAssetsFiltered.length === 0 && !sdkLoading" class="empty">
                 <p>{{ $t('portfolio.nobalance') }}</p>
@@ -95,7 +95,7 @@ export default defineComponent({
         const tokenlistModal = ref<InstanceType<typeof TokenListModal>>()
 
         const networkStatus = computed((): string => {
-            let stat = networkStore.status
+            let stat: string = networkStore.status
             return stat
         })
 

@@ -5,84 +5,36 @@
 
 */
 /**
- * Public RPC endpoint failover for the Avalanche network APIs.
+ * Public RPC endpoint failover.
  *
  * api.avax.network rate-limits aggressively: Cloudflare returns HTTP 429
  * without CORS headers and penalty-boxes the client IP for up to an hour.
- * Instead of hard-blocking the app on the first penalty, this module rotates
- * through verified public RPC providers. Only when every endpoint has failed
- * in this session does the global hard block (and its modal) engage.
+ * Instead of hard-blocking the app on the first penalty, this module switches
+ * to the next public backup network. Only when every candidate has failed in
+ * this session does the global hard block (and its modal) engage.
+ *
+ * The candidate pool IS networkStore.allNetworks: every registered network
+ * with the same networkId as the current one (built-in official + public
+ * backup providers + any custom networks the user added) is a failover
+ * candidate. A switch goes through networkStore.setNetwork(net, true) — a
+ * full reconnect, exactly as if the user had picked that network by hand
+ * (balances, history, pollers, SDK all refresh), except the session's
+ * dead-host list is kept and the fallback is not persisted as the user's
+ * saved network choice.
  *
  * Session semantics:
- *  - The active endpoints live in module-global state: once a working RPC is
- *    found it is used by default for the rest of the session.
  *  - A host that returned 429 (or failed opaquely) is marked dead for the
  *    session and never attempted again.
+ *  - The switched-to network stays selected for the rest of the session
+ *    (or until it, too, gets throttled).
  *
- * Endpoint capabilities (verified live on 2026-07-02 with eth_chainId,
- * avm.getHeight and platform.getHeight; all send
- * `access-control-allow-origin: *`):
- *  - PublicNode and OnFinality serve the X/P/C node APIs by path.
- *  - dRPC and 1RPC are C-chain EVM only.
- *  - /ext/info and /ext/bc/C/avax exist ONLY on the official endpoint, so on
- *    a fallback those calls fail (degraded: no pending-import detection).
- *    Core balance and send flows keep working.
+ * Capability note (live-verified 2026-07-03): the public backup providers
+ * serve /ext/bc/X, /ext/bc/P and /ext/bc/C/rpc but NOT /ext/info or
+ * /ext/bc/C/avax — setNetwork uses compile-time constants for those on
+ * known networks, and pending-import detection degrades gracefully.
  */
-import { ava } from '@/AVA'
-import { web3, FetchHttpProvider } from '@/evm'
-import { getRawFetch } from '@/providers/rate_limiter'
-
-export interface RpcEndpoint {
-    name: string
-    /**
-     * Base URL serving the node APIs (/ext/bc/X, /ext/bc/P, /ext/bc/C/rpc).
-     * Null for EVM-only providers.
-     */
-    nodeApiBase: string | null
-    /** Full URL of the C-chain EVM JSON-RPC endpoint. */
-    evmRpcUrl: string
-}
-
-export const MAINNET_RPC_ENDPOINTS: RpcEndpoint[] = [
-    {
-        name: 'Avalanche Official',
-        nodeApiBase: 'https://api.avax.network',
-        evmRpcUrl: 'https://api.avax.network/ext/bc/C/rpc',
-    },
-    {
-        name: 'PublicNode',
-        nodeApiBase: 'https://avalanche-c-chain-rpc.publicnode.com',
-        evmRpcUrl: 'https://avalanche-c-chain-rpc.publicnode.com/ext/bc/C/rpc',
-    },
-    {
-        name: 'OnFinality',
-        nodeApiBase: 'https://avalanche.api.onfinality.io/public',
-        evmRpcUrl: 'https://avalanche.api.onfinality.io/public/ext/bc/C/rpc',
-    },
-    {
-        name: 'dRPC',
-        nodeApiBase: null,
-        evmRpcUrl: 'https://avalanche.drpc.org',
-    },
-    {
-        name: '1RPC',
-        nodeApiBase: null,
-        evmRpcUrl: 'https://1rpc.io/avax/c',
-    },
-]
-
-export const FUJI_RPC_ENDPOINTS: RpcEndpoint[] = [
-    {
-        name: 'Avalanche Official (Fuji)',
-        nodeApiBase: 'https://api.avax-test.network',
-        evmRpcUrl: 'https://api.avax-test.network/ext/bc/C/rpc',
-    },
-    {
-        name: 'PublicNode (Fuji)',
-        nodeApiBase: 'https://avalanche-fuji-c-chain-rpc.publicnode.com',
-        evmRpcUrl: 'https://avalanche-fuji-c-chain-rpc.publicnode.com/ext/bc/C/rpc',
-    },
-]
+import { AvaNetwork } from '@/js/AvaNetwork'
+import { getRawFetch, globalRateLimiter } from '@/providers/rate_limiter'
 
 const PROBE_TIMEOUT_MS = 8_000
 
@@ -91,83 +43,13 @@ const PROBE_TIMEOUT_MS = 8_000
 /** Hosts that returned 429 / failed this session — never attempted again. */
 const deadHosts = new Set<string>()
 
-/** The endpoints currently in use (null = the network's own defaults). */
-let activeEvmEndpoint: RpcEndpoint | null = null
-let activeNodeEndpoint: RpcEndpoint | null = null
-
 /** Serialize concurrent escalations into one failover run. */
 let failoverPromise: Promise<boolean> | null = null
 
-/** Reset all failover state — call when the user switches networks. */
+/** Reset all failover state — called when the USER switches networks. */
 export function resetRpcFailover(): void {
     deadHosts.clear()
-    activeEvmEndpoint = null
-    activeNodeEndpoint = null
     failoverPromise = null
-}
-
-/**
- * Node API base URL to use right now. Pollers and other node-API callers pass
- * their default (the selected network's URL) and get the failover override
- * when one is active.
- */
-export function getNodeApiBase(defaultBase: string): string {
-    return activeNodeEndpoint?.nodeApiBase ?? defaultBase
-}
-
-/** Name of the fallback provider currently in use, if any (for UI/status). */
-export function getActiveFallbackName(): string | null {
-    return activeEvmEndpoint?.name ?? activeNodeEndpoint?.name ?? null
-}
-
-/**
- * Rewrite a request URL that failed against a now-dead host to the endpoint
- * currently active for its track (EVM RPC vs node X/P/C/info API),
- * preserving the request's own path. Called by the rate limiter's fetch
- * wrapper to retry a failed request transparently once failover succeeds —
- * without this, a caller like setNetwork() would still see its ORIGINAL
- * request fail even though the very next request would have succeeded.
- *
- * Returns null if the URL isn't a known/current RPC host, or the relevant
- * track hasn't (yet) switched away from that host.
- */
-export function rewriteUrlForActiveEndpoint(failedUrl: string): string | null {
-    const endpoints = endpointsForNetwork()
-    if (!endpoints) return null
-
-    let parsed: URL
-    try {
-        parsed = new URL(failedUrl)
-    } catch {
-        return null
-    }
-
-    const knownHost =
-        endpoints.some((e) => hostOf(e.evmRpcUrl) === parsed.host) ||
-        endpoints.some((e) => e.nodeApiBase && hostOf(e.nodeApiBase) === parsed.host) ||
-        isCurrentAvaHost(parsed.host)
-    if (!knownHost) return null
-
-    // The EVM RPC path is always exactly "/ext/bc/C/rpc" against the
-    // official node, or the provider's bare root for single-purpose EVM
-    // endpoints — use the PATH (not the host) to tell EVM calls apart from
-    // node-API calls, since the official endpoint serves both from the same
-    // host.
-    const isEvmPath = parsed.pathname === '/ext/bc/C/rpc' || parsed.pathname === '/' || parsed.pathname === ''
-
-    if (isEvmPath) {
-        if (activeEvmEndpoint && hostOf(activeEvmEndpoint.evmRpcUrl) !== parsed.host) {
-            return activeEvmEndpoint.evmRpcUrl
-        }
-        return null
-    }
-
-    if (activeNodeEndpoint?.nodeApiBase && hostOf(activeNodeEndpoint.nodeApiBase) !== parsed.host) {
-        const extIdx = parsed.pathname.indexOf('/ext/')
-        const suffix = extIdx >= 0 ? parsed.pathname.slice(extIdx) : parsed.pathname
-        return `${activeNodeEndpoint.nodeApiBase}${suffix}${parsed.search}`
-    }
-    return null
 }
 
 // ── Internals ────────────────────────────────────────────────────────────────
@@ -180,34 +62,12 @@ function hostOf(url: string): string | null {
     }
 }
 
-function isCurrentAvaHost(host: string): boolean {
-    try {
-        return new URL(`${ava.getProtocol()}://${ava.getHost()}:${ava.getPort()}`).host === host
-    } catch {
-        return false
-    }
-}
-
-function endpointsForNetwork(): RpcEndpoint[] | null {
-    const netID = ava.getNetworkID()
-    if (netID === 1) return MAINNET_RPC_ENDPOINTS
-    if (netID === 5) return FUJI_RPC_ENDPOINTS
-    // Custom/local networks have no public fallbacks.
-    return null
-}
-
-function isAlive(e: RpcEndpoint): boolean {
-    const evmHost = hostOf(e.evmRpcUrl)
-    if (!evmHost || deadHosts.has(evmHost)) return false
-    if (e.nodeApiBase) {
-        const nodeHost = hostOf(e.nodeApiBase)
-        if (nodeHost && deadHosts.has(nodeHost)) return false
-    }
-    return true
+function networkHost(net: AvaNetwork): string | null {
+    return hostOf(net.getFullURL())
 }
 
 async function rpcProbe(url: string, body: object): Promise<any | null> {
-    // Raw (unwrapped) fetch: the limiter may be paused during failover, and
+    // Raw (unwrapped) fetch: the limiter is paused during failover, and
     // probe failures must not feed the opaque-failure counters.
     const rawFetch = getRawFetch()
     const controller = new AbortController()
@@ -228,155 +88,136 @@ async function rpcProbe(url: string, body: object): Promise<any | null> {
     }
 }
 
-async function probeEvm(e: RpcEndpoint): Promise<boolean> {
-    const expected = ava.getNetworkID() === 5 ? '0xa869' : '0xa86a'
-    const json = await rpcProbe(e.evmRpcUrl, {
-        jsonrpc: '2.0',
-        id: 1,
-        method: 'eth_chainId',
-        params: [],
-    })
-    return json?.result === expected
-}
+/** A candidate must serve both the X-chain node API and the C-chain EVM RPC. */
+async function probeNetwork(net: AvaNetwork): Promise<boolean> {
+    const base = net.getFullURL()
 
-async function probeNode(e: RpcEndpoint): Promise<boolean> {
-    if (!e.nodeApiBase) return false
-    const json = await rpcProbe(`${e.nodeApiBase}/ext/bc/X`, {
+    const xJson = await rpcProbe(`${base}/ext/bc/X`, {
         jsonrpc: '2.0',
         id: 1,
         method: 'avm.getHeight',
         params: {},
     })
-    return !!json?.result?.height
+    if (!xJson?.result?.height) return false
+
+    const cJson = await rpcProbe(`${base}/ext/bc/C/rpc`, {
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'eth_chainId',
+        params: [],
+    })
+    if (!cJson?.result) return false
+
+    // Enforce the EVM chain id on the known public networks; custom
+    // networks may legitimately use other ids.
+    if (net.networkId === 1 && cJson.result !== '0xa86a') return false
+    if (net.networkId === 5 && cJson.result !== '0xa869') return false
+
+    return true
 }
 
-function applyEvmEndpoint(e: RpcEndpoint): void {
-    web3.setProvider(new FetchHttpProvider(e.evmRpcUrl) as any)
-    activeEvmEndpoint = e
-    console.warn(`[RpcFailover] C-chain EVM RPC switched to ${e.name} (${e.evmRpcUrl})`)
-}
-
-function applyNodeEndpoint(e: RpcEndpoint): void {
-    if (!e.nodeApiBase) return
-    const u = new URL(e.nodeApiBase)
-    const port = u.port ? parseInt(u.port) : u.protocol === 'https:' ? 443 : 80
-    const basePath = u.pathname !== '/' ? u.pathname : ''
-    ava.setAddress(u.hostname, port, u.protocol.replace(':', ''), basePath)
-    // The official endpoint reflects the specific Origin + sets
-    // Access-Control-Allow-Credentials: true, so setNetwork() enables
-    // withCredentials on the shared `ava` singleton. Public fallback
-    // providers send Access-Control-Allow-Origin: * instead — a combination
-    // browsers reject outright for credentialed requests — so every
-    // avm/pChain/cChain/info call would fail with a CORS error unless this
-    // is cleared here.
-    ava.removeRequestConfig('withCredentials')
-    activeNodeEndpoint = e
-    console.warn(`[RpcFailover] Node API (X/P/C) switched to ${e.name} (${e.nodeApiBase})`)
-}
-
-async function notifyStatusBar(message: string): Promise<void> {
+async function notify(message: string, type: 'warning' | 'success'): Promise<void> {
     try {
-        const { pinia, useStatusBarStore } = await import('@/stores')
-        useStatusBarStore(pinia).success(message)
+        const { pinia, useNotificationsStore } = await import('@/stores')
+        useNotificationsStore(pinia).add({ title: 'RPC Failover', message, type })
     } catch {
-        // Status bar is cosmetic — never fail the failover over it.
+        // Notification is cosmetic — never fail the failover over it.
     }
 }
 
 /**
  * Called by the rate limiter when `failedUrl` was throttled (HTTP 429, or the
- * CORS-hidden equivalent). Marks the host dead for the session and moves the
- * affected API track(s) to the next live public endpoint.
+ * CORS-hidden equivalent). Marks the host dead for the session and switches
+ * to the next live network from networkStore.allNetworks via a full
+ * setNetwork() reconnect.
  *
- * Returns true if a working endpoint was found (do NOT block), false when the
- * list is exhausted or failover doesn't apply (caller applies the block).
+ * Returns true if a working network was connected (do NOT block), false when
+ * every candidate is exhausted (caller applies the hard block).
  */
 export async function tryEndpointFailover(failedUrl: string | undefined): Promise<boolean> {
-    const endpoints = endpointsForNetwork()
-    if (!endpoints || !failedUrl) return false
-
+    if (!failedUrl) return false
     const failedHost = hostOf(failedUrl)
     if (!failedHost) return false
 
-    // Only handle hosts we can actually replace: known endpoints or whatever
-    // the app is currently pointed at. Anything else (e.g. Glacier) has no
-    // fallback — the caller decides.
+    const { pinia, useNetworkStore } = await import('@/stores')
+    const networkStore = useNetworkStore(pinia)
+
+    const current: AvaNetwork | null = networkStore.selectedNetwork
+    if (!current) return false
+
+    // Candidates: every registered network on the SAME network id, in
+    // registration order (official endpoints first, then public backups,
+    // then the user's custom networks).
+    const candidates: AvaNetwork[] = networkStore.allNetworks.filter(
+        (n: AvaNetwork) => n.networkId === current.networkId
+    )
+
+    // Only handle hosts we can actually replace: one of the candidate
+    // networks. Anything else (e.g. Glacier) has no fallback — the caller
+    // decides what to do.
     const knownHosts = new Set<string>()
-    for (const e of endpoints) {
-        const h1 = hostOf(e.evmRpcUrl)
-        if (h1) knownHosts.add(h1)
-        if (e.nodeApiBase) {
-            const h2 = hostOf(e.nodeApiBase)
-            if (h2) knownHosts.add(h2)
-        }
+    for (const n of candidates) {
+        const h = networkHost(n)
+        if (h) knownHosts.add(h)
     }
-    if (!knownHosts.has(failedHost) && !isCurrentAvaHost(failedHost)) return false
+    if (!knownHosts.has(failedHost)) return false
 
     deadHosts.add(failedHost)
 
     // One failover run at a time; concurrent escalations await the same result.
     if (!failoverPromise) {
-        failoverPromise = runFailover().finally(() => {
+        failoverPromise = runFailover(networkStore, candidates).finally(() => {
             failoverPromise = null
         })
     }
     return failoverPromise
 }
 
-async function runFailover(): Promise<boolean> {
-    const endpoints = endpointsForNetwork()
-    if (!endpoints) return false
-
-    // EVM track: any endpoint. Node track: only full node API endpoints.
-    let evmOk = activeEvmEndpoint !== null && isAlive(activeEvmEndpoint)
-    let nodeOk = activeNodeEndpoint !== null && isAlive(activeNodeEndpoint)
-
-    // The default (pre-failover) endpoints count as the current selection.
-    // If we're here, at least one track's current host is dead — re-point
-    // every track whose current selection is dead or unset.
-    for (const e of endpoints) {
-        if (!evmOk && isAlive(e)) {
-            if (await probeEvm(e)) {
-                applyEvmEndpoint(e)
-                evmOk = true
-            } else {
-                const h = hostOf(e.evmRpcUrl)
-                if (h) deadHosts.add(h)
-            }
-        }
-        if (!nodeOk && e.nodeApiBase && isAlive(e)) {
-            if (await probeNode(e)) {
-                applyNodeEndpoint(e)
-                nodeOk = true
-            } else {
-                const h = hostOf(e.nodeApiBase)
-                if (h) deadHosts.add(h)
-            }
-        }
-        if (evmOk && nodeOk) break
-    }
-
-    if (evmOk && nodeOk) {
-        const name = getActiveFallbackName()
-        if (name) {
-            void notifyStatusBar(`Primary RPC rate limited — switched to backup endpoint: ${name}`)
-            // Reflect the new endpoint in useNetworkStore's selectedNetwork so
-            // the UI (network menu, etc.) shows what's actually in use, and
-            // re-affirm the store's connection status.
-            applyFailoverToNetworkStore(name, activeNodeEndpoint?.nodeApiBase)
-        }
+async function runFailover(
+    networkStore: { selectedNetwork: AvaNetwork | null; setNetwork: (n: AvaNetwork, isFailover?: boolean) => Promise<boolean | undefined> },
+    candidates: AvaNetwork[]
+): Promise<boolean> {
+    // Already on a live host? Then a stale/queued request to a previously
+    // dead host triggered this escalation — nothing to do.
+    const current = networkStore.selectedNetwork
+    const currentHost = current ? networkHost(current) : null
+    if (currentHost && !deadHosts.has(currentHost)) {
         return true
     }
 
-    console.warn('[RpcFailover] All public RPC endpoints exhausted for this session.')
-    return false
-}
+    for (const net of candidates) {
+        const host = networkHost(net)
+        if (!host || deadHosts.has(host)) continue
 
-async function applyFailoverToNetworkStore(providerName: string, nodeApiUrl?: string): Promise<void> {
-    try {
-        const { pinia, useNetworkStore } = await import('@/stores')
-        useNetworkStore(pinia).applyFailoverEndpoint({ providerName, nodeApiUrl })
-    } catch (e) {
-        console.warn('[RpcFailover] Failed to update networkStore with the failover endpoint:', e)
+        // Verify the candidate actually works (raw fetch, limiter-exempt)
+        // before committing to it.
+        if (!(await probeNetwork(net))) {
+            deadHosts.add(host)
+            continue
+        }
+
+        void notify(`Primary RPC rate limited — switching to ${net.name}.`, 'warning')
+
+        // The limiter was paused when escalation started. setNetwork()'s
+        // reconnect traffic runs through the wrapped fetch/axios, so the
+        // limiter MUST be flowing again before the switch or every one of
+        // those requests would queue behind the pause forever (deadlock).
+        globalRateLimiter.resume()
+
+        try {
+            // Full reconnect, as if the user had picked this network.
+            // isFailover=true keeps the session's dead-host list and does
+            // not persist the fallback as the saved network choice.
+            await networkStore.setNetwork(net, true)
+            void notify(`Connected to ${net.name}.`, 'success')
+            console.warn(`[RpcFailover] Switched network to ${net.name} (${net.getFullURL()})`)
+            return true
+        } catch (e) {
+            console.warn(`[RpcFailover] setNetwork(${net.name}) failed:`, e)
+            deadHosts.add(host)
+        }
     }
+
+    console.warn('[RpcFailover] All candidate networks exhausted for this session.')
+    return false
 }

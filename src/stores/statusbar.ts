@@ -6,6 +6,7 @@
 */
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
+import { useSessionLogStore } from './sessionlog'
 
 export type StatusBarType = 'info' | 'success' | 'warning' | 'error'
 
@@ -36,6 +37,8 @@ export const useStatusBarStore = defineStore('statusbar', () => {
         type.value = statusType
         loading.value = showLoading
         visible.value = true
+
+        useSessionLogStore().log(statusType, msg, 'statusbar')
     }
 
     /** Convenience: show an info message. */
