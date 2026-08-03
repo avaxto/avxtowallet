@@ -75,7 +75,16 @@
             <template v-if="!isSuccess">
                 <p class="err">{{ err }}</p>
                 <v-btn
-                    v-if="isInjectedWallet"
+                    v-if="err"
+                    class="button_primary checkout"
+                    depressed
+                    block
+                    @click="startAgain"
+                >
+                    {{ $t('transfer.c_chain.reset') }}
+                </v-btn>
+                <v-btn
+                    v-else-if="isInjectedWallet"
                     class="button_primary checkout"
                     depressed
                     block
