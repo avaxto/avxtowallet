@@ -20,25 +20,25 @@
                 <div>
                     <div>
                         <label>From</label>
-                        <datetime
-                            v-model="formStartISO"
-                            type="datetime"
+                        <input
+                            type="datetime-local"
+                            v-model="formStartLocal"
                             class="date"
-                            :min-datetime="startDateMin"
-                            :max-datetime="startDateMax"
+                            :min="startDateMinLocal"
+                            :max="startDateMaxLocal"
                             :disabled="operationID || timeframe !== 'Custom'"
-                        ></datetime>
+                        />
                     </div>
                     <div>
                         <label>Until</label>
-                        <datetime
-                            v-model="formEndISO"
-                            type="datetime"
+                        <input
+                            type="datetime-local"
+                            v-model="formEndLocal"
                             class="date"
-                            :min-datetime="endDateMin"
-                            :max-datetime="endDateMax"
+                            :min="endDateMinLocal"
+                            :max="endDateMaxLocal"
                             :disabled="operationID || timeframe !== 'Custom'"
-                        ></datetime>
+                        />
                     </div>
                 </div>
             </div>
@@ -94,6 +94,14 @@ const DAY = 24 * 60 * 60 * 1000
 const MONTH = 30 * DAY
 
 const TIMEOUT_SECONDS = 15
+
+/** Convert an ISO string to the "YYYY-MM-DDTHH:MM" format expected by datetime-local inputs */
+function isoToLocal(iso: string): string {
+    if (!iso) return ''
+    const d = new Date(iso)
+    const pad = (n: number) => String(n).padStart(2, '0')
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
 
 type Timeframe = 'Last 3 Months' | 'Last 6 Months' | 'This Year' | 'Last Year' | 'All' | 'Custom'
 
@@ -200,6 +208,30 @@ export default defineComponent({
         const endDateMin = computed(() => {
             return new Date(1591236400).toISOString()
         })
+
+        /** Two-way bridges: the <input type="datetime-local"> elements use local time strings */
+        const formStartLocal = computed({
+            get(): string {
+                return isoToLocal(formStartISO.value)
+            },
+            set(val: string) {
+                formStartISO.value = val ? new Date(val).toISOString() : ''
+            },
+        })
+
+        const formEndLocal = computed({
+            get(): string {
+                return isoToLocal(formEndISO.value)
+            },
+            set(val: string) {
+                formEndISO.value = val ? new Date(val).toISOString() : ''
+            },
+        })
+
+        const startDateMinLocal = computed(() => isoToLocal(startDateMin.value))
+        const startDateMaxLocal = computed(() => isoToLocal(startDateMax.value))
+        const endDateMinLocal = computed(() => isoToLocal(endDateMin.value))
+        const endDateMaxLocal = computed(() => isoToLocal(endDateMax.value))
 
         const dateNow = computed(() => {
             return new Date()
@@ -310,10 +342,16 @@ export default defineComponent({
             wallet,
             formStartDate,
             formEndDate,
+            formStartLocal,
+            formEndLocal,
             startDateMax,
             startDateMin,
+            startDateMaxLocal,
+            startDateMinLocal,
             endDateMax,
             endDateMin,
+            endDateMaxLocal,
+            endDateMinLocal,
             dateNow,
             last3Months,
             last6Months,
