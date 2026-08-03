@@ -3,6 +3,7 @@
     "name": "wallet",
     "version": "0.1.4",
     "scripts": {
+        "setup": "yarn install && yarn allow-scripts",
         "dev": "vite",
         "build": "vite build",
         "preview": "vite preview",
@@ -50,7 +51,7 @@
         "core-js": "3.38.1",
         "create-hash": "1.2.0",
         "crypto-browserify": "^3.12.1",
-        "crypto-js": "4.1.1",
+        "crypto-js": "4.2.0",
         "csv-generate": "4.2.1",
         "detect-browser": "5.3.0",
         "ecpair": "^3.0.0",
@@ -95,6 +96,8 @@
     },
     "devDependencies": {
         "@fortawesome/fontawesome-free": "^5.13.0",
+        "@lavamoat/allow-scripts": "5.1.0",
+        "@lavamoat/preinstall-always-fail": "3.0.0",
         "@types/babel__traverse": "7.14.0",
         "@types/big.js": "4.0.5",
         "@types/create-hash": "1.2.2",
@@ -142,7 +145,28 @@
         "node": ">=16"
     },
     "resolutions": {
-        "core-js": "3.6.5"
+        "core-js": "3.6.5",
+        "elliptic": "6.6.1",
+        "form-data": "4.0.6"
     },
-    "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e"
+    "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e",
+    "lavamoat": {
+        "allowScripts": {
+            "@fortawesome/fontawesome-free#5.15.4": false,
+            "@lavamoat/preinstall-always-fail#3.0.0": false,
+            "core-js#3.38.1": false,
+            "cypress#4.12.1": false,
+            "ethereumjs-util>ethereum-cryptography>keccak#3.0.4": false,
+            "hdkey>secp256k1#4.0.4": false,
+            "sass>@parcel/watcher#2.5.6": false,
+            "vite-plugin-top-level-await>@swc/core#1.15.30": false,
+            "vite>esbuild#0.25.12": false,
+            "web3#1.7.4": false,
+            "web3>web3-bzz#1.7.4": false,
+            "web3>web3-core>web3-core-requestmanager>web3-providers-ws>websocket>es5-ext#0.10.64": false,
+            "web3>web3-shh#1.7.4": false,
+            "ws>bufferutil#4.1.0": false,
+            "ws>utf-8-validate#5.0.10": false
+        }
+    }
 }
