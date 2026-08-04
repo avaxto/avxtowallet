@@ -816,24 +816,22 @@ class LedgerWallet extends AbstractHdWallet implements AvaWalletCore {
     }
 
     async getUTXOs(): Promise<void> {
-        // TODO: Move to shared file
+        // See MnemonicWallet.getUTXOs() — latches the spinner across the whole
+        // refresh so it can't stop between the scan stages.
+        this.balanceRefreshDepth++
         this.isFetchingUtxos = true
-        // If we are waiting for helpers to initialize delay the call
-        const isInit =
-            this.externalHelper.isInit && this.internalHelper.isInit && this.platformHelper.isInit
-        if (!isInit) {
-            setTimeout(() => {
-                this.getUTXOs()
-            }, 1000)
-            return
-        }
+        try {
+            await this.waitUntilHdScanComplete()
 
-        // UTXO scans first (heavy, sequential to stay under the API rate
-        // limit), then the two light balance calls. Everything is awaited so
-        // chain balances load before ERC20 token balance updates start.
-        await super.getUTXOs()
-        await Promise.all([this.getStake(), this.getEthBalance()])
-        return
+            // UTXO scans first (heavy, sequential to stay under the API rate
+            // limit), then the two light balance calls. Everything is awaited so
+            // chain balances load before ERC20 token balance updates start.
+            await super.getUTXOs()
+            await Promise.all([this.getStake(), this.getEthBalance()])
+        } finally {
+            this.balanceRefreshDepth--
+            this.updateFetchState()
+        }
     }
 
     // getPathFromAddress is inherited from AbstractHdWallet.

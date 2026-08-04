@@ -82,6 +82,36 @@ abstract class AbstractHdWallet extends AbstractWallet {
     }
 
     /**
+     * Resolves once all three HD helpers have finished their initial index
+     * scan. MnemonicWallet and LedgerWallet each used to inline this as
+     * `if (!isInit) { setTimeout(() => this.getUTXOs(), 1000); return }` —
+     * which, being a bare `return` inside an async function, resolved the
+     * OUTER promise immediately with the wait still pending. Every caller
+     * that did `await wallet.getUTXOs()` (assetsStore.updateUTXOs(), and
+     * everything chained after it — onUtxosUpdated(), updateERC20Balances(),
+     * ERC721 balances) proceeded instantly against empty/partial UTXO state,
+     * and the retry that eventually fetched the real data ran later with
+     * nothing awaiting it, so none of that derived work ever re-ran. The
+     * balance looked incomplete until something else (a manual refresh)
+     * called updateUTXOs() again after the scan had actually finished.
+     *
+     * This was always racy, but the race reliably resolved in favor of the
+     * scan finishing first when wallet construction was synchronous. Session
+     * password verification now does real work (PBKDF2) before the wallet —
+     * and therefore this scan — even starts, so the scan consistently loses
+     * the race and the bug reliably fires. Fixed at the root: this actually
+     * awaits the wait, so the caller's promise resolves only once real data
+     * is in place.
+     */
+    protected async waitUntilHdScanComplete(): Promise<void> {
+        while (
+            !(this.externalHelper.isInit && this.internalHelper.isInit && this.platformHelper.isInit)
+        ) {
+            await new Promise<void>((resolve) => setTimeout(resolve, 1000))
+        }
+    }
+
+    /**
      * The account-level node (m/44'/9000'/0'). Public-only for wallets that
      * keep their keys vaulted, so it derives addresses but cannot sign.
      */
@@ -108,7 +138,13 @@ abstract class AbstractHdWallet extends AbstractWallet {
     }
 
     updateFetchState() {
+        // balanceRefreshDepth keeps the flag latched for the whole of a
+        // top-level getUTXOs(): this method is called between the external,
+        // internal and platform scans, and in those gaps all three helpers
+        // legitimately report "not fetching" even though the refresh is only
+        // partway done.
         this.isFetchingUtxos =
+            this.balanceRefreshDepth > 0 ||
             this.externalHelper.isFetchingUTXOs ||
             this.internalHelper.isFetchingUTXOs ||
             this.platformHelper.isFetchingUTXOs

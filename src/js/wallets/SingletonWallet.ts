@@ -210,16 +210,17 @@ class SingletonWallet extends AbstractWallet implements AvaWalletCore {
 
     async getUTXOs(): Promise<void> {
         this.isFetchingUtxos = true
+        try {
+            await this.updateUTXOsX()
+            await this.updateUTXOsP()
 
-        await this.updateUTXOsX()
-        await this.updateUTXOsP()
-
-        await this.getStake()
-        await this.getEthBalance()
-
-        this.isFetchingUtxos = false
-
-        return
+            await this.getStake()
+            await this.getEthBalance()
+        } finally {
+            // finally, not a trailing assignment: the flag now starts true, so
+            // a throw here would otherwise leave the spinner stuck forever.
+            this.isFetchingUtxos = false
+        }
     }
 
     async buildUnsignedTransaction(

@@ -251,25 +251,24 @@ export default class MnemonicWallet extends AbstractHdWallet implements IAvaHdWa
     }
 
     async getUTXOs(): Promise<void> {
-        // TODO: Move to shared file
+        // Latch the spinner for the whole refresh — the scans, the stake and
+        // the eth balance — so it can't stop partway and flash a partial
+        // balance. See balanceRefreshDepth in AbstractWallet.
+        this.balanceRefreshDepth++
         this.isFetchingUtxos = true
-        // If we are waiting for helpers to initialize delay the call
-        const isInit =
-            this.externalHelper.isInit && this.internalHelper.isInit && this.platformHelper.isInit
-        if (!isInit) {
-            setTimeout(() => {
-                this.getUTXOs()
-            }, 1000)
-            return
-        }
+        try {
+            await this.waitUntilHdScanComplete()
 
-        // UTXO scans first (heavy, sequential to stay under the API rate
-        // limit), then the two light balance calls. Everything is awaited so
-        // ERC20 token balance updates (triggered by the caller afterwards)
-        // only start once X, P and C chain balances are in.
-        await super.getUTXOs()
-        await Promise.all([this.getStake(), this.getEthBalance()])
-        return
+            // UTXO scans first (heavy, sequential to stay under the API rate
+            // limit), then the two light balance calls. Everything is awaited so
+            // ERC20 token balance updates (triggered by the caller afterwards)
+            // only start once X, P and C chain balances are in.
+            await super.getUTXOs()
+            await Promise.all([this.getStake(), this.getEthBalance()])
+        } finally {
+            this.balanceRefreshDepth--
+            this.updateFetchState()
+        }
     }
 
     /**

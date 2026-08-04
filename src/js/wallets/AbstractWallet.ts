@@ -63,6 +63,17 @@ abstract class AbstractWallet implements AvaWalletCore {
     isFetchingUtxos: boolean
     isInit: boolean
 
+    /**
+     * Greater than zero while a top-level balance refresh owns the spinner.
+     *
+     * Without this, updateFetchState() recomputes isFetchingUtxos purely from
+     * the three HD helpers — and it runs after the *external* scan finishes,
+     * when internal and platform haven't started yet and so all three read
+     * false. The spinner would stop partway through, showing a partial (often
+     * zero) balance, then resume when the next stage began.
+     */
+    protected balanceRefreshDepth = 0
+
     // AvalancheAccount conformance
     // Separate XPAccount built from the EVM private key (m/44'/60'/0'/0/0).
     // Only set for MnemonicWallet (which has distinct X-chain and EVM derivation paths).
@@ -154,7 +165,12 @@ abstract class AbstractWallet implements AvaWalletCore {
         this.ethBalance = new BN(0)
 
         this.isInit = false
-        this.isFetchingUtxos = false
+        // Starts true: a wallet has no balance data at construction, and the
+        // HD scan is kicked off immediately by AbstractHdWallet's constructor.
+        // Initializing to false made the balance card render a real-looking
+        // zero for the gap between activation and the first getUTXOs() call.
+        // Every getUTXOs() implementation clears it when the refresh completes.
+        this.isFetchingUtxos = true
     }
 
     /**
