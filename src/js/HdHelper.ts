@@ -14,6 +14,7 @@ import {
     KeyPair as PlatformVMKeyPair,
 } from '@/avalanche/apis/platformvm'
 import { pinia, useNetworkStore } from '@/stores'
+import { reactive, markRaw } from 'vue'
 
 import { AvaNetwork } from '@/js/AvaNetwork'
 import { ChainAlias } from './wallets/types'
@@ -66,20 +67,40 @@ class HdHelper {
         this.chainId = chainId
         const hrp = getPreferredHRP(ava.getNetworkID())
         if (chainId === 'X') {
-            this.keyChain = new AVMKeyChain(hrp, chainId)
-            this.utxoSet = new AVMUTXOSet()
+            this.keyChain = markRaw(new AVMKeyChain(hrp, chainId))
+            this.utxoSet = markRaw(new AVMUTXOSet())
         } else {
-            this.keyChain = new PlatformVMKeyChain(hrp, chainId)
-            this.utxoSet = new PlatformUTXOSet()
+            this.keyChain = markRaw(new PlatformVMKeyChain(hrp, chainId))
+            this.utxoSet = markRaw(new PlatformUTXOSet())
         }
 
-        this.keyCache = {}
+        this.keyCache = markRaw({})
         this.addressCache = {}
-        this.hdCache = {}
-        this.masterKey = masterKey
+        this.hdCache = markRaw({})
+        this.masterKey = markRaw(masterKey)
         this.hdIndex = 0
         this.isPublic = isPublic
         // this.oninit()
+
+        // Self-wrap in Vue's reactive() here, at birth, rather than relying on
+        // whatever wraps this object later (or never does).
+        //
+        // AbstractHdWallet's constructor kicks off this.oninit() -> findHdIndex()
+        // immediately after `new HdHelper(...)` returns — well before the owning
+        // wallet is ever placed into the Pinia store and wrapped in reactivity.
+        // findHdIndex() is an ordinary (non-arrow) async method, so its `this`
+        // binding is whatever object oninit() was CALLED ON — if that object is
+        // already a reactive proxy (because we return one here), every mutation
+        // inside findHdIndex() (hdIndex, isInit, ...) correctly notifies Vue from
+        // the very first scan, instead of writing to a raw object that no
+        // computed reading it later can ever be notified about.
+        //
+        // The third-party/crypto-adjacent fields above are marked raw so this
+        // self-wrap can't cascade Vue's Proxy into hdkey/AvalancheJS internals
+        // (masterKey.derive() runs once per address, hundreds of times during a
+        // scan — proxying those objects would be needless overhead and risk,
+        // since neither library is written expecting to run behind a Proxy).
+        return reactive(this) as HdHelper
     }
 
     async oninit() {
@@ -93,11 +114,11 @@ class HdHelper {
         this.isInit = false
         const hrp = getPreferredHRP(ava.getNetworkID())
         if (this.chainId === 'X') {
-            this.keyChain = new AVMKeyChain(hrp, this.chainId)
-            this.utxoSet = new AVMUTXOSet()
+            this.keyChain = markRaw(new AVMKeyChain(hrp, this.chainId))
+            this.utxoSet = markRaw(new AVMUTXOSet())
         } else {
-            this.keyChain = new PlatformVMKeyChain(hrp, this.chainId)
-            this.utxoSet = new PlatformUTXOSet()
+            this.keyChain = markRaw(new PlatformVMKeyChain(hrp, this.chainId))
+            this.utxoSet = markRaw(new PlatformUTXOSet())
         }
         this.hdIndex = 0
         await this.oninit()
@@ -283,7 +304,7 @@ class HdHelper {
             addrIdx += LOT_SIZE
         }
 
-        this.utxoSet = result
+        this.utxoSet = markRaw(result)
         console.log(
             `[HdHelper] updateUtxos ${this.chainId} path=${this.changePath} done — ` +
             `${result.getAllUTXOs().length} UTXOs from lot-scan 0..${addrIdx - 1} ` +
@@ -333,7 +354,7 @@ class HdHelper {
                 ;(keychain as PlatformVMKeyChain).addKey(key)
             }
         }
-        this.keyChain = keychain
+        this.keyChain = markRaw(keychain)
         return keychain
     }
 
@@ -366,7 +387,7 @@ class HdHelper {
     }
 
     clearCache() {
-        this.keyCache = {}
+        this.keyCache = markRaw({})
         this.addressCache = {}
     }
 
