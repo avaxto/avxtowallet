@@ -24,6 +24,9 @@
             <BaseAssetThrModal></BaseAssetThrModal>
             <NetworkBlockedModal></NetworkBlockedModal>
         </template>
+        <!-- Mounted unconditionally: an awaiting authorization must always be
+             able to render its prompt, or the promise would never settle. -->
+        <SessionPasswordModal></SessionPasswordModal>
         <transition name="fade">
             <div v-if="mainStore.isSwitchingAccount" class="account_switch_overlay"></div>
         </transition>
@@ -42,6 +45,7 @@ import LedgerWalletLoading from '@/components/modals/LedgerWalletLoading.vue'
 import StatusBar from '@/components/StatusBar.vue'
 import BaseAssetThrModal from '@/components/modals/BaseAssetThrModal.vue'
 import NetworkBlockedModal from '@/components/modals/NetworkBlockedModal.vue'
+import SessionPasswordModal from '@/components/modals/SessionPasswordModal.vue'
 import { useAccountsStore, useAssetsStore, useErc721Store, useMainStore, useNetworkStore, useStatusBarStore } from '@/stores'
 import { useThemeStore } from '@/stores/theme'
 import { onMounted, onBeforeUnmount, watch } from 'vue'
@@ -62,6 +66,7 @@ export default {
         StatusBar,
         BaseAssetThrModal,
         NetworkBlockedModal,
+        SessionPasswordModal,
     },
     setup() {
         const mainStore = useMainStore()

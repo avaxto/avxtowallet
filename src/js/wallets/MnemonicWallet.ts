@@ -14,7 +14,7 @@ import {
     UTXOSet,
 } from '@/avalanche/apis/avm'
 
-import { privateToAddress } from 'ethereumjs-util'
+import { privateToAddress, importPublic, publicToAddress } from 'ethereumjs-util'
 
 import {
     KeyChain as PlatformVMKeyChain,
@@ -38,7 +38,7 @@ import { AvmExportChainType, AvmImportChainType, IAvaHdWallet } from '@/js/walle
 import HDKey from 'hdkey'
 import { ITransaction } from '@/components/wallet/transfer/types'
 import { KeyPair as PlatformVMKeyPair } from '@/avalanche/apis/platformvm'
-import { AbstractHdWallet } from '@/js/wallets/AbstractHdWallet'
+import { AbstractHdWallet, RequiredKeyIndices } from '@/js/wallets/AbstractHdWallet'
 import { WalletNameType } from '@/js/wallets/types'
 import { digestMessage } from '@/helpers/helper'
 import { KeyChain } from '@/avalanche/apis/evm'
@@ -63,65 +63,120 @@ export { AVA_ACCOUNT_PATH, ETH_ACCOUNT_PATH, LEDGER_ETH_ACCOUNT_PATH }
 
 
 export default class MnemonicWallet extends AbstractHdWallet implements IAvaHdWallet {
-    seed: string
-    hdKey: HDKey
-    private mnemonic: MnemonicPhrase
     isLoading: boolean
     type: WalletNameType
-    ethKey: string
-    ethKeyBech: string
-    ethKeyChain: EVMKeyChain
     ethAddress: string
+
+    /**
+     * Holds this wallet's mnemonic and seed as ciphertext. Nothing here can be
+     * read without an AuthHandle, which only exists inside withAuthorization.
+     * markRaw so Vue's deep reactivity (see stores/main.ts) never proxies the
+     * blobs or reaches a CryptoKey.
+     */
+    readonly vault: SessionVault
 
     // TODO : Move to hd core class
     onnetworkchange() {
         super.onnetworkchange()
-
-        // Update EVM values
-        this.ethKeyChain = new EVMKeyChain(ava.getHRP(), 'C')
-        const cKeypair = this.ethKeyChain.importKey(this.ethKeyBech)
+        // No EVM keychain to rebuild — it is derived per signature now. The
+        // EVM address is HRP-independent, so nothing else changes.
         this.ethBalance = new BN(0)
     }
 
-    // The master key from avalanche.js
-    constructor(mnemonic: string) {
+    /**
+     * Builds a wallet from a mnemonic, encrypting its secrets under the session
+     * password before returning.
+     *
+     * Async because encryption is: the constructor cannot do this itself.
+     * Callers must use this rather than `new`.
+     */
+    static async create(mnemonic: string, password: string): Promise<MnemonicWallet> {
+        if (!bip39.validateMnemonic(mnemonic)) {
+            throw new Error('Invalid mnemonic phrase.')
+        }
+
+        const vault = markRaw(new SessionVault())
+        const key = await vault.deriveKey(password)
+        const auth = new AuthHandle(AuthScope.SINGLE, vault, key)
+
         const seed: globalThis.Buffer = bip39.mnemonicToSeedSync(mnemonic)
+
+        try {
+            const wallet = new MnemonicWallet(seed, vault)
+            await vault.put(auth, 'mnemonic', secretFromString(mnemonic))
+            // put() wipes what it is given, so hand it a copy — `seed` is still
+            // needed above and is wiped in the finally.
+            await vault.put(auth, 'seed', new Uint8Array(seed))
+            return wallet
+        } finally {
+            wipe(seed)
+            auth.dispose()
+        }
+    }
+
+    /**
+     * Private: use MnemonicWallet.create().
+     *
+     * Retains only public material. The seed is consumed here to derive the
+     * account/EVM nodes and is neutered before anything is stored, so a
+     * constructed wallet holds no key capable of signing.
+     */
+    private constructor(seed: globalThis.Buffer, vault: SessionVault) {
         const masterHdKey: HDKey = HDKey.fromMasterSeed(seed)
         const accountHdKey = masterHdKey.derive(AVA_ACCOUNT_PATH)
         const ethAccountKey = masterHdKey.derive(ETH_ACCOUNT_PATH + '/0/0')
 
-        super(accountHdKey, ethAccountKey, false)
+        // Neuter before handing to super. Round-tripping the extended public
+        // key preserves depth/index/parentFingerprint, so getXpubXP() still
+        // reports the real xpub — unlike rebuilding a bare HDKey from
+        // publicKey + chainCode.
+        const accountPub = HDKey.fromExtendedKey(accountHdKey.publicExtendedKey)
+        const ethPub = HDKey.fromExtendedKey(ethAccountKey.publicExtendedKey)
 
-        // Derive EVM key and address
-        const ethPrivateKey = ethAccountKey.privateKey
-        this.ethKey = ethPrivateKey.toString('hex')
-        this.ethAddress = privateToAddress(ethPrivateKey).toString('hex')
+        // isPublic: the HD helpers derive addresses only and will throw if
+        // asked for a private key.
+        super(accountPub, ethPub, true)
 
-        const cPrivKey = `PrivateKey-` + bintools.cb58Encode(BufferAvalanche.from(ethPrivateKey))
-        this.ethKeyBech = cPrivKey
-
-        const cKeyChain = new KeyChain(ava.getHRP(), 'C')
-        this.ethKeyChain = cKeyChain
-
-        const cKeypair = cKeyChain.importKey(cPrivKey)
-
+        this.ethAddress = publicToAddress(importPublic(ethAccountKey.publicKey)).toString('hex')
         this.type = 'mnemonic'
-        this.seed = seed.toString('hex')
-        this.hdKey = masterHdKey
-        this.mnemonic = new MnemonicPhrase(mnemonic)
+        this.vault = vault
         this.isLoading = false
 
-        // AvalancheAccount: initialize xpAccount for XP-chain signing
-        const avmKeyPair = this.externalHelper.getCurrentKey()
-        if (avmKeyPair) {
-            const privKeyHex = '0x' + avmKeyPair.getPrivateKey().toString('hex')
-            this.xpAccount = privateKeyToXPAccount(privKeyHex)
-        }
+        // The only private material that existed in this scope.
+        ethAccountKey.wipePrivateData()
+        accountHdKey.wipePrivateData()
+        masterHdKey.wipePrivateData()
+    }
 
-        // Separate account for C-chain (EVM) signing: m/44'/60'/0'/0/0 key.
-        // MnemonicWallet derives EVM key on a different BIP-44 path from the
-        // AVM key, so we need a distinct XPAccount for C-chain export signing.
-        this.evmXpAccount = privateKeyToXPAccount(`0x${this.ethKey}`)
+    /**
+     * Rebuilds the BIP32 master node from the vaulted seed for the duration of
+     * `fn`, then wipes it. Every signing path goes through here.
+     */
+    private async withMasterKey<T>(fn: (master: HDKey) => Promise<T> | T): Promise<T> {
+        const auth = requireAuth(this.vault)
+
+        return this.vault.withSecret(auth, 'seed', async (seedBytes) => {
+            const master = HDKey.fromMasterSeed(globalThis.Buffer.from(seedBytes))
+            try {
+                return await fn(master)
+            } finally {
+                master.wipePrivateData()
+            }
+        })
+    }
+
+    /** Derives the EVM key for one operation and wipes it after. */
+    private async withEvmPrivateKey<T>(
+        fn: (privateKey: globalThis.Buffer) => Promise<T> | T
+    ): Promise<T> {
+        return this.withMasterKey(async (master) => {
+            const node = master.derive(ETH_ACCOUNT_PATH + '/0/0')
+            try {
+                return await fn(node.privateKey)
+            } finally {
+                node.wipePrivateData()
+            }
+        })
     }
 
     getEvmAddress(): string {
@@ -208,17 +263,46 @@ export default class MnemonicWallet extends AbstractHdWallet implements IAvaHdWa
         return keychain
     }
 
-    async signX(unsignedTx: AVMUnsignedTx): Promise<AVMTx> {
-        const keychain = this.getKeyChain()
+    /**
+     * True when the minimal key set can't serve this transaction and we should
+     * derive everything instead. An EVM source address on an X/P transaction
+     * falls back rather than failing, to preserve pre-existing behaviour.
+     */
+    private mustDeriveAllKeys(required: RequiredKeyIndices | null): required is null {
+        return required === null || required.needsEvmKey
+    }
 
-        const tx = unsignedTx.sign(keychain)
-        return tx
+    async signX(unsignedTx: AVMUnsignedTx): Promise<AVMTx> {
+        const required = this.getRequiredKeyIndices(unsignedTx, 'X')
+
+        if (this.mustDeriveAllKeys(required)) {
+            return unsignedTx.sign(this.getKeyChain())
+        }
+
+        const keychain = new AVMKeyChain(getPreferredHRP(ava.getNetworkID()), this.chainId)
+        for (const i of required.external) {
+            keychain.addKey(this.externalHelper.getKeyForIndex(i) as AVMKeyPair)
+        }
+        for (const i of required.internal) {
+            keychain.addKey(this.internalHelper.getKeyForIndex(i) as AVMKeyPair)
+        }
+        return unsignedTx.sign(keychain)
     }
 
     async signP(unsignedTx: PlatformUnsignedTx): Promise<PlatformTx> {
-        const keychain = this.platformHelper.getKeychain() as PlatformVMKeyChain
-        const tx = unsignedTx.sign(keychain)
-        return tx
+        const required = this.getRequiredKeyIndices(unsignedTx, 'P')
+
+        if (this.mustDeriveAllKeys(required)) {
+            return unsignedTx.sign(this.platformHelper.getKeychain() as PlatformVMKeyChain)
+        }
+
+        // P addresses share the m/0 path with X external, so they land in
+        // `external`.
+        const keychain = new PlatformVMKeyChain(getPreferredHRP(ava.getNetworkID()), 'P')
+        for (const i of required.external) {
+            keychain.addKey(this.platformHelper.getKeyForIndex(i) as PlatformVMKeyPair)
+        }
+        return unsignedTx.sign(keychain)
     }
 
     async signC(unsignedTx: EVMUnsignedTx): Promise<EvmTx> {

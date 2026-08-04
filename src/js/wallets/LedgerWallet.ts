@@ -141,79 +141,10 @@ class LedgerWallet extends AbstractHdWallet implements AvaWalletCore {
         unsignedTx: UnsignedTx,
         chainId: ChainIdType
     ): { paths: string[]; isAvaxOnly: boolean } {
-        // TODO: This is a nasty fix. Remove when AJS is updated.
-        unsignedTx.toBuffer()
-        const tx = unsignedTx.getTransaction()
-        const txType = tx.getTxType()
-
-        const ins = tx.getIns()
-        let operations: TransferableOperation[] = []
-
-        // Try to get operations, it will fail if there are none, ignore and continue
-        try {
-            operations = (tx as OperationTx).getOperations()
-        } catch (e) {
-            console.log(e)
-        }
-
-        let items = ins
-        if (
-            (txType === AVMConstants.IMPORTTX && chainId === 'X') ||
-            (txType === PlatformVMConstants.IMPORTTX && chainId === 'P')
-        ) {
-            if (txType === AVMConstants.IMPORTTX && chainId === 'X') {
-                items = (tx as AVMImportTx).getImportInputs()
-            } else if (txType === PlatformVMConstants.IMPORTTX && chainId === 'P') {
-                items = (tx as PlatformImportTx).getImportInputs()
-            }
-        }
-
-        const hrp = getPreferredHRP(ava.getNetworkID())
-        const paths: string[] = []
-
-        let isAvaxOnly = true
-
-        // Collect derivation paths for source addresses
-        for (let i = 0; i < items.length; i++) {
-            const item = items[i]
-
-            const assetId = bintools.cb58Encode(item.getAssetID())
-            // @ts-ignore
-            if (assetId !== this.assetsStore.AVA_ASSET_ID) {
-                isAvaxOnly = false
-            }
-
-            const sigidxs: SigIdx[] = item.getInput().getSigIdxs()
-            const sources = sigidxs.map((sigidx) => sigidx.getSource())
-            const addrs: string[] = sources.map((source) => {
-                return bintools.addressToString(hrp, chainId, source)
-            })
-
-            for (let j = 0; j < addrs.length; j++) {
-                const srcAddr = addrs[j]
-                const pathStr = this.getPathFromAddress(srcAddr) // returns change/index
-
-                paths.push(pathStr)
-            }
-        }
-
-        // Do the Same for operational inputs, if there are any...
-        for (let i = 0; i < operations.length; i++) {
-            const op = operations[i]
-            const sigidxs: SigIdx[] = op.getOperation().getSigIdxs()
-            const sources = sigidxs.map((sigidx) => sigidx.getSource())
-            const addrs: string[] = sources.map((source) => {
-                return bintools.addressToString(hrp, chainId, source)
-            })
-
-            for (let j = 0; j < addrs.length; j++) {
-                const srcAddr = addrs[j]
-                const pathStr = this.getPathFromAddress(srcAddr) // returns change/index
-
-                paths.push(pathStr)
-            }
-        }
-
+        // Tx walking lives in AbstractHdWallet so the mnemonic wallet's
+        // minimal-derivation path resolves signers by exactly the same rules.
+        const { addresses, isAvaxOnly } = this.getTxSourceAddresses(unsignedTx, chainId)
+        const paths = addresses.map((addr) => this.getPathFromAddress(addr))
         return { paths, isAvaxOnly }
     }
 
@@ -905,27 +836,7 @@ class LedgerWallet extends AbstractHdWallet implements AvaWalletCore {
         return
     }
 
-    getPathFromAddress(address: string) {
-        const externalAddrs = this.externalHelper.getExtendedAddresses()
-        const internalAddrs = this.internalHelper.getExtendedAddresses()
-        const platformAddrs = this.platformHelper.getExtendedAddresses()
-
-        const extIndex = externalAddrs.indexOf(address)
-        const intIndex = internalAddrs.indexOf(address)
-        const platformIndex = platformAddrs.indexOf(address)
-
-        if (extIndex >= 0) {
-            return `0/${extIndex}`
-        } else if (intIndex >= 0) {
-            return `1/${intIndex}`
-        } else if (platformIndex >= 0) {
-            return `0/${platformIndex}`
-        } else if (address[0] === 'C') {
-            return '0/0'
-        } else {
-            throw 'Unable to find source address.'
-        }
-    }
+    // getPathFromAddress is inherited from AbstractHdWallet.
 
     async issueBatchTx(
         orders: (ITransaction | AVMUTXO)[],

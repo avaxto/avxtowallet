@@ -83,11 +83,10 @@ export default defineComponent({
                 let wallet: MnemonicWallet = mainStore.activeWallet
                 if (!wallet) return '-'
 
-                let key = wallet.externalHelper.getKeyForIndex(0)
-                if (!key) {
-                    return '-'
-                }
-                return key.getAddressString()
+                // Address only — derive it from the public key path. Never go
+                // through getKeyForIndex() here: this address gets printed, and
+                // a wrong one means unspendable funds.
+                return wallet.externalHelper.getAddressForIndex(0) || '-'
             } catch (e) {
                 return '-'
             }

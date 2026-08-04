@@ -464,8 +464,26 @@ class HdHelper {
         return this.getAddressForIndex(index)
     }
 
-    // TODO: Public wallet should never be using this
-    getKeyForIndex(index: number, isPrivate: boolean = true): AVMKeyPair | PlatformVMKeyPair {
+    /**
+     * Returns the PRIVATE keypair for an index. Only valid on a non-public helper.
+     *
+     * Public helpers must never reach this. Feeding a public key to
+     * `keyChain.importKey` does NOT fail: importKey passes the bytes straight to
+     * `ec.keyFromPrivate` with no length validation (see
+     * avalanche/common/secp256k1.ts importKey), so elliptic reduces the 33-byte
+     * public key mod n and hands back a valid-looking keypair for a completely
+     * unrelated key — and therefore a wrong address. That silently produces
+     * unspendable paper wallets and bogus "reveal private key" output, so fail
+     * loudly instead. Callers that only need an address must use
+     * getAddressForIndex(), which is public-safe.
+     */
+    getKeyForIndex(index: number): AVMKeyPair | PlatformVMKeyPair {
+        if (this.isPublic) {
+            throw new Error(
+                'Cannot derive a private key from a public (watch-only) HD helper.'
+            )
+        }
+
         // If key is cached return that
         let cacheExternal: AVMKeyPair | PlatformVMKeyPair
 
@@ -488,14 +506,10 @@ class HdHelper {
             this.hdCache[index] = key
         }
 
-        let pkHex: string
-        if (!this.isPublic) {
-            pkHex = key.privateKey.toString('hex')
-        } else {
-            pkHex = key.publicKey.toString('hex')
-        }
-
-        const pkBuf: Buffer = new Buffer(pkHex, 'hex')
+        // Copy bytes directly into avalanche's Buffer class rather than round
+        // tripping through a hex string — a JS string holding private key
+        // material can never be zeroed out of memory.
+        const pkBuf: Buffer = Buffer.from(key.privateKey)
         const keypair = this.keyChain.importKey(pkBuf)
 
         // save to cache

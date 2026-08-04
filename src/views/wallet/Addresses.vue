@@ -369,7 +369,7 @@ export default defineComponent({
                     source === 'xExternal' ? w.externalHelper
                     : source === 'xInternal' ? w.internalHelper
                     : w.platformHelper
-                const kp = helper.getKeyForIndex(index, true)
+                const kp = helper.getKeyForIndex(index)
                 revealKey.value = kp.getPrivateKeyString()
                 privKeyModal.value?.open()
             } catch (e) {

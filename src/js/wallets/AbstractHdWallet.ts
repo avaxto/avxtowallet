@@ -13,6 +13,35 @@ import { AbstractWallet } from '@/js/wallets/AbstractWallet'
 import { updateFilterAddresses } from '../../providers'
 import { digestMessage } from '@/helpers/helper'
 import { ExportChainsP, ExportChainsX, UtxoHelper } from '@/avalanche-wallet-sdk'
+import {
+    AVMConstants,
+    OperationTx,
+    TransferableOperation,
+    ImportTx as AVMImportTx,
+    UnsignedTx as AVMUnsignedTx,
+} from '@/avalanche/apis/avm'
+import {
+    PlatformVMConstants,
+    ImportTx as PlatformImportTx,
+    UnsignedTx as PlatformUnsignedTx,
+} from '@/avalanche/apis/platformvm'
+import { SigIdx } from '@/avalanche/common'
+import { getPreferredHRP } from '@/avalanche/utils'
+import { ChainIdType } from '@/constants'
+import { pinia, useAssetsStore } from '@/stores'
+
+/**
+ * The HD indices whose private keys a transaction actually needs in order to
+ * be signed.  `external` are indices under m/0 (X-chain receive addresses and
+ * P-chain addresses, which share a derivation path), `internal` are under m/1
+ * (X-chain change).
+ */
+export interface RequiredKeyIndices {
+    external: number[]
+    internal: number[]
+    /** A C-chain (EVM) source address is among the inputs. */
+    needsEvmKey: boolean
+}
 
 /**
  * A base class other HD wallets are based on.
@@ -358,6 +387,157 @@ abstract class AbstractHdWallet extends AbstractWallet {
 
     async signMessage(msg: string, address: string) {
         return await this.signMessageByExternalAddress(msg, address)
+    }
+
+    /**
+     * Walks a transaction's inputs (and NFT operations, if any) and returns the
+     * source address behind every signature index, in order and including
+     * duplicates — callers that sign positionally depend on both.
+     *
+     * Import transactions carry their spendable inputs separately from
+     * getIns(), hence the getImportInputs() swap.
+     */
+    protected getTxSourceAddresses<UnsignedTx extends AVMUnsignedTx | PlatformUnsignedTx>(
+        unsignedTx: UnsignedTx,
+        chainId: ChainIdType
+    ): { addresses: string[]; isAvaxOnly: boolean } {
+        // TODO: This is a nasty fix. Remove when AJS is updated.
+        unsignedTx.toBuffer()
+        const tx = unsignedTx.getTransaction()
+        const txType = tx.getTxType()
+
+        const ins = tx.getIns()
+        let operations: TransferableOperation[] = []
+
+        // Try to get operations, it will fail if there are none, ignore and continue
+        try {
+            operations = (tx as OperationTx).getOperations()
+        } catch (e) {
+            // no operations on this tx type
+        }
+
+        let items = ins
+        if (txType === AVMConstants.IMPORTTX && chainId === 'X') {
+            items = (tx as AVMImportTx).getImportInputs()
+        } else if (txType === PlatformVMConstants.IMPORTTX && chainId === 'P') {
+            items = (tx as PlatformImportTx).getImportInputs()
+        }
+
+        const hrp = getPreferredHRP(ava.getNetworkID())
+        const assetsStore = useAssetsStore(pinia)
+        const addresses: string[] = []
+        let isAvaxOnly = true
+
+        for (let i = 0; i < items.length; i++) {
+            const item = items[i]
+
+            const assetId = bintools.cb58Encode(item.getAssetID())
+            if (assetId !== assetsStore.AVA_ASSET_ID) {
+                isAvaxOnly = false
+            }
+
+            const sigidxs: SigIdx[] = item.getInput().getSigIdxs()
+            for (const sigidx of sigidxs) {
+                addresses.push(bintools.addressToString(hrp, chainId, sigidx.getSource()))
+            }
+        }
+
+        // Same for operational inputs, if there are any
+        for (let i = 0; i < operations.length; i++) {
+            const sigidxs: SigIdx[] = operations[i].getOperation().getSigIdxs()
+            for (const sigidx of sigidxs) {
+                addresses.push(bintools.addressToString(hrp, chainId, sigidx.getSource()))
+            }
+        }
+
+        return { addresses, isAvaxOnly }
+    }
+
+    /**
+     * Resolves an address this wallet owns to its `change/index` path.
+     * Throws if the address isn't ours.
+     */
+    getPathFromAddress(address: string): string {
+        const externalAddrs = this.externalHelper.getExtendedAddresses()
+        const internalAddrs = this.internalHelper.getExtendedAddresses()
+        const platformAddrs = this.platformHelper.getExtendedAddresses()
+
+        const extIndex = externalAddrs.indexOf(address)
+        const intIndex = internalAddrs.indexOf(address)
+        const platformIndex = platformAddrs.indexOf(address)
+
+        if (extIndex >= 0) {
+            return `0/${extIndex}`
+        } else if (intIndex >= 0) {
+            return `1/${intIndex}`
+        } else if (platformIndex >= 0) {
+            return `0/${platformIndex}`
+        } else if (address[0] === 'C') {
+            return '0/0'
+        } else {
+            throw new Error('Unable to find source address.')
+        }
+    }
+
+    /**
+     * The minimal set of HD indices needed to sign this transaction.
+     *
+     * Deriving a full keychain up to hdIndex costs ~4 EC multiplies per index,
+     * which on a well-used wallet is seconds of blocked main thread per
+     * signature. A transaction normally spends from a handful of addresses, so
+     * resolving just those keeps it in the tens of milliseconds. Address
+     * lookup is served from the helpers' address cache and needs no private key.
+     *
+     * Returns null if any source address can't be resolved, so the caller can
+     * fall back to deriving everything rather than under-signing.
+     */
+    getRequiredKeyIndices<UnsignedTx extends AVMUnsignedTx | PlatformUnsignedTx>(
+        unsignedTx: UnsignedTx,
+        chainId: ChainIdType
+    ): RequiredKeyIndices | null {
+        let addresses: string[]
+        try {
+            addresses = this.getTxSourceAddresses(unsignedTx, chainId).addresses
+        } catch (e) {
+            return null
+        }
+
+        const external = new Set<number>()
+        const internal = new Set<number>()
+        let needsEvmKey = false
+
+        for (const address of addresses) {
+            // A C-prefixed source is the EVM key (m/44'/60'/0'/0/0), not an
+            // index in either X/P address space.
+            if (address[0] === 'C') {
+                needsEvmKey = true
+                continue
+            }
+
+            let path: string
+            try {
+                path = this.getPathFromAddress(address)
+            } catch (e) {
+                // Owner sits past the scanned range — caller must derive fully.
+                return null
+            }
+
+            const [change, idxStr] = path.split('/')
+            const index = parseInt(idxStr, 10)
+            if (isNaN(index)) return null
+
+            if (change === '1') {
+                internal.add(index)
+            } else {
+                external.add(index)
+            }
+        }
+
+        return {
+            external: [...external].sort((a, b) => a - b),
+            internal: [...internal].sort((a, b) => a - b),
+            needsEvmKey,
+        }
     }
 
     abstract signHashByExternalIndex(index: number, hash: Buffer): Promise<string>
