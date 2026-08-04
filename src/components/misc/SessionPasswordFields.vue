@@ -28,8 +28,6 @@
 <script lang="ts">
 import { defineComponent, ref, computed, watch, onBeforeUnmount } from 'vue'
 
-export const MIN_SESSION_PASSWORD = 9
-
 export default defineComponent({
     name: 'SessionPasswordFields',
     props: {
@@ -43,10 +41,10 @@ export default defineComponent({
         const pw_in = ref<HTMLInputElement | null>(null)
         const pw_confirm_in = ref<HTMLInputElement | null>(null)
 
+        // No length or format restriction — the session password is never
+        // stored, so there's no offline-crackable artifact to defend; the
+        // only real requirement is that the two fields agree.
         const error = computed((): string => {
-            if (props.modelValue.length < MIN_SESSION_PASSWORD) {
-                return `Session password must be at least ${MIN_SESSION_PASSWORD} characters.`
-            }
             if (props.modelValue !== confirmValue.value) {
                 return 'Session passwords do not match.'
             }

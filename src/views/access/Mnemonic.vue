@@ -84,8 +84,6 @@ export default defineComponent({
         const session_pw_in = ref<HTMLInputElement>()
         const session_pw_confirm_in = ref<HTMLInputElement>()
 
-        const MIN_SESSION_PASSWORD = 9
-
         onBeforeUnmount(() => {
             // Clear the DOM nodes as well as the refs — an input's .value keeps
             // the secret alive independently of the reactive binding.
@@ -132,10 +130,9 @@ export default defineComponent({
             return true
         }
 
+        // No length or format restriction on the session password — see
+        // SessionPasswordFields.vue for the reasoning.
         const sessionPasswordError = (): string => {
-            if (sessionPassword.value.length < MIN_SESSION_PASSWORD) {
-                return `Session password must be at least ${MIN_SESSION_PASSWORD} characters.`
-            }
             if (sessionPassword.value !== sessionPasswordConfirm.value) {
                 return 'Session passwords do not match.'
             }
