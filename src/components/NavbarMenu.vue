@@ -66,7 +66,11 @@
                         <router-link to="/wallet/launcher">Token Launcher</router-link>
                     </v-list-item-title>
                 </v-list-item>
-                
+                <v-list-item>
+                    <v-list-item-title>
+                        <router-link to="/wallet/broadcast">Broadcast TX</router-link>
+                    </v-list-item-title>
+                </v-list-item>
             </v-list>
         </v-menu>
  <v-menu offset-y>
@@ -236,6 +240,28 @@
                         rel="noopener noreferrer"
                         class="wallet_link">
                             AVXTO Privacy
+                        </a>
+                    </v-list-item-title>
+                </v-list-item>
+                <v-list-item>
+                    <v-list-item-title>
+                        <a 
+                        href="https://github.com/avaxto/avxtowallet/issues/new" 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        class="wallet_link">
+                            Report Issue
+                        </a>
+                    </v-list-item-title>
+                </v-list-item>
+                <v-list-item>
+                    <v-list-item-title>
+                        <a 
+                        href="https://github.com/avaxto/avxtowallet/issues" 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        class="wallet_link">
+                            Check Issues
                         </a>
                     </v-list-item-title>
                 </v-list-item>
