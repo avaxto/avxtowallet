@@ -4,6 +4,61 @@
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, shrink-to-fit=no">
+
+    <!--
+      Content-Security-Policy. Delivered as a meta tag because this repo has
+      no server layer of its own (the `start` script's server/index.js does
+      not exist here — deployment/hosting lives outside this repo). A real
+      HTTP header at the hosting layer is stronger and should be added
+      there if possible; it can safely duplicate or replace this tag.
+
+      IMPORTANT: `frame-ancestors`, `sandbox` and `report-uri`/`report-to`
+      are silently ignored when a CSP is delivered via <meta> (CSP3 spec —
+      they require an HTTP response header). This tag therefore provides NO
+      clickjacking protection. If clickjacking matters, set
+      `X-Frame-Options: SAMEORIGIN` or `Content-Security-Policy:
+      frame-ancestors 'self'` as a real header at the hosting layer.
+
+      Two directives below are deliberately broad, verified against what
+      this app actually does rather than guessed:
+
+        connect-src / img-src allow any https:/wss: origin because this
+        wallet lets users point it at an arbitrary custom RPC endpoint,
+        explorer API and WebSocket endpoint (see the "Network Endpoints"
+        section of Settings), and renders logoURI/token-list images and
+        (in scripting work, if it lands) any host a custom ERC20 token
+        points at. A hardcoded allowlist would silently break that
+        feature. This does not fully close the exfiltration vector
+        discussed for a future scripting sandbox — that has to be solved
+        at the sandbox layer (no network primitive at all inside it), not
+        here, since it is incompatible with "bring your own RPC" as a
+        product feature.
+
+      Two directives are relaxations verified as currently load-bearing,
+      not just future-proofing:
+
+        'wasm-unsafe-eval' — this build already ships and instantiates a
+        real .wasm module (secp256k1) today. Without this the app would
+        fail to load under any CSP, independent of any future scripting
+        work.
+
+        style-src 'unsafe-inline' — 65 .vue files bind inline `style="…"`
+        attributes. Removing this would require refactoring all of them
+        to classes; out of scope here. This is a materially lower-risk
+        relaxation than script-src 'unsafe-inline' (which is NOT granted).
+    -->
+    <meta http-equiv="Content-Security-Policy" content="
+      default-src 'self';
+      script-src 'self' 'wasm-unsafe-eval';
+      style-src 'self' 'unsafe-inline';
+      img-src 'self' data: blob: https:;
+      font-src 'self' data:;
+      connect-src 'self' https: wss:;
+      object-src 'none';
+      base-uri 'self';
+      form-action 'self';
+    ">
+
     <link rel="icon" href="/favicon.ico">
     <title>AVXTO Wallet for Avalanche - AVAX</title>
     <meta property="og:title" content="AVXTO Avalanche Wallet" data-vmid="og:title" />
