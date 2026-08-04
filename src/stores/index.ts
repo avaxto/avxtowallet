@@ -4,10 +4,9 @@
   Licensed under the BSD 3 Clause License. See LICENSE file in the project root for details.
 
 */
-import { createPinia } from 'pinia'
-
-// Create Pinia instance
-export const pinia = createPinia()
+// Pinia itself lives in its own module so leaf code can import it without
+// pulling in every store through this barrel.
+export { pinia } from './pinia'
 
 // Export all stores for direct Pinia usage
 export { useMainStore } from './main'
@@ -26,3 +25,5 @@ export type { StatusBarType } from './statusbar'
 export { useSessionLogStore } from './sessionlog'
 export type { LogEntry, LogDotColor } from './sessionlog'
 export { useThrModalStore } from './thrModal'
+export { useOfflineSigningStore, isOfflineTxId, OFFLINE_TX_ID } from './offlineSigning'
+export type { SignedTxRecord, SignedTxFamily } from './offlineSigning'

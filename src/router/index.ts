@@ -1,4 +1,4 @@
-import { createRouter, createWebHistory, RouteLocationNormalized, NavigationGuardNext } from 'vue-router'
+import { createRouter, createWebHistory, RouteLocationNormalized, NavigationGuardNext, RouteRecordRaw } from 'vue-router'
 import Home from '../views/Home.vue'
 import Transfer from '@/views/wallet/Transfer.vue'
 import ManageKeys from '@/views/wallet/ManageKeys.vue'
@@ -28,6 +28,7 @@ import Xpub from '@/views/access/Xpub.vue'
 import Injected from '@/views/access/Injected.vue'
 import Addresses from '@/views/wallet/Addresses.vue'
 import AddressesDerive from '@/views/wallet/AddressesDerive.vue'
+import Broadcast from '@/views/wallet/Broadcast.vue'
 import Config from '@/views/wallet/Config.vue'
 import WalletReadonly from '@/views/WalletReadonly.vue'
 import InsufficientBalance from '@/views/InsufficientBalance.vue'
@@ -51,7 +52,7 @@ const ifAuthenticated = (to: RouteLocationNormalized, from: RouteLocationNormali
     next('/')
 }
 
-const routes = [
+const routes: RouteRecordRaw[] = [
     {
         path: '/',
         name: 'home',
@@ -162,6 +163,10 @@ const routes = [
             {
                 path: 'addresses/derive',
                 component: AddressesDerive,
+            },
+            {
+                path: 'broadcast',
+                component: Broadcast,
             },
             {
                 path: 'wizard',

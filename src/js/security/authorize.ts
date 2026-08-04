@@ -1,5 +1,7 @@
 import { AuthScope, withAuthorization } from '@/js/security/session'
 import { SessionVault } from '@/js/security/SessionVault'
+import { pinia } from '@/stores/pinia'
+import { useOfflineSigningStore } from '@/stores/offlineSigning'
 
 /**
  * Wallet types that legitimately have no vault, because something else does
@@ -34,18 +36,30 @@ export async function authorizeWalletOp<T>(
         )
     }
 
-    if (w.vault) {
-        return withAuthorization({ scope, reason, vault: w.vault }, () => fn())
-    }
+    // Offline signing brackets the same boundary as authorization: an operation
+    // starts with a clean capture list and always releases the one-shot flag,
+    // so a page's "sign only" checkbox can never leak into the next operation
+    // even if this one throws. Doing it here means each page needs only the
+    // checkbox and the result panel, not lifecycle bookkeeping.
+    const offline = useOfflineSigningStore(pinia)
+    offline.clearRecords()
 
-    if (w.type && EXTERNALLY_AUTHORIZED.has(w.type)) {
-        return fn()
-    }
+    try {
+        if (w.vault) {
+            return await withAuthorization({ scope, reason, vault: w.vault }, () => fn())
+        }
 
-    throw new Error(
-        `Cannot authorize "${reason}": wallet of type "${w.type ?? 'unknown'}" ` +
-            `has no session vault. Refusing to sign without authorization.`
-    )
+        if (w.type && EXTERNALLY_AUTHORIZED.has(w.type)) {
+            return await fn()
+        }
+
+        throw new Error(
+            `Cannot authorize "${reason}": wallet of type "${w.type ?? 'unknown'}" ` +
+                `has no session vault. Refusing to sign without authorization.`
+        )
+    } finally {
+        offline.endOperation()
+    }
 }
 
 /** One transaction, one signature. */

@@ -25,6 +25,7 @@ import { Transaction } from '@ethereumjs/tx'
 import Common from '@ethereumjs/common'
 import { AvaWalletCore } from '@/js/wallets/types'
 import ERC20Abi from '@openzeppelin/contracts/build/contracts/ERC20.json'
+import { broadcastEvm } from '@/helpers/broadcastEvm'
 
 const ODOS_BASE = 'https://api.odos.xyz'
 export const AVALANCHE_CHAIN_ID = 43114
@@ -254,7 +255,9 @@ async function sendEvmTx(
     wallet: AvaWalletCore,
     txReq: { to: string; data: string; value: BN },
     gasPrice: BN,
-    gasLimit: number
+    gasLimit: number,
+    /** Description used when offline signing captures this instead of sending. */
+    label = 'C-Chain transaction'
 ): Promise<string> {
     const fromAddr = '0x' + wallet.getEvmAddress()
 
@@ -297,8 +300,7 @@ async function sendEvmTx(
 
     const signedTx = await wallet.signEvm(tx)
     const txHex = signedTx.serialize().toString('hex')
-    const receipt = await web3.eth.sendSignedTransaction('0x' + txHex)
-    return receipt.transactionHash
+    return await broadcastEvm(txHex, label)
 }
 
 /**
@@ -325,7 +327,13 @@ export async function approveRouter(
         /* keep default */
     }
 
-    return sendEvmTx(wallet, { to: tokenAddress, data, value: new BN(0) }, gasPrice, gasLimit)
+    return sendEvmTx(
+        wallet,
+        { to: tokenAddress, data, value: new BN(0) },
+        gasPrice,
+        gasLimit,
+        'Approve router to spend token'
+    )
 }
 
 /**
@@ -348,7 +356,8 @@ export async function executeSwap(
         wallet,
         { to: transaction.to, data: transaction.data, value },
         gasPrice,
-        gasLimit
+        gasLimit,
+        'Execute swap'
     )
     return { txHash }
 }

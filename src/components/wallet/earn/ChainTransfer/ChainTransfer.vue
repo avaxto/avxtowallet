@@ -10,7 +10,13 @@
                     :max-amt="formMaxAmt"
                 ></ChainSwapForm>
 
-                <div v-if="!isSuccess && !isLoading">
+                <SignedTxExport
+                    v-if="offline.hasRecords"
+                    :records="offline.records"
+                    :partial-note="crossChainPartialNote"
+                    @done="startAgain"
+                ></SignedTxExport>
+                <div v-else-if="!isSuccess && !isLoading">
                     <div v-if="!isImportErr" class="fees">
                         <h4>{{ $t('earn.transfer.fee') }}</h4>
                         <p>
@@ -30,6 +36,7 @@
                     </div>
                     <div>
                         <p class="err">{{ err }}</p>
+                        <SignOnlyToggle :disabled="isLoading"></SignOnlyToggle>
                         <template v-if="isImportErr">
                             <p>
                                 {{ $t('earn.transfer.err_desc') }}
@@ -153,6 +160,9 @@ import { sortUTxoSetP } from '@/helpers/sortUTXOs'
 import { selectMaxUtxoForExportP } from '@/helpers/utxoSelection/selectMaxUtxoForExportP'
 import { errorToString } from '@/helpers/helper'
 import { authorizeCrossChain, SessionAuthCancelled } from '@/js/security/authorize'
+import { useOfflineSigningStore, isOfflineTxId } from '@/stores'
+import SignOnlyToggle from '@/components/misc/SignOnlyToggle.vue'
+import SignedTxExport from '@/components/misc/SignedTxExport.vue'
 
 const IMPORT_DELAY = 5000 // in ms
 const BALANCE_DELAY = 2000 // in ms
@@ -160,6 +170,8 @@ const BALANCE_DELAY = 2000 // in ms
 export default defineComponent({
     name: 'chain_transfer',
     components: {
+        SignOnlyToggle,
+        SignedTxExport,
         Spinner,
         Dropdown,
         AvaxInput,
@@ -169,6 +181,7 @@ export default defineComponent({
     },
     setup() {
         const mainStore = useMainStore()
+        const offline = useOfflineSigningStore()
         const assetsStore = useAssetsStore()
         const { t } = useI18n()
 
@@ -180,6 +193,16 @@ export default defineComponent({
         const err = ref('')
 
         const isImportErr = ref(false)
+
+        // A cross-chain transfer is two transactions, and the import spends the
+        // atomic UTXO the export creates — so it cannot even be built until the
+        // export has been confirmed on chain. Only the export can be signed
+        // ahead of time.
+        const crossChainPartialNote =
+            'Only the export could be signed now. The matching import spends the ' +
+            'UTXO this export creates, so it can only be built after this one has ' +
+            'been broadcast and confirmed — come back and run the transfer again ' +
+            'to complete the second half.'
         const isConfirm = ref(false)
         const isSuccess = ref(false)
 
@@ -453,6 +476,16 @@ export default defineComponent({
                 throw e
             }
 
+            // Offline signing captured the export instead of broadcasting it.
+            // The import spends the atomic UTXO that export would have created,
+            // so there is nothing to import against — stop here and let the
+            // export be broadcast manually.
+            if (isOfflineTxId(exportTxId)) {
+                exportStatus.value = 'Signed — not sent'
+                isLoading.value = false
+                return
+            }
+
             // Wait for UTXOs to appear in atomic memory
             await new Promise((resolve) => setTimeout(resolve, IMPORT_DELAY))
 
@@ -520,6 +553,9 @@ export default defineComponent({
         }
 
         return {
+            crossChainPartialNote,
+
+            offline,
             form,
             sourceChain,
             targetChain,

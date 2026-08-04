@@ -92,7 +92,12 @@
                 ></ConfirmPage>
             </transition-group>
             <div>
-                <div v-if="!isSuccess" class="summary">
+                <SignedTxExport
+                    v-if="offline.hasRecords"
+                    :records="offline.records"
+                    @done="offline.clearRecords()"
+                ></SignedTxExport>
+                <div v-else-if="!isSuccess" class="summary">
                     <CurrencySelect
                         v-model="currency_type"
                         currency="currency_sel"
@@ -125,6 +130,7 @@
                             * {{ $t('earn.delegate.summary.warn') }}
                         </label>
                         <p class="err">{{ err }}</p>
+                        <SignOnlyToggle :disabled="isLoading"></SignOnlyToggle>
                         <v-btn
                             v-if="!isConfirm"
                             @click="confirm"
@@ -225,6 +231,9 @@ import { selectMaxUtxoForStaking } from '@/helpers/utxoSelection/selectMaxUtxoFo
 import Tooltip from '@/components/misc/Tooltip.vue'
 import { bnToAvaxP } from '@/avalanche-wallet-sdk'
 import { authorizeSingle, SessionAuthCancelled } from '@/js/security/authorize'
+import { useOfflineSigningStore, isOfflineTxId } from '@/stores'
+import SignOnlyToggle from '@/components/misc/SignOnlyToggle.vue'
+import SignedTxExport from '@/components/misc/SignedTxExport.vue'
 
 const MIN_MS = 60000
 const HOUR_MS = MIN_MS * 60
@@ -233,6 +242,8 @@ const DAY_MS = HOUR_MS * 24
 export default defineComponent({
     name: 'AddDelegator',
     components: {
+        SignOnlyToggle,
+        SignedTxExport,
         Tooltip,
         NodeCard,
         UtxoSelectForm,
@@ -249,6 +260,7 @@ export default defineComponent({
     },
     setup(_, { emit }) {
         const mainStore = useMainStore()
+        const offline = useOfflineSigningStore()
         const assetsStore = useAssetsStore()
         const notificationsStore = useNotificationsStore()
         const historyStore = useHistoryStore()
@@ -319,9 +331,13 @@ export default defineComponent({
                         formUtxos.value
                     )
                 )
-                isSuccess.value = true
-                txId.value = delegationTxId
-                updateTxStatus(delegationTxId)
+                // A captured transaction has a sentinel id — there is nothing
+                // on chain to show a status for; the export panel renders instead.
+                if (!isOfflineTxId(delegationTxId)) {
+                    isSuccess.value = true
+                    txId.value = delegationTxId
+                    updateTxStatus(delegationTxId)
+                }
             } catch (e) {
                 onerror(e)
             } finally {
@@ -668,6 +684,8 @@ export default defineComponent({
         })
 
         return {
+
+            offline,
             startDate,
             endDate,
             stakeAmt,

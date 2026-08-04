@@ -7,7 +7,12 @@
     <div class="batch_form_c">
         <slot></slot>
 
-        <template v-if="!isSuccess">
+        <SignedTxExport
+            v-if="offline.hasRecords"
+            :records="offline.records"
+            @done="startAgain"
+        ></SignedTxExport>
+        <template v-else-if="!isSuccess">
             <div class="recipients">
                 <div v-for="(row, i) in recipients" :key="row.uuid" class="recipient_row">
                     <div class="row_top">
@@ -62,6 +67,7 @@
                     <li v-for="e in formErrors" :key="e">{{ e }}</li>
                 </ul>
                 <p class="err" v-if="err">{{ err }}</p>
+                <SignOnlyToggle :disabled="isSending"></SignOnlyToggle>
                 <v-btn
                     depressed
                     block
@@ -112,6 +118,9 @@ import Erc20Token from '@/js/Erc20Token'
 import { iErc721SelectInput } from '@/components/misc/EVMInputDropdown/types'
 import BatchTxReport, { BatchTxResult } from '@/components/wallet/transfer/BatchTxReport.vue'
 import { authorizeBatch, SessionAuthCancelled } from '@/js/security/authorize'
+import { useOfflineSigningStore, isOfflineTxId } from '@/stores'
+import SignOnlyToggle from '@/components/misc/SignOnlyToggle.vue'
+import SignedTxExport from '@/components/misc/SignedTxExport.vue'
 
 interface BatchRowC {
     uuid: string
@@ -133,9 +142,10 @@ const isEvmAddress = (addr: string): boolean => /^0x[0-9a-fA-F]{40}$/.test(addr)
 
 export default defineComponent({
     name: 'BatchFormC',
-    components: { QrInput, EVMInputDropdown, BatchTxReport },
+    components: { QrInput, EVMInputDropdown, BatchTxReport, SignOnlyToggle, SignedTxExport },
     setup() {
         const mainStore = useMainStore()
+        const offline = useOfflineSigningStore()
 
         const recipients = ref<BatchRowC[]>([newRow()])
         const gasPrice = ref(markRaw(new BN(225000000000)))
@@ -313,10 +323,13 @@ export default defineComponent({
 
             results.value = out
             isSending.value = false
-            isSuccess.value = true
+            // With offline signing the loop produced sentinel ids, not tx
+            // hashes — the export panel replaces the broadcast report.
+            isSuccess.value = !offline.hasRecords
         }
 
         const startAgain = () => {
+            offline.clearRecords()
             recipients.value = [newRow()]
             isSending.value = false
             isSuccess.value = false
@@ -327,6 +340,8 @@ export default defineComponent({
         }
 
         return {
+
+            offline,
             recipients,
             gasPrice,
             gasPriceGwei,

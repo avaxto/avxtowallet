@@ -27,6 +27,13 @@
         <!-- Mounted unconditionally: an awaiting authorization must always be
              able to render its prompt, or the promise would never settle. -->
         <SessionPasswordModal></SessionPasswordModal>
+        <!-- Global offline signing is easy to forget you left on, and it silently
+             changes what every Send button does — so say so persistently. -->
+        <div v-if="offlineSigning.isEnabled" class="offline_banner">
+            <fa icon="info-circle"></fa>
+            Offline signing is ON — transactions are signed but not broadcast.
+            <router-link to="/wallet/config">Turn off</router-link>
+        </div>
         <transition name="fade">
             <div v-if="mainStore.isSwitchingAccount" class="account_switch_overlay"></div>
         </transition>
@@ -46,7 +53,7 @@ import StatusBar from '@/components/StatusBar.vue'
 import BaseAssetThrModal from '@/components/modals/BaseAssetThrModal.vue'
 import NetworkBlockedModal from '@/components/modals/NetworkBlockedModal.vue'
 import SessionPasswordModal from '@/components/modals/SessionPasswordModal.vue'
-import { useAccountsStore, useAssetsStore, useErc721Store, useMainStore, useNetworkStore, useStatusBarStore } from '@/stores'
+import { useAccountsStore, useAssetsStore, useErc721Store, useMainStore, useNetworkStore, useOfflineSigningStore, useStatusBarStore } from '@/stores'
 import { useThemeStore } from '@/stores/theme'
 import { onMounted, onBeforeUnmount, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -75,6 +82,7 @@ export default {
         const accountsStore = useAccountsStore()
         const erc721Store = useErc721Store()
         const statusBar = useStatusBarStore()
+        const offlineSigning = useOfflineSigningStore()
         const route = useRoute()
         const router = useRouter()
         const themeStore = useThemeStore()
@@ -144,7 +152,7 @@ export default {
             setTimeout(() => statusBar.clear(), 4000)
         }
         
-        return { mainStore }
+        return { mainStore, offlineSigning }
     },
     computed: {
         isNavbar() {
@@ -185,6 +193,26 @@ export default {
 
 <style scoped lang="scss">
 @use "./main";
+
+.offline_banner {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 4;
+    text-align: center;
+    font-size: 0.8em;
+    padding: 6px 12px;
+    background-color: var(--secondary-color);
+    color: #fff;
+
+    a {
+        color: #fff;
+        text-decoration: underline;
+        margin-left: 6px;
+    }
+}
+
 
 .main_cols {
     &[wallet_view] {

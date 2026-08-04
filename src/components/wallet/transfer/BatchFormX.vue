@@ -7,7 +7,12 @@
     <div class="batch_form_x">
         <slot></slot>
 
-        <template v-if="!isSuccess">
+        <SignedTxExport
+            v-if="offline.hasRecords"
+            :records="offline.records"
+            @done="startAgain"
+        ></SignedTxExport>
+        <template v-else-if="!isSuccess">
             <div class="recipients">
                 <div
                     v-for="(row, i) in recipients"
@@ -76,6 +81,7 @@
                     <li v-for="err in formErrors" :key="err">{{ err }}</li>
                 </ul>
                 <p class="err" v-if="err">{{ err }}</p>
+                <SignOnlyToggle :disabled="isSending"></SignOnlyToggle>
 
                 <template v-if="isInjectedWallet">
                     <v-btn
@@ -160,6 +166,9 @@ import BatchTxReport, { BatchTxResult } from '@/components/wallet/transfer/Batch
 import { IBatchRecipient } from '@/js/TxHelper'
 import { Wallet } from '@/js/wallets/AbstractWallet'
 import { authorizeSingle, SessionAuthCancelled } from '@/js/security/authorize'
+import { useOfflineSigningStore, isOfflineTxId } from '@/stores'
+import SignOnlyToggle from '@/components/misc/SignOnlyToggle.vue'
+import SignedTxExport from '@/components/misc/SignedTxExport.vue'
 
 interface BatchRowX {
     uuid: string
@@ -177,9 +186,10 @@ const newRow = (): BatchRowX => ({
 
 export default defineComponent({
     name: 'BatchFormX',
-    components: { QrInput, CurrencyInputDropdown, BatchTxReport },
+    components: { QrInput, CurrencyInputDropdown, BatchTxReport, SignOnlyToggle, SignedTxExport },
     setup() {
         const mainStore = useMainStore()
+        const offline = useOfflineSigningStore()
         const assetsStore = useAssetsStore()
         const historyStore = useHistoryStore()
         const notificationsStore = useNotificationsStore()
@@ -290,7 +300,7 @@ export default defineComponent({
                     status: 'success' as const,
                     txId,
                 }))
-                isSuccess.value = true
+                isSuccess.value = !offline.hasRecords
 
                 notificationsStore.add({
                     title: t('transfer.success_title'),
@@ -318,6 +328,7 @@ export default defineComponent({
         }
 
         const startAgain = () => {
+            offline.clearRecords()
             recipients.value = [newRow()]
             memo.value = ''
             isConfirm.value = false
@@ -329,6 +340,8 @@ export default defineComponent({
         }
 
         return {
+
+            offline,
             recipients,
             memo,
             isConfirm,

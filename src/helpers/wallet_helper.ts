@@ -21,6 +21,7 @@ import { PayloadBase } from '@/avalanche/utils'
 import { ITransaction } from '@/components/wallet/transfer/types'
 
 import { web3 } from '@/evm'
+import { broadcastEvm } from '@/helpers/broadcastEvm'
 import Erc20Token from '@/js/Erc20Token'
 import ERC721Token from '@/js/ERC721Token'
 import { issueP, issueX } from '@/helpers/issueTx'
@@ -137,8 +138,7 @@ class WalletHelper {
         const signedTx = await wallet.signEvm(tx)
 
         const txHex = signedTx.serialize().toString('hex')
-        const hash = await web3.eth.sendSignedTransaction('0x' + txHex)
-        return hash.transactionHash
+        return await broadcastEvm(txHex, `Send AVAX to ${to}`)
     }
 
     static async sendErc20(
@@ -175,8 +175,7 @@ class WalletHelper {
 
         const signedTx = await wallet.signEvm(tx)
         const txHex = signedTx.serialize().toString('hex')
-        const hash = await web3.eth.sendSignedTransaction('0x' + txHex)
-        return hash.transactionHash
+        return await broadcastEvm(txHex, `Send ${token.data.symbol} to ${to}`)
     }
 
     static async sendErc721(
@@ -235,8 +234,7 @@ class WalletHelper {
         )
         const signedTx = await wallet.signEvm(tx)
         const txHex = signedTx.serialize().toString('hex')
-        const hash = await web3.eth.sendSignedTransaction('0x' + txHex)
-        return hash.transactionHash
+        return await broadcastEvm(txHex, `Send collectible to ${to}`)
     }
 
     static async estimateTxGas(wallet: AvaWalletCore, tx: any) {

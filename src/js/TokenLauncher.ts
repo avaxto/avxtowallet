@@ -19,6 +19,8 @@ import { Transaction } from '@ethereumjs/tx'
 import Common from '@ethereumjs/common'
 import { AvaWalletCore } from '@/js/wallets/types'
 import artifact from '@/avxto/contracts/AVXTOLaunchToken.json'
+import { broadcastEvm } from '@/helpers/broadcastEvm'
+import { isOfflineTxId } from '@/stores/offlineSigning'
 
 export interface TokenLaunchParams {
     name: string
@@ -133,9 +135,18 @@ export async function deployToken(
 
     const signedTx = await wallet.signEvm(tx)
     const txHex = signedTx.serialize().toString('hex')
-    const receipt = await web3.eth.sendSignedTransaction('0x' + txHex)
 
-    if (!receipt.contractAddress) {
+    const txHash = await broadcastEvm(txHex, `Deploy token ${params.symbol}`)
+
+    // Offline signing captured the transaction instead of sending it. The
+    // contract address is only assigned when the deploy is mined, so there is
+    // nothing to report yet — the caller shows the export panel instead.
+    if (isOfflineTxId(txHash)) {
+        return { txHash, contractAddress: '' }
+    }
+
+    const receipt = await web3.eth.getTransactionReceipt(txHash)
+    if (!receipt?.contractAddress) {
         throw new Error('Deployment succeeded but no contract address was returned')
     }
 

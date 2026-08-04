@@ -153,7 +153,12 @@
                     ></ConfirmPage>
                 </transition-group>
                 <div>
-                    <div class="summary" v-if="!isSuccess">
+                    <SignedTxExport
+                        v-if="offline.hasRecords"
+                        :records="offline.records"
+                        @done="offline.clearRecords()"
+                    ></SignedTxExport>
+                    <div class="summary" v-else-if="!isSuccess">
                         <CurrencySelect v-model="currency_type"></CurrencySelect>
                         <div>
                             <label>
@@ -189,6 +194,7 @@
                                 {{ $t('earn.validate.errs.duration_warn') }}
                             </p>
                             <p class="err">{{ err }}</p>
+                            <SignOnlyToggle :disabled="isLoading"></SignOnlyToggle>
                             <v-btn
                                 v-if="!isConfirm"
                                 @click="confirm"
@@ -292,6 +298,9 @@ import { selectMaxUtxoForStaking } from '@/helpers/utxoSelection/selectMaxUtxoFo
 import { bnToAvaxP } from '@/avalanche-wallet-sdk'
 import { generateBlsKeyPair, signBlsMessage, generateProofOfPossessionMessage } from '@/helpers/bls_utils'
 import { authorizeSingle, SessionAuthCancelled } from '@/js/security/authorize'
+import { useOfflineSigningStore, isOfflineTxId } from '@/stores'
+import SignOnlyToggle from '@/components/misc/SignOnlyToggle.vue'
+import SignedTxExport from '@/components/misc/SignedTxExport.vue'
 
 const MIN_MS = 60000
 const HOUR_MS = MIN_MS * 60
@@ -303,6 +312,8 @@ const MAX_STAKE_DURATION = DAY_MS * 365
 export default defineComponent({
     name: 'add_validator',
     components: {
+        SignOnlyToggle,
+        SignedTxExport,
         Modal,
         QrReader,
         QrInput,
@@ -318,6 +329,7 @@ export default defineComponent({
     emits: ['cancel'],
     setup(props, { emit }) {
         const mainStore = useMainStore()
+        const offline = useOfflineSigningStore()
         const assetsStore = useAssetsStore()
         const notificationsStore = useNotificationsStore()
         const historyStore = useHistoryStore()
@@ -731,6 +743,9 @@ export default defineComponent({
         }
 
         const onTxSubmit = (txIdVal: string) => {
+            // A captured transaction has a sentinel id — nothing exists on
+            // chain to poll, so the export panel renders instead of success.
+            if (isOfflineTxId(txIdVal)) return
             txId.value = txIdVal
             isSuccess.value = true
             updateTxStatus(txIdVal)
@@ -829,6 +844,8 @@ export default defineComponent({
         })
 
         return {
+
+            offline,
             // State
             startDate,
             endDate,

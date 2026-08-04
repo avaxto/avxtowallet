@@ -50,6 +50,10 @@
                     <span class="sidebar_icon"><fa icon="list" class="icon"></fa></span>
                     Addresses
                 </router-link>
+                <router-link to="/wallet/broadcast" data-cy="wallet_broadcast" class="wallet_link">
+                    <span class="sidebar_icon"><fa icon="upload" class="icon"></fa></span>
+                    Broadcast Tx
+                </router-link>
                 <router-link to="/wallet/wizard" data-cy="wallet_wizard" class="wallet_link">
                     <span class="sidebar_icon"><fa icon="magic" class="icon"></fa></span>
                     Wallet Wizard

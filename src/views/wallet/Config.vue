@@ -10,6 +10,31 @@
         </div>
 
         <div class="grids">
+            <!-- ── Offline Signing ───────────────────────────────────── -->
+            <div class="grid_box">
+                <h3>Offline Signing</h3>
+                <p class="description">
+                    When on, transactions are signed but never broadcast. Each one is
+                    shown as base64 for you to copy and submit later from
+                    <router-link to="/wallet/broadcast">Broadcast Tx</router-link> —
+                    on this machine or another one.
+                </p>
+                <label class="offline_row">
+                    <input
+                        type="checkbox"
+                        :checked="offline.isEnabled"
+                        @change="onOfflineToggle"
+                    />
+                    <span>Sign transactions without broadcasting them</span>
+                </label>
+                <p class="offline_warn" v-if="offline.isEnabled">
+                    Every transaction page will sign only while this is on. Signed
+                    transactions are bound to specific UTXOs (or an account nonce)
+                    and stop being valid once those are used elsewhere, so broadcast
+                    them promptly.
+                </p>
+            </div>
+
             <!-- ── Rate Limiting ─────────────────────────────────────── -->
             <div class="grid_box">
                 <h3>Rate Limiting</h3>
@@ -113,13 +138,18 @@
 import { defineComponent, ref, computed, watch } from 'vue'
 import { globalRateLimiter } from '@/providers/rate_limiter'
 import { useNetworkStore } from '@/stores/network'
-import { useStatusBarStore } from '@/stores'
+import { useStatusBarStore, useOfflineSigningStore } from '@/stores'
 
 export default defineComponent({
     name: 'Config',
     setup() {
         const networkStore = useNetworkStore()
         const statusBar = useStatusBarStore()
+        const offline = useOfflineSigningStore()
+
+        const onOfflineToggle = (e: Event) => {
+            offline.setEnabled((e.target as HTMLInputElement).checked)
+        }
 
         // ── Rate limiting state ──────────────────────────────────────────────
         const rlMaxRequests = ref<number>(globalRateLimiter.currentMaxRequests)
@@ -200,6 +230,8 @@ export default defineComponent({
         }
 
         return {
+            offline,
+            onOfflineToggle,
             // Rate limiting
             rlMaxRequests,
             rlWindowMs,
@@ -223,6 +255,25 @@ export default defineComponent({
 
 <style scoped lang="scss">
 @use '../../main';
+
+.offline_row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-weight: normal !important;
+
+    input {
+        cursor: pointer;
+    }
+}
+
+.offline_warn {
+    margin-top: 10px;
+    font-size: 0.8em;
+    color: var(--primary-color-light);
+}
+
 
 h1 {
     font-weight: normal;

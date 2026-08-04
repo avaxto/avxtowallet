@@ -76,8 +76,9 @@
                                 {{ err }}
                             </li>
                         </ul>
-                        <template v-if="isInjectedWallet && !isSuccess">
+                        <template v-if="isInjectedWallet && !isSuccess && !offline.hasRecords">
                             <p class="err">{{ err }}</p>
+                            <SignOnlyToggle :disabled="isAjax"></SignOnlyToggle>
                             <v-btn
                                 depressed
                                 class="button_primary"
@@ -104,6 +105,7 @@
                         </template>
                         <template v-else-if="isConfirm && !isSuccess">
                             <p class="err">{{ err }}</p>
+                            <SignOnlyToggle :disabled="isAjax"></SignOnlyToggle>
                             <v-btn
                                 depressed
                                 class="button_primary"
@@ -124,6 +126,12 @@
                             >
                                 Cancel
                             </v-btn>
+                        </template>
+                        <template v-else-if="offline.hasRecords">
+                            <SignedTxExport
+                                :records="offline.records"
+                                @done="startAgain"
+                            ></SignedTxExport>
                         </template>
                         <template v-else-if="isSuccess">
                             <p style="color: var(--success)">
@@ -186,10 +194,15 @@ import BatchFormX from '@/components/wallet/transfer/BatchFormX.vue'
 import AvaAsset from '../../js/AvaAsset'
 import { TxState } from '@/components/wallet/earn/ChainTransfer/types'
 import { authorizeSingle, SessionAuthCancelled } from '@/js/security/authorize'
+import { useOfflineSigningStore, isOfflineTxId } from '@/stores'
+import SignOnlyToggle from '@/components/misc/SignOnlyToggle.vue'
+import SignedTxExport from '@/components/misc/SignedTxExport.vue'
 
 export default defineComponent({
     name: 'Transfer',
     components: {
+        SignOnlyToggle,
+        SignedTxExport,
         FaucetLink,
         TxList,
         QrInput,
@@ -201,6 +214,7 @@ export default defineComponent({
     },
     setup() {
         const mainStore = useMainStore()
+        const offline = useOfflineSigningStore()
         const assetsStore = useAssetsStore()
         const networkStore = useNetworkStore()
         const notificationsStore = useNotificationsStore()
@@ -327,6 +341,7 @@ export default defineComponent({
         }
 
         const startAgain = () => {
+            offline.clearRecords()
             clearForm()
 
             txId.value = ''
@@ -560,6 +575,8 @@ export default defineComponent({
         })
 
         return {
+
+            offline,
             formType,
             batchMode,
             showAdvanced,

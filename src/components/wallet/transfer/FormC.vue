@@ -72,8 +72,15 @@
                     <span>${{ maxFeeUSD.toLocaleString(2) }} USD</span>
                 </p>
             </div>
-            <template v-if="!isSuccess">
+            <SignedTxExport
+                v-if="offline.hasRecords"
+                :records="offline.records"
+                @done="startAgain"
+            ></SignedTxExport>
+
+            <template v-else-if="!isSuccess">
                 <p class="err">{{ err }}</p>
+                <SignOnlyToggle :disabled="isLoading"></SignOnlyToggle>
                 <v-btn
                     v-if="err"
                     class="button_primary checkout"
@@ -126,7 +133,7 @@
                     </v-btn>
                 </template>
             </template>
-            <template v-else>
+            <template v-else-if="isSuccess">
                 <p style="color: var(--success)">
                     <fa icon="check-circle"></fa>
                     {{ $t('transfer.c_chain.success.desc') }}
@@ -178,6 +185,9 @@ import { iErc721SelectInput } from '@/components/misc/EVMInputDropdown/types'
 import { WalletHelper } from '@/helpers/wallet_helper'
 import BatchFormC from '@/components/wallet/transfer/BatchFormC.vue'
 import { authorizeSingle, SessionAuthCancelled } from '@/js/security/authorize'
+import { useOfflineSigningStore, isOfflineTxId } from '@/stores'
+import SignOnlyToggle from '@/components/misc/SignOnlyToggle.vue'
+import SignedTxExport from '@/components/misc/SignedTxExport.vue'
 
 export default defineComponent({
     name: 'FormC',
@@ -186,10 +196,13 @@ export default defineComponent({
         AvaxInput,
         QrInput,
         BatchFormC,
+        SignOnlyToggle,
+        SignedTxExport,
     },
     setup() {
         const mainStore = useMainStore()
         const assetsStore = useAssetsStore()
+        const offline = useOfflineSigningStore()
         const route = useRoute()
         const { t } = useI18n()
 
@@ -448,8 +461,12 @@ export default defineComponent({
                         }
                     }
                 )
-                txHash.value = hash
-                isSuccess.value = true
+                // A captured (not broadcast) transaction has a sentinel id —
+                // the export panel renders instead of the success screen.
+                if (!isOfflineTxId(hash)) {
+                    txHash.value = hash
+                    isSuccess.value = true
+                }
                 canSendAgain.value = true
             } catch (e: any) {
                 // A dismissed password prompt is not an error — just stop.
@@ -461,6 +478,7 @@ export default defineComponent({
         }
 
         const startAgain = () => {
+            offline.clearRecords()
             isConfirm.value = false
             isSuccess.value = false
             addressIn.value = ''
@@ -472,6 +490,7 @@ export default defineComponent({
         }
 
         return {
+            offline,
             isConfirm,
             isSuccess,
             batchMode,
