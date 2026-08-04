@@ -33,9 +33,26 @@
                 />
             </div>
 
+            <div v-if="needsMasterKey && !xAddress" class="master_path_note">
+                <p>
+                    This path contains a hardened segment, so it needs your master
+                    key rather than the account key. Authorize with your session
+                    password to derive it.
+                </p>
+                <v-btn
+                    small
+                    depressed
+                    class="button_primary"
+                    :loading="isDerivingMaster"
+                    @click="deriveWithMasterKey"
+                >
+                    Derive
+                </v-btn>
+            </div>
+
             <div v-if="err" class="error">{{ err }}</div>
 
-            <div v-else class="results">
+            <div v-else-if="xAddress" class="results">
                 <div class="row">
                     <span class="chain_badge x">X</span>
                     <span class="addr mono">{{ xAddress }}</span>
@@ -59,7 +76,7 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, computed, ref } from 'vue'
+import { defineComponent, computed, ref, watch } from 'vue'
 import { useMainStore } from '@/stores'
 import { InjectedWallet } from '@/js/wallets/InjectedWallet'
 import MnemonicWallet, { AVA_ACCOUNT_PATH } from '@/js/wallets/MnemonicWallet'
@@ -88,11 +105,12 @@ export default defineComponent({
         )
 
         // The HD key the user's input is interpreted as a path relative to.
-        //   - Mnemonic: master key (path is full m/44'/9000'/0'/0/0 style)
-        //   - Injected: account-level xpub (path is m/0/0 style relative to that)
+        // Both mnemonic and injected wallets expose an account-level node, so
+        // account-relative paths (m/0/0) resolve with no password. Paths that
+        // need the master key are handled by deriveWithMasterKey() below.
         const baseHdKey = computed<HDKey | null>(() => {
             const w = wallet.value
-            if (w instanceof MnemonicWallet) return w.hdKey
+            if (w instanceof MnemonicWallet) return w.getAccountNodeXP()
             if (w instanceof InjectedWallet) {
                 const k = (w as any)._accountKey as HDKey | null
                 return k ?? null
@@ -101,24 +119,79 @@ export default defineComponent({
         })
 
         const basePath = computed(() => {
-            if (walletType.value === 'mnemonic') return 'm (master key)'
+            if (walletType.value === 'mnemonic') return AVA_ACCOUNT_PATH
             if (walletType.value === 'injected') return AVA_ACCOUNT_PATH
             return ''
         })
 
         const baseLabel = computed(() => {
-            if (walletType.value === 'mnemonic') return 'master seed'
+            if (walletType.value === 'mnemonic') return 'account xpub'
             if (walletType.value === 'injected') return 'account xpub'
             return ''
         })
 
         const defaultPath = computed(() => {
-            if (walletType.value === 'mnemonic') return `${AVA_ACCOUNT_PATH}/0/0`
+            if (walletType.value === 'mnemonic') return 'm/0/0'
             if (walletType.value === 'injected') return 'm/0/0'
             return ''
         })
 
         const path = ref(defaultPath.value)
+
+        const addressesFromPublicKey = (publicKey: globalThis.Buffer) => {
+            const pubKeyBuf = BufferAvalanche.from(publicKey.toString('hex'), 'hex')
+            const addrBuf = AVMKeyPair.addressFromPublicKey(pubKeyBuf)
+            const hrp = getPreferredHRP(ava.getNetworkID())
+            return {
+                x: bintools.addressToString(hrp, 'X', addrBuf),
+                p: bintools.addressToString(hrp, 'P', addrBuf),
+            }
+        }
+
+        // Filled in by the master-key path below; takes precedence when set.
+        const masterDerived = ref<{ x: string; p: string } | null>(null)
+        const masterErr = ref('')
+        const isDerivingMaster = ref(false)
+
+        /**
+         * A path the account node cannot reach — it contains a hardened segment
+         * or starts above the account. Those need the master key, which only
+         * exists inside an authorized scope.
+         */
+        const needsMasterKey = computed(() => {
+            const raw = path.value.trim()
+            if (!raw) return false
+            if (walletType.value !== 'mnemonic') return false
+            return raw.includes("'") || raw.includes('h')
+        })
+
+        const deriveWithMasterKey = async () => {
+            const w = wallet.value
+            if (!(w instanceof MnemonicWallet)) return
+
+            masterErr.value = ''
+            isDerivingMaster.value = true
+            try {
+                const publicKey = await authorizeSingle(
+                    w,
+                    'Derive an address from a full BIP32 path',
+                    () => w.getPublicKeyForPath(path.value.trim())
+                )
+                masterDerived.value = addressesFromPublicKey(publicKey)
+            } catch (e) {
+                if (!(e instanceof SessionAuthCancelled)) {
+                    masterErr.value = e instanceof Error ? e.message : String(e)
+                }
+            } finally {
+                isDerivingMaster.value = false
+            }
+        }
+
+        // A new path invalidates whatever the master key produced last.
+        watch(path, () => {
+            masterDerived.value = null
+            masterErr.value = ''
+        })
 
         const derived = computed((): { x: string; p: string; err: string } => {
             if (!isSupported.value) return { x: '', p: '', err: '' }
@@ -133,28 +206,25 @@ export default defineComponent({
                 if (!node.publicKey) {
                     return { x: '', p: '', err: 'Derived node has no public key.' }
                 }
-                const pubKeyBuf = BufferAvalanche.from(
-                    node.publicKey.toString('hex'),
-                    'hex'
-                )
-                const addrBuf = AVMKeyPair.addressFromPublicKey(pubKeyBuf)
-                const hrp = getPreferredHRP(ava.getNetworkID())
-                return {
-                    x: bintools.addressToString(hrp, 'X', addrBuf),
-                    p: bintools.addressToString(hrp, 'P', addrBuf),
-                    err: '',
-                }
+                return { ...addressesFromPublicKey(node.publicKey), err: '' }
             } catch (e) {
                 const msg = e instanceof Error ? e.message : String(e)
                 return { x: '', p: '', err: `Invalid path: ${msg}` }
             }
         })
 
-        const xAddress = computed(() => derived.value.x)
-        const pAddress = computed(() => derived.value.p)
-        const err = computed(() => derived.value.err)
+        const xAddress = computed(() => masterDerived.value?.x ?? derived.value.x)
+        const pAddress = computed(() => masterDerived.value?.p ?? derived.value.p)
+        const err = computed(() => {
+            if (masterErr.value) return masterErr.value
+            if (needsMasterKey.value && !masterDerived.value) return ''
+            return derived.value.err
+        })
 
         return {
+            needsMasterKey,
+            isDerivingMaster,
+            deriveWithMasterKey,
             isSupported,
             walletType,
             basePath,

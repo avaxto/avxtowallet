@@ -332,10 +332,13 @@ async function makeKeyfile(
         let key
         let type: KeystoreFileKeyType
         if (wallet.type === 'singleton') {
-            key = (wallet as SingletonWallet).key
+            // Requires an open authorization, same as the mnemonic branch.
+            key = await (wallet as SingletonWallet).getPrivateKeyString()
             type = 'singleton'
         } else {
-            key = (wallet as MnemonicWallet).getMnemonic()
+            // Requires an open authorization: callers must wrap keystore
+            // export / account save in withAuthorization.
+            key = await (wallet as MnemonicWallet).getMnemonic()
             type = 'mnemonic'
         }
         const pk_crypt: PKCrypt = await cryptoHelpers.encrypt(pass, key, salt)

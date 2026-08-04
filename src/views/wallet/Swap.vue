@@ -187,6 +187,7 @@ import {
     OdosQuote,
 } from '@/js/ArenaSwap'
 import { AvaWalletCore } from '@/js/wallets/types'
+import { authorizeWalletOp, AuthScope, SessionAuthCancelled } from '@/js/security/authorize'
 
 const NATIVE_AVAX: SwapToken = {
     address: NATIVE_TOKEN_ADDRESS,
@@ -391,6 +392,9 @@ export default defineComponent({
             resultTx.value = ''
             statusMsg.value = ''
             try {
+                // An ERC20 input needs an approval before the swap, so this
+                // scope may cover two signatures from one password entry.
+                await authorizeWalletOp(w, AuthScope.BATCH, 'Approve and swap', async () => {
                 evmChainId.value = await web3.eth.getChainId()
                 const gasPrice: BN = await GasHelper.getAdjustedGasPrice()
                 const amountInRaw = toBaseUnits(amountIn.value.trim(), tokenIn.value.decimals)
@@ -422,7 +426,14 @@ export default defineComponent({
                     title: 'Swap Submitted',
                     message: `Swapping ${tokenIn.value.symbol} → ${tokenOut.value!.symbol}`,
                 })
+                })
             } catch (e: any) {
+                if (e instanceof SessionAuthCancelled) {
+                    isApproving.value = false
+                    isSwapping.value = false
+                    statusMsg.value = ''
+                    return
+                }
                 console.error('Swap failed', e)
                 notifications.add({
                     type: 'error',

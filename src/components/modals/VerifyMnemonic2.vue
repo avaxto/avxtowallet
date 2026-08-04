@@ -25,7 +25,6 @@ import { defineComponent, ref, watch, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import Modal from '@/components/modals/Modal.vue'
-import MnemonicPhrase from '@/js/wallets/MnemonicPhrase'
 import RadioButtons from '@/components/misc/RadioButtons.vue'
 import { getRandomMnemonicWord } from '@/helpers/getRandomMnemonicWord'
 
@@ -43,7 +42,7 @@ export default defineComponent({
     },
     props: {
         mnemonic: {
-            type: MnemonicPhrase,
+            type: String,
             required: true
         }
     },
@@ -67,7 +66,7 @@ export default defineComponent({
             const qNum = 3
             const usedIndex: number[] = []
             const newQuestions: Question[] = []
-            const mnemonic = props.mnemonic.getValue().split(' ')
+            const mnemonic = props.mnemonic.split(' ')
 
             while (newQuestions.length < qNum) {
                 const randIndex = Math.floor(Math.random() * (wordsLen - 1))
@@ -133,7 +132,7 @@ export default defineComponent({
         }
 
         // Watch mnemonic prop for changes
-        watch(() => props.mnemonic, (val: MnemonicPhrase) => {
+        watch(() => props.mnemonic, (val: string) => {
             init()
         })
 

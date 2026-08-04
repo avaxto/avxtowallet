@@ -37,18 +37,23 @@ import { ava, avm, bintools, cChain, pChain } from '@/AVA'
 import { AvmExportChainType, AvmImportChainType, IAvaHdWallet } from '@/js/wallets/types'
 import HDKey from 'hdkey'
 import { ITransaction } from '@/components/wallet/transfer/types'
-import { KeyPair as PlatformVMKeyPair } from '@/avalanche/apis/platformvm'
 import { AbstractHdWallet, RequiredKeyIndices } from '@/js/wallets/AbstractHdWallet'
+import { hd, hdFromExtendedKey, wipeNode } from '@/js/hdkeyExtras'
 import { WalletNameType } from '@/js/wallets/types'
 import { digestMessage } from '@/helpers/helper'
 import { KeyChain } from '@/avalanche/apis/evm'
 import Erc20Token from '@/js/Erc20Token'
 import { WalletHelper } from '@/helpers/wallet_helper'
 import { Transaction } from '@ethereumjs/tx'
-import MnemonicPhrase from '@/js/wallets/MnemonicPhrase'
 import { ExportChainsC, ExportChainsP, TxHelper, UtxoHelper, chainIdFromAlias } from '@/avalanche-wallet-sdk'
 import { sortUTxoSetP } from '@/helpers/sortUTXOs'
-import { privateKeyToXPAccount } from '@avalanche-sdk/client/accounts'
+import { markRaw } from 'vue'
+// Node-style Buffer, as hdkey and bip39 expect. Same import the SDK's Ledger
+// wallet uses; `globalThis.Buffer` is only usable as a type here.
+import { Buffer as BufferNative } from 'buffer'
+import { SessionVault } from '@/js/security/SessionVault'
+import { AuthHandle, AuthScope, requireAuth } from '@/js/security/session'
+import { secretFromString, secretToString, wipe } from '@/js/security/memory'
 import {
     AVA_ACCOUNT_PATH,
     ETH_ACCOUNT_PATH,
@@ -115,6 +120,50 @@ export default class MnemonicWallet extends AbstractHdWallet implements IAvaHdWa
     }
 
     /**
+     * The X and C receive addresses for a mnemonic, without building a wallet
+     * or a vault. For flows that need to show where funds will land (the
+     * migration wizard) but never sign with the key.
+     *
+     * Derives, reads the addresses, and wipes — nothing is retained.
+     */
+    static deriveReceiveAddresses(mnemonic: string): {
+        xAddress: string
+        pAddress: string
+        cAddress: string
+    } {
+        const seed: globalThis.Buffer = bip39.mnemonicToSeedSync(mnemonic)
+        const master = HDKey.fromMasterSeed(seed)
+        const account = master.derive(AVA_ACCOUNT_PATH)
+        const ethNode = master.derive(ETH_ACCOUNT_PATH + '/0/0')
+
+        try {
+            const firstX = account.derive('m/0/0')
+            try {
+                const pubKeyBuf = BufferAvalanche.from(firstX.publicKey.toString('hex'), 'hex')
+                const addrBuf = AVMKeyPair.addressFromPublicKey(pubKeyBuf)
+                const hrp = getPreferredHRP(ava.getNetworkID())
+                const chainId = avm.getBlockchainAlias() || avm.getBlockchainID()
+
+                // X and P share the m/0/0 key — only the chain prefix differs.
+                return {
+                    xAddress: bintools.addressToString(hrp, chainId, addrBuf),
+                    pAddress: bintools.addressToString(hrp, 'P', addrBuf),
+                    cAddress:
+                        '0x' +
+                        publicToAddress(importPublic(ethNode.publicKey)).toString('hex'),
+                }
+            } finally {
+                wipeNode(firstX)
+            }
+        } finally {
+            wipeNode(ethNode)
+            wipeNode(account)
+            wipeNode(master)
+            wipe(seed)
+        }
+    }
+
+    /**
      * Private: use MnemonicWallet.create().
      *
      * Retains only public material. The seed is consumed here to derive the
@@ -130,8 +179,8 @@ export default class MnemonicWallet extends AbstractHdWallet implements IAvaHdWa
         // key preserves depth/index/parentFingerprint, so getXpubXP() still
         // reports the real xpub — unlike rebuilding a bare HDKey from
         // publicKey + chainCode.
-        const accountPub = HDKey.fromExtendedKey(accountHdKey.publicExtendedKey)
-        const ethPub = HDKey.fromExtendedKey(ethAccountKey.publicExtendedKey)
+        const accountPub = hdFromExtendedKey(hd(accountHdKey).publicExtendedKey)
+        const ethPub = hdFromExtendedKey(hd(ethAccountKey).publicExtendedKey)
 
         // isPublic: the HD helpers derive addresses only and will throw if
         // asked for a private key.
@@ -143,9 +192,9 @@ export default class MnemonicWallet extends AbstractHdWallet implements IAvaHdWa
         this.isLoading = false
 
         // The only private material that existed in this scope.
-        ethAccountKey.wipePrivateData()
-        accountHdKey.wipePrivateData()
-        masterHdKey.wipePrivateData()
+        wipeNode(ethAccountKey)
+        wipeNode(accountHdKey)
+        wipeNode(masterHdKey)
     }
 
     /**
@@ -156,11 +205,11 @@ export default class MnemonicWallet extends AbstractHdWallet implements IAvaHdWa
         const auth = requireAuth(this.vault)
 
         return this.vault.withSecret(auth, 'seed', async (seedBytes) => {
-            const master = HDKey.fromMasterSeed(globalThis.Buffer.from(seedBytes))
+            const master = HDKey.fromMasterSeed(BufferNative.from(seedBytes) as globalThis.Buffer)
             try {
                 return await fn(master)
             } finally {
-                master.wipePrivateData()
+                wipeNode(master)
             }
         })
     }
@@ -174,7 +223,7 @@ export default class MnemonicWallet extends AbstractHdWallet implements IAvaHdWa
             try {
                 return await fn(node.privateKey)
             } finally {
-                node.wipePrivateData()
+                wipeNode(node)
             }
         })
     }
@@ -223,19 +272,71 @@ export default class MnemonicWallet extends AbstractHdWallet implements IAvaHdWa
         return
     }
 
-    getCurrentKey(): AVMKeyPair {
-        return this.externalHelper.getCurrentKey() as AVMKeyPair
+    /**
+     * Returns the mnemonic phrase of this wallet.
+     *
+     * Requires an open authorization — the phrase is the wallet's root secret,
+     * so revealing, printing or exporting it is gated exactly like signing.
+     *
+     * The returned string cannot be wiped; keep its lifetime as short as
+     * possible at the call site.
+     */
+    async getMnemonic(): Promise<string> {
+        const auth = requireAuth(this.vault)
+        return this.vault.withSecret(auth, 'mnemonic', (pt) => secretToString(pt))
     }
 
     /**
-     * Returns the mnemonic phrase of this wallet
+     * The C-chain private key as hex, for the "reveal private key" screen.
+     * Requires an open authorization. Like getMnemonic, the returned string
+     * cannot be wiped — keep its lifetime short.
      */
-    getMnemonic(): string {
-        return this.mnemonic.getValue()
+    async getEvmPrivateKeyHex(): Promise<string> {
+        return this.withEvmPrivateKey((privateKey) => privateKey.toString('hex'))
     }
 
-    getMnemonicEncrypted(): MnemonicPhrase {
-        return this.mnemonic
+    /**
+     * The X/P private key at a derivation index, in AvalancheJS's
+     * `PrivateKey-...` form, for the "reveal private key" screen.
+     * `change` is 0 for receive/platform addresses (m/0) and 1 for change (m/1).
+     */
+    async getPrivateKeyStringForIndex(change: 0 | 1, index: number): Promise<string> {
+        return this.withMasterKey((master) => {
+            const account = master.derive(AVA_ACCOUNT_PATH)
+            const node = account.derive(`m/${change}/${index}`)
+            try {
+                const keychain = new AVMKeyChain(
+                    getPreferredHRP(ava.getNetworkID()),
+                    this.chainId
+                )
+                const key = keychain.importKey(
+                    BufferAvalanche.from(node.privateKey)
+                ) as AVMKeyPair
+                return key.getPrivateKeyString()
+            } finally {
+                wipeNode(node)
+                wipeNode(account)
+            }
+        })
+    }
+
+    /**
+     * Derives an arbitrary BIP32 path from the master key, for the address
+     * derivation tool. Only needed for paths the neutered account node cannot
+     * reach (hardened segments, or anything above the account level) — the
+     * tool resolves account-relative paths itself without a password.
+     *
+     * Returns public data only.
+     */
+    async getPublicKeyForPath(path: string): Promise<globalThis.Buffer> {
+        return this.withMasterKey((master) => {
+            const node = master.derive(path)
+            try {
+                return BufferNative.from(node.publicKey) as globalThis.Buffer
+            } finally {
+                wipeNode(node)
+            }
+        })
     }
 
     async issueBatchTx(
@@ -246,68 +347,105 @@ export default class MnemonicWallet extends AbstractHdWallet implements IAvaHdWa
         return await WalletHelper.issueBatchTx(this, orders, addr, memo)
     }
 
-    // returns a keychain that has all the derived private/public keys for X chain
-    getKeyChain(): AVMKeyChain {
-        const internal = this.internalHelper.getAllDerivedKeys() as AVMKeyPair[]
-        const external = this.externalHelper.getAllDerivedKeys() as AVMKeyPair[]
+    /**
+     * The indices to derive when the minimal set can't be resolved: everything
+     * the helpers know about. An EVM source address on an X/P transaction also
+     * falls back, preserving pre-existing behaviour rather than failing.
+     */
+    private resolveIndices(required: RequiredKeyIndices | null): {
+        external: number[]
+        internal: number[]
+    } {
+        if (required && !required.needsEvmKey) return required
 
-        const allKeys = internal.concat(external)
-        const keychain: AVMKeyChain = new AVMKeyChain(
-            getPreferredHRP(ava.getNetworkID()),
-            this.chainId
-        )
-
-        for (let i = 0; i < allKeys.length; i++) {
-            keychain.addKey(allKeys[i])
+        const range = (n: number) => Array.from({ length: n + 1 }, (_, i) => i)
+        return {
+            external: range(Math.max(this.externalHelper.hdIndex, this.platformHelper.hdIndex)),
+            internal: range(this.internalHelper.hdIndex),
         }
-        return keychain
     }
 
     /**
-     * True when the minimal key set can't serve this transaction and we should
-     * derive everything instead. An EVM source address on an X/P transaction
-     * falls back rather than failing, to preserve pre-existing behaviour.
+     * Derives the requested indices under `account`, hands the keypairs to
+     * `build`, and wipes every derived node afterwards.
+     *
+     * `m/0` serves both X external and P — they share a derivation path, only
+     * the keychain wrapper differs.
      */
-    private mustDeriveAllKeys(required: RequiredKeyIndices | null): required is null {
-        return required === null || required.needsEvmKey
+    private withDerivedKeys<T>(
+        account: HDKey,
+        build: (keyFor: (change: 0 | 1, index: number) => globalThis.Buffer) => T
+    ): T {
+        const nodes: HDKey[] = []
+        const keyFor = (change: 0 | 1, index: number): globalThis.Buffer => {
+            const node = account.derive(`m/${change}/${index}`)
+            nodes.push(node)
+            return node.privateKey
+        }
+
+        try {
+            return build(keyFor)
+        } finally {
+            for (const node of nodes) wipeNode(node)
+        }
     }
 
     async signX(unsignedTx: AVMUnsignedTx): Promise<AVMTx> {
-        const required = this.getRequiredKeyIndices(unsignedTx, 'X')
+        const indices = this.resolveIndices(this.getRequiredKeyIndices(unsignedTx, 'X'))
 
-        if (this.mustDeriveAllKeys(required)) {
-            return unsignedTx.sign(this.getKeyChain())
-        }
-
-        const keychain = new AVMKeyChain(getPreferredHRP(ava.getNetworkID()), this.chainId)
-        for (const i of required.external) {
-            keychain.addKey(this.externalHelper.getKeyForIndex(i) as AVMKeyPair)
-        }
-        for (const i of required.internal) {
-            keychain.addKey(this.internalHelper.getKeyForIndex(i) as AVMKeyPair)
-        }
-        return unsignedTx.sign(keychain)
+        return this.withMasterKey((master) => {
+            const account = master.derive(AVA_ACCOUNT_PATH)
+            try {
+                return this.withDerivedKeys(account, (keyFor) => {
+                    const keychain = new AVMKeyChain(
+                        getPreferredHRP(ava.getNetworkID()),
+                        this.chainId
+                    )
+                    for (const i of indices.external) {
+                        keychain.importKey(BufferAvalanche.from(keyFor(0, i)))
+                    }
+                    for (const i of indices.internal) {
+                        keychain.importKey(BufferAvalanche.from(keyFor(1, i)))
+                    }
+                    return unsignedTx.sign(keychain)
+                })
+            } finally {
+                wipeNode(account)
+            }
+        })
     }
 
     async signP(unsignedTx: PlatformUnsignedTx): Promise<PlatformTx> {
-        const required = this.getRequiredKeyIndices(unsignedTx, 'P')
+        const indices = this.resolveIndices(this.getRequiredKeyIndices(unsignedTx, 'P'))
 
-        if (this.mustDeriveAllKeys(required)) {
-            return unsignedTx.sign(this.platformHelper.getKeychain() as PlatformVMKeyChain)
-        }
-
-        // P addresses share the m/0 path with X external, so they land in
-        // `external`.
-        const keychain = new PlatformVMKeyChain(getPreferredHRP(ava.getNetworkID()), 'P')
-        for (const i of required.external) {
-            keychain.addKey(this.platformHelper.getKeyForIndex(i) as PlatformVMKeyPair)
-        }
-        return unsignedTx.sign(keychain)
+        return this.withMasterKey((master) => {
+            const account = master.derive(AVA_ACCOUNT_PATH)
+            try {
+                return this.withDerivedKeys(account, (keyFor) => {
+                    const keychain = new PlatformVMKeyChain(
+                        getPreferredHRP(ava.getNetworkID()),
+                        'P'
+                    )
+                    // P addresses share m/0 with X external.
+                    for (const i of indices.external) {
+                        keychain.importKey(BufferAvalanche.from(keyFor(0, i)))
+                    }
+                    return unsignedTx.sign(keychain)
+                })
+            } finally {
+                wipeNode(account)
+            }
+        })
     }
 
     async signC(unsignedTx: EVMUnsignedTx): Promise<EvmTx> {
-        const keyChain = this.ethKeyChain
-        return unsignedTx.sign(keyChain)
+        return this.withEvmPrivateKey((privateKey) => {
+            const keyChain = new KeyChain(ava.getHRP(), 'C')
+            keyChain.importKey(
+                `PrivateKey-` + bintools.cb58Encode(BufferAvalanche.from(privateKey))
+            )
+            return unsignedTx.sign(keyChain)
+        })
     }
 
     /**
@@ -538,14 +676,28 @@ export default class MnemonicWallet extends AbstractHdWallet implements IAvaHdWa
     }
 
     async signEvm(tx: Transaction) {
-        const keyBuff = Buffer.from(this.ethKey, 'hex')
-        return tx.sign(keyBuff)
+        return this.withEvmPrivateKey((privateKey) => tx.sign(privateKey))
     }
 
     async signHashByExternalIndex(index: number, hash: BufferAvalanche) {
-        const key = this.externalHelper.getKeyForIndex(index) as AVMKeyPair
-        const signed = key.sign(hash)
-        return bintools.cb58Encode(signed)
+        // Cheapest signing path: one key, at a known index.
+        return this.withMasterKey((master) => {
+            const account = master.derive(AVA_ACCOUNT_PATH)
+            const node = account.derive(`m/0/${index}`)
+            try {
+                const keychain = new AVMKeyChain(
+                    getPreferredHRP(ava.getNetworkID()),
+                    this.chainId
+                )
+                const key = keychain.importKey(
+                    BufferAvalanche.from(node.privateKey)
+                ) as AVMKeyPair
+                return bintools.cb58Encode(key.sign(hash))
+            } finally {
+                wipeNode(node)
+                wipeNode(account)
+            }
+        })
     }
 
     async createNftFamily(name: string, symbol: string, groupNum: number) {

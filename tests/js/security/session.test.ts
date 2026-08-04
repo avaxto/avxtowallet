@@ -278,3 +278,55 @@ describe('scope close notifications', () => {
         off()
     })
 })
+
+describe('scope limits', () => {
+    it('caps how many operations one BATCH authorization covers', async () => {
+        const vault = await makeVault()
+        answerWith(vault, PASSWORD)
+
+        // 500 is the BATCH cap; the 501st nested op must be refused.
+        await expect(
+            withAuthorization({ scope: AuthScope.BATCH, reason: 'Batch', vault }, async () => {
+                for (let i = 0; i < 501; i++) {
+                    await withAuthorization(
+                        { scope: AuthScope.SINGLE, reason: `tx ${i}`, vault },
+                        async () => i
+                    )
+                }
+            })
+        ).rejects.toThrow(/expired/i)
+
+        // And the scope is still torn down afterwards.
+        expect(isScopeActive()).toBe(false)
+    })
+
+    it('does not cap a SINGLE scope', async () => {
+        const vault = await makeVault()
+        answerWith(vault, PASSWORD)
+
+        const got = await withAuthorization(
+            { scope: AuthScope.SINGLE, reason: 'Send', vault },
+            async (auth) => {
+                auth.assertWithinLimits()
+                return 'ok'
+            }
+        )
+        expect(got).toBe('ok')
+    })
+
+    it('expires a scope held past its wall-clock limit', async () => {
+        const vault = await makeVault()
+        answerWith(vault, PASSWORD)
+
+        await withAuthorization(
+            { scope: AuthScope.BATCH, reason: 'Batch', vault },
+            async (auth) => {
+                // Simulate the scope having been opened 11 minutes ago.
+                Object.defineProperty(auth, 'startedAt', {
+                    value: Date.now() - 11 * 60 * 1000,
+                })
+                expect(() => auth.assertWithinLimits()).toThrow(/expired/i)
+            }
+        )
+    })
+})

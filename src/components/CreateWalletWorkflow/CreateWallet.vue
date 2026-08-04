@@ -94,6 +94,11 @@
                                     </div>
                                     <!-- STEP 2b - ACCESS -->
                                     <div class="access_cont" v-if="isVerified">
+                                        <SessionPasswordFields
+                                            v-model="sessionPassword"
+                                            :show-error="pwTouched"
+                                            @validity="isSessionPwValid = $event"
+                                        ></SessionPasswordFields>
                                         <div class="submit">
                                             <transition name="fade" mode="out-in">
                                                 <Spinner v-if="isLoad" class="spinner"></Spinner>
@@ -101,7 +106,7 @@
                                                     <button
                                                         class="button_primary ava_button access generate"
                                                         @click="access"
-                                                        :disabled="!canSubmit"
+                                                        :disabled="!canSubmit || !isSessionPwValid"
                                                     >
                                                         {{ $t('create.success_submit') }}
                                                     </button>
@@ -136,7 +141,7 @@ import * as bip39 from 'bip39'
 import VerifyMnemonic2 from '@/components/modals/VerifyMnemonic2.vue'
 import MnemonicCopied from '@/components/CreateWalletWorkflow/MnemonicCopied.vue'
 import ToS from '@/components/misc/ToS.vue'
-import MnemonicPhrase from '@/js/wallets/MnemonicPhrase'
+import SessionPasswordFields from '@/components/misc/SessionPasswordFields.vue'
 
 export default defineComponent({
     name: 'CreateWallet',
@@ -150,14 +155,19 @@ export default defineComponent({
         // TorusGoogle,
         VerifyMnemonic2,
         MnemonicCopied,
+        SessionPasswordFields,
     },
     setup() {
         const mainStore = useMainStore()
         const isLoad = ref(false)
-        const keyPhrase = ref<MnemonicPhrase | null>(null)
+        const keyPhrase = ref<string | null>(null)
         const isSecured = ref(false)
         const isVerified = ref(false)
         const verify = ref<InstanceType<typeof VerifyMnemonic2> | null>(null)
+
+        const sessionPassword = ref('')
+        const isSessionPwValid = ref(false)
+        const pwTouched = ref(false)
 
         const canVerify = computed((): boolean => {
             return isSecured.value ? true : false
@@ -170,7 +180,7 @@ export default defineComponent({
         const createKey = (): void => {
             isSecured.value = false
             const mnemonic = bip39.generateMnemonic(256)
-            keyPhrase.value = new MnemonicPhrase(mnemonic)
+            keyPhrase.value = mnemonic
         }
 
         const canSubmit = computed((): boolean => {
@@ -188,16 +198,27 @@ export default defineComponent({
         const access = async (): Promise<void> => {
             if (!keyPhrase.value) return
 
+            pwTouched.value = true
+            if (!isSessionPwValid.value) return
+
             isLoad.value = true
 
             setTimeout(async () => {
-                await mainStore.accessWallet(keyPhrase.value!.getValue())
+                try {
+                    await mainStore.accessWallet(keyPhrase.value!, sessionPassword.value)
+                } finally {
+                    // The vault holds the secrets now; drop our copy either way.
+                    sessionPassword.value = ''
+                }
             }, 500)
         }
 
         return {
             isLoad,
             keyPhrase,
+            sessionPassword,
+            isSessionPwValid,
+            pwTouched,
             isSecured,
             isVerified,
             verify,

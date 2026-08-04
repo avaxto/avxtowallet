@@ -130,11 +130,12 @@ export default defineComponent({
             if (!mnemonic) return
             isDerivingAddrs.value = true
             try {
-                const wallet = new MnemonicWallet(mnemonic)
+                // Addresses only — no wallet (and no vault) is needed here.
+                const derived = MnemonicWallet.deriveReceiveAddresses(mnemonic)
                 addresses.value = {
-                    xAddr: wallet.getCurrentAddressAvm(),
-                    pAddr: wallet.getCurrentAddressPlatform(),
-                    cAddr: '0x' + wallet.ethAddress,
+                    xAddr: derived.xAddress,
+                    pAddr: derived.pAddress,
+                    cAddr: derived.cAddress,
                 }
             } catch (e) {
                 console.warn('Address derivation failed:', e)

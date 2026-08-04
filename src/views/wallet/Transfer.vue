@@ -185,6 +185,7 @@ import ChainInput from '@/components/wallet/transfer/ChainInput.vue'
 import BatchFormX from '@/components/wallet/transfer/BatchFormX.vue'
 import AvaAsset from '../../js/AvaAsset'
 import { TxState } from '@/components/wallet/earn/ChainTransfer/types'
+import { authorizeSingle, SessionAuthCancelled } from '@/js/security/authorize'
 
 export default defineComponent({
     name: 'Transfer',
@@ -400,14 +401,19 @@ export default defineComponent({
                 orders: sumArray,
             }
 
-            mainStore
-                .issueBatchTx(txListData)
+            authorizeSingle(wallet.value, 'Send an X-chain transaction', () =>
+                mainStore.issueBatchTx(txListData)
+            )
                 .then((res) => {
                     canSendAgain.value = false
                     waitTxConfirm(res)
                     txId.value = res
                 })
                 .catch((errVal) => {
+                    if (errVal instanceof SessionAuthCancelled) {
+                        isAjax.value = false
+                        return
+                    }
                     onerror(errVal)
                 })
         }

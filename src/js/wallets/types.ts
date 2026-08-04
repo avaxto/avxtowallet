@@ -1,6 +1,5 @@
-import HDKey from 'hdkey'
+import { SessionVault } from '@/js/security/SessionVault'
 import {
-    KeyChain as AVMKeyChain,
     KeyPair as AVMKeyPair,
     UTXOSet,
     UTXO as AVMUTXO,
@@ -121,16 +120,19 @@ export interface AvaWalletCore extends IAddressManager {
     signMessage(msg: string, address: string): Promise<string>
 }
 
-// Wallets which have the private key in memory
+// Wallets which hold the private key in memory in the clear.
+// MnemonicWallet no longer qualifies — its key material lives encrypted in a
+// SessionVault and is derived only inside an authorized signing scope.
 export interface UnsafeWallet {
     ethKey: string
     ethKeyChain: EVMKeyChain
 }
 
-export interface IAvaHdWallet extends AvaWalletCore, UnsafeWallet {
-    seed: string
-    hdKey: HDKey
-    getMnemonic(): string
-    getCurrentKey(): AVMKeyPair
-    getKeyChain(): AVMKeyChain
+/**
+ * An HD wallet whose secrets are held in a SessionVault. Every accessor that
+ * would expose key material is async and requires an open authorization.
+ */
+export interface IAvaHdWallet extends AvaWalletCore {
+    readonly vault: SessionVault
+    getMnemonic(): Promise<string>
 }

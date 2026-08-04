@@ -79,6 +79,7 @@ import { BN } from '@/avalanche'
 import { pChain } from '@/AVA'
 import { bnToBig } from '@/helpers/helper'
 import Big from 'big.js'
+import { authorizeSingle, SessionAuthCancelled } from '@/js/security/authorize'
 
 export default defineComponent({
     name: 'NewCollectibleFamily',
@@ -139,7 +140,11 @@ export default defineComponent({
             let symbolTrimmed = symbol.value.trim()
 
             try {
-                let txIdValue = await wallet.createNftFamily(nameTrimmed, symbolTrimmed, groupNum.value)
+                let txIdValue = await authorizeSingle(
+                    wallet,
+                    'Create an NFT family',
+                    () => wallet.createNftFamily(nameTrimmed, symbolTrimmed, groupNum.value)
+                )
                 console.log(txIdValue)
                 onSuccess(txIdValue)
             } catch (e) {

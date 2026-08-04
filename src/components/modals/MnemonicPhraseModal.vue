@@ -1,5 +1,5 @@
 <template>
-    <modal ref="modal" :title="$t('modal.mnemonic.title')" class="modal_main">
+    <modal ref="modal" @beforeClose="$emit('beforeClose')" :title="$t('modal.mnemonic.title')" class="modal_main">
         <div class="mnemonic_modal_body">
             <mnemonic-display :phrase="phrase" :row-size="3"></mnemonic-display>
             <p class="warning_text">
@@ -16,7 +16,6 @@ import { useI18n } from 'vue-i18n'
 import Modal from '@/components/modals/Modal.vue'
 import MnemonicDisplay from '@/components/misc/MnemonicDisplay.vue'
 import CopyText from '@/components/misc/CopyText.vue'
-import MnemonicPhrase from '@/js/wallets/MnemonicPhrase'
 
 export default defineComponent({
     name: 'MnemonicPhraseModal',
@@ -25,9 +24,10 @@ export default defineComponent({
         MnemonicDisplay,
         CopyText,
     },
+    emits: ['beforeClose'],
     props: {
         phrase: {
-            type: Object as () => MnemonicPhrase,
+            type: String,
             default: ''
         }
     },

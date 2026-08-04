@@ -136,6 +136,7 @@ import {
 import { AvmImportChainType } from '@/js/wallets/types'
 import { sortUTxoSetP } from '@/helpers/sortUTXOs'
 import { selectMaxUtxoForExportP } from '@/helpers/utxoSelection/selectMaxUtxoForExportP'
+import { authorizeBatch, SessionAuthCancelled } from '@/js/security/authorize'
 
 // Time for an export tx's UTXOs to land in shared/atomic memory before the
 // matching import is attempted (matches ChainTransfer.vue's IMPORT_DELAY).
@@ -312,6 +313,9 @@ export default defineComponent({
             const target = targetChain.value
             const sources = allChains.filter((c) => c !== target)
 
+            try {
+                // Two signatures per source chain — one authorization for all.
+                await authorizeBatch(w, `Consolidate funds onto the ${target}-chain`, async () => {
             for (const source of sources) {
                 if (balanceForChain(source).lte(zero)) continue
 
@@ -403,8 +407,13 @@ export default defineComponent({
                 }
             }
 
-            currentLabel.value = ''
-            isRunning.value = false
+                })
+            } catch (e) {
+                if (!(e instanceof SessionAuthCancelled)) throw e
+            } finally {
+                currentLabel.value = ''
+                isRunning.value = false
+            }
             isDone.value = true
         }
 

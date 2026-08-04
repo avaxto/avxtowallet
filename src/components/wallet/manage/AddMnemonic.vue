@@ -6,9 +6,14 @@
             autocomplete="off"
             autocapitalize="off"
         ></textarea>
+        <SessionPasswordFields
+            v-model="sessionPassword"
+            :show-error="pwTouched"
+            @validity="isSessionPwValid = $event"
+        ></SessionPasswordFields>
         <p class="err">{{ err }}</p>
         <v-btn
-            :disabled="!canSubmit"
+            :disabled="!canSubmit || !isSessionPwValid"
             :loading="isLoading"
             @click="access"
             class="addKeyBut button_primary ava_button"
@@ -24,14 +29,19 @@ import { defineComponent, ref, computed } from 'vue'
 import { useMainStore } from '@/stores'
 import { useI18n } from 'vue-i18n'
 import * as bip39 from 'bip39'
+import SessionPasswordFields from '@/components/misc/SessionPasswordFields.vue'
 
 export default defineComponent({
     name: 'AddMnemonic',
+    components: { SessionPasswordFields },
     emits: ['success'],
     setup(_, { emit }) {
         const mainStore = useMainStore()
         const { t } = useI18n()
         const phrase = ref('')
+        const sessionPassword = ref('')
+        const isSessionPwValid = ref(false)
+        const pwTouched = ref(false)
         const err = ref('')
         const isLoading = ref(false)
 
@@ -88,7 +98,8 @@ export default defineComponent({
 
             setTimeout(async () => {
                 try {
-                    await mainStore.addWalletMnemonic(phraseValue)
+                    await mainStore.addWalletMnemonic(phraseValue, sessionPassword.value)
+                    sessionPassword.value = ''
                     isLoading.value = false
                     handleImportSuccess()
                 } catch (e) {
@@ -104,6 +115,9 @@ export default defineComponent({
 
         return {
             phrase,
+            sessionPassword,
+            isSessionPwValid,
+            pwTouched,
             err,
             isLoading,
             wordCount,

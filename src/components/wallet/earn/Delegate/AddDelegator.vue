@@ -224,6 +224,7 @@ import { sortUTxoSetP } from '@/helpers/sortUTXOs'
 import { selectMaxUtxoForStaking } from '@/helpers/utxoSelection/selectMaxUtxoForStaking'
 import Tooltip from '@/components/misc/Tooltip.vue'
 import { bnToAvaxP } from '@/avalanche-wallet-sdk'
+import { authorizeSingle, SessionAuthCancelled } from '@/js/security/authorize'
 
 const MIN_MS = 60000
 const HOUR_MS = MIN_MS * 60
@@ -308,13 +309,15 @@ export default defineComponent({
             let startDate = new Date(Date.now() + 5 * MIN_MS)
 
             try {
-                let delegationTxId = await wallet.delegate(
-                    formNodeID.value,
-                    formAmt.value,
-                    startDate,
-                    formEnd.value,
-                    formRewardAddr.value,
-                    formUtxos.value
+                let delegationTxId = await authorizeSingle(wallet, 'Delegate stake', () =>
+                    wallet.delegate(
+                        formNodeID.value,
+                        formAmt.value,
+                        startDate,
+                        formEnd.value,
+                        formRewardAddr.value,
+                        formUtxos.value
+                    )
                 )
                 isSuccess.value = true
                 txId.value = delegationTxId

@@ -4,10 +4,16 @@
             <p>{{ $t('modal.activateWallet.desc') }}</p>
             <form @submit.prevent="onsubmit" autocomplete="off">
                 <input type="password" placeholder="Password" v-model="password" class="password" />
+                <SessionPasswordFields
+                    v-model="sessionPassword"
+                    :show-error="pwTouched"
+                    @validity="isSessionPwValid = $event"
+                ></SessionPasswordFields>
                 <p class="err">{{ err }}</p>
                 <v-btn
                     type="submit"
                     :loading="isLoading"
+                    :disabled="!isSessionPwValid"
                     depressed
                     class="ava_button button_primary submit"
                 >
@@ -42,16 +48,20 @@ import {
 import MnemonicWallet from '../../../js/wallets/MnemonicWallet'
 import { SingletonWallet } from '../../../js/wallets/SingletonWallet'
 import { SaveAccountInput } from '@/types'
+import SessionPasswordFields from '@/components/misc/SessionPasswordFields.vue'
 
 export default defineComponent({
     name: 'UpgradeToAccountModal',
-    components: { Modal },
+    components: { Modal, SessionPasswordFields },
     setup() {
         const mainStore = useMainStore()
         const accountsStore = useAccountsStore()
         const { t } = useI18n()
         const modal = ref<InstanceType<typeof Modal> | null>(null)
         const password = ref('')
+        const sessionPassword = ref('')
+        const isSessionPwValid = ref(false)
+        const pwTouched = ref(false)
         const isLoading = ref(false)
         const err = ref('')
 
@@ -76,7 +86,9 @@ export default defineComponent({
                 await mainStore.accessWalletMultiple({
                     keys: accessInput,
                     activeIndex: keyFile.activeIndex,
+                    sessionPassword: sessionPassword.value,
                 })
+                sessionPassword.value = ''
 
                 // If they are using an old keystore version upgrade to a new one
                 // if (keyFile.version !== KEYSTORE_VERSION) {
@@ -142,6 +154,9 @@ export default defineComponent({
         })
 
         return {
+            sessionPassword,
+            isSessionPwValid,
+            pwTouched,
             modal,
             password,
             isLoading,

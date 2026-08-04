@@ -64,11 +64,9 @@ abstract class AbstractWallet implements AvaWalletCore {
     isInit: boolean
 
     // AvalancheAccount conformance
-    xpAccount?: XPAccount
     // Separate XPAccount built from the EVM private key (m/44'/60'/0'/0/0).
     // Only set for MnemonicWallet (which has distinct X-chain and EVM derivation paths).
     // For SingletonWallet the same key serves both roles, so this stays undefined.
-    evmXpAccount?: XPAccount
 
     get evmAccount(): Account {
         return {
@@ -317,57 +315,10 @@ abstract class AbstractWallet implements AvaWalletCore {
         const destinationAddr =
             destinationChain === 'C' ? this.getEvmAddressBech() : this.getCurrentAddressAvm()
 
-        if (this.xpAccount) {
-            // Key-based wallets (mnemonic / singleton): follow the SDK example at
-            // ava-labs/avalanche-sdk-typescript:
-            //   client/examples/prepare-primary-network-txns/p-chain/exportTx.ts
-            //
-            // The SDK signs every input with the single key the account carries
-            // (derived from `xpAccount.publicKey` — the primary m/0/0 address).
-            // Passing `fromAddresses: getAllAddressesP()` (all HD-discovered P
-            // addresses) made the SDK pull in inputs owned by addresses the
-            // single signing key cannot satisfy, producing node-side
-            // "failed verifySpend: failed to verify transfer: invalid signature".
-            //
-            // Omitting `fromAddresses` lets the SDK fetch UTXOs only at the
-            // account's primary P-chain address — every input is then signed by
-            // a key that recovers to its owner.  Funds at non-primary HD-derived
-            // P addresses are not reachable through this path (a known
-            // single-key-account limitation of the new SDK).
-            const network = activeNetwork
-            const chain = defineChain({
-                id: network.evmChainID,
-                name: 'Avalanche',
-                nativeCurrency: { name: 'Avalanche', symbol: 'AVAX', decimals: 18 },
-                rpcUrls: { default: { http: [network.rpcUrl.c] } },
-            })
-            const evmAddress = this.getEVMAddress() as `0x${string}`
-            const xpAcc = this.xpAccount!
-            const avalancheAccount = {
-                evmAccount: { address: evmAddress, type: 'json-rpc' as const },
-                xpAccount: xpAcc,
-                getXPAddress: () => '',
-                getEVMAddress: () => evmAddress,
-            }
-            const walletClient = createAvalancheWalletClient({
-                chain: chain as any,
-                transport: { type: 'http' as const, url: network.rpcUrl.c },
-                account: avalancheAccount as any,
-            })
-
-            const pChainExportTxnRequest = await walletClient.pChain.prepareExportTxn({
-                exportedOutputs: [{
-                    addresses: [destinationAddr],
-                    amount: BigInt(amtFee.toString()),
-                }],
-                destinationChain: destinationChain as 'X' | 'C',
-            })
-
-            const result = await walletClient.sendXPTransaction(pChainExportTxnRequest)
-            return result.txHash
-        }
-
-        // Fallback for wallets without a local xpAccount (Ledger, InjectedWallet)
+        // Single AvalancheJS path. The SDK branch that used to sit here signed
+        // every input with one account key, which fails whenever UTXOs are spread
+        // across HD addresses; it is unreachable now that key material lives in a
+        // SessionVault and is derived per signature.
         const utxoSet = this.getPlatformUTXOSet()
         const sortedSet = sortUTxoSetP(utxoSet, false)
         const pChangeAddr = this.getCurrentAddressPlatform()
@@ -416,58 +367,15 @@ abstract class AbstractWallet implements AvaWalletCore {
 
         console.log('Built export transaction', exportTxResult)
 
-        if (this.xpAccount || this.evmXpAccount) {
-            console.log('Wallet has xpAccount, using wallet client to sign and send export transaction...')
-            // Local-key wallets (mnemonic / singleton): sign with xpAccount
-            const network = activeNetwork
-            const chain = defineChain({
-                id: network.evmChainID,
-                name: 'Avalanche',
-                nativeCurrency: { name: 'Avalanche', symbol: 'AVAX', decimals: 18 },
-                rpcUrls: { default: { http: [network.rpcUrl.c] } },
-            })
-            const evmAddress = this.getEVMAddress() as `0x${string}`
-            // C-chain export credentials are owned by the EVM key (m/44'/60'/0'/0/0).
-            // Use evmXpAccount when available (MnemonicWallet); fall back to xpAccount
-            // for SingletonWallet where both chains share the same key.
-            const xpAcc = (this.evmXpAccount ?? this.xpAccount)!
-            const avalancheAccount = {
-                evmAccount: { address: evmAddress, type: 'json-rpc' as const },
-                xpAccount: xpAcc,
-                getXPAddress: () => '',
-                getEVMAddress: () => evmAddress,
-            }
-            const walletClient = createAvalancheWalletClient({
-                chain: chain as any,
-                transport: { type: 'http' as const, url: network.rpcUrl.c },
-                account: avalancheAccount as any,
-            })
-            const result = await walletClient.sendXPTransaction({
-                tx: exportTxResult.tx,
-                chainAlias: exportTxResult.chainAlias,
-                account: avalancheAccount as any,
-            })
-            return result.txHash
-        } else {
-            console.log('Wallet does NOT have xpAccount, using legacy signing and issuing for export transaction...')
-        }
-
-        // Fallback for wallets without a local xpAccount (Ledger, Injected):
+        // Single AvalancheJS path — see exportFromPChain.
         // Convert the new SDK UnsignedTx bytes back to the old AvalancheJS format
         // so the wallet's signC implementation can handle signing.
-        console.log('1')
         const txBytes = exportTxResult.tx.toBytes()
-        console.log('2')
         const oldUnsignedTx = new EVMUnsignedTx()
-        console.log('3')
         oldUnsignedTx.fromBuffer(Buffer.from(txBytes) as any)
-        console.log('4')
         const tx = await this.signC(oldUnsignedTx)
-        console.log('5')
         const issuedTx = this.issueC(tx)
-        console.log('6')
         console.log('Issued export transaction', issuedTx)
-        console.log('7')
         return issuedTx
     }
 
@@ -505,39 +413,7 @@ abstract class AbstractWallet implements AvaWalletCore {
     }
 
     async importToPlatformChain(sourceChain: ExportChainsP): Promise<string> {
-        if (this.xpAccount) {
-            // Key-based wallets (mnemonic / singleton): use the new SDK idiom.
-            const network = activeNetwork
-            const chain = defineChain({
-                id: network.evmChainID,
-                name: 'Avalanche',
-                nativeCurrency: { name: 'Avalanche', symbol: 'AVAX', decimals: 18 },
-                rpcUrls: { default: { http: [network.rpcUrl.c] } },
-            })
-            const evmAddress = this.getEVMAddress() as `0x${string}`
-            const xpAcc = this.xpAccount!
-            const avalancheAccount = {
-                evmAccount: { address: evmAddress, type: 'json-rpc' as const },
-                xpAccount: xpAcc,
-                getXPAddress: () => '',
-                getEVMAddress: () => evmAddress,
-            }
-            const walletClient = createAvalancheWalletClient({
-                chain: chain as any,
-                transport: { type: 'http' as const, url: network.rpcUrl.c },
-                account: avalancheAccount as any,
-            })
-            const pChainImportTxnRequest = await walletClient.pChain.prepareImportTxn({
-                sourceChain: sourceChain as 'X' | 'C',
-                importedOutput: {
-                    addresses: [this.getCurrentAddressPlatform()],
-                },
-            })
-            const result = await walletClient.sendXPTransaction(pChainImportTxnRequest)
-            return result.txHash
-        }
-
-        // Fallback for wallets without a local xpAccount (Ledger): use old AvalancheJS path.
+        // Single AvalancheJS path — see exportFromPChain.
         const utxoSet = await this.platformGetAtomicUTXOs(sourceChain)
 
         if (utxoSet.getAllUTXOs().length === 0) {

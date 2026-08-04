@@ -159,6 +159,7 @@ import { ICurrencyInputDropdownValue } from '@/components/wallet/transfer/types'
 import BatchTxReport, { BatchTxResult } from '@/components/wallet/transfer/BatchTxReport.vue'
 import { IBatchRecipient } from '@/js/TxHelper'
 import { Wallet } from '@/js/wallets/AbstractWallet'
+import { authorizeSingle, SessionAuthCancelled } from '@/js/security/authorize'
 
 interface BatchRowX {
     uuid: string
@@ -276,7 +277,11 @@ export default defineComponent({
                 }))
 
                 const memoBuf = memo.value ? Buffer.from(memo.value) : undefined
-                const txId = await mainStore.issueBatchTxMulti(batch, memoBuf)
+                const txId = await authorizeSingle(
+                    wallet.value,
+                    `Send to ${recipients.value.length} X-chain recipients`,
+                    () => mainStore.issueBatchTxMulti(batch, memoBuf)
+                )
 
                 // A single atomic tx pays every recipient; report each address
                 // against the shared tx id.

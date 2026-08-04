@@ -314,6 +314,7 @@ import {
     SwapToken,
 } from '@/js/ArenaSwap'
 import { AvaWalletCore } from '@/js/wallets/types'
+import { authorizeBatch, SessionAuthCancelled } from '@/js/security/authorize'
 
 // Gas budget assumptions (units). A single aggregator swap rarely exceeds
 // ~500k gas; the approval (ERC20 inputs only) is a one-time ~80k. The reserve
@@ -718,6 +719,9 @@ export default defineComponent({
 
             started.value = true
             running.value = true
+
+            // Approval plus one swap per chunk, all from a single password entry.
+            const authScopeReason = `Run an iceberg order in ${plan.length} chunks`
             aborted.value = false
             startTime.value = Date.now()
             nowTick.value = Date.now()
@@ -728,6 +732,7 @@ export default defineComponent({
             const userAddress = '0x' + w.getEvmAddress()
 
             try {
+                await authorizeBatch(w, authScopeReason, async () => {
                 // One-time approval covering the whole order (ERC20 inputs only).
                 if (!isNativeToken(inTok.address)) {
                     const router = await getRouterAddress()
@@ -790,6 +795,11 @@ export default defineComponent({
                         await delay(INTER_CHUNK_DELAY)
                     }
                 }
+                })
+            } catch (e) {
+                // A dismissed prompt aborts before anything is sent.
+                if (!(e instanceof SessionAuthCancelled)) throw e
+                aborted.value = true
             } finally {
                 running.value = false
                 // Refresh balances after the run.

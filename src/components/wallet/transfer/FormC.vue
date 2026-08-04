@@ -177,6 +177,7 @@ import Erc20Token from '@/js/Erc20Token'
 import { iErc721SelectInput } from '@/components/misc/EVMInputDropdown/types'
 import { WalletHelper } from '@/helpers/wallet_helper'
 import BatchFormC from '@/components/wallet/transfer/BatchFormC.vue'
+import { authorizeSingle, SessionAuthCancelled } from '@/js/security/authorize'
 
 export default defineComponent({
     name: 'FormC',
@@ -411,38 +412,48 @@ export default defineComponent({
             isLoading.value = true
             err.value = ''
             try {
-                let hash: string
-                if (isCollectible.value && formCollectible.value) {
-                    hash = await WalletHelper.sendErc721(
-                        wallet.value,
-                        formAddress.value,
-                        gasPrice.value,
-                        gasLimit.value,
-                        formCollectible.value.token,
-                        formCollectible.value.id
-                    )
-                } else if (formToken.value !== 'native' && formToken.value instanceof Erc20Token) {
-                    hash = await WalletHelper.sendErc20(
-                        wallet.value,
-                        formAddress.value,
-                        formAmount.value,
-                        gasPrice.value,
-                        gasLimit.value,
-                        formToken.value
-                    )
-                } else {
-                    hash = await WalletHelper.sendEth(
-                        wallet.value,
-                        formAddress.value,
-                        formAmount.value,
-                        gasPrice.value,
-                        gasLimit.value
-                    )
-                }
+                const hash: string = await authorizeSingle(
+                    wallet.value,
+                    'Send a C-chain transaction',
+                    async () => {
+                        if (isCollectible.value && formCollectible.value) {
+                            return await WalletHelper.sendErc721(
+                                wallet.value,
+                                formAddress.value,
+                                gasPrice.value,
+                                gasLimit.value,
+                                formCollectible.value.token,
+                                formCollectible.value.id
+                            )
+                        } else if (
+                            formToken.value !== 'native' &&
+                            formToken.value instanceof Erc20Token
+                        ) {
+                            return await WalletHelper.sendErc20(
+                                wallet.value,
+                                formAddress.value,
+                                formAmount.value,
+                                gasPrice.value,
+                                gasLimit.value,
+                                formToken.value
+                            )
+                        } else {
+                            return await WalletHelper.sendEth(
+                                wallet.value,
+                                formAddress.value,
+                                formAmount.value,
+                                gasPrice.value,
+                                gasLimit.value
+                            )
+                        }
+                    }
+                )
                 txHash.value = hash
                 isSuccess.value = true
                 canSendAgain.value = true
             } catch (e: any) {
+                // A dismissed password prompt is not an error — just stop.
+                if (e instanceof SessionAuthCancelled) return
                 err.value = errorToString(e)
             } finally {
                 isLoading.value = false

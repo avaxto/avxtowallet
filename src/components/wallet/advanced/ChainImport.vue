@@ -54,6 +54,7 @@ import {
     ExportChainsX,
     GasHelper,
 } from '@/avalanche-wallet-sdk'
+import { authorizeSingle, SessionAuthCancelled } from '@/js/security/authorize'
 
 export default defineComponent({
     name: 'ChainImport',
@@ -93,7 +94,11 @@ export default defineComponent({
 
             // // Import from C
             try {
-                let txIdVal = await wallet.value.importToXChain(sourceChain)
+                let txIdVal = await authorizeSingle(
+                    wallet.value,
+                    'Import funds to the X-chain',
+                    () => wallet.value.importToXChain(sourceChain)
+                )
                 onSuccess(txIdVal)
             } catch (e) {
                 if (isSuccess.value) return
@@ -106,7 +111,11 @@ export default defineComponent({
             if (!wallet.value) return
             await refreshBeforeImport()
             try {
-                let txIdVal = await wallet.value.importToPlatformChain(source)
+                let txIdVal = await authorizeSingle(
+                    wallet.value,
+                    'Import funds to the P-chain',
+                    () => wallet.value.importToPlatformChain(source)
+                )
                 onSuccess(txIdVal)
             } catch (e) {
                 onError(e)
@@ -189,7 +198,11 @@ export default defineComponent({
                     }
                 }
 
-                let txIdVal = await wallet.value.importToCChain(source, feeNAvax)
+                let txIdVal = await authorizeSingle(
+                    wallet.value,
+                    'Import funds to the C-chain',
+                    () => wallet.value.importToCChain(source, feeNAvax)
+                )
                 onSuccess(txIdVal)
             } catch (e) {
                 onError(e)

@@ -126,6 +126,7 @@ import {
     TokenLaunchResult,
 } from '@/js/TokenLauncher'
 import { AvaWalletCore } from '@/js/wallets/types'
+import { authorizeSingle, SessionAuthCancelled } from '@/js/security/authorize'
 
 export default defineComponent({
     name: 'Launcher',
@@ -205,7 +206,9 @@ export default defineComponent({
                     maxSupply: form.maxSupply.trim(),
                 }
 
-                const res = await deployToken(wallet.value, params, gasPrice)
+                const res = await authorizeSingle(wallet.value, 'Deploy a token contract', () =>
+                    deployToken(wallet.value, params, gasPrice)
+                )
                 result.value = res
                 notifications.add({
                     type: 'success',

@@ -373,6 +373,7 @@ import { GasHelper, avaxCtoX } from '@/avalanche-wallet-sdk'
 import { ITransaction } from '@/components/wallet/transfer/types'
 import { bnToBig } from '@/helpers/helper'
 import { IssueBatchTxInput } from '@/types'
+import { authorizeBatch, SessionAuthCancelled } from '@/js/security/authorize'
 
 interface AssetEntry {
     chain: 'X' | 'P' | 'C'
@@ -441,14 +442,16 @@ export default defineComponent({
         // manually entered addresses when the user picked "Use Existing Wallet".
         // Everything downstream (step 2 preview, step 3 execution) reads these
         // two regardless of which source mode is active.
-        const _newWallet = ref<MnemonicWallet | null>(null)
+        // Addresses only — the destination wallet is never signed with here,
+        // so there is no reason to build one (and no vault to protect).
+        const _newAddrs = ref<{ xAddress: string; cAddress: string } | null>(null)
         const newXAddr = computed(() => {
             if (walletSource.value === 'existing') return existingXAddr.value.trim()
-            return _newWallet.value?.getCurrentAddressAvm() ?? ''
+            return _newAddrs.value?.xAddress ?? ''
         })
         const newCAddr = computed(() => {
             if (walletSource.value === 'existing') return existingCAddr.value.trim()
-            return _newWallet.value?.getEvmChecksumAddress() ?? ''
+            return _newAddrs.value?.cAddress ?? ''
         })
 
         const generateMnemonic = () => {
@@ -467,7 +470,7 @@ export default defineComponent({
 
             // Derive target wallet addresses immediately
             try {
-                _newWallet.value = new MnemonicWallet(mnemonic)
+                _newAddrs.value = MnemonicWallet.deriveReceiveAddresses(mnemonic)
             } catch (e) {
                 console.warn('Failed to derive new wallet addresses:', e)
             }
@@ -769,7 +772,7 @@ export default defineComponent({
 
         const executeTransfers = async () => {
             if (walletSource.value === 'new') {
-                if (!newMnemonic.value || !_newWallet.value) return
+                if (!newMnemonic.value || !_newAddrs.value) return
             } else if (!canProceedExisting.value) {
                 return
             }
@@ -780,6 +783,8 @@ export default defineComponent({
             const targetXAddr = newXAddr.value
             const targetCAddr = newCAddr.value
 
+            try {
+                await authorizeBatch(wallet, 'Migrate all funds to the new wallet', async () => {
             // ── P-chain: move funds to X/C first if requested, so they're
             // included in that chain's transfer below. Must run before the
             // X-chain and C-chain sections.
@@ -990,6 +995,11 @@ export default defineComponent({
                 }
             }
 
+                })
+            } catch (e) {
+                if (!(e instanceof SessionAuthCancelled)) throw e
+            }
+
             isExecuting.value = false
             currentStep3Label.value = 'All transfers processed.'
         }
@@ -1059,7 +1069,7 @@ export default defineComponent({
             quizAnswers.value = {}
             quizError.value = null
             copiedMnemonic.value = false
-            _newWallet.value = null
+            _newAddrs.value = null
             // step 2
             confirmWord.value = ''
             discoveredAssets.value = []

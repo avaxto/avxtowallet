@@ -1,5 +1,5 @@
 <template>
-    <modal ref="modalRef" :title="$t('modal.priv_key.title')" class="modal_main">
+    <modal ref="modalRef" @beforeClose="$emit('beforeClose')" :title="$t('modal.priv_key.title')" class="modal_main">
         <div class="singleton_modal_body">
             <p v-if="walletType == 'injected'">
                 {{ $t('keys.view_priv_key_injected') }}
@@ -31,6 +31,7 @@ export default defineComponent({
     components: {
         Modal,
     },
+    emits: ['beforeClose'],
     props: {
         privateKey: {
             type: String,

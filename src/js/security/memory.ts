@@ -51,3 +51,16 @@ export function secretFromString(s: string): Uint8Array {
 export function secretToString(b: Uint8Array): string {
     return new TextDecoder().decode(b)
 }
+
+/**
+ * Best-effort erasure of an AvalancheJS keypair's private material.
+ *
+ * Partial by necessity: `privk` is a Buffer we can zero, but the underlying
+ * elliptic KeyPair stores the scalar as a BN backed by a number array that is
+ * neither reachable nor zeroable from here. Call it anyway — it removes the one
+ * copy we control.
+ */
+export function destroyKeyPair(keypair: unknown): void {
+    const kp = keypair as { privk?: Uint8Array } | null | undefined
+    if (kp?.privk) wipe(kp.privk)
+}

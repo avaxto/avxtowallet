@@ -22,7 +22,6 @@
 </template>
 <script lang="ts">
 import { defineComponent, computed, type PropType } from 'vue'
-import MnemonicPhrase from '@/js/wallets/MnemonicPhrase'
 import { getRandomMnemonicWord } from '@/helpers/getRandomMnemonicWord'
 
 export default defineComponent({
@@ -37,13 +36,13 @@ export default defineComponent({
             default: 4
         },
         phrase: {
-            type: Object as PropType<MnemonicPhrase>,
+            type: String as PropType<string>,
             required: true
         }
     },
     setup(props) {
         const phraseArray = computed((): string[] => {
-            const words = props.phrase.getValue().split(' ')
+            const words = props.phrase.split(' ')
             const mixedMnemonic = []
             for (let i in words) {
                 mixedMnemonic.push(words[i])

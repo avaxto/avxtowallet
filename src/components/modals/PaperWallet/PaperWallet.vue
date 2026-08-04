@@ -1,5 +1,10 @@
 <template>
-    <modal ref="modal" :title="$t('modal.print.title')" class="print_modal">
+    <modal
+        ref="modal"
+        :title="$t('modal.print.title')"
+        class="print_modal"
+        @beforeClose="onClose"
+    >
         <div class="qr_body" ref="qr_body">
             <img
                 ref="bg"
@@ -34,6 +39,7 @@ import Modal from '@/components/modals/Modal.vue'
 import MnemonicWallet from '@/js/wallets/MnemonicWallet'
 import QRCode from 'qrcode'
 import printjs from 'print-js'
+import { authorizeSingle, SessionAuthCancelled } from '@/js/security/authorize'
 
 const PDF_W = 8.5
 const PDF_H = 11
@@ -66,8 +72,27 @@ export default defineComponent({
         const width = ref(100)
         const height = ref(100)
 
-        const open = () => {
+        // The phrase is held only while this modal is open, and dropped on
+        // close. Printing the recovery phrase is as sensitive as signing, so
+        // it goes through the same authorization.
+        const mnemonic = ref('')
+
+        const open = async () => {
+            try {
+                mnemonic.value = await authorizeSingle(
+                    props.wallet,
+                    'Print a paper wallet (reveals your recovery phrase)',
+                    () => (props.wallet as MnemonicWallet).getMnemonic()
+                )
+            } catch (e) {
+                // Cancelling the prompt simply aborts; anything else is a real
+                // failure worth surfacing.
+                if (e instanceof SessionAuthCancelled) return
+                throw e
+            }
+
             modal.value?.open()
+            buildQr()
 
             setTimeout(() => {
                 setSizes()
@@ -76,6 +101,11 @@ export default defineComponent({
             setTimeout(() => {
                 initBg()
             }, 500)
+        }
+
+        const onClose = () => {
+            mnemonic.value = ''
+            mnemonicImg.value = null
         }
 
         const address = computed(() => {
@@ -170,7 +200,7 @@ export default defineComponent({
             }
 
             // Mnemonic
-            let mnemonicWords: string[] = props.wallet.getMnemonic().split(' ')
+            let mnemonicWords: string[] = mnemonic.value.split(' ')
             let row1 = mnemonicWords.slice(0, 8).join(' ')
             let row2 = mnemonicWords.slice(8, 16).join(' ')
             let row3 = mnemonicWords.slice(16).join(' ')
@@ -202,7 +232,7 @@ export default defineComponent({
             )
 
             QRCode.toDataURL(
-                props.wallet.getMnemonic(),
+                mnemonic.value,
                 {
                     width: designPxToReal(90),
                 },
@@ -238,14 +268,13 @@ export default defineComponent({
         }
 
         watch(address, buildQr)
-        watch(() => props.wallet.getMnemonic(), buildQr)
 
-        onMounted(() => {
-            buildQr()
-        })
+        // No onMounted buildQr: nothing to draw until open() has authorized
+        // and fetched the phrase.
 
         return {
             modal,
+            onClose,
             pdf,
             bg,
             qrImg,

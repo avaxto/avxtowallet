@@ -13,11 +13,16 @@
                 type="password"
                 v-model="pass"
             ></v-text-field>
+            <SessionPasswordFields
+                v-model="sessionPassword"
+                :show-error="pwTouched"
+                @validity="isSessionPwValid = $event"
+            ></SessionPasswordFields>
             <p v-if="err" class="err">{{ err }}</p>
             <v-btn
                 type="submit"
                 :loading="isLoading"
-                :disabled="!canSubmit"
+                :disabled="!canSubmit || !isSessionPwValid"
                 class="addKeyBut button_primary ava_button"
                 depressed
                 block
@@ -32,12 +37,14 @@ import { defineComponent, ref, computed } from 'vue'
 import { useMainStore } from '@/stores'
 import FileInput from '@/components/misc/FileInput.vue'
 import { ImportKeyfileInput } from '@/types'
+import SessionPasswordFields from '@/components/misc/SessionPasswordFields.vue'
 import { AllKeyFileTypes } from '@/js/IKeystore'
 import { KEYSTORE_VERSION } from '@/js/Keystore'
 
 export default defineComponent({
     name: 'AddKeyFile',
     components: {
+        SessionPasswordFields,
         FileInput,
     },
     emits: ['success'],
@@ -45,6 +52,9 @@ export default defineComponent({
         const mainStore = useMainStore()
         const canAdd = ref(false)
         const pass = ref('')
+        const sessionPassword = ref('')
+        const isSessionPwValid = ref(false)
+        const pwTouched = ref(false)
         const keyfile = ref<File | null>(null)
         const isLoading = ref(false)
         const err = ref<string | null>(null)
@@ -89,6 +99,7 @@ export default defineComponent({
             setTimeout(async () => {
                 let input: ImportKeyfileInput = {
                     password: pass.value,
+                    sessionPassword: sessionPassword.value,
                     data: fileData,
                 }
 
@@ -119,6 +130,9 @@ export default defineComponent({
         }
 
         return {
+            sessionPassword,
+            isSessionPwValid,
+            pwTouched,
             canAdd,
             pass,
             keyfile,

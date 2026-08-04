@@ -13,12 +13,17 @@
                     v-model="privatekey"
                     hide-details
                 ></v-text-field>
+                <SessionPasswordFields
+                    v-model="sessionPassword"
+                    :show-error="pwTouched"
+                    @validity="isSessionPwValid = $event"
+                ></SessionPasswordFields>
                 <p class="err">{{ error }}</p>
                 <v-btn
                     class="ava_button button_primary"
                     @click="access"
                     :loading="isLoading"
-                    :disabled="!canSubmit"
+                    :disabled="!canSubmit || !isSessionPwValid"
                     depressed
                 >
                     Access Wallet
@@ -38,9 +43,11 @@ import { privateToAddress } from 'ethereumjs-util'
 import { bintools } from '@/AVA'
 import { Buffer } from '@/avalanche'
 import { strip0x } from '@/avalanche-wallet-sdk'
+import SessionPasswordFields from '@/components/misc/SessionPasswordFields.vue'
 
 export default defineComponent({
     name: 'PrivateKey',
+    components: { SessionPasswordFields },
     setup() {
         const mainStore = useMainStore()
         const router = useRouter()
@@ -48,6 +55,9 @@ export default defineComponent({
         const privatekey = ref<string>('')
         const isLoading = ref<boolean>(false)
         const error = ref<string>('')
+        const sessionPassword = ref('')
+        const isSessionPwValid = ref(false)
+        const pwTouched = ref(false)
 
         const canSubmit = computed((): boolean => {
             if (!privatekey.value) {
@@ -63,7 +73,8 @@ export default defineComponent({
             let key = strip0x(privatekey.value)
 
             try {
-                let res = await mainStore.accessWalletSingleton(key)
+                let res = await mainStore.accessWalletSingleton(key, sessionPassword.value)
+                sessionPassword.value = ''
                 onsuccess()
             } catch (e) {
                 onerror('Invalid Private Key.')
@@ -82,6 +93,9 @@ export default defineComponent({
         }
 
         return {
+            sessionPassword,
+            isSessionPwValid,
+            pwTouched,
             privatekey,
             isLoading,
             error,

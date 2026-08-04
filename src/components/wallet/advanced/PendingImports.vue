@@ -96,6 +96,7 @@ import { AvmImportChainType } from '@/js/wallets/types'
 import { Tx as AVMTx } from '@/avalanche/apis/avm/tx'
 import { Tx as PlatformTx } from '@/avalanche/apis/platformvm/tx'
 import { Tx as EvmTx } from '@/avalanche/apis/evm/tx'
+import { authorizeSingle, SessionAuthCancelled } from '@/js/security/authorize'
 
 type ChainAlias = 'X' | 'P' | 'C'
 
@@ -328,13 +329,16 @@ export default defineComponent({
             row.importing = true
             lastError.value = ''
             try {
-                let txId: string
+                let txId: string = await authorizeSingle(
+                    w,
+                    `Import ${row.source} to ${row.dest}`,
+                    async () => {
                 // The probe table guarantees source≠dest, so each branch's
                 // source is one of the two valid origin chains for that import.
                 if (row.dest === 'X') {
-                    txId = await w.importToXChain(row.source as AvmImportChainType)
+                    return await w.importToXChain(row.source as AvmImportChainType)
                 } else if (row.dest === 'P') {
-                    txId = await w.importToPlatformChain(row.source as ExportChainsP)
+                    return await w.importToPlatformChain(row.source as ExportChainsP)
                 } else {
                     // C-chain — compute a fee like ChainImport.vue does, sized for the
                     // total pending UTXOs in this source→C combination (not just this one
@@ -349,8 +353,10 @@ export default defineComponent({
                     const totFee = perGasWei.mul(new BN(gas))
                     let feeNAvax = avaxCtoX(totFee)
                     if (feeNAvax.lten(0)) feeNAvax = new BN(600000)
-                    txId = await w.importToCChain(row.source as ExportChainsC, feeNAvax)
+                    return await w.importToCChain(row.source as ExportChainsC, feeNAvax)
                 }
+                    }
+                )
                 notificationsStore.add({
                     type: 'success',
                     title: `Imported ${row.source}→${row.dest}`,

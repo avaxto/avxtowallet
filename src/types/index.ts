@@ -56,7 +56,14 @@ export interface IssueBatchTxInput {
 }
 
 export interface ImportKeyfileInput {
+    /** Decrypts the keystore file itself. */
     password: string
+    /**
+     * Protects the imported secrets in memory for this session. Deliberately
+     * separate from the keyfile password: one is at-rest backup encryption,
+     * the other authorizes signing. Never stored.
+     */
+    sessionPassword: string
     data: AllKeyFileTypes
 }
 

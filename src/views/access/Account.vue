@@ -10,12 +10,17 @@
                     placeholder="Password"
                     v-model="password"
                 />
+                <SessionPasswordFields
+                    v-model="sessionPassword"
+                    :show-error="pwTouched"
+                    @validity="isSessionPwValid = $event"
+                ></SessionPasswordFields>
                 <p class="err">{{ error }}</p>
                 <v-btn
                     class="ava_button button_primary"
                     @click="access"
                     :loading="isLoading"
-                    :disabled="!canSubmit"
+                    :disabled="!canSubmit || !isSessionPwValid"
                     depressed
                 >
                     Access Wallet
@@ -30,22 +35,27 @@
 </template>
 <script lang="ts">
 import { defineComponent, ref, computed, onMounted } from 'vue'
-import { useAccountsStore } from '@/stores'
+import { useAccountsStore, useMainStore } from '@/stores'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { ImportKeyfileInput, iUserAccountEncrypted } from '@/types'
 import Identicon from '@/components/misc/Identicon.vue'
+import SessionPasswordFields from '@/components/misc/SessionPasswordFields.vue'
 
 export default defineComponent({
     name: 'Account',
-    components: { Identicon },
+    components: { Identicon, SessionPasswordFields },
     setup() {
         const accountsStore = useAccountsStore()
+        const mainStore = useMainStore()
         const route = useRoute()
         const router = useRouter()
         const { t } = useI18n()
 
         const password = ref('')
+        const sessionPassword = ref('')
+        const isSessionPwValid = ref(false)
+        const pwTouched = ref(false)
         const isLoading = ref(false)
         const error = ref('')
 
@@ -70,28 +80,28 @@ export default defineComponent({
             isLoading.value = true
             let data: ImportKeyfileInput = {
                 password: password.value,
+                sessionPassword: sessionPassword.value,
                 data: accountVal.wallet,
             }
 
-            setTimeout(() => {
-                store
-                    .dispatch('Accounts/accessAccount', {
-                        index: index.value,
-                        pass: password.value,
-                    })
-                    .then((res) => {
-                        isLoading.value = false
-                    })
-                    .catch((err) => {
-                        if (err === 'INVALID_PASS') {
-                            error.value = t('access.password_error').toString()
-                        } else if (err === 'INVALID_VERSION') {
-                            error.value = t('access.keystore_error').toString()
-                        } else {
-                            error.value = err.message
-                        }
-                        isLoading.value = false
-                    })
+            // Was dispatching to a Vuex store that no longer exists, so this
+            // handler never worked. importKeyfile is the Pinia equivalent: it
+            // decrypts the stored keyfile and loads its wallets.
+            setTimeout(async () => {
+                try {
+                    await mainStore.importKeyfile(data)
+                    sessionPassword.value = ''
+                } catch (err: any) {
+                    if (err === 'INVALID_PASS' || err?.message === 'INVALID_PASS') {
+                        error.value = t('access.password_error').toString()
+                    } else if (err === 'INVALID_VERSION' || err?.message === 'INVALID_VERSION') {
+                        error.value = t('access.keystore_error').toString()
+                    } else {
+                        error.value = err?.message ?? String(err)
+                    }
+                } finally {
+                    isLoading.value = false
+                }
             }, 200)
         }
 
@@ -121,6 +131,9 @@ export default defineComponent({
         })
 
         return {
+            sessionPassword,
+            isSessionPwValid,
+            pwTouched,
             password,
             isLoading,
             error,

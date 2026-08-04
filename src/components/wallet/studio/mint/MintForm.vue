@@ -148,6 +148,7 @@ import Big from 'big.js'
 import { bnToBig } from '@/helpers/helper'
 import NftFamilyCardsPreview from '@/components/misc/NftFamilyCardsPreview.vue'
 import NftCard from '@/components/wallet/portfolio/NftCard.vue'
+import { authorizeSingle, SessionAuthCancelled } from '@/js/security/authorize'
 
 type NftType = 'utf8' | 'url' | 'json'
 
@@ -333,7 +334,11 @@ export default defineComponent({
             isLoading.value = true
 
             try {
-                let txIdResult = await wallet.mintNft(props.mintUtxo, payloadPreview.value, quantity.value)
+                let txIdResult = await authorizeSingle(
+                    wallet,
+                    'Mint a collectible',
+                    () => wallet.mintNft(props.mintUtxo, payloadPreview.value, quantity.value)
+                )
                 onSuccess(txIdResult)
             } catch (e) {
                 console.error(e)

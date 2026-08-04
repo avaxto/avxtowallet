@@ -220,6 +220,7 @@ import CopyText from '@/components/misc/CopyText.vue'
 import Tooltip from '@/components/misc/Tooltip.vue'
 import PrivateKey from '@/components/modals/PrivateKey.vue'
 import XpubModal from '@/components/modals/XpubModal.vue'
+import { authorizeSingle, SessionAuthCancelled } from '@/js/security/authorize'
 
 interface AddrEntry {
     index: number
@@ -361,18 +362,21 @@ export default defineComponent({
         const privKeyModal = ref<InstanceType<typeof PrivateKey>>()
         const xpubModal = ref<InstanceType<typeof XpubModal>>()
 
-        const openPrivKey = (source: PrivKeySource, index: number) => {
+        const openPrivKey = async (source: PrivKeySource, index: number) => {
             const w = wallet.value
             if (!(w instanceof MnemonicWallet)) return
             try {
-                const helper =
-                    source === 'xExternal' ? w.externalHelper
-                    : source === 'xInternal' ? w.internalHelper
-                    : w.platformHelper
-                const kp = helper.getKeyForIndex(index)
-                revealKey.value = kp.getPrivateKeyString()
+                // The HD helpers are watch-only now, so the key is derived from
+                // the vaulted seed behind the session password instead.
+                const change = source === 'xInternal' ? 1 : 0
+                revealKey.value = await authorizeSingle(
+                    w,
+                    'Reveal a derived private key',
+                    () => w.getPrivateKeyStringForIndex(change, index)
+                )
                 privKeyModal.value?.open()
             } catch (e) {
+                if (e instanceof SessionAuthCancelled) return
                 notificationsStore.add({
                     type: 'error',
                     title: 'Could not derive key',

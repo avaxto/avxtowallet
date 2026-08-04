@@ -152,6 +152,7 @@ import {
 import { sortUTxoSetP } from '@/helpers/sortUTXOs'
 import { selectMaxUtxoForExportP } from '@/helpers/utxoSelection/selectMaxUtxoForExportP'
 import { errorToString } from '@/helpers/helper'
+import { authorizeCrossChain, SessionAuthCancelled } from '@/js/security/authorize'
 
 const IMPORT_DELAY = 5000 // in ms
 const BALANCE_DELAY = 2000 // in ms
@@ -397,8 +398,20 @@ export default defineComponent({
             isImportErr.value = false
 
             try {
-                await chainExport(formAmt.value, sourceChain.value, targetChain.value)
+                // One authorization covers both signatures. The scope has to
+                // survive the IMPORT_DELAY timer and the UTXO refetch between
+                // them, otherwise the user would be prompted again midway with
+                // the export already broadcast.
+                await authorizeCrossChain(
+                    wallet.value,
+                    `Transfer from ${sourceChain.value}-chain to ${targetChain.value}-chain (2 transactions)`,
+                    () => chainExport(formAmt.value, sourceChain.value, targetChain.value)
+                )
             } catch (error) {
+                if (error instanceof SessionAuthCancelled) {
+                    isLoading.value = false
+                    return
+                }
                 onerror(error)
             }
         }

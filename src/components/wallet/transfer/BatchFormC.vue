@@ -111,6 +111,7 @@ import EVMInputDropdown from '@/components/misc/EVMInputDropdown/EVMInputDropdow
 import Erc20Token from '@/js/Erc20Token'
 import { iErc721SelectInput } from '@/components/misc/EVMInputDropdown/types'
 import BatchTxReport, { BatchTxResult } from '@/components/wallet/transfer/BatchTxReport.vue'
+import { authorizeBatch, SessionAuthCancelled } from '@/js/security/authorize'
 
 interface BatchRowC {
     uuid: string
@@ -238,49 +239,76 @@ export default defineComponent({
                 nonce = await web3.eth.getTransactionCount(fromAddr)
             }
 
-            for (const r of recipients.value) {
-                try {
-                    let gasLimit = 21000
-                    if (r.token !== 'native' && r.token instanceof Erc20Token) {
-                        try {
-                            gasLimit = await w.estimateGas(r.address, r.amount, r.token)
-                        } catch (e) {
-                            gasLimit = 100000
+            try {
+                // One authorization covers the whole batch — the user is asked
+                // for the session password once, not once per recipient.
+                await authorizeBatch(
+                    w,
+                    `Send ${recipients.value.length} C-chain transactions`,
+                    async () => {
+                        for (const r of recipients.value) {
+                            try {
+                                let gasLimit = 21000
+                                if (r.token !== 'native' && r.token instanceof Erc20Token) {
+                                    try {
+                                        gasLimit = await w.estimateGas(
+                                            r.address,
+                                            r.amount,
+                                            r.token
+                                        )
+                                    } catch (e) {
+                                        gasLimit = 100000
+                                    }
+                                }
+
+                                let hash: string
+                                if (r.token !== 'native' && r.token instanceof Erc20Token) {
+                                    hash = await WalletHelper.sendErc20(
+                                        w,
+                                        r.address,
+                                        r.amount,
+                                        gasPrice.value,
+                                        gasLimit,
+                                        r.token,
+                                        nonce
+                                    )
+                                } else {
+                                    hash = await WalletHelper.sendEth(
+                                        w,
+                                        r.address,
+                                        r.amount,
+                                        gasPrice.value,
+                                        gasLimit,
+                                        nonce
+                                    )
+                                }
+
+                                out.push({
+                                    address: r.address,
+                                    status: 'success',
+                                    txId: hash,
+                                })
+                                nonce += 1
+                                sentCount.value += 1
+                            } catch (e: any) {
+                                out.push({
+                                    address: r.address,
+                                    status: 'error',
+                                    error: e?.message ?? String(e),
+                                })
+                            }
                         }
                     }
-
-                    let hash: string
-                    if (r.token !== 'native' && r.token instanceof Erc20Token) {
-                        hash = await WalletHelper.sendErc20(
-                            w,
-                            r.address,
-                            r.amount,
-                            gasPrice.value,
-                            gasLimit,
-                            r.token,
-                            nonce
-                        )
-                    } else {
-                        hash = await WalletHelper.sendEth(
-                            w,
-                            r.address,
-                            r.amount,
-                            gasPrice.value,
-                            gasLimit,
-                            nonce
-                        )
-                    }
-
-                    out.push({ address: r.address, status: 'success', txId: hash })
-                    nonce += 1
-                    sentCount.value += 1
-                } catch (e: any) {
-                    out.push({
-                        address: r.address,
-                        status: 'error',
-                        error: e?.message ?? String(e),
-                    })
+                )
+            } catch (e: any) {
+                // Cancelling the prompt aborts the batch before anything is sent.
+                if (e instanceof SessionAuthCancelled) {
+                    isSending.value = false
+                    return
                 }
+                err.value = e?.message ?? String(e)
+                isSending.value = false
+                return
             }
 
             results.value = out

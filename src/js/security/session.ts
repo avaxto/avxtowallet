@@ -38,6 +38,14 @@ export class NotAuthorized extends Error {
     }
 }
 
+/** A long-running scope hit its wall-clock or operation cap. */
+export class SessionScopeExpired extends Error {
+    constructor(detail: string) {
+        super(`Authorization expired: ${detail}. Re-authorize to continue.`)
+        this.name = 'SessionScopeExpired'
+    }
+}
+
 /** Another wallet's operation is already holding an authorization. */
 export class SessionBusy extends Error {
     constructor() {
@@ -57,13 +65,39 @@ export class SessionBusy extends Error {
 export class AuthHandle implements KeyProvider {
     readonly scope: AuthScope
     readonly vault: SessionVault
+    readonly startedAt = Date.now()
     private key: CryptoKey | null
     private disposed = false
+    private opCount = 0
 
     constructor(scope: AuthScope, vault: SessionVault, key: CryptoKey) {
         this.scope = scope
         this.vault = vault
         this.key = key
+    }
+
+    /**
+     * Bounds how long one authorization stays usable. A scope that can be held
+     * indefinitely is not really a scope — a compromised page could keep a
+     * batch open and sign with it forever.
+     */
+    assertWithinLimits(): void {
+        if (this.scope === AuthScope.SINGLE) return
+
+        const limits = SCOPE_LIMITS[this.scope]
+        if (Date.now() - this.startedAt > limits.maxMs) {
+            throw new SessionScopeExpired(
+                `open longer than ${Math.round(limits.maxMs / 60000)} minutes`
+            )
+        }
+        if (this.opCount >= limits.maxOps) {
+            throw new SessionScopeExpired(`covered ${limits.maxOps} operations`)
+        }
+    }
+
+    /** Called once per nested operation that reuses this authorization. */
+    countOperation(): void {
+        this.opCount += 1
     }
 
     getKey(): CryptoKey {
@@ -90,6 +124,14 @@ export interface AuthorizeOptions {
     vault: SessionVault
     /** Secret used to check the password before the operation starts. */
     canary?: SecretName
+}
+
+const SCOPE_LIMITS: Record<AuthScope, { maxMs: number; maxOps: number }> = {
+    [AuthScope.SINGLE]: { maxMs: Infinity, maxOps: Infinity },
+    // An export, a wait, then an import — generous, but not unbounded.
+    [AuthScope.CROSSCHAIN]: { maxMs: 15 * 60 * 1000, maxOps: 8 },
+    // Long batches are legitimate; a 10 minute / 500 op ceiling still bounds them.
+    [AuthScope.BATCH]: { maxMs: 10 * 60 * 1000, maxOps: 500 },
 }
 
 /** The currently open scope, if any. Single-threaded JS makes one slot sound. */
@@ -144,6 +186,8 @@ export async function withAuthorization<T>(
         if (ambient.vault !== opts.vault) {
             throw new SessionBusy()
         }
+        ambient.assertWithinLimits()
+        ambient.countOperation()
         return fn(ambient)
     }
 

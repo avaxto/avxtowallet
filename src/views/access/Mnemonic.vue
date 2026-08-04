@@ -12,6 +12,31 @@
                 autocomplete="off"
                 autocapitalize="off"
             />
+
+            <div class="session_pw">
+                <h4>Session password</h4>
+                <p class="session_pw_desc">
+                    Encrypts your phrase and keys while the wallet is open, and
+                    authorizes each transaction. It is never stored — you will
+                    be asked for it again every time you sign, and it cannot be
+                    recovered if forgotten.
+                </p>
+                <input
+                    type="password"
+                    ref="session_pw_in"
+                    v-model="sessionPassword"
+                    placeholder="Choose a session password"
+                    autocomplete="new-password"
+                />
+                <input
+                    type="password"
+                    ref="session_pw_confirm_in"
+                    v-model="sessionPasswordConfirm"
+                    placeholder="Confirm session password"
+                    autocomplete="new-password"
+                />
+            </div>
+
             <div class="button_container">
                 <p class="err" v-if="err">{{ err }}</p>
                 <button
@@ -54,10 +79,21 @@ export default defineComponent({
         const canSubmit = ref<boolean>(false)
         const mnemonic_in = ref<HTMLInputElement>()
 
+        const sessionPassword = ref('')
+        const sessionPasswordConfirm = ref('')
+        const session_pw_in = ref<HTMLInputElement>()
+        const session_pw_confirm_in = ref<HTMLInputElement>()
+
+        const MIN_SESSION_PASSWORD = 9
+
         onBeforeUnmount(() => {
-            if (mnemonic_in.value) {
-                mnemonic_in.value.value = ''
-            }
+            // Clear the DOM nodes as well as the refs — an input's .value keeps
+            // the secret alive independently of the reactive binding.
+            if (mnemonic_in.value) mnemonic_in.value.value = ''
+            if (session_pw_in.value) session_pw_in.value.value = ''
+            if (session_pw_confirm_in.value) session_pw_confirm_in.value.value = ''
+            sessionPassword.value = ''
+            sessionPasswordConfirm.value = ''
         })
 
         const getMnemonic = () => {
@@ -96,11 +132,21 @@ export default defineComponent({
             return true
         }
 
+        const sessionPasswordError = (): string => {
+            if (sessionPassword.value.length < MIN_SESSION_PASSWORD) {
+                return `Session password must be at least ${MIN_SESSION_PASSWORD} characters.`
+            }
+            if (sessionPassword.value !== sessionPasswordConfirm.value) {
+                return 'Session passwords do not match.'
+            }
+            return ''
+        }
+
         const access = async () => {
-            
+
             err.value = ''
             const phrase = getMnemonic()
-            
+
             isLoading.value = true
 
             if (!errCheck()) {
@@ -108,15 +154,26 @@ export default defineComponent({
                 return
             }
 
-            
+            const pwErr = sessionPasswordError()
+            if (pwErr) {
+                err.value = pwErr
+                isLoading.value = false
+                return
+            }
+
             try {
-                await mainStore.accessWallet(phrase)
+                await mainStore.accessWallet(phrase, sessionPassword.value)
+                // The wallet now holds only ciphertext; drop our copies.
+                sessionPassword.value = ''
+                sessionPasswordConfirm.value = ''
+                if (session_pw_in.value) session_pw_in.value.value = ''
+                if (session_pw_confirm_in.value) session_pw_confirm_in.value.value = ''
                 isLoading.value = false
             } catch (e) {
                 isLoading.value = false
                 err.value = `${t('access.mnemonic.error')}`
             }
-            
+
         }
 
         return {
@@ -124,6 +181,10 @@ export default defineComponent({
             err,
             canSubmit,
             mnemonic_in,
+            sessionPassword,
+            sessionPasswordConfirm,
+            session_pw_in,
+            session_pw_confirm_in,
             getMnemonic,
             getWordCount,
             errCheck,
@@ -134,6 +195,30 @@ export default defineComponent({
 </script>
 <style scoped lang="scss">
 @use '../../main';
+
+.session_pw {
+    margin-top: 22px;
+    text-align: left;
+
+    h4 {
+        font-size: 13px;
+        font-weight: bold;
+        margin-bottom: 4px;
+    }
+
+    .session_pw_desc {
+        font-size: 12px;
+        color: var(--primary-color-light);
+        margin-bottom: 10px;
+    }
+
+    input {
+        display: block;
+        width: 100%;
+        margin-bottom: 8px;
+    }
+}
+
 
 .mnemonic_auth {
     margin: 0px auto;

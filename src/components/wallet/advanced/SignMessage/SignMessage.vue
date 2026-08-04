@@ -30,6 +30,7 @@ import { useMainStore } from '@/stores'
 import { Wallet } from '@/js/wallets/AbstractWallet'
 import SearchAddress from '@/components/wallet/advanced/SignMessage/SearchAddress.vue'
 import { SingletonWallet } from '@/js/wallets/SingletonWallet'
+import { authorizeSingle, SessionAuthCancelled } from '@/js/security/authorize'
 
 export default defineComponent({
     name: 'SignMessage',
@@ -63,12 +64,16 @@ export default defineComponent({
             try {
                 // Convert the message to a hashed buffer
                 // let hashMsg = this.msgToHash(this.message);
-                if (wallet.value.type === 'singleton') {
-                    signed.value = await (wallet.value as SingletonWallet).signMessage(message.value)
-                } else {
-                    signed.value = await wallet.value.signMessage(message.value, sourceAddress.value!)
-                }
+                signed.value = await authorizeSingle(
+                    wallet.value,
+                    'Sign a message',
+                    () =>
+                        wallet.value.type === 'singleton'
+                            ? (wallet.value as SingletonWallet).signMessage(message.value)
+                            : wallet.value.signMessage(message.value, sourceAddress.value!)
+                )
             } catch (e) {
+                if (e instanceof SessionAuthCancelled) return
                 error.value = e as string
             }
         }

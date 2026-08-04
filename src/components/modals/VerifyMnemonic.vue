@@ -26,7 +26,6 @@ import { defineComponent, ref, computed, watch, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import Modal from '@/components/modals/Modal.vue'
-import MnemonicPhrase from '@/js/wallets/MnemonicPhrase'
 
 export default defineComponent({
     name: 'VerifyMnemonic',
@@ -35,7 +34,7 @@ export default defineComponent({
     },
     props: {
         mnemonic: {
-            type: Object as () => MnemonicPhrase,
+            type: String,
             required: false
         }
     },
@@ -51,7 +50,7 @@ export default defineComponent({
         const title = ref('')
 
         const words = computed(() => {
-            return props.mnemonic ? props.mnemonic.getValue().split(' ') : []
+            return props.mnemonic ? props.mnemonic.split(' ') : []
         })
 
         const init = () => {

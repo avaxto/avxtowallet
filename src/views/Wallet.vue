@@ -31,9 +31,11 @@ import TopInfo from '@/components/wallet/TopInfo.vue'
 import Sidebar from '@/components/wallet/Sidebar.vue'
 import UpdateKeystoreModal from '@/components/modals/UpdateKeystore/UpdateKeystoreModal.vue'
 import NavbarMenu from '@/components/NavbarMenu.vue'
+import { isScopeActive, onScopeClosed } from '@/js/security/session'
 
 const TIMEOUT_DURATION = 60 * 7 // in seconds
 const TIMEOUT_DUR_MS = TIMEOUT_DURATION * 1000
+const IDLE_CHECK_MS = 15 * 1000
 
 export default defineComponent({
     name: 'Wallet',
@@ -68,6 +70,46 @@ export default defineComponent({
             logoutTimestamp.value = Date.now() + TIMEOUT_DUR_MS
         }
 
+        /**
+         * Locks the wallet once the user has been idle past the timeout.
+         *
+         * This check previously did not exist — the timestamp and the mouse
+         * listeners were wired up but nothing ever compared them, so the wallet
+         * never actually locked.
+         *
+         * Never fires while an authorized operation is open: a long batch would
+         * otherwise be killed mid-run with transactions already broadcast.
+         * Instead the lock is deferred, and onScopeClosed runs it the moment the
+         * operation finishes.
+         */
+        const lockPending = ref(false)
+
+        const doLock = () => {
+            lockPending.value = false
+            store.logout()
+        }
+
+        const checkIdle = () => {
+            if (Date.now() < logoutTimestamp.value) return
+            if (isScopeActive()) {
+                // Defer — an operation is signing right now.
+                lockPending.value = true
+                return
+            }
+            doLock()
+        }
+
+        // An operation finishing is also the point at which the idle clock
+        // should restart: a batch that ran for nine minutes should not count
+        // as nine minutes of idleness.
+        const offScopeClosed = onScopeClosed(() => {
+            if (lockPending.value) {
+                doLock()
+            } else {
+                resetTimer()
+            }
+        })
+
         const unload = (event: BeforeUnloadEvent) => {
             // user has no wallet saved
             if (!localStorage.getItem('w') && hasVolatileWallets.value && isLogOut.value) {
@@ -83,11 +125,13 @@ export default defineComponent({
             resetTimer()
 
             let view = wallet_view.value as HTMLDivElement
-            
 
             view.addEventListener('mousemove', resetTimer)
             view.addEventListener('mousedown', resetTimer)
+            view.addEventListener('keydown', resetTimer)
             window.addEventListener('beforeunload', unload)
+
+            intervalId.value = setInterval(checkIdle, IDLE_CHECK_MS)
         })
 
         onBeforeUnmount(() => {
@@ -95,7 +139,9 @@ export default defineComponent({
             // Remove Event Listeners
             view.removeEventListener('mousemove', resetTimer)
             view.removeEventListener('mousedown', resetTimer)
+            view.removeEventListener('keydown', resetTimer)
             window.removeEventListener('beforeunload', unload)
+            offScopeClosed()
         })
 
         onUnmounted(() => {

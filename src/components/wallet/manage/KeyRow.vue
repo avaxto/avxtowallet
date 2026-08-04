@@ -6,9 +6,10 @@
             ref="export_wallet"
         ></ExportKeys>
         <MnemonicPhraseModal
-            v-if="walletType === 'mnemonic'"
+            v-if="walletType === 'mnemonic' && mnemonicPhrase"
             :phrase="mnemonicPhrase"
             ref="modal"
+            @beforeClose="onMnemonicModalClose"
         ></MnemonicPhraseModal>
         <HdDerivationListModal
             :wallet="wallet"
@@ -16,14 +17,16 @@
             v-if="isHDWallet"
         ></HdDerivationListModal>
         <PrivateKey
-            v-if="walletType === 'singleton'"
+            v-if="walletType === 'singleton' && privateKey"
             :privateKey="privateKey"
             ref="modal_priv_key"
+            @beforeClose="onPrivateKeyModalClose"
         ></PrivateKey>
         <PrivateKey
-            v-if="walletType !== 'ledger'"
+            v-if="walletType !== 'ledger' && privateKeyC"
             :privateKey="privateKeyC"
             ref="modal_priv_key_c"
+            @beforeClose="onPrivateKeyCModalClose"
         ></PrivateKey>
         <XpubModal :xpub="xpubXP" v-if="isHDWallet" ref="modal_xpub"></XpubModal>
         <div class="rows">
@@ -114,7 +117,7 @@
     </div>
 </template>
 <script lang="ts">
-import { defineComponent, computed, ref } from 'vue'
+import { defineComponent, computed, ref, nextTick } from 'vue'
 import { useAssetsStore, useMainStore } from '@/stores'
 
 import { bintools, keyChain } from '@/AVA'
@@ -132,9 +135,9 @@ import { WalletNameType } from '@/js/wallets/types'
 import { Wallet } from '@/js/wallets/AbstractWallet'
 
 import { SingletonWallet } from '../../../js/wallets/SingletonWallet'
-import MnemonicPhrase from '@/js/wallets/MnemonicPhrase'
 import XpubModal from '@/components/modals/XpubModal.vue'
 import { AbstractHdWallet } from '@/js/wallets/AbstractHdWallet'
+import { authorizeSingle, SessionAuthCancelled } from '@/js/security/authorize'
 
 interface IKeyBalanceDict {
     [key: string]: AvaAsset
@@ -245,23 +248,15 @@ export default defineComponent({
             return ['mnemonic', 'ledger'].includes(walletType.value)
         })
 
-        const mnemonicPhrase = computed((): MnemonicPhrase | null => {
-            if (walletType.value !== 'mnemonic') return null
-            let wallet = props.wallet as MnemonicWallet
-            return wallet.getMnemonicEncrypted()
-        })
+        // Filled only by an authorized reveal, and cleared when the modal
+        // closes. Was a computed reading the wallet's in-memory phrase.
+        const mnemonicPhrase = ref<string | null>(null)
 
-        const privateKey = computed((): string | null => {
-            if (walletType.value !== 'singleton') return null
-            let wallet = props.wallet as SingletonWallet
-            return wallet.key
-        })
+        // Authorized reveal, like the mnemonic and C-chain key above.
+        const privateKey = ref<string | null>(null)
 
-        const privateKeyC = computed((): string | null => {
-            if (walletType.value === 'ledger') return null
-            let wallet = props.wallet as SingletonWallet | MnemonicWallet
-            return wallet.ethKey
-        })
+        // Same: the C-chain key is derived on demand, not held on the wallet.
+        const privateKeyC = ref<string | null>(null)
 
         /**
          * Extended public key of m/44'/9000'/0' used for X and P chain addresses
@@ -281,9 +276,26 @@ export default defineComponent({
             emit('select', props.wallet)
         }
 
-        const showModal = () => {
+        const showModal = async () => {
+            try {
+                mnemonicPhrase.value = await authorizeSingle(
+                    props.wallet,
+                    'Reveal your recovery phrase',
+                    () => (props.wallet as MnemonicWallet).getMnemonic()
+                )
+            } catch (e) {
+                if (e instanceof SessionAuthCancelled) return
+                throw e
+            }
+            // The modal is v-if'd on the phrase being present, so it only
+            // mounts after the assignment above.
+            await nextTick()
             //@ts-ignore
             modal.value?.open()
+        }
+
+        const onMnemonicModalClose = () => {
+            mnemonicPhrase.value = null
         }
 
         const showXpub = () => {
@@ -300,18 +312,51 @@ export default defineComponent({
             export_wallet.value?.open()
         }
 
-        const showPrivateKeyModal = () => {
+        const showPrivateKeyModal = async () => {
+            try {
+                privateKey.value = await authorizeSingle(
+                    props.wallet,
+                    'Reveal your private key',
+                    () => (props.wallet as SingletonWallet).getPrivateKeyHex()
+                )
+            } catch (e) {
+                if (e instanceof SessionAuthCancelled) return
+                throw e
+            }
+            await nextTick()
             //@ts-ignore
             modal_priv_key.value?.open()
         }
 
-        const showPrivateKeyCModal = () => {
+        const onPrivateKeyModalClose = () => {
+            privateKey.value = null
+        }
+
+        const showPrivateKeyCModal = async () => {
+            try {
+                privateKeyC.value = await authorizeSingle(
+                    props.wallet,
+                    'Reveal your C-chain private key',
+                    () => (props.wallet as MnemonicWallet).getEvmPrivateKeyHex()
+                )
+            } catch (e) {
+                if (e instanceof SessionAuthCancelled) return
+                throw e
+            }
+            await nextTick()
             //@ts-ignore
             modal_priv_key_c.value?.open()
         }
 
+        const onPrivateKeyCModalClose = () => {
+            privateKeyC.value = null
+        }
+
         return {
             export_wallet,
+            onMnemonicModalClose,
+            onPrivateKeyModalClose,
+            onPrivateKeyCModalClose,
             modal,
             modal_hd,
             modal_priv_key,

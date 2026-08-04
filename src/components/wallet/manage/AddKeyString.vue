@@ -3,11 +3,16 @@
    // QrInput component is globally registered by @avalabs/vue_components   <label>{{ $t('private_key') }}</label>
         <form @submit.prevent="addKey">
             <qr-input @change="validateQR" v-model="privateKeyInput" class="qrIn"></qr-input>
+            <SessionPasswordFields
+                v-model="sessionPassword"
+                :show-error="pwTouched"
+                @validity="isSessionPwValid = $event"
+            ></SessionPasswordFields>
             <p class="err">{{ error }}</p>
             <v-btn
                 type="submit"
                 :loading="isLoading"
-                :disabled="!canAdd"
+                :disabled="!canAdd || !isSessionPwValid"
                 class="addKeyBut button_primary ava_button"
                 depressed
                 block
@@ -25,12 +30,14 @@ import { useI18n } from 'vue-i18n'
 // @ts-ignore
 import { QrInput } from '@/vue_components'
 import Spinner from '@/components/misc/Spinner.vue'
+import SessionPasswordFields from '@/components/misc/SessionPasswordFields.vue'
 
 export default defineComponent({
     name: 'AddKeyString',
     components: {
         QrInput,
         Spinner,
+        SessionPasswordFields,
     },
     emits: ['success'],
     setup(_, { emit }) {
@@ -38,6 +45,9 @@ export default defineComponent({
         const { t } = useI18n()
         const privateKeyInput = ref('')
         const canAdd = ref(false)
+        const sessionPassword = ref('')
+        const isSessionPwValid = ref(false)
+        const pwTouched = ref(false)
         const error = ref('')
         const isLoading = ref(false)
 
@@ -65,7 +75,11 @@ export default defineComponent({
 
             setTimeout(async () => {
                 try {
-                    await mainStore.addWalletSingleton(privateKeyInput.value)
+                    await mainStore.addWalletSingleton(
+                        privateKeyInput.value,
+                        sessionPassword.value
+                    )
+                    sessionPassword.value = ''
                     emit('success')
                     clear()
                 } catch (e) {
@@ -81,6 +95,9 @@ export default defineComponent({
         }
 
         return {
+            sessionPassword,
+            isSessionPwValid,
+            pwTouched,
             privateKeyInput,
             canAdd,
             error,

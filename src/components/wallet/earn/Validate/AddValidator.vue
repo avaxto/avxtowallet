@@ -291,6 +291,7 @@ import { sortUTxoSetP } from '@/helpers/sortUTXOs'
 import { selectMaxUtxoForStaking } from '@/helpers/utxoSelection/selectMaxUtxoForStaking'
 import { bnToAvaxP } from '@/avalanche-wallet-sdk'
 import { generateBlsKeyPair, signBlsMessage, generateProofOfPossessionMessage } from '@/helpers/bls_utils'
+import { authorizeSingle, SessionAuthCancelled } from '@/js/security/authorize'
 
 const MIN_MS = 60000
 const HOUR_MS = MIN_MS * 60
@@ -777,16 +778,18 @@ export default defineComponent({
             try {
                 isLoading.value = true
                 err.value = ''
-                const txIdVal = await w.validate(
-                    formNodeId.value,
-                    formAmt.value,
-                    startDateVal,
-                    formEnd.value,
-                    formFee.value,
-                    formRewardAddr.value,
-                    formUtxos.value,
-                    formBlsPublicKey.value,
-                    formBlsSignature.value
+                const txIdVal = await authorizeSingle(w, 'Add a validator', () =>
+                    w.validate(
+                        formNodeId.value,
+                        formAmt.value,
+                        startDateVal,
+                        formEnd.value,
+                        formFee.value,
+                        formRewardAddr.value,
+                        formUtxos.value,
+                        formBlsPublicKey.value,
+                        formBlsSignature.value
+                    )
                 )
                 isLoading.value = false
                 onTxSubmit(txIdVal)

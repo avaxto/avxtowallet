@@ -110,10 +110,14 @@ export const useMainStore = defineStore('main', () => {
         }
     }
 
-    // Called from Mnemonic.vue when accessing wallet
-    const accessWallet = async (mnemonic: string): Promise<MnemonicWallet> => {
-        
-        const wallet: MnemonicWallet = await addWalletMnemonic(mnemonic)
+    // Called from Mnemonic.vue when accessing wallet.
+    // `sessionPassword` encrypts this wallet's secrets in memory and is never
+    // stored — it must be re-entered to authorize each signing operation.
+    const accessWallet = async (
+        mnemonic: string,
+        sessionPassword: string
+    ): Promise<MnemonicWallet> => {
+        const wallet: MnemonicWallet = await addWalletMnemonic(mnemonic, sessionPassword)
 
         await activateWallet(wallet)
 
@@ -125,17 +129,19 @@ export const useMainStore = defineStore('main', () => {
     const accessWalletMultiple = async ({
         keys: keyList,
         activeIndex,
+        sessionPassword,
     }: {
         keys: AccessWalletMultipleInput[]
         activeIndex: number
+        sessionPassword: string
     }) => {
         for (let i = 0; i < keyList.length; i++) {
             try {
                 const keyInfo = keyList[i]
                 if (keyInfo.type === 'mnemonic') {
-                    await addWalletMnemonic(keyInfo.key)
+                    await addWalletMnemonic(keyInfo.key, sessionPassword)
                 } else {
-                    await addWalletSingleton(keyInfo.key)
+                    await addWalletSingleton(keyInfo.key, sessionPassword)
                 }
             } catch (e) {
                 continue
@@ -155,8 +161,8 @@ export const useMainStore = defineStore('main', () => {
         onAccess()
     }
 
-    const accessWalletSingleton = async (key: string) => {
-        const wallet = await addWalletSingleton(key)
+    const accessWalletSingleton = async (key: string, sessionPassword: string) => {
+        const wallet = await addWalletSingleton(key, sessionPassword)
         await activateWallet(wallet)
 
         onAccess()
@@ -281,29 +287,37 @@ export const useMainStore = defineStore('main', () => {
         volatileWallets.value = []
     }
 
-    // Add a HD wallet from mnemonic string
-    const addWalletMnemonic = async (mnemonic: string): Promise<MnemonicWallet | null> => {
+    // Add a HD wallet from mnemonic string, protected by a session password
+    const addWalletMnemonic = async (
+        mnemonic: string,
+        sessionPassword: string
+    ): Promise<MnemonicWallet | null> => {
         // Cannot add mnemonic wallets on ledger mode
         if (activeWallet.value?.type === 'ledger') return null
 
-        // Make sure wallet doesnt exist already
+        const wallet = await MnemonicWallet.create(mnemonic, sessionPassword)
+
+        // Make sure wallet doesnt exist already. Compares extended public keys
+        // rather than mnemonics: two wallets share an xpub exactly when they
+        // share a mnemonic, and this needs no access to the vaulted secret.
+        const xpub = wallet.getXpubXP()
         for (let i = 0; i < wallets.value.length; i++) {
             const w = wallets.value[i]
-            if (w.type === 'mnemonic') {
-                if ((w as MnemonicWallet).getMnemonic() === mnemonic) {
-                    throw new Error('Wallet already exists.')
-                }
+            if (w.type === 'mnemonic' && (w as MnemonicWallet).getXpubXP() === xpub) {
+                throw new Error('Wallet already exists.')
             }
         }
 
-        const wallet = new MnemonicWallet(mnemonic)
         wallets.value = [...wallets.value, wallet]
         volatileWallets.value = [...volatileWallets.value, wallet]
         return wallet
     }
 
     // Add a singleton wallet from private key string
-    const addWalletSingleton = async (pk: string): Promise<SingletonWallet | null> => {
+    const addWalletSingleton = async (
+        pk: string,
+        sessionPassword: string
+    ): Promise<SingletonWallet | null> => {
         try {
             const keyBuf = Buffer.from(pk, 'hex')
             // @ts-ignore
@@ -316,17 +330,18 @@ export const useMainStore = defineStore('main', () => {
         // Cannot add singleton wallets on ledger mode
         if (activeWallet.value?.type === 'ledger') return null
 
-        // Make sure wallet doesnt exist already
+        const wallet = await SingletonWallet.create(pk, sessionPassword)
+
+        // Make sure wallet doesnt exist already. Compares addresses rather than
+        // private keys, which are no longer readable without authorizing.
+        const addr = wallet.getCurrentAddressAvm()
         for (let i = 0; i < wallets.value.length; i++) {
             const w = wallets.value[i]
-            if (w.type === 'singleton') {
-                if ((w as SingletonWallet).key === pk) {
-                    throw new Error('Wallet already exists.')
-                }
+            if (w.type === 'singleton' && (w as SingletonWallet).getCurrentAddressAvm() === addr) {
+                throw new Error('Wallet already exists.')
             }
         }
 
-        const wallet = new SingletonWallet(pk)
         wallets.value = [...wallets.value, wallet]
         volatileWallets.value = [...volatileWallets.value, wallet]
         return wallet
@@ -421,6 +436,7 @@ export const useMainStore = defineStore('main', () => {
     // key chain
     const importKeyfile = async (data: ImportKeyfileInput) => {
         const pass = data.password
+        const sessionPassword = data.sessionPassword
         const fileData = data.data
 
         const version = fileData.version
@@ -436,6 +452,7 @@ export const useMainStore = defineStore('main', () => {
                 await accessWalletMultiple({
                     keys,
                     activeIndex: keyFile.activeIndex,
+                    sessionPassword,
                 })
             } else {
                 for (let i = 0; i < keys.length; i++) {
@@ -443,9 +460,9 @@ export const useMainStore = defineStore('main', () => {
 
                     // Private keys from the keystore file do not have the PrivateKey- prefix
                     if (key.type === 'mnemonic') {
-                        await addWalletMnemonic(key.key)
+                        await addWalletMnemonic(key.key, sessionPassword)
                     } else if (key.type === 'singleton') {
-                        await addWalletSingleton(key.key)
+                        await addWalletSingleton(key.key, sessionPassword)
                     }
                 }
             }

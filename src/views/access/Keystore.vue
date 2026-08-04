@@ -15,6 +15,12 @@
                     v-if="file"
                     hide-details
                 ></v-text-field>
+                <SessionPasswordFields
+                    v-if="file"
+                    v-model="sessionPassword"
+                    :show-error="pwTouched"
+                    @validity="isSessionPwValid = $event"
+                ></SessionPasswordFields>
                 <p class="err">{{ error }}</p>
                 <!--                <remember-key class="remember" v-model="rememberPass" v-if="file" @is-valid="isRememberValid"></remember-key>-->
                 <v-btn
@@ -22,7 +28,7 @@
                     @click="access"
                     :loading="isLoading"
                     v-if="file"
-                    :disabled="!canSubmit"
+                    :disabled="!canSubmit || !isSessionPwValid"
                     depressed
                 >
                     {{ $t('access.mnemonic.submit') }}
@@ -40,11 +46,13 @@ import { useI18n } from 'vue-i18n'
 import FileInput from '../../components/misc/FileInput.vue'
 // import RememberKey from "../../components/misc/RememberKey.vue";
 import { ImportKeyfileInput } from '@/types'
+import SessionPasswordFields from '@/components/misc/SessionPasswordFields.vue'
 import { AllKeyFileTypes } from '@/js/IKeystore'
 
 export default defineComponent({
     name: 'Keystore',
     components: {
+        SessionPasswordFields,
         // RememberKey,
         FileInput,
     },
@@ -53,6 +61,9 @@ export default defineComponent({
         const { t } = useI18n()
         
         const pass = ref<string>('')
+        const sessionPassword = ref('')
+        const isSessionPwValid = ref(false)
+        const pwTouched = ref(false)
         const file = ref<File | null>(null)
         const fileText = ref<string | null>(null)
         const isLoading = ref<boolean>(false)
@@ -92,6 +103,7 @@ export default defineComponent({
             // let rememberPass = this.rememberPass;
             let data: ImportKeyfileInput = {
                 password: pass.value,
+                sessionPassword: sessionPassword.value,
                 data: fileData,
             }
 
@@ -122,6 +134,9 @@ export default defineComponent({
         }
 
         return {
+            sessionPassword,
+            isSessionPwValid,
+            pwTouched,
             pass,
             file,
             fileText,

@@ -81,6 +81,14 @@ abstract class AbstractHdWallet extends AbstractWallet {
         return this.accountNodeXP.toJSON().xpub
     }
 
+    /**
+     * The account-level node (m/44'/9000'/0'). Public-only for wallets that
+     * keep their keys vaulted, so it derives addresses but cannot sign.
+     */
+    getAccountNodeXP(): HDKey {
+        return this.accountNodeXP
+    }
+
     getEvmAddressBech(): string {
         return bintools.addressToString(
             ava.getHRP(),
