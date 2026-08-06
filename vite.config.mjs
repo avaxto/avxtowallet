@@ -66,10 +66,17 @@ export default defineConfig({
     sourcemap: false,
     rollupOptions: {
       output: {
-        manualChunks: {          
+        manualChunks: {
           vendor: ['vue', 'vue-router', 'pinia', 'vuetify'],
           crypto: ['crypto-browserify', 'buffer', 'stream-browserify', 'ethers', 'web3'],
-          ledger: ['@ledgerhq/hw-app-eth', '@ledgerhq/hw-transport', '@ledgerhq/hw-transport-webhid', '@ledgerhq/hw-transport-webusb'],
+          // No `ledger` chunk: the @ledgerhq/* packages have circular
+          // internal dependencies (hw-app-eth <-> hw-transport <-> shared
+          // @ledgerhq/errors, devices, etc.), and forcing them into an
+          // isolated manual chunk broke Rollup's cross-chunk evaluation
+          // order — production threw "Cannot access '<name>' before
+          // initialization" as soon as the chunk's top-level code ran.
+          // Leaving them out of manualChunks lets Rollup's automatic
+          // splitting place them, which does respect the dependency graph.
         },
       },
     },

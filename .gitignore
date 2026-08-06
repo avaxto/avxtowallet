@@ -2,6 +2,7 @@
 node_modules
 /dist
 tmp
+local
 
 # Manually importing AVAJS
 avajs
