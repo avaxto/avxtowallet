@@ -2,7 +2,7 @@
     <div class="cchain_sdk_row" :class="{ alt: alternate }">
         <img :src="asset.logoUri" v-if="asset.logoUri" />
         <div v-else class="no_logo">
-            <img src="/src/assets/AVXTO_Icon.png" />
+            <img src="@/assets/AVXTO_Icon.png" />
         </div>
         <p class="col_name">
             {{ asset.name }} ({{ asset.symbol }})
