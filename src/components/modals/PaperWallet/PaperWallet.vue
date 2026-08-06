@@ -38,7 +38,6 @@ import { useMainStore } from '@/stores'
 import Modal from '@/components/modals/Modal.vue'
 import MnemonicWallet from '@/js/wallets/MnemonicWallet'
 import QRCode from 'qrcode'
-import printjs from 'print-js'
 import { authorizeSingle, SessionAuthCancelled } from '@/js/security/authorize'
 
 const PDF_W = 8.5
@@ -254,17 +253,54 @@ export default defineComponent({
             height.value = contW / aspectRatio.value
         }
 
+        /**
+         * Prints the rendered canvas as an image, via a hidden iframe and the
+         * browser's own print dialog.
+         *
+         * Was print-js. That package's bundled dist ships prebuilt by its own
+         * webpack toolchain with an unconditional eval() as part of its module
+         * wrapper — not optional, not behind a feature flag — so it cannot run
+         * under a CSP without 'unsafe-eval', which this app does not grant.
+         * This does the one thing PaperWallet actually needed (print a single
+         * image) without any library or eval.
+         */
         const print = () => {
-            let canv = pdf.value
+            const canv = pdf.value
             if (!canv) return
-            
-            printjs({
-                printable: canv.toDataURL(),
-                type: 'image',
-                imageStyle: 'width:100%; margin: 5px;',
-                maxWidth: 2800,
-                documentTitle: '',
-            })
+
+            const frame = document.createElement('iframe')
+            frame.style.position = 'fixed'
+            frame.style.width = '0'
+            frame.style.height = '0'
+            frame.style.border = 'none'
+            document.body.appendChild(frame)
+
+            const cleanup = () => {
+                frame.remove()
+            }
+
+            const frameWindow = frame.contentWindow
+            const frameDoc = frame.contentDocument
+            if (!frameWindow || !frameDoc) {
+                cleanup()
+                return
+            }
+
+            frameWindow.addEventListener('afterprint', cleanup)
+            // Fallback in case afterprint doesn't fire (older WebKit).
+            setTimeout(cleanup, 60000)
+
+            const img = frameDoc.createElement('img')
+            img.style.width = '100%'
+            img.style.margin = '5px'
+            img.onload = () => {
+                frameWindow.focus()
+                frameWindow.print()
+            }
+            img.src = canv.toDataURL()
+
+            frameDoc.body.style.margin = '0'
+            frameDoc.body.appendChild(img)
         }
 
         watch(address, buildQr)

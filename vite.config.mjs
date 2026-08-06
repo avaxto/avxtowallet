@@ -4,6 +4,7 @@ import { resolve } from 'path'
 import { nodePolyfills } from 'vite-plugin-node-polyfills'
 import wasm from "vite-plugin-wasm";
 import topLevelAwait from "vite-plugin-top-level-await";
+import VueI18nPlugin from '@intlify/unplugin-vue-i18n/vite'
 import { execSync } from 'child_process'
 
 // Inject the latest git tag as the app version
@@ -17,6 +18,19 @@ process.env.VITE_APP_VERSION = appVersion
 
 export default defineConfig({
   plugins: [
+    // Precompiles locale JSON into message resources at build time, instead
+    // of vue-i18n's default of JIT-compiling each message with
+    // `new Function(...)` the first time it's used at runtime. That runtime
+    // path is what a script-src CSP without 'unsafe-eval' blocks.
+    //
+    // Requires vue-i18n >= 10: this plugin's output format is the composer
+    // protocol v10+ understands. It was tried against vue-i18n@9.14.5 first
+    // and broke every t()/$t() call ("Unexpected return type in composer")
+    // because the plugin does not version-detect and always emits that
+    // newer format — hence the vue-i18n upgrade landing alongside this.
+    VueI18nPlugin({
+      include: [resolve(__dirname, './src/locales/**/*.json')],
+    }),
     vue(),
     // Node.js polyfills for browser compatibility
     nodePolyfills({
