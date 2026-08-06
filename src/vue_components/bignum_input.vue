@@ -12,7 +12,19 @@
 </template>
 <script lang="ts">
 import { defineComponent, ref, computed, watch } from 'vue'
-import { bnToBig, stringToBN, bigToBN, BN, Big } from '@/avalanche-wallet-sdk'
+// Import from the leaf utility module and the underlying packages directly,
+// not the '@/avalanche-wallet-sdk' barrel: that barrel re-exports './Wallet'
+// (MnemonicWallet, SingletonWallet, Ledger, HdScanner, the whole wallet
+// stack), so pulling BN/Big through it forces that entire module graph to
+// evaluate just to get two numeric helpers. In the production bundle this
+// pulled bignum_input.vue into a circular-evaluation order with that graph:
+// the BigNumInput component resolved to undefined at render time (Vue
+// silently renders an empty comment node for a falsy component type, with
+// no warning outside dev), so every amount input in the app rendered as an
+// empty placeholder instead of the actual field.
+import { bnToBig, stringToBN, bigToBN } from '@/avalanche-wallet-sdk/utils/number_utils'
+import BN from 'bn.js'
+import Big from 'big.js'
 
 const BigNumInput = defineComponent({
     name: 'BigNumInput',
