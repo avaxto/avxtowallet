@@ -39,6 +39,16 @@ export default defineComponent({
         })
 
         const parseURL = (val: string) => {
+            // Raw ipfs:// URIs are common in NFT metadata, but browsers have
+            // no native protocol handler for them (and CSP's img-src only
+            // permits https:/data:/blob:), so they must be rewritten to a
+            // gateway URL before ever reaching an <img> tag.
+            if (val.startsWith('ipfs://')) {
+                let ipfsPath = val.slice('ipfs://'.length)
+                if (ipfsPath.startsWith('ipfs/')) ipfsPath = ipfsPath.slice('ipfs/'.length)
+                return CF_IPFS_BASE + ipfsPath
+            }
+
             let isRedirect = REDIRECT_DOMAINS.reduce((acc, domain) => {
                 if (acc) return acc
                 if (val.includes(domain)) return true
