@@ -71,7 +71,6 @@ const QrInput = defineComponent({
     }
 })
 
-export { QrInput }
 export default QrInput
 </script>
 <style scoped>

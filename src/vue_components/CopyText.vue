@@ -35,7 +35,6 @@ const CopyText = defineComponent({
     }
 })
 
-export { CopyText }
 export default CopyText
 </script>
 <style scoped>

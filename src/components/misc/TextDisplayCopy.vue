@@ -7,10 +7,7 @@
     </div>
 </template>
 <script>
-//@ts-ignore
-import VueComponents from '@/vue_components'
-//@ts-ignore
-const { CopyText } = VueComponents
+import { CopyText } from '@/vue_components'
 import { useNotificationsStore } from '@/stores'
 
 export default {

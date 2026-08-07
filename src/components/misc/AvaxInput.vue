@@ -33,8 +33,7 @@ import 'reflect-metadata'
 import { defineComponent, ref, computed } from 'vue'
 import { useMainStore } from '@/stores'
 import { Big, bnToBig } from '@/avalanche-wallet-sdk'
-//@ts-ignore
-import { BigNumInput } from '@/vue_components/bignum_input.vue'
+import BigNumInput from '@/vue_components/bignum_input.vue'
 import { BN } from '@/avalanche'
 // Type for price data
 type priceDict = { usd: number }

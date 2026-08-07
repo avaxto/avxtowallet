@@ -103,7 +103,6 @@ const QrReader = defineComponent({
     }
 })
 
-export { QrReader }
 export default QrReader
 </script>
 <style scoped>
