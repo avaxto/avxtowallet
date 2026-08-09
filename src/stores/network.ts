@@ -51,7 +51,8 @@ const MAINNET_NETWORKS: AvaNetwork[] = [
         1,
         'https://explorerapi.avax.network',
         'https://explorer-xp.avax.network',
-        true
+        true,
+        false // no /ext/info — see AvaNetwork.supportsInfoEndpoint
     ),
     new AvaNetwork(
         'Mainnet (OnFinality)',
@@ -59,7 +60,8 @@ const MAINNET_NETWORKS: AvaNetwork[] = [
         1,
         'https://explorerapi.avax.network',
         'https://explorer-xp.avax.network',
-        true
+        true,
+        false
     ),
     new AvaNetwork(
         'Mainnet (ZAN)',
@@ -67,7 +69,8 @@ const MAINNET_NETWORKS: AvaNetwork[] = [
         1,
         'https://explorerapi.avax.network',
         'https://explorer-xp.avax.network',
-        true
+        true,
+        false
     ),
 ]
 
@@ -86,7 +89,8 @@ const TESTNET_NETWORKS: AvaNetwork[] = [
         5,
         'https://explorerapi.avax-test.network',
         'https://explorer-xp.avax-test.network',
-        true
+        true,
+        false
     ),
     new AvaNetwork(
         'Fuji (ZAN)',
@@ -94,7 +98,8 @@ const TESTNET_NETWORKS: AvaNetwork[] = [
         5,
         'https://explorerapi.avax-test.network',
         'https://explorer-xp.avax-test.network',
-        true
+        true,
+        false
     ),
 ]
 
@@ -137,29 +142,6 @@ export const useNetworkStore = defineStore('network', () => {
         await save()
     }
 
-    const saveSelectedNetwork = () => {
-        const data = JSON.stringify(selectedNetwork.value?.url)
-        localStorage.setItem('network_selected', data)
-    }
-
-    const loadSelectedNetwork = async (): Promise<boolean> => {
-        const data = localStorage.getItem('network_selected')
-        if (!data) return false
-        try {
-            const nets: AvaNetwork[] = allNetworks.value
-            for (let i = 0; i < nets.length; i++) {
-                const net = nets[i]
-                if (JSON.stringify(net.url) === data) {
-                    await setNetwork(net)
-                    return true
-                }
-            }
-            return false
-        } catch (e) {
-            return false
-        }
-    }
-
     const save = () => {
         const data = JSON.stringify(networksCustom.value)
         localStorage.setItem('networks', data)
@@ -192,8 +174,7 @@ export const useNetworkStore = defineStore('network', () => {
      * @param net Network to connect to
      * @param isFailover True when called by the RPC failover system
      * (src/providers/rpc_failover.ts). A failover switch keeps the session's
-     * dead-endpoint list (so exhausted RPCs aren't retried) and does not
-     * persist the fallback as the user's saved network choice.
+     * dead-endpoint list (so exhausted RPCs aren't retried).
      */
     const setNetwork = async (net: AvaNetwork, isFailover = false) => {
         status.value = 'connecting'
@@ -257,9 +238,6 @@ export const useNetworkStore = defineStore('network', () => {
             cChain.setAVAXAssetID(avaxDesc.assetID)
 
             selectedNetwork.value = net
-            // A failover pick is session-only — don't overwrite the user's
-            // persisted network choice with it.
-            if (!isFailover) saveSelectedNetwork()
 
             // Update explorer API base URL
             explorer_api.defaults.baseURL = net.explorerUrl
@@ -362,12 +340,13 @@ export const useNetworkStore = defineStore('network', () => {
         TESTNET_NETWORKS.forEach(addNetwork)
 
         try {
-            // Attempt to restore the previously selected network
-            const isSet = await loadSelectedNetwork()
-            if (!isSet) {
-                // Default to the first built-in network (Mainnet)
-                await setNetwork(networks.value[0])
-            }
+            // Always start on Mainnet — the selected network is intentionally
+            // not persisted, so every fresh load (and every origin) starts
+            // from the same place. From here, RPC failover (see
+            // src/providers/rpc_failover.ts) transparently falls back to the
+            // other Mainnet endpoints in MAINNET_NETWORKS if the primary one
+            // is unavailable.
+            await setNetwork(networks.value[0])
             return true
         } catch (e) {
             console.log(e)
@@ -393,8 +372,6 @@ export const useNetworkStore = defineStore('network', () => {
         addNetwork,
         addCustomNetwork,
         removeCustomNetwork,
-        saveSelectedNetwork,
-        loadSelectedNetwork,
         updateTxFee,
         save,
         load,

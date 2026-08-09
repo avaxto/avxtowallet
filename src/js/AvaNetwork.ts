@@ -19,6 +19,15 @@ class AvaNetwork {
     explorerSiteUrl: string | undefined
     readonly: boolean
     withCredentials = false
+    // Whether this endpoint serves /ext/info at all. Public RPC backups
+    // (PublicNode, OnFinality, ZAN…) only proxy the X/P/C chain APIs by
+    // path and don't implement /ext/info — worse, they answer with a
+    // wildcard 'Access-Control-Allow-Origin: *', which the browser refuses
+    // to pair with a credentialed (withCredentials) request, so every probe
+    // against them was a guaranteed CORS error in the console. Set false
+    // for those so updateCredentials() skips the probe entirely instead of
+    // provoking that failure on every connect.
+    supportsInfoEndpoint: boolean
     // fee: BN
 
     constructor(
@@ -27,7 +36,8 @@ class AvaNetwork {
         networkId: number,
         explorerUrl?: string,
         explorerSiteUrl?: string,
-        readonly = false
+        readonly = false,
+        supportsInfoEndpoint = true
     ) {
         this.id = network_id++
         this.name = name
@@ -41,6 +51,7 @@ class AvaNetwork {
         this.networkId = networkId
         // this.chainId = chainId;
         this.readonly = readonly
+        this.supportsInfoEndpoint = supportsInfoEndpoint
         // this.fee = new BN(0);
     }
 
@@ -66,6 +77,10 @@ class AvaNetwork {
 
     // Checks if this network endpoint allows credentials
     async updateCredentials() {
+        if (!this.supportsInfoEndpoint) {
+            this.withCredentials = false
+            return
+        }
         try {
             const res = await axios.post(
                 this.url + '/ext/info',
