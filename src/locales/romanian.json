@@ -344,7 +344,7 @@
                 "start_end": "Data de Început trebuie să fie în viitor, iar data de sfârșit trebuie să fie după data de început.",
                 "invalid_addr": "Format adresă invalid. Adresa ta trebuie să înceapă cu „P-”",
                 "no_addr": "Trebuie să dai o adresă pentru a primi recompensele delegării.",
-                "min_dur": "Durata minimă a mizei este de 2 săptămâni.",
+                "min_dur": "Durata minimă a mizei este de 48 de ore.",
                 "max_dur": "Durata maximă a mizei este de 1 an.",
                 "no_node": "Trebuie să menționezi un validator.",
                 "val_end": "Data de sfârșit a delegării nu poate fi mai mare decât data de sfârșit a validatorului.",

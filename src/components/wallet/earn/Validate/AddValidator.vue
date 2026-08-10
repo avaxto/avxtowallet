@@ -301,6 +301,7 @@ import { authorizeSingle, SessionAuthCancelled } from '@/js/security/authorize'
 import { useOfflineSigningStore, isOfflineTxId } from '@/stores'
 import SignOnlyToggle from '@/components/misc/SignOnlyToggle.vue'
 import SignedTxExport from '@/components/misc/SignedTxExport.vue'
+import { MIN_DELEGATION_DURATION_MS } from '@/constants'
 
 const MIN_MS = 60000
 const HOUR_MS = MIN_MS * 60
@@ -445,8 +446,10 @@ export default defineComponent({
         const warnShortDuration = computed((): boolean => {
             const dur = stakeDuration.value
 
-            // If duration is less than 16 days give a warning
-            if (dur <= DAY_MS * 16) {
+            // Helicon: delegators need MIN_DELEGATION_DURATION_MS (48 hours,
+            // was 14 days) remaining on the validator's period to delegate to
+            // it — warn here if less than that remains.
+            if (dur <= MIN_DELEGATION_DURATION_MS) {
                 return true
             }
             return false

@@ -16,7 +16,11 @@
                         <p class="desc">
                             {{ $t('earn.delegate.form.period.desc') }}
                         </p>
-                        <DateForm @change_end="setEnd" :max-end-date="endMaxDate"></DateForm>
+                        <DateForm
+                            @change_end="setEnd"
+                            :max-end-date="endMaxDate"
+                            :min-duration-ms="minDelegationDuration"
+                        ></DateForm>
                     </div>
                     <div style="margin: 30px 0; margin-bottom: 50px">
                         <h4>{{ $t('earn.delegate.form.amount.label') }}</h4>
@@ -234,6 +238,7 @@ import { authorizeSingle, SessionAuthCancelled } from '@/js/security/authorize'
 import { useOfflineSigningStore, isOfflineTxId } from '@/stores'
 import SignOnlyToggle from '@/components/misc/SignOnlyToggle.vue'
 import SignedTxExport from '@/components/misc/SignedTxExport.vue'
+import { MIN_DELEGATION_DURATION_MS } from '@/constants'
 
 const MIN_MS = 60000
 const HOUR_MS = MIN_MS * 60
@@ -458,8 +463,8 @@ export default defineComponent({
                 return false
             }
 
-            // TODO: UPDATE THIS WITH REAL VALUE
-            if (diffTime < DAY_MS * 14) {
+            // Helicon: minimum delegation duration is 48 hours (was 14 days).
+            if (diffTime < MIN_DELEGATION_DURATION_MS) {
                 err.value = t('earn.delegate.errs.min_dur') as string
                 return false
             }
@@ -686,6 +691,7 @@ export default defineComponent({
         return {
 
             offline,
+            minDelegationDuration: MIN_DELEGATION_DURATION_MS,
             startDate,
             endDate,
             stakeAmt,

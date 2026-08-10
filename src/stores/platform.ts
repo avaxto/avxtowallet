@@ -13,21 +13,50 @@ import { ValidatorListItem } from '@/types'
 import { Avalanche as ChainKitAvalanche } from '@avalanche-sdk/chainkit'
 import { isMainnetNetworkID, isTestnetNetworkID } from '@/utils/network-utils'
 
+// Protocol minimums, used as network-aware fallbacks: the initial value before
+// the first live fetch resolves, and what we fall back to if that fetch ever
+// fails. The authoritative values always come from pChain.getMinStake() in
+// updateMinStakeAmount() below.
+const MAINNET_MIN_VALIDATOR_STAKE = ONEAVAX.mul(new BN(2000))
+const MAINNET_MIN_DELEGATOR_STAKE = ONEAVAX.mul(new BN(25))
+const TESTNET_MIN_VALIDATOR_STAKE = ONEAVAX.mul(new BN(1))
+const TESTNET_MIN_DELEGATOR_STAKE = ONEAVAX.mul(new BN(1))
+
+function minStakeDefaultsForNetwork(netID: number): { validator: BN; delegator: BN } {
+    return isTestnetNetworkID(netID)
+        ? { validator: TESTNET_MIN_VALIDATOR_STAKE, delegator: TESTNET_MIN_DELEGATOR_STAKE }
+        : { validator: MAINNET_MIN_VALIDATOR_STAKE, delegator: MAINNET_MIN_DELEGATOR_STAKE }
+}
+
 export const usePlatformStore = defineStore('platform', () => {
-    // Mainnet defaults (2000 AVAX validator, 25 AVAX delegator)
-    const minStake = ref<BN>(ONEAVAX.mul(new BN(2000)))
-    const minStakeDelegation = ref<BN>(ONEAVAX.mul(new BN(25)))
+    const initialMinStake = minStakeDefaultsForNetwork(ava.getNetworkID())
+    const minStake = ref<BN>(initialMinStake.validator)
+    const minStakeDelegation = ref<BN>(initialMinStake.delegator)
     const validatorListEarn = ref<ValidatorListItem[]>([])
     const isFetchingValidators = ref(false)
     const currentSupply = ref<BN>(new BN(0))
 
     const updateMinStakeAmount = async () => {
+        const netID = ava.getNetworkID()
+        const defaults = minStakeDefaultsForNetwork(netID)
         try {
-            const res = await pChain.getMinStake()
-            if (res.minValidatorStake) minStake.value = res.minValidatorStake
-            if (res.minDelegatorStake) minStakeDelegation.value = res.minDelegatorStake
+            // Force a fresh node query. PlatformVMAPI.getMinStake() caches its
+            // result on the api instance, and that instance (pChain) is reused
+            // across network switches rather than recreated — so without
+            // `refresh=true` this can silently return the PREVIOUS network's
+            // cached minimums (e.g. mainnet's 25 AVAX delegator minimum still
+            // showing right after switching to Fuji, whose real minimum is 1
+            // AVAX).
+            const res = await pChain.getMinStake(true)
+            minStake.value = res.minValidatorStake ?? defaults.validator
+            minStakeDelegation.value = res.minDelegatorStake ?? defaults.delegator
         } catch (e) {
             console.warn('Could not fetch min stake amounts:', e)
+            // Fall back to the known-correct minimum for the CURRENT network
+            // rather than leaving whatever (possibly wrong-network) value was
+            // there before.
+            minStake.value = defaults.validator
+            minStakeDelegation.value = defaults.delegator
         }
     }
 

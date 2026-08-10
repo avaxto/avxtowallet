@@ -344,7 +344,7 @@
                 "start_end": "A data de início deve estar no futuro e a data de término deve ser posterior ao início.",
                 "invalid_addr": "Formato de endereço inválido. Seu endereço deve começar com \"P-\"",
                 "no_addr": "Você deve fornecer um endereço para receber as recompensas de delegação.",
-                "min_dur": "A duração mínima de aposta é 2 semanas.",
+                "min_dur": "A duração mínima de aposta é 48 horas.",
                 "max_dur": "A duração máxima de aposta é 1 ano.",
                 "no_node": "Você deve especificar um validador.",
                 "val_end": "A data de término da delegação não pode ser maior que a data de término do validador.",

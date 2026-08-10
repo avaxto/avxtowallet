@@ -344,7 +344,7 @@
                 "start_end": "Data rozpoczęcia musi przypadać w przyszłości, a data zakończenia musi być późniejsza niż data rozpoczęcia.",
                 "invalid_addr": "Nieprawidłowy format adresu. Twój adres musi zaczynać się od „P-”",
                 "no_addr": "Musisz podać adres, aby otrzymać nagrody delegacji.",
-                "min_dur": "Minimalny okres obstawiania to 2 tygodnie.",
+                "min_dur": "Minimalny okres obstawiania to 48 godzin.",
                 "max_dur": "Maksymalny okres obstawiania to 1 rok.",
                 "no_node": "Musisz określić walidator.",
                 "val_end": "Data zakończenia delegacji nie może być dłuższa niż data zakończenia walidatora.",

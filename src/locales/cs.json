@@ -344,7 +344,7 @@
                 "start_end": "Datum začátku musí být v budoucnu a datum konce musí být pozdější než datum začátku.",
                 "invalid_addr": "Neplatný formát adresy. Vaše adresa musí začínat na „P-“",
                 "no_addr": "Chcete-li dostávat delegační odměny, musíte zadat adresu.",
-                "min_dur": "Minimální doba trvání vsazení je 2 týdny.",
+                "min_dur": "Minimální doba trvání vsazení je 48 hodin.",
                 "max_dur": "Maximální doba trvání vsazení je 1 rok.",
                 "no_node": "Musíte zadat validátora.",
                 "val_end": "Delegační datum konce nesmí být delší než datum konce validátora.",

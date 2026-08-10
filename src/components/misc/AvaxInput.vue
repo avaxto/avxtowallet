@@ -114,7 +114,11 @@ export default defineComponent({
     grid-gap: 0px 10px;
     color: var(--primary-color);
     width: 100%;
-    height: 40px;
+    // min-height, not height: the optional .balance row below adds a second
+    // grid row when the `balance` prop is passed. A fixed height clipped the
+    // container to the input row alone, so .balance rendered outside the
+    // container's box and overlapped whatever followed it on the page.
+    min-height: 40px;
 
     .amt_in {
         color: var(--primary-color);

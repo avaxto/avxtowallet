@@ -344,7 +344,7 @@
                 "start_end": "L'hora d'inici ha de ser al futur proper i l'hora de finalització ha de ser posterior a l'hora d'inici.",
                 "invalid_addr": "Format d'adreça invàlida. La vostra adreça ha de començar amb \"P-\"",
                 "no_addr": "Heu de proporcionar una adreça per rebre recompenses de delegació.",
-                "min_dur": "La durada mínima de la participació és de 2 setmanes.",
+                "min_dur": "La durada mínima de la participació és de 48 hores.",
                 "max_dur": "La durada màxima de la participació és d'1 any.",
                 "no_node": "Heu d'especificar un validador.",
                 "val_end": "La data de finalització de la delegació no pot ser més llarga que la data de finalització del validador.",

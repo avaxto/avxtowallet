@@ -344,7 +344,7 @@
                 "start_end": "Aloituspäivän on oltava tulevaisuudessa ja lopetuspäivän on oltava alkamispäivän jälkeen.",
                 "invalid_addr": "Virheellinen osoitemuoto. Osoitteesi on aloitettava kirjaimella \"P-\"",
                 "no_addr": "Sinun on annettava osoite saadaksesi delegointipalkintoja.",
-                "min_dur": "Pienin panostuksen kesto on 2 viikkoa.",
+                "min_dur": "Pienin panostuksen kesto on 48 tuntia.",
                 "max_dur": "Suurin panostuksen kesto on 1 vuosi.",
                 "no_node": "Sinun on määritettävä vahvistaja.",
                 "val_end": "Delegaation lopetuspäivä ei voi olla pidempi kuin vahvistajan lopetuspäivä.",

@@ -302,7 +302,7 @@
                 "reason": "Neden"
             },
             "errs": {
-                "duration_warn": "UYARI: Delegatörleri kabul etmek için validasyon sürenizin en az 14 günü olmalıdır.",
+                "duration_warn": "UYARI: Delegatörleri kabul etmek için validasyon sürenizin en az 48 saati olmalıdır.",
                 "date": "Başlangıç tarihi gelecekte olmalıdır ve bitiş tarihi de başlangıç tarihinden sonra olmalıdır.",
                 "amount": "Stake miktarı en az {0} AVAX olmalıdır",
                 "id": "Geçersiz Düğüm Kimliği.",
@@ -377,7 +377,7 @@
                 "start_end": "Başlangıç tarihi gelecekte olmalıdır ve bitiş tarihi de başlangıç tarihinden sonra olmalıdır.",
                 "invalid_addr": "Geçersiz adres. Ödül adresi geçerli bir P zinciri adresi olmalıdır.",
                 "no_addr": "Devretme ödüllerini almak için bir adres vermelisiniz.",
-                "min_dur": "Maksimum stake süresi 2 haftadır.",
+                "min_dur": "Maksimum stake süresi 48 saattir.",
                 "max_dur": "Maksimum stake süresi 1 yıldır.",
                 "no_node": "Bir doğrulayıcı belirtmelisiniz.",
                 "val_end": "Devretme bitiş tarihi, doğrulayıcının bitiş tarihinden daha uzun olamaz.",

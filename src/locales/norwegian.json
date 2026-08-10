@@ -344,7 +344,7 @@
                 "start_end": "Startdatoen må være i fremtiden og sluttdatoen må være etter startdatoen.",
                 "invalid_addr": "Ugyldig adresseformat. Adressen din må starte med \"P-”",
                 "no_addr": "Du må oppgi en adresse for å motta delegeringsbelønninger.",
-                "min_dur": "Minste innsatsperiode er 2 uker.",
+                "min_dur": "Minste innsatsperiode er 48 timer.",
                 "max_dur": "Maksimal innsatsperiode er 1 år.",
                 "no_node": "Du må spesifisere en validator.",
                 "val_end": "Delegeringens sluttdato kan ikke være lenger enn validatorens sluttdato.",

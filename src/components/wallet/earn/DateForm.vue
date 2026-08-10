@@ -16,10 +16,13 @@
 import { DAY_MS, MINUTE_MS } from '../../../constants'
 import { defineComponent, ref, computed, watch, onMounted } from 'vue'
 
+// Default minimum stake duration (validator flow / no override supplied).
 const MIN_STAKE_DURATION = DAY_MS * 14
 
 interface Props {
     maxEndDate?: string
+    /** Overrides the default 14-day minimum — e.g. delegation's 48-hour minimum. */
+    minDurationMs?: number
 }
 
 /** Convert an ISO string to the "YYYY-MM-DDTHH:MM" format expected by datetime-local inputs */
@@ -35,6 +38,10 @@ export default defineComponent({
     props: {
         maxEndDate: {
             type: String,
+            default: undefined
+        },
+        minDurationMs: {
+            type: Number,
             default: undefined
         }
     },
@@ -63,7 +70,7 @@ export default defineComponent({
         const endDateMin = computed(() => {
             let start = localStart.value
             let startDate = new Date(start)
-            let end = startDate.getTime() + MIN_STAKE_DURATION
+            let end = startDate.getTime() + (props.minDurationMs ?? MIN_STAKE_DURATION)
             return new Date(end).toISOString()
         })
 
@@ -149,6 +156,11 @@ export default defineComponent({
         width: 100%;
         display: grid;
         grid-template-columns: max-content 1fr;
+        // Without a gap, "Max" (column 1, sized to its own content) sits
+        // directly against the date input (column 2), which is right-aligned
+        // text with no left padding of its own — the two visually crowd
+        // together at the column boundary.
+        column-gap: 10px;
         background-color: var(--bg-light);
     }
 

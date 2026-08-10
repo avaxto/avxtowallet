@@ -344,7 +344,7 @@
                 "start_end": "Startdatoen skal være i fremtiden, og slutdatoen skal være efter startdatoen.",
                 "invalid_addr": "Ugyldigt adresseformat. Din adresse skal starte med \"P-\"",
                 "no_addr": "Du skal give en adresse for at modtage delegationsbelønninger.",
-                "min_dur": "Min. indsatsvarighed er 2 uger.",
+                "min_dur": "Min. indsatsvarighed er 48 timer.",
                 "max_dur": "Maks. indsatsvarighed er 1 år.",
                 "no_node": "Du skal angive en validator.",
                 "val_end": "Delegationens slutdato kan ikke være længere end validatorens slutdato.",

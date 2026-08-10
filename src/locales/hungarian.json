@@ -344,7 +344,7 @@
                 "start_end": "A kezdési dátum a jövőben van, a befejezés dátuma pedig követi a kezdési dátumot.",
                 "invalid_addr": "Érvénytelen cím formátum. A címnek így kell kezdődnie \"P-\"",
                 "no_addr": "Meg kell adnia egy címet, hogy megkapja a delegálási jutalmat.",
-                "min_dur": "A megjátszási időtartam legalább 2 hét.",
+                "min_dur": "A megjátszási időtartam legalább 48 óra.",
                 "max_dur": "A megjátszási időtartam legfeljebb 1 év.",
                 "no_node": "Meg kell adnia egy érvényesítőt.",
                 "val_end": "A delegálás befejezési dátuma nem lehet későbbi az érvényesítő befejezési dátumánál.",

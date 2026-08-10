@@ -71,6 +71,11 @@
                         <router-link to="/wallet/broadcast">Broadcast TX</router-link>
                     </v-list-item-title>
                 </v-list-item>
+                <v-list-item>
+                    <v-list-item-title>
+                        <router-link to="/wallet/quickdelegate">Quick Delegate</router-link>
+                    </v-list-item-title>
+                </v-list-item>
             </v-list>
         </v-menu>
  <v-menu offset-y>

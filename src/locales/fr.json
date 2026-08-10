@@ -344,7 +344,7 @@
                 "start_end": "La date de début doit se situer dans le futur et la date de fin doit être postérieure à la date de début.",
                 "invalid_addr": "Format d'adresse non valide. Votre adresse doit commencer par « P- »",
                 "no_addr": "Vous devez donner une adresse pour recevoir les récompenses de la délégation.",
-                "min_dur": "La durée minimale de la mise d'enjeu est de 2 semaines.",
+                "min_dur": "La durée minimale de la mise d'enjeu est de 48 heures.",
                 "max_dur": "La durée maximale de la mise d'enjeu est 1 an.",
                 "no_node": "Vous devez préciser un validateur.",
                 "val_end": "La date de fin de la délégation ne peut être supérieure à la date de fin du validateur.",

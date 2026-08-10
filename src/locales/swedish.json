@@ -344,7 +344,7 @@
                 "start_end": "Startdatumet måste ligga i framtiden och slutdatumet måste vara efter startdatumet.",
                 "invalid_addr": "Ogiltigt adressformat. Din adress måste börja med \"P-\"",
                 "no_addr": "Du måste ange en adress för att få delegationsbelöningar.",
-                "min_dur": "Minsta satsningstid är 2 veckor.",
+                "min_dur": "Minsta satsningstid är 48 timmar.",
                 "max_dur": "Högsta satsningstid är 1 år.",
                 "no_node": "Du måste ange en validerare.",
                 "val_end": "Delegationens slutdatum kan inte vara längre än validerings slutdatum.",

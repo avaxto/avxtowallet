@@ -502,7 +502,7 @@
                 "reason": "Reason"
             },
             "errs": {
-                "duration_warn": "WARNING: You must have at least 14 days remaining on your validation period to accept delegations.",
+                "duration_warn": "WARNING: You must have at least 48 hours remaining on your validation period to accept delegations.",
                 "date": "Start date must be in the future and end date must be after start date.",
                 "amount": "Stake amount must be at least {0} AVAX",
                 "id": "Invalid Node ID.",
@@ -578,7 +578,7 @@
                 "start_end": "Start date must be in the future and end date must be after start date.",
                 "invalid_addr": "Invalid address. Reward address must be a valid P chain address.",
                 "no_addr": "You must give an address to receive delegation rewards.",
-                "min_dur": "Minimum staking duration is 2 weeks.",
+                "min_dur": "Minimum staking duration is 48 hours.",
                 "max_dur": "Maximum staking duration is 1 year.",
                 "no_node": "You must specify a validator.",
                 "val_end": "Delegation end date can not be longer than the validator's end date.",

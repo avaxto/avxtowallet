@@ -344,7 +344,7 @@
                 "start_end": "Das Startdatum muss in der Zukunft liegen und das Enddatum muss nach dem Startdatum liegen.",
                 "invalid_addr": "Ungültiges Adressformat. Deine Adresse muss mit \"P-\" beginnen",
                 "no_addr": "Gib eine Adresse an, um Delegationsprämien zu erhalten.",
-                "min_dur": "Minimum Stakingzeitraum beträgt 2 Wochen.",
+                "min_dur": "Minimum Stakingzeitraum beträgt 48 Stunden.",
                 "max_dur": "Maximum Stakingzeitraum beträgt 1 Jahr.",
                 "no_node": "Du musst einen Validator angeben.",
                 "val_end": "Das Enddatum der Delegation darf nicht länger als das Enddatum des Validators sein.",

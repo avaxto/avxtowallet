@@ -344,7 +344,7 @@
                 "start_end": "De startdatum moet in de toekomst liggen en de einddatum moet later dan de startdatum zijn.",
                 "invalid_addr": "Ongeldige adresindeling. Uw adres moet beginnen met \"P-\"",
                 "no_addr": "U moet een adres opgeven om delegatiebeloningen te kunnen ontvangen.",
-                "min_dur": "De minimum inzet duurt 2 weken.",
+                "min_dur": "De minimum inzet duurt 48 uur.",
                 "max_dur": "De maximum inzet is 1 jaar.",
                 "no_node": "U moet een validator opgeven.",
                 "val_end": "De einddatum van de delegatie kan niet later zijn dan de einddatum van de validator.",

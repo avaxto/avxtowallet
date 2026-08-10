@@ -344,7 +344,7 @@
                 "start_end": "La data di inizio deve essere futura e la data di fine deve essere successiva alla data di inizio.",
                 "invalid_addr": "Formato dell'indirizzo non valido. Il tuo indirizzo deve iniziare con \"P-\"",
                 "no_addr": "Devi fornire un indirizzo per ricevere le ricompense della delega.",
-                "min_dur": "La durata minima dello staking è di 2 settimane.",
+                "min_dur": "La durata minima dello staking è di 48 ore.",
                 "max_dur": "La durata massima dello staking è di 1 anno.",
                 "no_node": "Devi specificare un validatore.",
                 "val_end": "La data finale della delega non può superare la data finale del validatore.",

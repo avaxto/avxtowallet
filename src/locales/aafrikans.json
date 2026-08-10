@@ -344,7 +344,7 @@
                 "start_end": "Begindatum moet in die toekoms wees en einddatum moet na begindatum wees.",
                 "invalid_addr": "Ongeldige adresformaat. U adres moet met \"P-\" begin",
                 "no_addr": "U moet 'n adres verskaaf om afvaardigingsbelonings te ontvang.",
-                "min_dur": "Die minimum beleggingsduur is 2 weke.",
+                "min_dur": "Die minimum beleggingsduur is 48 uur.",
                 "max_dur": "Maksimum insettingsduur is 2 weke.",
                 "no_node": "U moet 'n valideerder spesifiseer.",
                 "val_end": "Die einddatum van die delegasie kan nie langer as die valideerder se einddatum wees nie.",

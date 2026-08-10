@@ -344,7 +344,7 @@
                 "start_end": "Ngày bắt đầu phải ở trong tương lai và ngày kết thúc phải sau ngày bắt đầu.",
                 "invalid_addr": "Định dạng địa chỉ không hợp lệ. Địa chỉ của bạn phải bắt đầu bằng “P-”",
                 "no_addr": "Bạn phải cung cấp địa chỉ để nhận lợi nhuận ủy quyền.",
-                "min_dur": "Thời gian staking tối thiểu là 2 tuần.",
+                "min_dur": "Thời gian staking tối thiểu là 48 giờ.",
                 "max_dur": "Thời gian staking tối đa là 1 năm.",
                 "no_node": "Bạn phải xác định một trình xác thực.",
                 "val_end": "Ngày kết thúc ủy quyền không thể xa hơn ngày kết thúc của trình xác thực.",
