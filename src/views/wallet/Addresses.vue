@@ -185,6 +185,15 @@ interface AddrEntry {
 
 type PrivKeySource = 'xExternal' | 'xInternal' | 'p'
 
+// Always list at least this many derived addresses per HD chain/branch, even
+// when the wallet has only used a handful. getAllDerivedAddresses() defaults
+// to `upTo = hdIndex`, which findHdIndex() sets to roughly "last used index +
+// gap" — for a lightly-used wallet that can be as low as 0 or 1, making this
+// page show almost nothing to browse/verify against. Wallets that have
+// actually used more than this still show their full range (see the Math.max
+// below), this only raises the floor.
+const MIN_DISPLAYED_ADDRESSES = 100
+
 export default defineComponent({
     name: 'Addresses',
     components: { CopyText, Tooltip, PrivateKey, XpubModal },
@@ -240,21 +249,24 @@ export default defineComponent({
         const mnemonicXExternal = computed((): AddrEntry[] => {
             const w = wallet.value
             if (!(w instanceof MnemonicWallet)) return []
-            const addrs = w.externalHelper.getAllDerivedAddresses()
+            const upTo = Math.max(w.externalHelper.hdIndex, MIN_DISPLAYED_ADDRESSES - 1)
+            const addrs = w.externalHelper.getAllDerivedAddresses(upTo)
             return addrs.map((address, i) => ({ index: i, address }))
         })
 
         const mnemonicXInternal = computed((): AddrEntry[] => {
             const w = wallet.value
             if (!(w instanceof MnemonicWallet)) return []
-            const addrs = w.internalHelper.getAllDerivedAddresses()
+            const upTo = Math.max(w.internalHelper.hdIndex, MIN_DISPLAYED_ADDRESSES - 1)
+            const addrs = w.internalHelper.getAllDerivedAddresses(upTo)
             return addrs.map((address, i) => ({ index: i, address }))
         })
 
         const mnemonicP = computed((): AddrEntry[] => {
             const w = wallet.value
             if (!(w instanceof MnemonicWallet)) return []
-            const addrs = w.platformHelper.getAllDerivedAddresses()
+            const upTo = Math.max(w.platformHelper.hdIndex, MIN_DISPLAYED_ADDRESSES - 1)
+            const addrs = w.platformHelper.getAllDerivedAddresses(upTo)
             return addrs.map((address, i) => ({ index: i, address }))
         })
 
