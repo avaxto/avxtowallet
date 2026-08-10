@@ -1,11 +1,11 @@
 # AVXTO Wallet
 
-AVXTO - AVAX Toolbox Wallet was originally a fork of the original frontend Avalanche Vue application for Avalanche $AVAX
+AVXTO Wallet - An Avalanche $AVAX wallet for power users
 
 
 # This Wallet is Part of AVAX Toolbox Project
 
-Telegram tech support gated by [$AVXTO Token](https://dexscreener.com/avalanche/0x2bdebde7e1088e42aafef104b5f7457aca5ab86f)!!
+Powered by [$AVXTO Token](https://dexscreener.com/avalanche/0x2bdebde7e1088e42aafef104b5f7457aca5ab86f)!!
 
 We build free OSS software for Avalanche enthusiasts, supported by the $AVXTO token
 
@@ -21,8 +21,8 @@ Join our Telegram group at: [AVAX.to](https://avax.to/telegram)
 
 ## Installation
 
-1. Clone the repo `git clone https://github.com/ava-labs/avalanche-wallet.git`
-2. Go to root of the project `cd avalanche-wallet`
+1. Clone the repo `git clone https://github.com/avaxto/avxtowallet.git`
+2. Go to root of the project `cd avxtowallet`
 3. Install javascript dependencies with `yarn install`.
 
 ## Running The Project
