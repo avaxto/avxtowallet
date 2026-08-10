@@ -24,7 +24,7 @@
                         small
                         type="submit"
                         :loading="isDeriving"
-                        :disabled="!password || isDeriving"
+                        :disabled="isDeriving"
                     >
                         Authorize
                     </v-btn>
@@ -88,7 +88,10 @@ export default defineComponent({
 
         const submit = async () => {
             const req = pending.value
-            if (!req || isDeriving.value || !password.value) return
+            // Blank session passwords are valid (see SessionPasswordFields.vue) —
+            // only guard against a missing request or a derive already in flight,
+            // not against an empty (but intentionally set) password string.
+            if (!req || isDeriving.value) return
 
             isDeriving.value = true
             try {
