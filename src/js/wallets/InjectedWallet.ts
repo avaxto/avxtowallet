@@ -80,50 +80,6 @@ import { address } from 'bitcoinjs-lib'
 
 
 /**
- * Represents one account entry returned by Core App's `avalanche_getAccounts` RPC method.
- */
-export class CoreAppAccount {
-    active: boolean
-    addressC: string
-    addressBTC: string
-    /** Full X-chain address including prefix, e.g. "X-avax1..." */
-    addressAVM: string
-    /** Full P-chain address including prefix, e.g. "P-avax1..." */
-    addressPVM: string
-    addressCoreEth: string
-    addressSVM: string
-    name: string
-    type: string
-    id: string
-    xpAddresses: string[]
-    /** Base58check-encoded BIP32 extended public key for X/P-chain HD derivation. */
-    xpubXP: string
-    index: number
-    walletType: string
-    walletId: string
-    walletName: string
-
-    constructor(raw: Record<string, any>) {
-        this.active = raw.active ?? false
-        this.addressC = raw.addressC ?? ''
-        this.addressBTC = raw.addressBTC ?? ''
-        this.addressAVM = raw.addressAVM ?? ''
-        this.addressPVM = raw.addressPVM ?? ''
-        this.addressCoreEth = raw.addressCoreEth ?? ''
-        this.addressSVM = raw.addressSVM ?? ''
-        this.name = raw.name ?? ''
-        this.type = raw.type ?? ''
-        this.id = raw.id ?? ''
-        this.xpAddresses = Array.isArray(raw.xpAddresses) ? raw.xpAddresses : []
-        this.xpubXP = raw.xpubXP ?? ''
-        this.index = raw.index ?? 0
-        this.walletType = raw.walletType ?? ''
-        this.walletId = raw.walletId ?? ''
-        this.walletName = raw.walletName ?? ''
-    }
-}
-
-/**
  * Get an EIP-1193 provider from the browser window object.
  * Supports MetaMask, Core App, and other injected providers.
  */
@@ -164,8 +120,19 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
     // Tracks the next HD index to hand out via getNextXAddress().
     private _nextXIdx: number | null = null
 
-    /** Accounts fetched from Core App via avalanche_getAccounts. */
-    coreAccounts: CoreAppAccount[] = []
+    // Raw xp value (hex or base58 xpub) as last returned by avalanche_getAccountPubKey,
+    // kept verbatim for display (e.g. Addresses page "reveal xpub"). Empty when the
+    // provider only handed back a bare 33-byte compressed pubkey (no HD derivation).
+    private _xpubRaw: string = ''
+    // Compressed EVM public key (hex, no 0x) from avalanche_getAccountPubKey — used to
+    // derive the C-chain atomic signing address locally (see _applyEvmPubKey below),
+    // since avalanche_getAccounts (which used to supply it as addressCoreEth) is not
+    // part of Core's public RPC surface.
+    private _evmPubKey: string = ''
+    // Bech32 "C-..." atomic address = ripemd160(sha256(_evmPubKey)). Core's
+    // avalanche_signTransaction/sendTransaction match atomic C-chain UTXO owners
+    // against exactly this derivation (see getActiveCChainAtomicAddress below).
+    private _coreEthAddress: string = ''
 
     private walletClient: WalletClient
     private provider: any
@@ -235,63 +202,50 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
     }
 
     /**
-     * Call Core App's `avalanche_getAccounts` RPC, populate `this.coreAccounts`,
-     * and return the parsed array.
-     */
-    async avalancheGetAccounts(): Promise<CoreAppAccount[]> {
-        const raw: Record<string, any>[] = await this.provider.request({
-            method: 'avalanche_getAccounts',
-            params: [],
-        })
-        this.coreAccounts = raw.map((a) => new CoreAppAccount(a))
-        return this.coreAccounts
-    }
-
-    /**
      * Fetch account info from the provider and apply addresses / HD key.
-     * Tries `avalanche_getAccounts` first (gives full xpubXP);
-     * falls back to `avalanche_getAccountPubKey`.
+     *
+     * Only uses `avalanche_getAccountPubKey` — per Core's own confirmation
+     * (support ticket, 2026), that plus `avalanche_signTransaction` /
+     * `avalanche_sendTransaction` / `avalanche_signMessage` are the complete,
+     * public, non-restricted Avalanche-namespaced RPC surface. `avalanche_getAccounts`
+     * (used in an earlier version of this file for multi-account listing and for
+     * addressAVM/addressPVM/addressCoreEth/xpubXP fields) is not part of that
+     * documented set and is intentionally no longer called.
      */
     private async _applyAccountInfo(): Promise<void> {
-        // --- Primary: avalanche_getAccounts (Core App) ---
-        try {
-            const accounts = await this.avalancheGetAccounts()
-            // Match the active account to the connected EVM address.
-            const evmAddrLower = ('0x' + this.ethAddress).toLowerCase()
-            const match = accounts.find(
-                (a) => a.active || a.addressC.toLowerCase() === evmAddrLower
-            ) ?? accounts[0]
-
-            if (match?.xpubXP) {
-                this._applyXpKey(match.xpubXP)
-                return
-            }
-            // Extension supports avalanche_getAccounts but didn't hand back
-            // an xpub for the matched account — falling through to the
-            // legacy method below, which may only return a bare compressed
-            // pubkey (no HD derivation possible). Logged because this is
-            // otherwise indistinguishable from the call simply failing.
-            console.warn(
-                'InjectedWallet: avalanche_getAccounts succeeded but the matched account has no xpubXP; falling back to avalanche_getAccountPubKey.',
-                match
-            )
-        } catch (err) {
-            // Extension does not expose avalanche_getAccounts — try legacy method.
-            console.warn('InjectedWallet: avalanche_getAccounts failed; falling back to avalanche_getAccountPubKey.', err)
-        }
-
-        // --- Fallback: avalanche_getAccountPubKey ---
         try {
             const pubKeys: { xp?: string; evm?: string } = await this.provider.request({
                 method: 'avalanche_getAccountPubKey',
                 params: {},
             })
+            if (pubKeys?.evm) {
+                this._applyEvmPubKey(pubKeys.evm)
+            }
             if (pubKeys?.xp) {
                 this._applyXpKey(pubKeys.xp)
             }
         } catch (err) {
             console.warn('InjectedWallet: could not obtain X/P chain key from provider.', err)
         }
+    }
+
+    /**
+     * Derive and cache the C-chain atomic signing address from the compressed
+     * EVM public key returned by `avalanche_getAccountPubKey`.
+     *
+     * Empirically verified (against the now-unused `avalanche_getAccounts`
+     * response, before that call was dropped): Core's atomic-C signer lookup
+     * matches UTXO owner bytes against `ripemd160(sha256(compressed_EVM_pubkey))`
+     * — the same 20-byte hash `AVMKeyPair.addressFromPublicKey` already computes
+     * for X/P addresses, just bech32-encoded with the "C" chain ID instead.
+     */
+    private _applyEvmPubKey(evmPubKeyHex: string): void {
+        this._evmPubKey = evmPubKeyHex.replace(/^0x/, '')
+        const hrp = getPreferredHRP(ava.getNetworkID())
+        const addrBuf = AVMKeyPair.addressFromPublicKey(
+            BufferAvalanche.from(this._evmPubKey, 'hex')
+        )
+        this._coreEthAddress = bintools.addressToString(hrp, 'C', addrBuf)
     }
 
     /**
@@ -344,6 +298,10 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
 
         // --- We have an account-level extended public key ---
         this._accountKey = accountKey
+        // Keep the raw value (hex or base58) as received, for getXpubXP() — the
+        // bare-pubkey branch above returns before reaching here, so this only
+        // ever holds a value when HD derivation is actually possible.
+        this._xpubRaw = xp
 
         // Derive the first external address (m/0/0 from account key) as the primary address.
         const firstExternalNode = accountKey.derive('m/0/0')
@@ -355,6 +313,16 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
 
         // Kick off the Glacier lot-scan (async, awaited in getUTXOs).
         this._startHdScan()
+    }
+
+    /**
+     * Extended public key (base58 or hex, exactly as returned by
+     * `avalanche_getAccountPubKey`) backing this wallet's HD-derived X/P
+     * addresses. Empty when the provider only exposed a bare compressed
+     * pubkey, in which case no HD derivation — and no xpub — exists.
+     */
+    getXpubXP(): string {
+        return this._xpubRaw
     }
 
     async getAddressForIndex(index: number, change: boolean = false, chain: 'X' | 'P' = 'X'): Promise<string> {
@@ -480,22 +448,6 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
         return this._hdXExternal.at(-1) ?? this.avmAddress
     }
 
-    /**
-     * Returns Core App's active account X-chain address — the address that
-     * avalanche_signTransaction signs as.  This is the canonical address to use
-     * for X-chain export destinations and import outputs so that the UTXO owner
-     * always matches the signer.
-     *
-     * Core App's current address comes from avalanche_getAccounts (addressAVM field)
-     * and may be at a higher HD index than m/0/0 (avmAddress).  Using avmAddress
-     * as the export destination causes "nothing to sign" because the UTXO owner
-     * (avmAddress = index 0) doesn't match Core App's current signer address.
-     */
-    private getActiveXChainAddress(): string {
-        const active = this.coreAccounts.find((a) => a.active) ?? this.coreAccounts[0]
-        return active?.addressAVM || this.avmAddress
-    }
-
     getChangeAddressAvm(): string {
         return this._hdXInternal.at(-1) ?? this.avmAddress
     }
@@ -515,16 +467,13 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
     }
 
     getDerivedAddresses(): string[] {
-        const hdCombined = [...this._hdXExternal, ...this._hdXInternal]
-        const coreX = this.coreAccounts.map((a) => a.addressAVM).filter(Boolean)
-        const all = [...new Set([...hdCombined, ...coreX])]
+        const all = [...new Set([...this._hdXExternal, ...this._hdXInternal])]
         return all.length > 0 ? all : this.avmAddress ? [this.avmAddress] : []
     }
 
     getDerivedAddressesP(): string[] {
-        const coreP = this.coreAccounts.map((a) => a.addressPVM).filter(Boolean)
-        const all = [...new Set([...this._hdP, ...coreP])]
-        return all.length > 0 ? all : this.platformAddress ? [this.platformAddress] : []
+        return this._hdP.length > 0 ? this._hdP
+            : this.platformAddress ? [this.platformAddress] : []
     }
 
     getAllDerivedExternalAddresses(): string[] {
@@ -554,39 +503,29 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
     }
 
     /**
-     * Returns the active Core account's "Core-Eth" atomic address — the bech32
+     * Returns the connected account's "Core-Eth" atomic address — the bech32
      * "C-..." form whose 20 bytes are `ripemd160(sha256(compressed_EVM_pubkey))`.
+     * Computed locally in `_applyEvmPubKey()` from the pubkey `avalanche_getAccountPubKey`
+     * returns; see that method for the derivation rationale.
      *
      * This is a THIRD derivation distinct from both the standard EVM address
      * (keccak256 of the uncompressed EVM pubkey, what `getEvmAddressBech()`
      * encodes) and the XP-style atomic address (ripemd160 of the *X-chain*
-     * compressed pubkey, what `addressAVM` / `addressPVM` carry).
+     * compressed pubkey, what `avmAddress` / `platformAddress` carry).
      *
-     * Core App's `avalanche_sendTransaction` for chainAlias='C' matches UTXO
-     * owner bytes against EXACTLY this derivation when picking a signing key —
-     * neither of the other two forms works.  Verified empirically against the
-     * `avalanche_getAccounts` response (the `addressCoreEth` field on each
-     * Core account) and the share of bytes with `addressBTC`.
-     *
-     * Returns '' when no Core account is loaded (e.g. providers that don't
-     * expose `avalanche_getAccounts`).  Callers should handle that explicitly.
+     * Returns '' when the provider didn't return an `evm` pubkey. Callers
+     * should handle that explicitly.
      */
     getActiveCChainAtomicAddress(): string {
-        const active = this.coreAccounts.find((a) => a.active) ?? this.coreAccounts[0]
-        return active?.addressCoreEth || ''
+        return this._coreEthAddress
     }
 
     getAllAddressesX(): string[] {
-        const hdCombined = [...this._hdXExternal, ...this._hdXInternal]
-        const coreX = this.coreAccounts.map((a) => a.addressAVM).filter(Boolean)
-        const all = [...new Set([...hdCombined, ...coreX])]
-        return all.length > 0 ? all : this.avmAddress ? [this.avmAddress] : []
+        return this.getDerivedAddresses()
     }
 
     getAllAddressesP(): string[] {
-        const coreP = this.coreAccounts.map((a) => a.addressPVM).filter(Boolean)
-        const all = [...new Set([...this._hdP, ...coreP])]
-        return all.length > 0 ? all : this.platformAddress ? [this.platformAddress] : []
+        return this.getDerivedAddressesP()
     }
 
     // ---- UTXO management ----
@@ -953,21 +892,21 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
      * Override exportFromXChain for InjectedWallet.
      *
      * Destinations:
-     * - X→P: active P-chain primary address (Core's `addressPVM`).
-     * - X→C: `getActiveCChainAtomicAddress()` (= the account's `addressCoreEth`).
-     *   Core App's atomic-C signer-lookup uses ripemd160(sha256(compressed EVM
-     *   pubkey)) — verified empirically via the `avalanche_getAccounts`
-     *   response and a successful import round-trip.
+     * - X→P: this wallet's P-chain primary address (`platformAddress`, m/0/0).
+     * - X→C: `getActiveCChainAtomicAddress()`, derived locally from the EVM
+     *   pubkey (see `_applyEvmPubKey`). Core's atomic-C signer-lookup uses
+     *   ripemd160(sha256(compressed EVM pubkey)) — verified empirically via
+     *   a successful import round-trip.
      *
      * Inputs:
-     *   `fromAddresses` is restricted to Core-signable X-chain primaries
-     *   (each Core account's `addressAVM`).  Including HD-derived X addresses
-     *   lets the SDK pick UTXOs at signing-keys Core App can't reach,
-     *   producing "This account has nothing to sign".  Stranded HD-derived X
-     *   UTXOs are recoverable only via mnemonic.
+     *   `fromAddresses` is restricted to the primary X-chain address
+     *   (`avmAddress`, m/0/0) — the only one Core's `avalanche_signTransaction`
+     *   signs for. Including HD-derived X addresses lets the SDK pick UTXOs at
+     *   signing-keys Core can't reach, producing "This account has nothing to
+     *   sign". Stranded HD-derived X UTXOs are recoverable only via mnemonic.
      *
-     *   `changeAddress` is pinned to the active account's `addressAVM` so
-     *   change doesn't land at an HD-derived index.
+     *   `changeAddress` is pinned to the same primary address so change
+     *   doesn't land at an HD-derived index.
      */
     async exportFromXChain(amt: BN, destinationChain: ExportChainsX, importFee?: BN): Promise<string> {
         if (destinationChain === 'C' && !importFee)
@@ -986,22 +925,18 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
             amtFee = amt.add(pChain.getTxFee())
         }
 
-        // Restrict input/change to Core-signable X-chain primaries.
-        const coreSignableX = this.coreAccounts.map((a) => a.addressAVM).filter(Boolean)
-        const fromAddresses = coreSignableX.length > 0
-            ? coreSignableX
-            : (this.avmAddress ? [this.avmAddress] : [])
+        // Restrict input/change to the primary X-chain address — the only one
+        // Core's avalanche_signTransaction signs for.
+        const fromAddresses = this.avmAddress ? [this.avmAddress] : []
 
         if (fromAddresses.length === 0) {
             throw new Error(
-                'No Core-signable X-chain addresses available. Connect a Core extension ' +
-                'account that exposes avalanche_getAccounts, or import your seed phrase ' +
-                'via Wallet Wizard.'
+                'No X-chain address available from the injected wallet. Connect a Core ' +
+                'extension account, or import your seed phrase via Wallet Wizard.'
             )
         }
 
-        const active = this.coreAccounts.find((a) => a.active) ?? this.coreAccounts[0]
-        const changeAddress = active?.addressAVM || fromAddresses[0]
+        const changeAddress = fromAddresses[0]
         const utxos = this.getUTXOSet()
         const exportTx = await TxHelper.buildAvmExportTransaction(
             destinationChain,
@@ -1064,15 +999,14 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
             bintools.addressToString(hrp, 'C', addr)
         )
 
-        // Core-signable set = each Core account's `addressCoreEth` — the bech32
-        // "C-..." form derived from ripemd160(sha256(compressed_EVM_pubkey)).
-        // Core App's atomic-sign path for chainAlias='C' matches input UTXO
-        // owner bytes against EXACTLY these bytes when picking a signing key
-        // (verified against the avalanche_getAccounts response).  Neither the
-        // standard EVM (keccak256) form nor the XP-style (X-chain pubkey hash)
-        // form works — only this one.
+        // Core-signable set = this wallet's `addressCoreEth`-equivalent — the bech32
+        // "C-..." form derived locally from ripemd160(sha256(compressed_EVM_pubkey))
+        // (see `_applyEvmPubKey`). Core's atomic-sign path for chainAlias='C' matches
+        // input UTXO owner bytes against EXACTLY these bytes when picking a signing
+        // key. Neither the standard EVM (keccak256) form nor the XP-style (X-chain
+        // pubkey hash) form works — only this one.
         const coreSignable = new Set(
-            this.coreAccounts.map((a) => a.addressCoreEth).filter(Boolean)
+            this._coreEthAddress ? [this._coreEthAddress] : []
         )
 
         const signableOwners = ownerAddrs.filter((a) => coreSignable.has(a))
@@ -1081,10 +1015,7 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
         if (signableOwners.length === 0) {
             const stuckAddr = strandedOwners[0]
             const isLegacyEvmBytes = stuckAddr === this.getEvmAddressBech()
-            const xpStyleAddr = (() => {
-                const avm = this.coreAccounts.find((a) => a.active)?.addressAVM
-                return avm ? `C-${avm.split('-')[1]}` : ''
-            })()
+            const xpStyleAddr = this.avmAddress ? `C-${this.avmAddress.split('-')[1]}` : ''
             const isLegacyXpStyle = stuckAddr === xpStyleAddr
             const variant = isLegacyEvmBytes
                 ? 'the EVM-bytes (keccak256) form'
@@ -1188,11 +1119,11 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
             bintools.addressToString(hrp, 'X', addr)
         )
 
-        // Split owners by whether Core App will sign for them.  Only addresses
-        // matching a Core account's primary addressAVM are signable through the
-        // injected provider; HD-derived children of the active xpub are not.
+        // Split owners by whether Core App will sign for them.  Only the primary
+        // avmAddress (m/0/0) is signable through the injected provider; HD-derived
+        // children of the connected xpub are not.
         const coreSignable = new Set(
-            this.coreAccounts.map((a) => a.addressAVM).filter(Boolean)
+            this.avmAddress ? [this.avmAddress] : []
         )
         const signableOwners = ownerAddrs.filter((a) => coreSignable.has(a))
         const strandedOwners = ownerAddrs.filter((a) => !coreSignable.has(a))
@@ -1380,16 +1311,13 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
         rewardAddress?: string,
         utxos?: PlatformUTXO[]
     ): Promise<string> {
-        // Restrict to addresses Core App can sign for (primary addressPVM per account).
-        const coreSignableP = this.coreAccounts.map((a) => a.addressPVM).filter(Boolean)
-        const pAddressStrings = coreSignableP.length > 0
-            ? coreSignableP
-            : (this.platformAddress ? [this.platformAddress] : [])
+        // Restrict to the primary P-chain address (platformAddress, m/0/0) — the
+        // only one Core's avalanche_signTransaction signs for.
+        const pAddressStrings = this.platformAddress ? [this.platformAddress] : []
 
         if (pAddressStrings.length === 0) {
             throw new Error(
-                'No Core-signable P-chain addresses available. Connect a Core extension ' +
-                'account that exposes avalanche_getAccounts.'
+                'No P-chain address available from the injected wallet. Connect a Core extension account.'
             )
         }
 
@@ -1501,14 +1429,14 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
      *   work (verified via captured `avalanche_sendTransaction` payload).
      *
      * Inputs:
-     *   `fromAddrs` is restricted to Core-signable addresses (= each Core
-     *   account's `addressPVM`).  If we include HD-derived P-chain addresses,
+     *   `fromAddrs` is restricted to the primary P-chain address
+     *   (`platformAddress`, m/0/0).  If we include HD-derived P-chain addresses,
      *   the SDK may select UTXOs at those addresses as inputs, and Core App's
      *   `avalanche_signTransaction` returns "This account has nothing to sign"
      *   because it can't reach into HD-derived signing keys.  Funds stranded
      *   at HD-derived P addresses are recoverable only via mnemonic.
      *
-     *   `pChangeAddr` is also pinned to a Core-signable address so change
+     *   `pChangeAddr` is also pinned to that same primary address so change
      *   doesn't land at an HD-derived index.
      */
     async exportFromPChain(amt: BN, destinationChain: ExportChainsP, importFee?: BN): Promise<string> {
@@ -1527,28 +1455,22 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
                 ? this.getActiveCChainAtomicAddress()
                 : this.avmAddress
 
-        // Restrict input/change addresses to Core-signable primaries.  Including
-        // HD-derived addresses in fromAddrs lets the SDK pick UTXOs Core App
-        // can't sign for, producing "This account has nothing to sign".
-        const coreSignableP = this.coreAccounts.map((a) => a.addressPVM).filter(Boolean)
-        const fromAddrs = coreSignableP.length > 0
-            ? coreSignableP
-            : (this.platformAddress ? [this.platformAddress] : [])
+        // Restrict input/change to the primary P-chain address — the only one
+        // Core's avalanche_signTransaction signs for.
+        const fromAddrs = this.platformAddress ? [this.platformAddress] : []
 
         if (fromAddrs.length === 0) {
             throw new Error(
-                'No Core-signable P-chain addresses available. Connect a Core extension ' +
-                'account that exposes avalanche_getAccounts, or import your seed phrase ' +
-                'via Wallet Wizard.'
+                'No P-chain address available from the injected wallet. Connect a Core ' +
+                'extension account, or import your seed phrase via Wallet Wizard.'
             )
         }
 
         const utxoSet = this.getPlatformUTXOSet()
         const sortedSet = sortUTxoSetP(utxoSet, false)
-        // Send change back to the primary signable address (the active Core
-        // account's addressPVM) so it stays signable in future txs.
-        const active = this.coreAccounts.find((a) => a.active) ?? this.coreAccounts[0]
-        const pChangeAddr = active?.addressPVM || fromAddrs[0]
+        // Send change back to the primary signable address so it stays
+        // signable in future txs.
+        const pChangeAddr = fromAddrs[0]
 
         const exportTx = await TxHelper.buildPlatformExportTransaction(
             sortedSet,
