@@ -41,16 +41,6 @@ import { useNotificationsStore } from './notifications'
 import { useHistoryStore } from './history'
 import { useAvxtoStore } from './avxto'
 
-/**
- * True when the app itself is being served from localhost (dev/testing).
- * Used to gate the injected-wallet X/P chain limitation warning so it only
- * fires for real deployments, not local development.
- */
-const isLocalhost = (): boolean => {
-    const host = window.location.hostname
-    return host === 'localhost' || host === '127.0.0.1' || host === '::1' || host === ''
-}
-
 export const useMainStore = defineStore('main', () => {
     // State
     const isAuth = ref(false)
@@ -214,18 +204,6 @@ export const useMainStore = defineStore('main', () => {
     }
 
     const accessWalletInjected = async () => {
-        if (!isLocalhost()) {
-            useNotificationsStore().add({
-                title: 'Injected Wallet — Testing Stage',
-                message:
-                    'Connecting with an injected wallet (Core / MetaMask) is still in testing. ' +
-                    'Due to Core extension restrictions, X-Chain and P-Chain transactions ' +
-                    'cannot be signed yet — only C-Chain (EVM) transactions are supported.',
-                type: 'warning',
-                duration: 10000,
-            })
-        }
-
         let wallet: InjectedWallet | null = null
         try {
             wallet = await InjectedWallet.connect()
