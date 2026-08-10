@@ -47,6 +47,13 @@
         to classes; out of scope here. This is a materially lower-risk
         relaxation than script-src 'unsafe-inline' (which is NOT granted).
     -->
+    <!--
+      TEMPORARILY DISABLED for production CORE-permission testing
+      (2026-08-09) — restore the block below (or `git checkout` this file)
+      before the next real deploy. Do not leave this off longer than the
+      test requires: it's a live wallet handling seed phrases/private keys,
+      and this tag is the only XSS/injection mitigation this repo ships
+      (no server-side header layer exists here — see comment history above).
     <meta http-equiv="Content-Security-Policy" content="
       default-src 'self';
       script-src 'self' 'wasm-unsafe-eval';
@@ -58,6 +65,7 @@
       base-uri 'self';
       form-action 'self';
     ">
+    -->
 
     <link rel="icon" href="/favicon.ico">
     <title>AVXTO Wallet for Avalanche - AVAX</title>

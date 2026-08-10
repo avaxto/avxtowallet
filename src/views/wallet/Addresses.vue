@@ -265,10 +265,19 @@ export default defineComponent({
 
         // ---- InjectedWallet address collections ----
 
+        // These read through the wallet's own public getters (not the raw
+        // _hdXExternal/_hdXInternal/_hdP arrays) because those getters fall
+        // back to the single base address (avmAddress/platformAddress) when
+        // no HD scan has run — e.g. when the injected provider only handed
+        // back a 33-byte compressed pubkey instead of an xpub, HD derivation
+        // isn't possible at all, but the wallet still has and uses exactly
+        // one real address. Reading the raw arrays directly showed "No
+        // addresses found" in that case even though the wallet was fully
+        // functional with that single address.
         const injectedXExternal = computed((): AddrEntry[] => {
             const w = wallet.value
             if (!(w instanceof InjectedWallet)) return []
-            return w['_hdXExternal'].map((address: string, i: number) => ({ index: i, address }))
+            return w.getAllExternalAddressesX().map((address: string, i: number) => ({ index: i, address }))
         })
 
         const injectedXInternal = computed((): AddrEntry[] => {
@@ -280,7 +289,7 @@ export default defineComponent({
         const injectedP = computed((): AddrEntry[] => {
             const w = wallet.value
             if (!(w instanceof InjectedWallet)) return []
-            return w['_hdP'].map((address: string, i: number) => ({ index: i, address }))
+            return w.getAllAddressesP().map((address: string, i: number) => ({ index: i, address }))
         })
 
         const coreAppAddrs = computed((): CoreAddrEntry[] => {

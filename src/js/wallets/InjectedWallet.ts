@@ -266,8 +266,18 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
                 this._applyXpKey(match.xpubXP)
                 return
             }
-        } catch {
+            // Extension supports avalanche_getAccounts but didn't hand back
+            // an xpub for the matched account — falling through to the
+            // legacy method below, which may only return a bare compressed
+            // pubkey (no HD derivation possible). Logged because this is
+            // otherwise indistinguishable from the call simply failing.
+            console.warn(
+                'InjectedWallet: avalanche_getAccounts succeeded but the matched account has no xpubXP; falling back to avalanche_getAccountPubKey.',
+                match
+            )
+        } catch (err) {
             // Extension does not expose avalanche_getAccounts — try legacy method.
+            console.warn('InjectedWallet: avalanche_getAccounts failed; falling back to avalanche_getAccountPubKey.', err)
         }
 
         // --- Fallback: avalanche_getAccountPubKey ---
