@@ -732,6 +732,71 @@ class LedgerWallet extends AbstractHdWallet implements AvaWalletCore {
         return signedTx
     }
 
+    /**
+     * Local XPAccount for the new AddPermissionlessDelegatorTx signing path
+     * (see js/permissionlessDelegate.ts). Restricted to the primary P-chain
+     * address (m/0/0, path "0/0") — same restriction InjectedWallet works
+     * under for the same tx, and it matches AbstractWallet.delegate()'s
+     * single fromAddress.
+     *
+     * signTransaction hashes the tx the same way @avalabs/avalanchejs's own
+     * secp256k1.sign() does (single sha256), then has the device sign that
+     * digest — the same "blind hash" fallback signTransactionHash() above
+     * already uses for the legacy tx type when the device can't parse a tx,
+     * just against the new tx's bytes instead. Unverified against real
+     * hardware.
+     */
+    protected async getXPAccountForDelegation() {
+        const node = this.platformHelper.masterKey.derive('m/0/0')
+        const publicKeyHex = ('0x' + node.publicKey.toString('hex')) as `0x${string}`
+
+        const accountPath = bippath.fromString(`${AVA_ACCOUNT_PATH}`)
+        const bip32Paths = this.pathsToUniqueBipPaths(['0/0'])
+
+        const signTransaction = async (txBytes: string | Uint8Array): Promise<string> => {
+            const buf =
+                typeof txBytes === 'string'
+                    ? BufferAvax.from(txBytes.replace(/^0x/, ''), 'hex')
+                    : BufferAvax.from(txBytes)
+            const hash = createHash('sha256').update(buf).digest()
+
+            this.ledgerStore.openModal({
+                title: 'Sign Hash',
+                warning:
+                    'Ledger is unable display this transaction because it is too large. Try entering a lower amount.',
+                messages: [],
+                info: hash.toString('hex').toUpperCase(),
+            })
+
+            try {
+                const sigMap = await this.provider.signHash(
+                    this.getTransport(),
+                    Buffer.from(hash),
+                    accountPath,
+                    bip32Paths
+                )
+                const sig: Buffer | undefined = sigMap.signatures.get('0/0')
+                if (!sig) {
+                    throw new Error('Ledger did not return a signature for the P-chain signing path.')
+                }
+                return '0x' + sig.toString('hex')
+            } finally {
+                this.ledgerStore.closeModal()
+            }
+        }
+
+        return {
+            publicKey: publicKeyHex,
+            signMessage: async () => {
+                throw new Error('Message signing is not implemented for this account.')
+            },
+            signTransaction,
+            verify: () => false,
+            type: 'local',
+            source: 'privateKey',
+        } as any
+    }
+
     async signC(unsignedTx: EVMUnsignedTx): Promise<EvmTx> {
         // TODO: Might need to upgrade paths array to:
         //  paths = Array(utxoSet.getAllUTXOs().length).fill('0/0'),

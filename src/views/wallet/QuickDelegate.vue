@@ -376,7 +376,12 @@ export default defineComponent({
                 // A cancelled session-password prompt isn't a failure worth
                 // surfacing — the user simply backed out.
                 if (e instanceof SessionAuthCancelled) return
-                const msg = e instanceof Error ? e.message : String(e)
+                // e instanceof Error isn't reliable here — provider/RPC errors
+                // (e.g. from the injected wallet or a viem call) often come back
+                // as plain objects, which `String(e)` renders as "[object
+                // Object]". errorToString() unwraps a .message when present and
+                // falls back to JSON.stringify for anything else.
+                const msg = errorToString(e)
                 err.value = msg
                 notificationsStore.add({
                     type: 'error',

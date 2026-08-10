@@ -283,7 +283,7 @@ import { bintools, pChain } from '@/AVA'
 import MnemonicWallet from '@/js/wallets/MnemonicWallet'
 import ConfirmPage from '@/components/wallet/earn/Validate/ConfirmPage.vue'
 import moment from 'moment'
-import { bnToBig, calculateStakingReward } from '@/helpers/helper'
+import { bnToBig, calculateStakingReward, errorToString } from '@/helpers/helper'
 import { ONEAVAX } from '@/avalanche/utils'
 import Tooltip from '@/components/misc/Tooltip.vue'
 import CurrencySelect from '@/components/misc/CurrencySelect/CurrencySelect.vue'
@@ -755,8 +755,13 @@ export default defineComponent({
         }
 
         const onerror = (error: any) => {
-            const msg: string = error.message
             console.error(error)
+            // error.message assumes error is always an Error with a string
+            // message — provider/RPC errors are often plain objects instead,
+            // which made this throw (msg undefined, .includes() on it) rather
+            // than show anything. errorToString() handles both, plus the
+            // "[object Object]" case for whatever's left over.
+            const msg = errorToString(error)
 
             if (msg.includes('startTime')) {
                 err.value = t('earn.validate.errs.date') as string
@@ -769,7 +774,7 @@ export default defineComponent({
             } else if (msg.includes('address format')) {
                 err.value = t('earn.validate.errs.address') as string
             } else {
-                err.value = error.message
+                err.value = msg
             }
 
             notificationsStore.add({

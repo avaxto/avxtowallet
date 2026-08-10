@@ -56,6 +56,7 @@ import { activeNetwork } from '@/avalanche-wallet-sdk/Network/network'
 import * as TxHelper from '@/avalanche-wallet-sdk/helpers/tx_helper'
 import * as UtxoHelper from '@/avalanche-wallet-sdk/helpers/utxo_helper'
 import { buildUnsignedTransaction } from '@/js/TxHelper'
+import { delegatePermissionlessViaProvider } from '@/js/permissionlessDelegate'
 import { sortUTxoSetP } from '@/helpers/sortUTXOs'
 import { defineChain } from 'viem'
 
@@ -1299,60 +1300,52 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
     // ---- Validation / Delegation ----
 
     /**
-     * Override delegate() to restrict inputs/change to Core-signable P-chain addresses.
-     * Including HD-derived addresses lets buildAddDelegatorTx pick UTXOs that Core App
-     * cannot sign for, producing "This account has nothing to sign".
+     * Override delegate() to build an AddPermissionlessDelegatorTx via
+     * @avalanche-sdk/client and sign/submit it through Core's
+     * avalanche_signTransaction/avalanche_sendTransaction — see
+     * js/permissionlessDelegate.ts for why (this app's vendored avalanche.js
+     * fork's buildAddDelegatorTx builds the legacy format, which the
+     * network no longer has a parser for).
+     *
+     * Restricted to the primary P-chain address (platformAddress, m/0/0) for
+     * from/change/reward — the only one Core's avalanche_signTransaction
+     * signs for. Including HD-derived addresses would let the builder pick
+     * UTXOs Core can't sign for, producing "This account has nothing to sign".
+     *
+     * `start` and `utxos` are unused — see AbstractWallet.delegate()'s
+     * docstring, same reasons apply here (no start-time field in the new
+     * format; the SDK builder fetches its own UTXOs for fromAddress).
      */
     async delegate(
         nodeID: string,
         amt: BN,
-        start: Date,
+        _start: Date,
         end: Date,
         rewardAddress?: string,
-        utxos?: PlatformUTXO[]
+        _utxos?: PlatformUTXO[]
     ): Promise<string> {
-        // Restrict to the primary P-chain address (platformAddress, m/0/0) — the
-        // only one Core's avalanche_signTransaction signs for.
-        const pAddressStrings = this.platformAddress ? [this.platformAddress] : []
-
-        if (pAddressStrings.length === 0) {
+        if (!this.platformAddress) {
             throw new Error(
                 'No P-chain address available from the injected wallet. Connect a Core extension account.'
             )
         }
 
-        let utxoSet = this.getPlatformUTXOSet()
-        if (utxos) {
-            utxoSet = new PlatformUTXOSet()
-            utxoSet.addArray(utxos)
-        }
-
-        const sortedSet = sortUTxoSetP(utxoSet, false)
-
         if (!rewardAddress) {
-            rewardAddress = pAddressStrings[0]
+            rewardAddress = this.platformAddress
         }
 
-        const stakeReturnAddr = pAddressStrings[0]
-        const changeAddress = pAddressStrings[0]
-
-        const startTime = new BN(Math.round(start.getTime() / 1000))
-        const endTime = new BN(Math.round(end.getTime() / 1000))
-
-        const unsignedTx = await pChain.buildAddDelegatorTx(
-            sortedSet,
-            [stakeReturnAddr],
-            pAddressStrings,
-            [changeAddress],
-            nodeID,
-            startTime,
-            endTime,
-            amt,
-            [rewardAddress]
+        return delegatePermissionlessViaProvider(
+            {
+                nodeID,
+                amount: amt,
+                end,
+                fromAddress: this.platformAddress,
+                changeAddress: this.platformAddress,
+                rewardAddress,
+                evmAddress: ('0x' + this.ethAddress) as `0x${string}`,
+            },
+            this.provider
         )
-
-        const tx = await this.signP(unsignedTx)
-        return this.issueP(tx)
     }
 
     async validate(

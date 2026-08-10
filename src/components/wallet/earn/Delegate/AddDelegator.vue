@@ -218,7 +218,7 @@ import { BN } from '@/avalanche'
 import { AmountOutput, PlatformVMConstants, UTXO, UTXOSet } from '@/avalanche/apis/platformvm'
 import { ava, avm, bintools, infoApi, pChain } from '@/AVA'
 import MnemonicWallet from '@/js/wallets/MnemonicWallet'
-import { bnToBig, calculateStakingReward } from '@/helpers/helper'
+import { bnToBig, calculateStakingReward, errorToString } from '@/helpers/helper'
 import { Defaults, ONEAVAX } from '@/avalanche/utils'
 import { ValidatorListItem } from '@/types'
 import NodeSelection from '@/components/wallet/earn/Delegate/NodeSelection.vue'
@@ -391,14 +391,19 @@ export default defineComponent({
 
         const onerror = (e: any) => {
             console.error(e)
-            let msg: string = e.message
+            // e.message assumes e is always an Error with a string message —
+            // provider/RPC errors are often plain objects instead, which made
+            // this throw (msg undefined, .includes() on it) instead of showing
+            // anything. errorToString() handles both, plus the "[object
+            // Object]" case for whatever's left over.
+            const msg = errorToString(e)
 
             if (msg.includes('startTime')) {
                 err.value = t('earn.delegate.errs.start_end') as string
             } else if (msg.includes('address format')) {
                 err.value = t('earn.delegate.errs.invalid_addr') as string
             } else {
-                err.value = e.message
+                err.value = msg
             }
             notificationsStore.add({
                 type: 'error',

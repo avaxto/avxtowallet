@@ -569,7 +569,7 @@
                 "node": "Node ID",
                 "amount": "Staking Amount",
                 "start": "Start Date",
-                "start_desc": "Your delegation will start 5 minutes after you submit this form.",
+                "start_desc": "Your delegation starts as soon as this transaction is accepted.",
                 "end": "End Date",
                 "reward": "Reward Address"
             },

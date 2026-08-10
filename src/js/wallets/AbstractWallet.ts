@@ -31,6 +31,7 @@ import { defineChain } from 'viem'
 import type { XPAccount } from '@avalanche-sdk/client/accounts'
 import { createAvalancheWalletClient } from '@avalanche-sdk/client'
 import { activeNetwork } from '@/avalanche-wallet-sdk/Network/network'
+import { delegatePermissionlessLocal } from '@/js/permissionlessDelegate'
 import { issueC, issueP, issueX } from '@/helpers/issueTx'
 import { sortUTxoSetP } from '@/helpers/sortUTXOs'
 import { getStakeForAddresses } from '@/helpers/utxo_helper'
@@ -598,67 +599,69 @@ abstract class AbstractWallet implements AvaWalletCore {
     }
 
     /**
-     * Create and issue an AddPermissionlessDelegatorTx (ACP-62 compliant)
-     * @param nodeID
-     * @param amt
-     * @param start
-     * @param end
-     * @param rewardAddress
-     * @param utxos
+     * Returns an XPAccount (see @avalanche-sdk/client/accounts) that can sign
+     * the AddPermissionlessDelegatorTx built in delegate() below, for wallet
+     * types that hold — or can reach — a private key locally. Returns null
+     * for wallet types that can't sign locally.
+     *
+     * Overridden by MnemonicWallet, SingletonWallet and LedgerWallet.
+     * InjectedWallet doesn't need this — it overrides delegate() itself and
+     * routes through the injected provider instead (see InjectedWallet.ts).
+     */
+    protected async getXPAccountForDelegation(): Promise<XPAccount | null> {
+        return null
+    }
+
+    /**
+     * Create and issue an AddPermissionlessDelegatorTx (ACP-62 compliant).
+     *
+     * Built via @avalanche-sdk/client / @avalabs/avalanchejs — see
+     * js/permissionlessDelegate.ts for why: this app's vendored avalanche.js
+     * fork (pChain.buildAddDelegatorTx) only knows the legacy AddDelegatorTx
+     * format, which the network no longer has a parser for.
+     *
+     * Two params from the old implementation are now unused:
+     *   - `start`: the permissionless format has no start-time field —
+     *     delegation begins as soon as the transaction is accepted.
+     *   - `utxos`: the SDK builder fetches its own UTXOs for `fromAddress`;
+     *     passing a hand-picked UTXO set (the "advanced" selector in
+     *     AddDelegator.vue) isn't wired through yet.
+     * Both are kept in the signature for interface compatibility with
+     * validate() and existing call sites.
+     *
+     * Restricted to the wallet's single primary P-chain address for
+     * from/change/reward: the SDK's local-signing path only signs with one
+     * XPAccount, so a transaction whose inputs span multiple HD-derived
+     * addresses would end up with unsigned credential slots and get
+     * rejected. Same constraint InjectedWallet already works under
+     * elsewhere in this codebase, same reason.
      */
     async delegate(
         nodeID: string,
         amt: BN,
-        start: Date,
+        _start: Date,
         end: Date,
         rewardAddress?: string,
-        utxos?: PlatformUTXO[]
+        _utxos?: PlatformUTXO[]
     ): Promise<string> {
-        let utxoSet = this.getPlatformUTXOSet()
-        const pAddressStrings = this.getAllAddressesP()
-
-        const stakeAmount = amt
-
-        // If given custom UTXO set use that
-        if (utxos) {
-            utxoSet = new PlatformUTXOSet()
-            utxoSet.addArray(utxos)
-        }
-
-        // Sort utxos high to low
-        const sortedSet = sortUTxoSetP(utxoSet, false)
-
-        // If reward address isn't given use index 0 address
+        const fromAddress = this.getCurrentAddressPlatform()
+        const changeAddress = this.getChangeAddressPlatform()
         if (!rewardAddress) {
             rewardAddress = this.getPlatformRewardAddress()
         }
 
-        const stakeReturnAddr = this.getPlatformRewardAddress()
+        const xpAccount = await this.getXPAccountForDelegation()
+        if (!xpAccount) {
+            throw new Error(
+                'This wallet type cannot sign a delegation transaction locally. ' +
+                    'Supported: Mnemonic, Singleton, Ledger and injected (Core) wallets.'
+            )
+        }
 
-        // For change address use first available on the platform chain
-        const changeAddress = this.getChangeAddressPlatform()
-
-        // Convert dates to unix time
-        const startTime = new BN(Math.round(start.getTime() / 1000))
-        const endTime = new BN(Math.round(end.getTime() / 1000))
-
-        // ACP-62: Use permissionless delegator transaction
-        // Note: Update this to use the correct AvalancheJS method when available
-        const unsignedTx = await pChain.buildAddDelegatorTx(
-            sortedSet,
-            [stakeReturnAddr],
-            pAddressStrings,
-            [changeAddress],
-            nodeID,
-            startTime,
-            endTime,
-            stakeAmount,
-            [rewardAddress] // reward address
-            // TODO: Add Primary Network ID when AvalancheJS supports buildAddPermissionlessDelegatorTx
+        return delegatePermissionlessLocal(
+            { nodeID, amount: amt, end, fromAddress, changeAddress, rewardAddress },
+            xpAccount
         )
-
-        const tx = await this.signP(unsignedTx)
-        return issueP(tx)
     }
 }
 export { AbstractWallet }

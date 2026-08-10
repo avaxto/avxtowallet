@@ -54,6 +54,7 @@ import { Buffer as BufferNative } from 'buffer'
 import { SessionVault } from '@/js/security/SessionVault'
 import { AuthHandle, AuthScope, requireAuth } from '@/js/security/session'
 import { secretFromString, secretToString, wipe } from '@/js/security/memory'
+import { privateKeyToXPAccount } from '@avalanche-sdk/client/accounts'
 import {
     AVA_ACCOUNT_PATH,
     ETH_ACCOUNT_PATH,
@@ -432,6 +433,31 @@ export default class MnemonicWallet extends AbstractHdWallet implements IAvaHdWa
                     return unsignedTx.sign(keychain)
                 })
             } finally {
+                wipeNode(account)
+            }
+        })
+    }
+
+    /**
+     * Local XPAccount for the new AddPermissionlessDelegatorTx signing path
+     * (see js/permissionlessDelegate.ts) — the primary P-chain key (m/0/0),
+     * matching getCurrentAddressPlatform() / the single fromAddress
+     * AbstractWallet.delegate() now builds against.
+     *
+     * The derived hex string held by the returned account's closures can't
+     * be wiped (same tradeoff already accepted for getEvmPrivateKeyHex() /
+     * getMnemonic() below) — keep the account's lifetime short at the call
+     * site.
+     */
+    protected async getXPAccountForDelegation() {
+        return this.withMasterKey((master) => {
+            const account = master.derive(AVA_ACCOUNT_PATH)
+            const node = account.derive('m/0/0')
+            try {
+                const hex = ('0x' + node.privateKey.toString('hex')) as `0x${string}`
+                return privateKeyToXPAccount(hex)
+            } finally {
+                wipeNode(node)
                 wipeNode(account)
             }
         })
