@@ -124,7 +124,7 @@
 <script lang="ts">
 import 'reflect-metadata'
 import { defineComponent, ref, shallowRef, computed, watch, onMounted } from 'vue'
-import { useAssetsStore, useMainStore } from '@/stores'
+import { useAssetsStore, useHistoryStore, useMainStore } from '@/stores'
 import { useI18n } from 'vue-i18n'
 
 import Dropdown from '@/components/misc/Dropdown.vue'
@@ -183,6 +183,7 @@ export default defineComponent({
         const mainStore = useMainStore()
         const offline = useOfflineSigningStore()
         const assetsStore = useAssetsStore()
+        const historyStore = useHistoryStore()
         const { t } = useI18n()
 
         const form = ref<InstanceType<typeof ChainSwapForm> | null>(null)
@@ -524,6 +525,14 @@ export default defineComponent({
 
             isSuccess.value = true
             isLoading.value = false
+
+            // Same refresh as clicking the balance card's refresh icon (see
+            // BalanceCard.vue's updateBalance()) — the intermediate
+            // updateUTXOs() call above only covers the mid-transfer state
+            // needed to build the import; this picks up the import's own
+            // effect on balances plus transaction history.
+            assetsStore.updateUTXOs()
+            historyStore.updateTransactionHistory()
         }
 
         const onerror = (error: any) => {
