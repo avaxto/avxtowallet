@@ -18,7 +18,12 @@
             <div class="token_block">
                 <div class="token_head">
                     <label>You pay</label>
-                    <span v-if="tokenIn" class="balance">
+                    <span
+                        v-if="tokenIn"
+                        class="balance clickable"
+                        title="Click to use max amount"
+                        @click="setMaxAmount"
+                    >
                         Balance: {{ balanceOf(tokenIn) }} {{ tokenIn.symbol }}
                     </span>
                 </div>
@@ -31,14 +36,62 @@
                         :disabled="isBusy"
                         @input="onAmountChange"
                     />
-                    <select v-model="tokenInAddr" class="token_select" :disabled="isBusy">
-                        <option v-if="!heldTokens.length" :value="''" disabled>
-                            No tokens held
-                        </option>
-                        <option v-for="t in heldTokens" :key="'in-' + t.address" :value="t.address">
-                            {{ t.symbol }}
-                        </option>
-                    </select>
+                    <button
+                        v-if="tokenIn"
+                        type="button"
+                        class="max_but"
+                        :disabled="isBusy"
+                        @click="setMaxAmount"
+                    >
+                        Max
+                    </button>
+                    <div ref="tokenSelectWrap" class="token_select_wrap">
+                        <button
+                            type="button"
+                            class="token_select_btn"
+                            :disabled="isBusy || (!heldTokens.length && !sdkLoading)"
+                            @click="toggleTokenDropdown"
+                        >
+                            <template v-if="tokenIn">{{ tokenIn.symbol }}</template>
+                            <template v-else-if="sdkLoading && !heldTokens.length">
+                                <Spinner class="token_btn_spinner"></Spinner>
+                                Loading…
+                            </template>
+                            <template v-else>No tokens held</template>
+                            <span class="caret">▾</span>
+                        </button>
+                        <div v-if="tokenDropdownOpen" class="token_dropdown">
+                            <input
+                                v-model="tokenSearchQuery"
+                                type="text"
+                                class="token_search_input"
+                                placeholder="Search token…"
+                                autofocus
+                            />
+                            <div class="token_dropdown_list">
+                                <div v-if="sdkLoading" class="token_dropdown_loading">
+                                    <Spinner class="token_loading_spinner"></Spinner>
+                                    Loading tokens…
+                                </div>
+                                <div
+                                    v-if="!filteredHeldTokens.length && !sdkLoading"
+                                    class="token_dropdown_empty"
+                                >
+                                    No matches
+                                </div>
+                                <div
+                                    v-for="t in filteredHeldTokens"
+                                    :key="'in-' + t.address"
+                                    class="token_dropdown_item"
+                                    :class="{ active: t.address === tokenInAddr }"
+                                    @click="selectTokenIn(t)"
+                                >
+                                    <span class="token_dropdown_symbol">{{ t.symbol }}</span>
+                                    <span class="token_dropdown_name">{{ t.name }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -177,7 +230,7 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, computed, onMounted } from 'vue'
+import { defineComponent, ref, computed, onMounted, onUnmounted } from 'vue'
 import { useMainStore, useAssetsStore, useNotificationsStore } from '@/stores'
 import { BN } from '@/avalanche'
 import { web3 } from '@/evm'
@@ -185,6 +238,8 @@ import { GasHelper } from '@/avalanche-wallet-sdk'
 import { bnToBig } from '@/helpers/helper'
 import { toBaseUnits } from '@/js/TokenLauncher'
 import CopyText from '@/components/misc/CopyText.vue'
+import Spinner from '@/components/misc/Spinner.vue'
+import { useCChainSdkBalances } from '@/composables/useCChainSdkBalances'
 import {
     getQuote,
     executeSwap,
@@ -211,6 +266,7 @@ export default defineComponent({
     name: 'Swap',
     components: {
         CopyText,
+        Spinner,
     },
     setup() {
         const mainStore = useMainStore()
@@ -219,8 +275,24 @@ export default defineComponent({
 
         const wallet = computed(() => mainStore.activeWallet as AvaWalletCore | null)
 
+        // "All Assets" (auto-discovered via the Glacier/chainkit SDK, same
+        // source Fungibles.vue uses for its "All Assets" list) lives outside
+        // the assets store entirely — merge it in below so anything shown on
+        // the portfolio page is also selectable as a swap source here.
+        const cChainAddress = computed((): string | null => {
+            const addr = wallet.value?.ethAddress
+            if (!addr) return null
+            return addr.startsWith('0x') ? addr : `0x${addr}`
+        })
+        const sdkEvmChainId = computed((): number => assetsStore.evmChainId)
+        const { assets: sdkAssets, loading: sdkLoading } = useCChainSdkBalances(
+            cChainAddress,
+            sdkEvmChainId
+        )
+
         // Source list: ONLY tokens the wallet currently holds (native AVAX +
-        // any ERC20 with a positive balance).
+        // any ERC20 with a positive balance), from either the assets store
+        // ("Default Assets") or the SDK-discovered list ("All Assets").
         const heldTokens = computed<SwapToken[]>(() => {
             const out: SwapToken[] = []
             if ((wallet.value?.ethBalance || new BN(0)).gt(new BN(0))) {
@@ -243,6 +315,19 @@ export default defineComponent({
                     decimals: parseInt(t.data.decimals as string) || 18,
                 })
             }
+            for (const a of sdkAssets.value) {
+                if (a.type !== 'erc20') continue
+                const k = a.address.toLowerCase()
+                if (seen.has(k)) continue
+                if (!(parseFloat(a.balance) > 0)) continue
+                seen.add(k)
+                out.push({
+                    address: a.address,
+                    symbol: a.symbol,
+                    name: a.name,
+                    decimals: a.decimals ?? 18,
+                })
+            }
             return out
         })
 
@@ -250,6 +335,42 @@ export default defineComponent({
         const tokenOutAddr = ref('')
         const amountIn = ref('')
         const slippage = ref(0.5)
+
+        // Searchable "You pay" token dropdown (replaces a plain <select> so
+        // a long held-token list can be filtered by symbol/name/address).
+        const tokenDropdownOpen = ref(false)
+        const tokenSearchQuery = ref('')
+        const tokenSelectWrap = ref<HTMLElement>()
+
+        const toggleTokenDropdown = () => {
+            if (isBusy.value || !heldTokens.value.length) return
+            tokenDropdownOpen.value = !tokenDropdownOpen.value
+            if (tokenDropdownOpen.value) tokenSearchQuery.value = ''
+        }
+
+        const selectTokenIn = (t: SwapToken) => {
+            tokenInAddr.value = t.address
+            tokenDropdownOpen.value = false
+            quote.value = null
+        }
+
+        const onDocumentClick = (e: MouseEvent) => {
+            if (!tokenDropdownOpen.value) return
+            if (tokenSelectWrap.value && !tokenSelectWrap.value.contains(e.target as Node)) {
+                tokenDropdownOpen.value = false
+            }
+        }
+
+        const filteredHeldTokens = computed<SwapToken[]>(() => {
+            const q = tokenSearchQuery.value.trim().toLowerCase()
+            if (!q) return heldTokens.value
+            return heldTokens.value.filter(
+                (t) =>
+                    t.symbol.toLowerCase().includes(q) ||
+                    t.name.toLowerCase().includes(q) ||
+                    t.address.toLowerCase().includes(q)
+            )
+        })
 
         const quote = ref<SwapQuote | null>(null)
         const isQuoting = ref(false)
@@ -291,7 +412,38 @@ export default defineComponent({
                 ...(assetsStore.erc20Tokens || []),
                 ...(assetsStore.erc20TokensCustom || []),
             ].find((e: any) => e.data.address.toLowerCase() === t.address.toLowerCase())
-            return found ? (found as any).balanceBig.toFixed(4) : '0'
+            if (found) return (found as any).balanceBig.toFixed(4)
+            // Not a "Default Assets" token — check the SDK-discovered list.
+            const sdkFound = sdkAssets.value.find(
+                (a) => a.type === 'erc20' && a.address.toLowerCase() === t.address.toLowerCase()
+            )
+            return sdkFound ? parseFloat(sdkFound.balance).toFixed(4) : '0'
+        }
+
+        // Full-precision balance — unlike balanceOf() (display-only,
+        // rounded to 4 decimals, which can round *up* and overshoot the
+        // real balance), this is what actually goes into the input so
+        // "Max" never asks to spend more than is held.
+        const maxAmountOf = (t: SwapToken): string => {
+            if (isNativeToken(t.address)) {
+                const bal = wallet.value?.ethBalance || new BN(0)
+                return bnToBig(bal, 18).toString()
+            }
+            const found = [
+                ...(assetsStore.erc20Tokens || []),
+                ...(assetsStore.erc20TokensCustom || []),
+            ].find((e: any) => e.data.address.toLowerCase() === t.address.toLowerCase())
+            if (found) return (found as any).balanceBig.toString()
+            const sdkFound = sdkAssets.value.find(
+                (a) => a.type === 'erc20' && a.address.toLowerCase() === t.address.toLowerCase()
+            )
+            return sdkFound ? sdkFound.balance : '0'
+        }
+
+        const setMaxAmount = () => {
+            if (!tokenIn.value) return
+            amountIn.value = maxAmountOf(tokenIn.value)
+            quote.value = null
         }
 
         const estimatedOut = computed(() => {
@@ -489,6 +641,11 @@ export default defineComponent({
             if (!tokenInAddr.value && heldTokens.value.length) {
                 tokenInAddr.value = heldTokens.value[0].address
             }
+            document.addEventListener('mousedown', onDocumentClick)
+        })
+
+        onUnmounted(() => {
+            document.removeEventListener('mousedown', onDocumentClick)
         })
 
         return {
@@ -514,12 +671,20 @@ export default defineComponent({
             resultTx,
             explorerUrl,
             balanceOf,
+            setMaxAmount,
             fmtUsd,
             isNativeToken,
             onAmountChange,
             onTargetChange,
             fetchQuote,
             doSwap,
+            tokenDropdownOpen,
+            tokenSearchQuery,
+            tokenSelectWrap,
+            filteredHeldTokens,
+            toggleTokenDropdown,
+            selectTokenIn,
+            sdkLoading,
         }
     },
 })
@@ -573,6 +738,16 @@ export default defineComponent({
         .balance {
             font-size: 12px;
             color: var(--primary-color-light);
+
+            &.clickable {
+                cursor: pointer;
+                user-select: none;
+
+                &:hover {
+                    color: var(--secondary-color);
+                    text-decoration: underline;
+                }
+            }
         }
     }
 
@@ -580,6 +755,27 @@ export default defineComponent({
         display: flex;
         gap: 10px;
         align-items: center;
+    }
+
+    .max_but {
+        flex-shrink: 0;
+        border: 1px solid #d3d3d3;
+        border-radius: 8px;
+        padding: 8px 10px;
+        font-size: 12px;
+        font-weight: 600;
+        background: transparent;
+        color: var(--secondary-color);
+        cursor: pointer;
+
+        &:hover:not(:disabled) {
+            background: var(--bg-light);
+        }
+
+        &:disabled {
+            cursor: not-allowed;
+            opacity: 0.5;
+        }
     }
 
     .amount_input {
@@ -595,7 +791,15 @@ export default defineComponent({
         }
     }
 
-    .token_select {
+    .token_select_wrap {
+        position: relative;
+        flex-shrink: 0;
+    }
+
+    .token_select_btn {
+        display: flex;
+        align-items: center;
+        gap: 6px;
         border: 1px solid #d3d3d3;
         border-radius: 8px;
         padding: 8px 10px;
@@ -604,6 +808,108 @@ export default defineComponent({
         background: var(--bg-light);
         color: var(--primary-color);
         cursor: pointer;
+        white-space: nowrap;
+
+        .caret {
+            font-size: 11px;
+            opacity: 0.6;
+        }
+
+        &:disabled {
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+    }
+
+    // Spinner.vue's own scoped style sets its own width/height — match
+    // BalanceCard.vue's/Fungibles.vue's precedent of using !important to
+    // reliably override a child component's own scoped styles.
+    .token_btn_spinner {
+        width: 13px !important;
+        height: 13px !important;
+    }
+
+    .token_dropdown {
+        position: absolute;
+        top: calc(100% + 6px);
+        right: 0;
+        width: 240px;
+        max-width: 80vw;
+        background: var(--bg);
+        border: 1px solid #d3d3d3;
+        border-radius: 8px;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+        z-index: 5;
+        overflow: hidden;
+    }
+
+    .token_search_input {
+        width: 100%;
+        border: none;
+        border-bottom: 1px solid #d3d3d3;
+        padding: 10px 12px;
+        font-size: 13px;
+        background: transparent;
+        color: var(--primary-color);
+
+        &:focus {
+            outline: none;
+        }
+    }
+
+    .token_dropdown_list {
+        max-height: 220px;
+        overflow-y: auto;
+    }
+
+    .token_dropdown_item {
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+        padding: 9px 12px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+
+        .token_dropdown_name {
+            font-size: 12px;
+            font-weight: 400;
+            color: var(--primary-color-light);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        &:hover {
+            background: var(--bg-light);
+        }
+
+        &.active {
+            background: var(--bg-light);
+            color: var(--secondary-color);
+        }
+    }
+
+    .token_dropdown_empty {
+        padding: 12px;
+        font-size: 13px;
+        color: var(--primary-color-light);
+        text-align: center;
+    }
+
+    .token_dropdown_loading {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 12px;
+        font-size: 13px;
+        color: var(--primary-color-light);
+        border-bottom: 1px solid #d3d3d3;
+    }
+
+    .token_loading_spinner {
+        width: 14px !important;
+        height: 14px !important;
     }
 }
 
