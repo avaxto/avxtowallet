@@ -46,6 +46,15 @@
             </div>
 
             <div class="field">
+                <h4>Maximum fee</h4>
+                <p class="hint">Only consider validators charging no more than this delegation fee.</p>
+                <div class="hover_border num_in">
+                    <input type="number" v-model.number="maxFee" min="0" max="100" step="0.1" />
+                    <span class="suffix">%</span>
+                </div>
+            </div>
+
+            <div class="field">
                 <h4>Minimum current delegations</h4>
                 <p class="hint">
                     Only consider validators already trusted by at least this many other delegators.
@@ -201,6 +210,7 @@ export default defineComponent({
         const stakeAmt = ref(new BN(0))
         const endDate = ref('')
         const minUptime = ref(90)
+        const maxFee = ref(2)
         const minDelegations = ref(10)
 
         const matched = ref<ValidatorListItem | null>(null)
@@ -282,6 +292,10 @@ export default defineComponent({
                 err.value = 'Minimum uptime must be between 0 and 100.'
                 return
             }
+            if (maxFee.value < 0 || maxFee.value > 100) {
+                err.value = 'Maximum fee must be between 0 and 100.'
+                return
+            }
             if (minDelegations.value < 0) {
                 err.value = 'Minimum number of delegations cannot be negative.'
                 return
@@ -299,6 +313,7 @@ export default defineComponent({
                 return (
                     v.remainingStake.gte(stakeAmt.value) &&
                     v.uptime >= minUptime.value / 100 &&
+                    v.fee <= maxFee.value &&
                     v.numDelegators >= minDelegations.value &&
                     v.endTime.getTime() >= endTime
                 )
@@ -309,7 +324,8 @@ export default defineComponent({
             if (candidates.length === 0) {
                 err.value =
                     'No validator currently matches these requirements. Try lowering the minimum ' +
-                    'uptime or delegator count, reducing the amount, or choosing an earlier end date.'
+                    'uptime or delegator count, raising the maximum fee, reducing the amount, or ' +
+                    'choosing an earlier end date.'
                 return
             }
 
@@ -415,6 +431,7 @@ export default defineComponent({
             stakeAmt,
             endDate,
             minUptime,
+            maxFee,
             minDelegations,
             matched,
             matchCount,
