@@ -8,7 +8,7 @@
         <h1>Iceberg Order</h1>
         <p class="desc">
             Split one large swap into smaller chunks executed sequentially, reducing price
-            impact. Routing uses ArenaTrade / Odos aggregator.
+            impact. Routing uses LI.FI.
             Keep this screen open while the order runs — the order lives only in this tab, so
             closing the wallet or leaving the page cancels it and you must start over.
         </p>
@@ -306,7 +306,6 @@ import {
     executeSwap,
     approveRouter,
     getAllowance,
-    getRouterAddress,
     isNativeToken,
     resolveTargetToken,
     cChainExplorerTxUrl,
@@ -734,14 +733,27 @@ export default defineComponent({
             try {
                 await authorizeBatch(w, authScopeReason, async () => {
                 // One-time approval covering the whole order (ERC20 inputs only).
+                // LI.FI's approval spender is per-quote rather than one fixed
+                // router address (Odos's model) — probe with a throwaway
+                // quote for the first chunk's amount just to learn it, since
+                // approval has to happen before any chunk is actually quoted.
                 if (!isNativeToken(inTok.address)) {
-                    const router = await getRouterAddress()
-                    const allowance = await getAllowance(inTok.address, userAddress, router)
-                    if (allowance.lt(totalAmountRaw.value)) {
-                        rows.value[0].status = 'approving'
-                        const gp = await GasHelper.getAdjustedGasPrice()
-                        await approveRouter(w, inTok.address, totalAmountRaw.value, gp)
-                        rows.value[0].status = 'pending'
+                    const probe = await getQuote({
+                        tokenIn: inTok,
+                        tokenOut: outTok,
+                        amountInRaw: plan[0],
+                        userAddress,
+                        slippagePercent: slippage.value,
+                    })
+                    const spender = probe.approvalAddress
+                    if (spender) {
+                        const allowance = await getAllowance(inTok.address, userAddress, spender)
+                        if (allowance.lt(totalAmountRaw.value)) {
+                            rows.value[0].status = 'approving'
+                            const gp = await GasHelper.getAdjustedGasPrice()
+                            await approveRouter(w, inTok.address, spender, totalAmountRaw.value, gp)
+                            rows.value[0].status = 'pending'
+                        }
                     }
                 }
 
@@ -767,10 +779,10 @@ export default defineComponent({
                         if (aborted.value) break
 
                         row.status = 'swapping'
-                        const res = await executeSwap(w, userAddress, q, gp)
+                        const res = await executeSwap(w, q, gp)
                         row.txHash = res.txHash
 
-                        const outRaw = new BN(q.outAmounts[0])
+                        const outRaw = new BN(q.toAmount)
                         row.outRaw = outRaw
                         row.outDisplay = bnToBig(outRaw, outTok.decimals).toFixed(6)
                         const inBig = bnToBig(row.amount, inTok.decimals)

@@ -7,8 +7,8 @@
     <div class="swap_page">
         <h1>Swap</h1>
         <p class="desc">
-            Swap tokens on the Avalanche C-Chain. Routing is powered by the ArenaTrade / Odos
-            aggregator for best-price execution across on-chain liquidity. Quotes and the
+            Swap tokens on the Avalanche C-Chain. Routing is powered by LI.FI for
+            best-price execution across on-chain liquidity. Quotes and the
             executable transaction are fetched via API; signing and broadcasting happen locally
             with your active wallet.
         </p>
@@ -124,7 +124,7 @@
                 </div>
                 <div class="quote_row">
                     <span>Value</span>
-                    <span>${{ fmtUsd(quote.inValues[0]) }} → ${{ fmtUsd(quote.outValues[0]) }}</span>
+                    <span>${{ fmtUsd(quote.fromAmountUSD) }} → ${{ fmtUsd(quote.toAmountUSD) }}</span>
                 </div>
                 <div class="quote_row" v-if="quote.priceImpact !== null">
                     <span>Price impact</span>
@@ -178,13 +178,12 @@ import {
     executeSwap,
     approveRouter,
     getAllowance,
-    getRouterAddress,
     isNativeToken,
     resolveTargetToken,
     cChainExplorerTxUrl,
     NATIVE_TOKEN_ADDRESS,
     SwapToken,
-    OdosQuote,
+    SwapQuote,
 } from '@/js/ArenaSwap'
 import { AvaWalletCore } from '@/js/wallets/types'
 import { authorizeWalletOp, AuthScope, SessionAuthCancelled } from '@/js/security/authorize'
@@ -237,7 +236,7 @@ export default defineComponent({
         const amountIn = ref('')
         const slippage = ref(0.5)
 
-        const quote = ref<OdosQuote | null>(null)
+        const quote = ref<SwapQuote | null>(null)
         const isQuoting = ref(false)
         const isApproving = ref(false)
         const isSwapping = ref(false)
@@ -282,20 +281,22 @@ export default defineComponent({
 
         const estimatedOut = computed(() => {
             if (!quote.value || !tokenOut.value) return ''
-            return bnToBig(new BN(quote.value.outAmounts[0]), tokenOut.value.decimals).toFixed(6)
+            return bnToBig(new BN(quote.value.toAmount), tokenOut.value.decimals).toFixed(6)
         })
 
         const rate = computed(() => {
             if (!quote.value || !tokenOut.value) return '0'
-            const outBig = bnToBig(new BN(quote.value.outAmounts[0]), tokenOut.value.decimals)
+            const outBig = bnToBig(new BN(quote.value.toAmount), tokenOut.value.decimals)
             const inNum = parseFloat(amountIn.value) || 1
             return outBig.div(inNum).toFixed(6)
         })
 
+        // toAmountMin already reflects the slippage tolerance sent with the
+        // quote request (see getQuote) — the aggregator's own figure, not a
+        // client-side recompute.
         const minReceived = computed(() => {
             if (!quote.value || !tokenOut.value) return '0'
-            const outBig = bnToBig(new BN(quote.value.outAmounts[0]), tokenOut.value.decimals)
-            return outBig.times(1 - slippage.value / 100).toFixed(6)
+            return bnToBig(new BN(quote.value.toAmountMin), tokenOut.value.decimals).toFixed(6)
         })
 
         const explorerUrl = computed(() =>
@@ -399,25 +400,26 @@ export default defineComponent({
                 const gasPrice: BN = await GasHelper.getAdjustedGasPrice()
                 const amountInRaw = toBaseUnits(amountIn.value.trim(), tokenIn.value.decimals)
 
-                // ERC20 inputs must approve the router first.
-                if (!isNativeToken(tokenIn.value.address)) {
-                    const router = await getRouterAddress()
+                // ERC20 inputs must approve LI.FI's quoted spender first — it
+                // can vary per route/quote, unlike Odos's single fixed router.
+                const spender = quote.value.approvalAddress
+                if (!isNativeToken(tokenIn.value.address) && spender) {
                     const allowance = await getAllowance(
                         tokenIn.value.address,
                         userAddress,
-                        router
+                        spender
                     )
                     if (allowance.lt(amountInRaw)) {
                         isApproving.value = true
                         statusMsg.value = 'Waiting for approval confirmation…'
-                        await approveRouter(w, tokenIn.value.address, amountInRaw, gasPrice)
+                        await approveRouter(w, tokenIn.value.address, spender, amountInRaw, gasPrice)
                         isApproving.value = false
                     }
                 }
 
                 isSwapping.value = true
                 statusMsg.value = 'Broadcasting swap…'
-                const res = await executeSwap(w, userAddress, quote.value, gasPrice)
+                const res = await executeSwap(w, quote.value, gasPrice)
                 resultTx.value = res.txHash
                 statusMsg.value = ''
                 quote.value = null
