@@ -17,12 +17,14 @@
             >
                 <fa icon="link"></fa>
             </a>
-            <CopyText
-                :value="token.data.address"
+            <a
+                href="#"
                 class="copy_addr"
                 title="Copy contract address"
-                @click.stop
-            ></CopyText>
+                @click.stop.prevent="copyAddress"
+            >
+                <fa icon="copy"></fa>
+            </a>
         </p>
         <router-link :to="isBalance ? sendLink : ''" class="send_col" :class="{ disabled: !isBalance }">
             <img v-if="isDay" src="@/assets/sidebar/transfer_nav.png" />
@@ -37,8 +39,7 @@
 import { useTheme } from '@/composables/useTheme'
 import { defineComponent, computed } from 'vue'
 import Erc20Token from '@/js/Erc20Token'
-import { useAssetsStore } from '@/stores'
-import CopyText from '@/components/misc/CopyText.vue'
+import { useAssetsStore, useNotificationsStore } from '@/stores'
 
 interface Props {
     token: Erc20Token
@@ -46,7 +47,6 @@ interface Props {
 
 export default defineComponent({
     name: 'ERC20Row',
-    components: { CopyText },
     props: {
         token: {
             type: Object as () => Erc20Token,
@@ -56,6 +56,7 @@ export default defineComponent({
     setup(props: Props) {
         const { isDay } = useTheme()
         const assetsStore = useAssetsStore()
+        const notificationsStore = useNotificationsStore()
 
         const balText = computed(() => {
             return props.token.balanceBig.toLocaleString()
@@ -77,11 +78,28 @@ export default defineComponent({
             return `${base}/token/${props.token.data.address}`
         })
 
+        const copyAddress = () => {
+            const el = document.createElement('textarea')
+            el.value = props.token.data.address
+            el.style.position = 'fixed'
+            el.style.opacity = '0'
+            document.body.appendChild(el)
+            el.select()
+            el.setSelectionRange(0, 99999)
+            document.execCommand('copy')
+            document.body.removeChild(el)
+            notificationsStore.add({
+                title: ' Copied',
+                message: 'Copied to clipboard.',
+            })
+        }
+
         return {
             balText,
             isBalance,
             sendLink,
             explorerUrl,
+            copyAddress,
             isDay
         }
     }
@@ -140,20 +158,14 @@ img {
 
 .copy_addr {
     display: inline-flex;
-    margin-left: 4px;
+    margin-left: 6px;
+    color: var(--primary-color-light);
     opacity: 0.6;
-    vertical-align: middle;
+    font-size: 12px;
 
     &:hover {
         opacity: 1;
-    }
-
-    :deep(.copyBut) {
-        margin: 0;
-    }
-
-    :deep(.copyBut img) {
-        max-height: 12px;
+        color: var(--primary-color);
     }
 }
 

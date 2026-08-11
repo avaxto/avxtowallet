@@ -17,12 +17,14 @@
             >
                 <fa icon="link"></fa>
             </a>
-            <CopyText
-                :value="asset.address"
+            <a
+                href="#"
                 class="copy_addr"
                 title="Copy contract address"
-                @click.stop
-            ></CopyText>
+                @click.stop.prevent="copyAddress"
+            >
+                <fa icon="copy"></fa>
+            </a>
         </p>
         <router-link
             :to="sendLink"
@@ -38,9 +40,8 @@
 <script lang="ts">
 import { defineComponent, computed } from 'vue'
 import { useTheme } from '@/composables/useTheme'
-import { useAssetsStore } from '@/stores'
+import { useAssetsStore, useNotificationsStore } from '@/stores'
 import type { CChainSdkAsset } from '@/composables/useCChainSdkBalances'
-import CopyText from '@/components/misc/CopyText.vue'
 
 interface Props {
     asset: CChainSdkAsset
@@ -48,7 +49,6 @@ interface Props {
 
 export default defineComponent({
     name: 'CChainSdkRow',
-    components: { CopyText },
     props: {
         asset: {
             type: Object as () => CChainSdkAsset,
@@ -62,6 +62,7 @@ export default defineComponent({
     setup(props: Props) {
         const { isDay } = useTheme()
         const assetsStore = useAssetsStore()
+        const notificationsStore = useNotificationsStore()
 
         const explorerUrl = computed(() => {
             const base =
@@ -97,7 +98,23 @@ export default defineComponent({
             return ''
         })
 
-        return { isDay, ercLabel, sendLink, explorerUrl }
+        const copyAddress = () => {
+            const el = document.createElement('textarea')
+            el.value = props.asset.address
+            el.style.position = 'fixed'
+            el.style.opacity = '0'
+            document.body.appendChild(el)
+            el.select()
+            el.setSelectionRange(0, 99999)
+            document.execCommand('copy')
+            document.body.removeChild(el)
+            notificationsStore.add({
+                title: ' Copied',
+                message: 'Copied to clipboard.',
+            })
+        }
+
+        return { isDay, ercLabel, sendLink, explorerUrl, copyAddress }
     },
 })
 </script>
@@ -152,20 +169,14 @@ img {
 
 .copy_addr {
     display: inline-flex;
-    margin-left: 4px;
+    margin-left: 6px;
+    color: var(--primary-color-light);
     opacity: 0.6;
-    vertical-align: middle;
+    font-size: 12px;
 
     &:hover {
         opacity: 1;
-    }
-
-    :deep(.copyBut) {
-        margin: 0;
-    }
-
-    :deep(.copyBut img) {
-        max-height: 12px;
+        color: var(--primary-color);
     }
 }
 
