@@ -74,9 +74,7 @@ export async function checkPendingImports(wallet: AbstractWallet): Promise<void>
 
 
     const results = await Promise.all(checks)
-    console.log('Pending import check results:', results)
     const pending = results.filter((r): r is PendingImport => r !== null)
-    console.log('Pending imports found:', pending)
 
     if (pending.length === 0) {
         useStatusBarStore().clear()

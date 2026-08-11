@@ -26,22 +26,24 @@
                 <fa icon="copy"></fa>
             </a>
         </p>
-        <router-link
-            :to="sendLink"
+        <div
             class="send_col"
             :class="{ disabled: asset.type !== 'erc20' }"
+            @click="send"
         >
             <img v-if="isDay" src="@/assets/sidebar/transfer_nav.png" />
             <img v-else src="@/assets/sidebar/transfer_nav_night.svg" />
-        </router-link>
+        </div>
         <p class="balance_col">{{ asset.balance }}</p>
     </div>
 </template>
 <script lang="ts">
 import { defineComponent, computed } from 'vue'
+import { useRouter } from 'vue-router'
 import { useTheme } from '@/composables/useTheme'
 import { useAssetsStore, useNotificationsStore } from '@/stores'
 import type { CChainSdkAsset } from '@/composables/useCChainSdkBalances'
+import { goToTransfer } from '@/helpers/transfer_link'
 
 interface Props {
     asset: CChainSdkAsset
@@ -63,6 +65,7 @@ export default defineComponent({
         const { isDay } = useTheme()
         const assetsStore = useAssetsStore()
         const notificationsStore = useNotificationsStore()
+        const router = useRouter()
 
         const explorerUrl = computed(() => {
             const base =
@@ -83,20 +86,17 @@ export default defineComponent({
             }
         })
 
-        const sendLink = computed(() => {
-            if (props.asset.type === 'erc20') {
-                const params = new URLSearchParams({
-                    chain: 'C',
-                    token: props.asset.address,
-                    name: props.asset.name,
-                    symbol: props.asset.symbol,
-                    decimals: String(props.asset.decimals ?? 18),
-                })
-                if (props.asset.logoUri) params.set('logoUri', props.asset.logoUri)
-                return `/wallet/transfer?${params.toString()}`
-            }
-            return ''
-        })
+        const send = () => {
+            if (props.asset.type !== 'erc20') return
+            goToTransfer(router, {
+                chain: 'C',
+                token: props.asset.address,
+                name: props.asset.name,
+                symbol: props.asset.symbol,
+                decimals: props.asset.decimals ?? 18,
+                logoUri: props.asset.logoUri,
+            })
+        }
 
         const copyAddress = () => {
             const el = document.createElement('textarea')
@@ -114,7 +114,7 @@ export default defineComponent({
             })
         }
 
-        return { isDay, ercLabel, sendLink, explorerUrl, copyAddress }
+        return { isDay, ercLabel, send, explorerUrl, copyAddress }
     },
 })
 </script>
@@ -183,6 +183,7 @@ img {
 .send_col {
     text-align: center;
     opacity: 0.4;
+    cursor: pointer;
 
     &:hover {
         opacity: 1;

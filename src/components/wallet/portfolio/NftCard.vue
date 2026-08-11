@@ -46,6 +46,7 @@
 import { defineComponent, ref, computed, type PropType } from 'vue'
 import { useRouter } from 'vue-router'
 import { PayloadTypes, PayloadBase } from '@/avalanche/utils'
+import { goToTransfer } from '@/helpers/transfer_link'
 
 const payloadtypes = PayloadTypes.getInstance()
 
@@ -85,13 +86,7 @@ export default defineComponent({
             if (!props.utxo) return
 
             let utxoId = props.utxo.getUTXOID()
-            router.push({
-                path: '/wallet/transfer',
-                query: {
-                    nft: utxoId,
-                    chain: 'X',
-                },
-            })
+            goToTransfer(router, { nft: utxoId, chain: 'X' })
         }
 
         const expand = () => {

@@ -163,8 +163,7 @@
 </template>
 <script lang="ts">
 import { defineComponent, ref, computed, onActivated, onDeactivated, toRaw } from 'vue'
-import { useAssetsStore, useHistoryStore, useMainStore, useNetworkStore, useNotificationsStore } from '@/stores'
-import { useRoute } from 'vue-router'
+import { useAssetsStore, useHistoryStore, useMainStore, useNetworkStore, useNotificationsStore, useTransferPrefillStore } from '@/stores'
 import { useI18n } from 'vue-i18n'
 
 import TxList from '@/components/wallet/transfer/TxList.vue'
@@ -219,7 +218,7 @@ export default defineComponent({
         const networkStore = useNetworkStore()
         const notificationsStore = useNotificationsStore()
         const historyStore = useHistoryStore()
-        const route = useRoute()
+        const transferPrefill = useTransferPrefillStore()
         const { t } = useI18n()
 
         const formType = ref<ChainIdType>('X')
@@ -285,10 +284,9 @@ export default defineComponent({
 
         const updateTxList = (data: ITransaction[]) => {
             if (!data || data instanceof Event) return
-            console.log('Updating tx list with:')
-            console.log(data)
+            
             orders.value = [...data]
-            console.log(orders.value)
+            
         }
 
         const updateNftList = (val: UTXO[]) => {
@@ -548,22 +546,21 @@ export default defineComponent({
         // Lifecycle hooks
         onDeactivated(() => {
             startAgain()
+            // Reset the prefill store so a later, un-prefilled visit to this
+            // view (e.g. via the sidebar's plain Transfer link) starts clean
+            // instead of reusing whatever a previous "send" icon set here.
+            transferPrefill.clear()
         })
 
         onActivated(() => {
             clearForm()
 
-            if (route.query.chain) {
-                let chain = route.query.chain as string
-                if (chain === 'X') {
-                    formType.value = 'X'
-                } else {
-                    formType.value = 'C'
-                }
+            if (transferPrefill.chain) {
+                formType.value = transferPrefill.chain === 'X' ? 'X' : 'C'
             }
 
-            if (route.query.nft) {
-                let utxoId = route.query.nft as string
+            if (transferPrefill.nft) {
+                let utxoId = transferPrefill.nft
                 let target = nftUTXOs.value.find((el) => {
                     return el.getUTXOID() === utxoId
                 })

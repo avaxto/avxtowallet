@@ -53,6 +53,7 @@ import Tooltip from '@/components/misc/Tooltip.vue'
 import ERC721Token from '@/js/ERC721Token'
 import ERC721View from '@/components/misc/ERC721View.vue'
 import ERC721ViewModal from '@/components/modals/ERC721ViewModal.vue'
+import { goToTransfer } from '@/helpers/transfer_link'
 
 interface Props {
     index: string
@@ -104,13 +105,10 @@ export default defineComponent({
 
         const transfer = (ev: any) => {
             ev.stopPropagation()
-            router.push({
-                path: '/wallet/transfer',
-                query: {
-                    chain: 'C',
-                    token: props.token.contractAddress,
-                    tokenId: props.index,
-                },
+            goToTransfer(router, {
+                chain: 'C',
+                token: props.token.contractAddress,
+                tokenId: props.index,
             })
         }
 

@@ -30,8 +30,7 @@
 <script lang="ts">
 import 'reflect-metadata'
 import { defineComponent, ref, computed, watch, onActivated, onDeactivated } from 'vue'
-import { useAssetsStore } from '@/stores'
-import { useRoute } from 'vue-router'
+import { useAssetsStore, useTransferPrefillStore } from '@/stores'
 import { v1 as uuidv1 } from 'uuid'
 import { BN } from '@/avalanche'
 import CurrencyInputDropdown from '@/components/misc/CurrencyInputDropdown.vue'
@@ -53,8 +52,8 @@ export default defineComponent({
     emits: ['change'],
     setup(props, { emit }) {
         const assetsStore = useAssetsStore()
-        const route = useRoute()
-        
+        const transferPrefill = useTransferPrefillStore()
+
         const tx_list = ref<ITransaction[]>([])
         const disabledAssets = ref<AvaAsset[][]>([])
         const next_initial = ref<AvaAsset | null>(null)
@@ -155,9 +154,8 @@ export default defineComponent({
 
         const addDefaultAsset = () => {
             next_initial.value = assets_list.value[0]
-            if (route.query.asset) {
-                let assetId = route.query.asset as string
-                addTx(assetId)
+            if (transferPrefill.asset) {
+                addTx(transferPrefill.asset)
             } else {
                 addTx()
             }

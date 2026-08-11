@@ -26,10 +26,10 @@
                 <fa icon="copy"></fa>
             </a>
         </p>
-        <router-link :to="isBalance ? sendLink : ''" class="send_col" :class="{ disabled: !isBalance }">
+        <div class="send_col" :class="{ disabled: !isBalance }" @click="send">
             <img v-if="isDay" src="@/assets/sidebar/transfer_nav.png" />
             <img v-else src="@/assets/sidebar/transfer_nav_night.svg" />
-        </router-link>
+        </div>
         <p class="balance_col">
             {{ balText }}
         </p>
@@ -38,8 +38,10 @@
 <script lang="ts">
 import { useTheme } from '@/composables/useTheme'
 import { defineComponent, computed } from 'vue'
+import { useRouter } from 'vue-router'
 import Erc20Token from '@/js/Erc20Token'
 import { useAssetsStore, useNotificationsStore } from '@/stores'
+import { goToTransfer } from '@/helpers/transfer_link'
 
 interface Props {
     token: Erc20Token
@@ -57,6 +59,7 @@ export default defineComponent({
         const { isDay } = useTheme()
         const assetsStore = useAssetsStore()
         const notificationsStore = useNotificationsStore()
+        const router = useRouter()
 
         const balText = computed(() => {
             return props.token.balanceBig.toLocaleString()
@@ -66,9 +69,10 @@ export default defineComponent({
             return !props.token.balanceBN.isZero()
         })
 
-        const sendLink = computed(() => {
-            return `/wallet/transfer?chain=C&token=${props.token.data.address}`
-        })
+        const send = () => {
+            if (!isBalance.value) return
+            goToTransfer(router, { chain: 'C', token: props.token.data.address })
+        }
 
         const explorerUrl = computed(() => {
             const base =
@@ -97,7 +101,7 @@ export default defineComponent({
         return {
             balText,
             isBalance,
-            sendLink,
+            send,
             explorerUrl,
             copyAddress,
             isDay
@@ -172,6 +176,7 @@ img {
 .send_col {
     text-align: center;
     opacity: 0.4;
+    cursor: pointer;
     &:hover {
         opacity: 1;
     }

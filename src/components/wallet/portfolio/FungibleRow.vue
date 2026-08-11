@@ -9,10 +9,10 @@
             <span v-if="!isAvaxToken">ANT</span>
         </p>
         <p class="name_col mobile_only">{{ symbol }}</p>
-        <router-link :to="isBalance ? sendLink : ''" class="send_col" :class="{ disabled: !isBalance }">
+        <div class="send_col" :class="{ disabled: !isBalance }" @click="send">
             <img v-if="isDay" src="@/assets/sidebar/transfer_nav.png" />
             <img v-else src="@/assets/sidebar/transfer_nav_night.svg" />
-        </router-link>
+        </div>
         
         <p class="balance_col" v-if="isBalance">
             <span>
@@ -30,6 +30,7 @@
 <script lang="ts">
 import 'reflect-metadata'
 import { defineComponent, computed } from 'vue'
+import { useRouter } from 'vue-router'
 import { useAssetsStore, useMainStore } from '@/stores'
 import { useTheme } from '@/composables/useTheme'
 
@@ -39,6 +40,7 @@ import { BN } from '@/avalanche'
 import { bnToBig } from '../../../helpers/helper'
 import { priceDict } from '@/types'
 import { Wallet } from '@/js/wallets/AbstractWallet'
+import { goToTransfer } from '@/helpers/transfer_link'
 
 import Big from 'big.js'
 
@@ -60,6 +62,7 @@ export default defineComponent({
     setup(props: Props) {
         const mainStore = useMainStore()
         const assetsStore = useAssetsStore()
+        const router = useRouter()
         const { isDay } = useTheme()
         const avaxToken = computed((): AvaAsset => {
             return assetsStore.AssetAVA
@@ -122,10 +125,14 @@ export default defineComponent({
             return usdBig
         })
 
-        const sendLink = computed((): string => {
-            if (!props.asset) return `/wallet/transfer`
-            return `/wallet/transfer?asset=${props.asset.id}&chain=X`
-        })
+        const send = () => {
+            if (!isBalance.value) return
+            if (!props.asset) {
+                goToTransfer(router)
+                return
+            }
+            goToTransfer(router, { asset: props.asset.id, chain: 'X' })
+        }
 
         const name = computed((): string => {
             let name = props.asset.name
@@ -152,7 +159,7 @@ export default defineComponent({
             isDay,
             totalUSD,
             priceDict,
-            sendLink,
+            send,
             avaxToken,
             isAvaxToken,
             name,
@@ -193,6 +200,7 @@ export default defineComponent({
     .send_col {
         text-align: center;
         opacity: 0.4;
+        cursor: pointer;
         &:hover {
             opacity: 1;
         }

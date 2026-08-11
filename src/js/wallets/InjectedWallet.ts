@@ -264,9 +264,6 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
         const hrp = getPreferredHRP(ava.getNetworkID())
         const xpStripped = xp.replace(/^0x/, '')
 
-        console.log('[InjectedWallet] xp raw:', xp)
-        console.log('[InjectedWallet] xp stripped len:', xpStripped.length, 'value:', xpStripped.slice(0, 80))
-
         // --- Try to parse as extended public key (xpub) ---
         let accountKey: HDKey | null = null
 
@@ -282,7 +279,6 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
             accountKey = hdKey
         } else if (/^[0-9a-fA-F]{66}$/.test(xpStripped)) {
             // Plain 33-byte compressed public key — no HD derivation possible.
-            console.log('[InjectedWallet] xp is 33-byte compressed pubkey — single address only, no HD scan')
             const addrBuf = AVMKeyPair.addressFromPublicKey(BufferAvalanche.from(xpStripped, 'hex'))
             this.avmAddress      = bintools.addressToString(hrp, 'X', addrBuf)
             this.platformAddress = bintools.addressToString(hrp, 'P', addrBuf)
@@ -396,9 +392,8 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
                     hasUtxos = page.result.utxos.length > 0
                     break // first page is enough for the presence check
                 }
-                console.log(`[InjectedWallet] scan ${chainId} change=${changeIdx} idx=${addrIdx}-${addrIdx + LOT_SIZE - 1} hasUTXOs=${hasUtxos}`)
             } catch {
-                console.error('Glacier API error during HD scan. Aborting further scans to avoid rate limits.')
+                // log glacier error
                 break
             }
 

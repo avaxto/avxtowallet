@@ -160,9 +160,8 @@
     </div>
 </template>
 <script lang="ts">
-import { defineComponent, computed, ref, markRaw, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
-import { useRoute } from 'vue-router'
-import { useMainStore, useAssetsStore } from '@/stores'
+import { defineComponent, computed, ref, markRaw, onMounted, onBeforeUnmount, watch } from 'vue'
+import { useMainStore, useAssetsStore, useTransferPrefillStore } from '@/stores'
 import { useI18n } from 'vue-i18n'
 import AvaxInput from '@/components/misc/AvaxInput.vue'
 import { priceDict } from '@/types'
@@ -203,7 +202,7 @@ export default defineComponent({
         const mainStore = useMainStore()
         const assetsStore = useAssetsStore()
         const offline = useOfflineSigningStore()
-        const route = useRoute()
+        const transferPrefill = useTransferPrefillStore()
         const { t } = useI18n()
 
         const isConfirm = ref(false)
@@ -252,67 +251,103 @@ export default defineComponent({
             }, 15000)
         })
 
-        // Pre-select token from query string: ?token=0x...
-        // Watches route.query.token so it re-runs on every navigation to this
-        // page (onMounted only fires once when the component is already alive).
+        // Signals that FormC's own mount (and therefore the EVMInputDropdown
+        // template ref below) is actually in the DOM. We can't use nextTick()
+        // for this: Wallet.vue wraps the router-view's <keep-alive> in a
+        // <transition mode="out-in">, and on a component's genuinely first
+        // mount (as opposed to a <keep-alive> reactivation, which reuses an
+        // already-mounted instance) that transition defers the real DOM
+        // patch — and therefore ref binding — past a plain microtask/
+        // nextTick() until its enter animation is scheduled. onMounted()
+        // fires exactly when the ref is guaranteed to be bound, however long
+        // that takes, so we await a promise that resolves there instead.
+        let resolveMounted: (() => void) | undefined
+        const mountedPromise = new Promise<void>((resolve) => {
+            resolveMounted = resolve
+        })
+        onMounted(() => resolveMounted?.())
+
+        // Pre-select token from the transferPrefill store (set by the portfolio
+        // page's "send" icons via goToTransfer() instead of a URL query string).
+        // Watches transferPrefill.token so it re-runs on every navigation to
+        // this page (onMounted only fires once when the component is already
+        // alive).
         let tokenListStop: (() => void) | undefined
         watch(
-            () => route.query.token as string | undefined,
-            (tokenAddress) => {
+            () => transferPrefill.token,
+            async (tokenAddress) => {
                 // Cancel any in-flight inner watcher from a previous navigation
                 tokenListStop?.()
                 tokenListStop = undefined
 
+                // This watcher's immediate run fires during setup(), before the
+                // EVMInputDropdown template ref is bound — wait until FormC is
+                // actually mounted so token_in.value is guaranteed to exist
+                // below, on the very first navigation to this page as much as
+                // on later ones.
+                await mountedPromise
+
                 if (!tokenAddress) {
                     // No token param — reset to native AVAX.
-                    // nextTick ensures template ref is ready on initial mount.
-                    nextTick(() => token_in.value?.setToken('native'))
+                    token_in.value?.setToken('native')
                     return
                 }
                 const addr = tokenAddress.toLowerCase()
 
+                const applyToken = (tokens: Erc20Token[]): boolean => {
+                    if (!token_in.value) return false
+
+                    const match = tokens.find((t) => t.data.address.toLowerCase() === addr)
+                    if (match) {
+                        token_in.value.setToken(match)
+                        return true
+                    }
+                    // Token not in the standard list — build a temporary one from the prefill store
+                    const name = transferPrefill.name ?? tokenAddress
+                    const symbol = transferPrefill.symbol ?? '???'
+                    const decimals = transferPrefill.decimals ?? 18
+                    const logoURI = transferPrefill.logoUri ?? ''
+                    const chainId = assetsStore.evmChainId
+                    const tempToken = new Erc20Token({
+                        address: tokenAddress,
+                        chainId,
+                        name,
+                        symbol,
+                        decimals,
+                        logoURI,
+                    })
+                    const ethAddress = (mainStore.activeWallet as any)?.ethAddress
+                    if (ethAddress) {
+                        const rawAddr = ethAddress.replace(/^0x/i, '')
+                        tempToken.updateBalance(rawAddr).then(() => {
+                            token_in.value?.setToken(tempToken)
+                        })
+                    } else {
+                        token_in.value.setToken(tempToken)
+                    }
+                    return true
+                }
+
+                // Token list may already be loaded (e.g. the user was just
+                // browsing the portfolio) — try immediately instead of only
+                // ever waiting for a future change that may never come.
+                const tokensNow = assetsStore.networkErc20Tokens
+                if (tokensNow.length > 0 && applyToken(tokensNow)) {
+                    return
+                }
+
+                // Not loaded yet — wait for it to change.
                 const stopInner = watch(
                     () => assetsStore.networkErc20Tokens,
                     (tokens) => {
                         // Token list not loaded yet — keep waiting
                         if (tokens.length === 0) return
 
-                        const match = tokens.find((t) => t.data.address.toLowerCase() === addr)
-                        if (match && token_in.value) {
-                            token_in.value.setToken(match)
+                        if (applyToken(tokens)) {
                             stopInner()
                             tokenListStop = undefined
-                            return
                         }
-                        // Token not in the standard list — build a temporary one from URL params
-                        if (token_in.value) {
-                            const name = (route.query.name as string | undefined) ?? tokenAddress
-                            const symbol = (route.query.symbol as string | undefined) ?? '???'
-                            const decimals = parseInt((route.query.decimals as string | undefined) ?? '18')
-                            const logoURI = (route.query.logoUri as string | undefined) ?? ''
-                            const chainId = assetsStore.evmChainId
-                            const tempToken = new Erc20Token({
-                                address: tokenAddress,
-                                chainId,
-                                name,
-                                symbol,
-                                decimals,
-                                logoURI,
-                            })
-                            const ethAddress = (mainStore.activeWallet as any)?.ethAddress
-                            if (ethAddress) {
-                                const rawAddr = ethAddress.replace(/^0x/i, '')
-                                tempToken.updateBalance(rawAddr).then(() => {
-                                    token_in.value?.setToken(tempToken)
-                                })
-                            } else {
-                                token_in.value.setToken(tempToken)
-                            }
-                        }
-                        stopInner()
-                        tokenListStop = undefined
-                    },
-                    { immediate: true }
+                    }
                 )
                 tokenListStop = stopInner
             },
