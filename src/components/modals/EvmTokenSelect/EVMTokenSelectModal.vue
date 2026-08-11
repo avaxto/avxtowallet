@@ -1,25 +1,11 @@
 <template>
     <modal ref="modal" title="Select Token" class="modal_main">
         <div class="token_select_body">
-            <div class="list">
-                <div class="token_row" @click="select('native')">
-                    <img src="/img/avax_icon_circle.png" class="col_img" />
-                    <div class="col_name">
-                        <p>AVAX</p>
-                        <p>Avalanche</p>
-                    </div>
-                    <p class="col_bal">{{ avaxBalance.toLocaleString() }}</p>
-                </div>
-                <div v-for="t in tokens" :key="t.data.address" class="token_row" @click="select(t)">
-                    <img v-if="t.data.logoURI" :src="t.data.logoURI" class="col_img" />
-                    <p v-else class="col_img">?</p>
-                    <div class="col_name">
-                        <p>{{ t.data.symbol }}</p>
-                        <p>{{ t.data.name }}</p>
-                    </div>
-                    <p class="col_bal">{{ t.balanceBig.toLocaleString() }}</p>
-                </div>
-            </div>
+            <TokenListPicker
+                :tokens="heldTokens"
+                :loading="loading"
+                @select="onPick"
+            ></TokenListPicker>
             <div class="nft_list">
                 <ERC721Row
                     class="nft_row"
@@ -34,16 +20,14 @@
 </template>
 <script lang="ts">
 import { defineComponent, ref, computed } from 'vue'
-import { useAssetsStore, useErc721Store, useMainStore } from '@/stores'
+import { useErc721Store } from '@/stores'
 
 import Modal from '@/components/modals/Modal.vue'
-import Erc20Token from '@/js/Erc20Token'
-import Big from 'big.js'
-import { Wallet } from '@/js/wallets/AbstractWallet'
-import { bnToBig } from '@/helpers/helper'
 import ERC721Token from '@/js/ERC721Token'
 import ERC721Row from '@/components/modals/EvmTokenSelect/ERC721Row.vue'
-import { ERC721WalletBalance } from '@/types'
+import TokenListPicker from '@/components/misc/TokenListPicker.vue'
+import { useHeldErc20Tokens, HeldToken } from '@/composables/useHeldErc20Tokens'
+import { resolveErc20Token } from '@/helpers/erc20_resolve'
 import { iErc721SelectInput } from '@/components/misc/EVMInputDropdown/types'
 
 export default defineComponent({
@@ -51,11 +35,10 @@ export default defineComponent({
     components: {
         ERC721Row,
         Modal,
+        TokenListPicker,
     },
     emits: ['select', 'selectCollectible'],
     setup(props, { emit }) {
-        const mainStore = useMainStore()
-        const assetsStore = useAssetsStore()
         const erc721Store = useErc721Store()
         const modal = ref<InstanceType<typeof Modal> | null>(null)
 
@@ -63,28 +46,27 @@ export default defineComponent({
             modal.value?.open()
         }
 
-        const tokens = computed((): Erc20Token[] => {
-            let tokens: Erc20Token[] = assetsStore.networkErc20Tokens
-            let filt = tokens.filter((t) => {
-                if (t.balanceBN.isZero()) return false
-                return true
+        // Merges the assets store's "Default Assets" with tokens
+        // auto-discovered via the Glacier/chainkit SDK ("All Assets"), same
+        // as the swap page's source-token picker — a token that only shows
+        // up on the portfolio page through SDK discovery is still
+        // selectable here instead of silently missing from the list.
+        const { tokens: heldTokens, loading } = useHeldErc20Tokens()
+
+        const erc721s = computed((): ERC721Token[] => erc721Store.networkContracts)
+
+        const onPick = async (t: HeldToken) => {
+            if (t.isNative) {
+                emit('select', 'native')
+                close()
+                return
+            }
+            const token = await resolveErc20Token(t.address, {
+                name: t.name,
+                symbol: t.symbol,
+                decimals: t.decimals,
+                logoUri: t.logoUri,
             })
-            return filt
-        })
-
-        const erc721s = computed((): ERC721Token[] => {
-            let w: Wallet = mainStore.activeWallet
-            return erc721Store.networkContracts
-        })
-
-        const avaxBalance = computed((): Big => {
-            let w: Wallet | null = mainStore.activeWallet
-            if (!w) return Big(0)
-            let balBN = w.ethBalance
-            return bnToBig(balBN, 18)
-        })
-
-        const select = (token: Erc20Token | 'native') => {
             emit('select', token)
             close()
         }
@@ -101,14 +83,14 @@ export default defineComponent({
         return {
             modal,
             open,
-            tokens,
+            heldTokens,
+            loading,
             erc721s,
-            avaxBalance,
-            select,
+            onPick,
             onERC721Select,
-            close
+            close,
         }
-    }
+    },
 })
 </script>
 <style scoped lang="scss">
@@ -117,75 +99,11 @@ export default defineComponent({
 .token_select_body {
     width: 420px;
     max-width: 100%;
-    //padding: 10px 20px;
 }
 
-.list {
-    //position: absolute;
-    //top: 0;
-    //left: 100%;
-    //width: 260px;
-    //max-height: 0px;
-    max-height: 70vh;
-    overflow: scroll;
-    z-index: 2;
-    border-radius: 4px;
-}
-
-$logo_w: 38px;
-
-.token_row,
 .nft_row {
     padding: 10px 20px;
-}
-
-.nft_row {
     border-top: 1px solid var(--bg-light);
-}
-.token_row {
-    font-size: 15px;
-    display: grid;
-    grid-template-columns: max-content max-content 1fr;
-    column-gap: 12px;
-    cursor: pointer;
-    user-select: none;
-
-    > * {
-        align-self: center;
-    }
-
-    img {
-        object-fit: contain;
-    }
-
-    &:hover {
-        background-color: var(--bg-light);
-
-        .col_img {
-            background-color: var(--primary-color);
-            color: var(--bg-wallet);
-        }
-    }
-}
-
-.col_img {
-    width: $logo_w;
-    height: $logo_w;
-    border-radius: $logo_w;
-    background-color: var(--bg-light);
-    text-align: center;
-    line-height: $logo_w;
-}
-
-.col_bal {
-    text-align: right;
-}
-
-.col_name {
-    p:last-of-type {
-        font-size: 13px;
-        color: var(--primary-color-light);
-    }
 }
 
 @include main.mobile-device {

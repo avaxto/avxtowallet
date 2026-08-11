@@ -71,7 +71,14 @@ export default defineComponent({
 
         const send = () => {
             if (!isBalance.value) return
-            goToTransfer(router, { chain: 'C', token: props.token.data.address })
+            goToTransfer(router, {
+                chain: 'C',
+                token: props.token.data.address,
+                name: props.token.data.name,
+                symbol: props.token.data.symbol,
+                decimals: parseInt(props.token.data.decimals as string) || 18,
+                logoUri: props.token.data.logoURI,
+            })
         }
 
         const explorerUrl = computed(() => {

@@ -161,7 +161,7 @@
 </template>
 <script lang="ts">
 import { defineComponent, computed, ref, markRaw, onMounted, onBeforeUnmount, watch } from 'vue'
-import { useMainStore, useAssetsStore, useTransferPrefillStore } from '@/stores'
+import { useMainStore, useTransferPrefillStore } from '@/stores'
 import { useI18n } from 'vue-i18n'
 import AvaxInput from '@/components/misc/AvaxInput.vue'
 import { priceDict } from '@/types'
@@ -180,6 +180,7 @@ import { bnToBig, errorToString } from '@/helpers/helper'
 import { web3 } from '@/evm'
 import EVMInputDropdown from '@/components/misc/EVMInputDropdown/EVMInputDropdown.vue'
 import Erc20Token from '@/js/Erc20Token'
+import { resolveErc20Token } from '@/helpers/erc20_resolve'
 import { iErc721SelectInput } from '@/components/misc/EVMInputDropdown/types'
 import { WalletHelper } from '@/helpers/wallet_helper'
 import BatchFormC from '@/components/wallet/transfer/BatchFormC.vue'
@@ -200,7 +201,6 @@ export default defineComponent({
     },
     setup() {
         const mainStore = useMainStore()
-        const assetsStore = useAssetsStore()
         const offline = useOfflineSigningStore()
         const transferPrefill = useTransferPrefillStore()
         const { t } = useI18n()
@@ -271,14 +271,14 @@ export default defineComponent({
         // page's "send" icons via goToTransfer() instead of a URL query string).
         // Watches transferPrefill.token so it re-runs on every navigation to
         // this page (onMounted only fires once when the component is already
-        // alive).
-        let tokenListStop: (() => void) | undefined
+        // alive). Guarded against out-of-order resolution: a fast second
+        // click (or a slow first one) could otherwise let an older
+        // resolveErc20Token() call land after a newer one.
+        let requestId = 0
         watch(
             () => transferPrefill.token,
             async (tokenAddress) => {
-                // Cancel any in-flight inner watcher from a previous navigation
-                tokenListStop?.()
-                tokenListStop = undefined
+                const thisRequest = ++requestId
 
                 // This watcher's immediate run fires during setup(), before the
                 // EVMInputDropdown template ref is bound — wait until FormC is
@@ -286,70 +286,28 @@ export default defineComponent({
                 // below, on the very first navigation to this page as much as
                 // on later ones.
                 await mountedPromise
+                if (thisRequest !== requestId) return
 
                 if (!tokenAddress) {
                     // No token param — reset to native AVAX.
                     token_in.value?.setToken('native')
                     return
                 }
-                const addr = tokenAddress.toLowerCase()
 
-                const applyToken = (tokens: Erc20Token[]): boolean => {
-                    if (!token_in.value) return false
-
-                    const match = tokens.find((t) => t.data.address.toLowerCase() === addr)
-                    if (match) {
-                        token_in.value.setToken(match)
-                        return true
-                    }
-                    // Token not in the standard list — build a temporary one from the prefill store
-                    const name = transferPrefill.name ?? tokenAddress
-                    const symbol = transferPrefill.symbol ?? '???'
-                    const decimals = transferPrefill.decimals ?? 18
-                    const logoURI = transferPrefill.logoUri ?? ''
-                    const chainId = assetsStore.evmChainId
-                    const tempToken = new Erc20Token({
-                        address: tokenAddress,
-                        chainId,
-                        name,
-                        symbol,
-                        decimals,
-                        logoURI,
-                    })
-                    const ethAddress = (mainStore.activeWallet as any)?.ethAddress
-                    if (ethAddress) {
-                        const rawAddr = ethAddress.replace(/^0x/i, '')
-                        tempToken.updateBalance(rawAddr).then(() => {
-                            token_in.value?.setToken(tempToken)
-                        })
-                    } else {
-                        token_in.value.setToken(tempToken)
-                    }
-                    return true
-                }
-
-                // Token list may already be loaded (e.g. the user was just
-                // browsing the portfolio) — try immediately instead of only
-                // ever waiting for a future change that may never come.
-                const tokensNow = assetsStore.networkErc20Tokens
-                if (tokensNow.length > 0 && applyToken(tokensNow)) {
-                    return
-                }
-
-                // Not loaded yet — wait for it to change.
-                const stopInner = watch(
-                    () => assetsStore.networkErc20Tokens,
-                    (tokens) => {
-                        // Token list not loaded yet — keep waiting
-                        if (tokens.length === 0) return
-
-                        if (applyToken(tokens)) {
-                            stopInner()
-                            tokenListStop = undefined
-                        }
-                    }
-                )
-                tokenListStop = stopInner
+                // Resolves to the assets store's own instance when the address
+                // is already known there (ERC20Row's "send" icon only exists
+                // for tokens that are, so this is the common case), otherwise
+                // builds a throwaway one from the prefill store's metadata
+                // (CChainSdkRow's SDK-only-discovered tokens) and fetches its
+                // balance.
+                const token = await resolveErc20Token(tokenAddress, {
+                    name: transferPrefill.name,
+                    symbol: transferPrefill.symbol,
+                    decimals: transferPrefill.decimals,
+                    logoUri: transferPrefill.logoUri,
+                })
+                if (thisRequest !== requestId) return
+                token_in.value?.setToken(token)
             },
             { immediate: true }
         )
