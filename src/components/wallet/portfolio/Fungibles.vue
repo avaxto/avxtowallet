@@ -2,6 +2,12 @@
     <div class="fungibles_view">
         <AddERC20TokenModal ref="addTokenModal"></AddERC20TokenModal>
         <TokenListModal ref="tokenlistModal"></TokenListModal>
+        <div class="filter_row">
+            <label class="hide_zero_toggle">
+                <input type="checkbox" v-model="hideZeroBalance" />
+                Hide zero balance
+            </label>
+        </div>
         <div class="headers">
             <p class="icon_col"></p>
             <p class="name_col">{{ $t('portfolio.name') }}</p>
@@ -40,7 +46,10 @@
                             :alternate="i % 2 === 1"
                         ></CChainSdkRow>
                     </template>
-                    <div v-else-if="sdkLoading" class="sdk_loading">Loading C-chain assets…</div>
+                    <div v-else-if="sdkLoading" class="sdk_loading">
+                        <Spinner class="sdk_loading_spinner"></Spinner>
+                        Loading C-chain assets…
+                    </div>
                     <div class="asset add_token_row">
 
                         <button @click="addToken" title="Manually added tokens allow you to quickly check an asset that does not show automatically and will disappear when you close the wallet unless you hold a balance of that token.">Manually Add Token</button>
@@ -55,8 +64,10 @@
 import 'reflect-metadata'
 import { defineComponent, ref, computed, toRef } from 'vue'
 import { useAssetsStore, useNetworkStore, useMainStore } from '@/stores'
+import { BN } from '@/avalanche'
 
 import FaucetLink from '@/components/misc/FaucetLink.vue'
+import Spinner from '@/components/misc/Spinner.vue'
 import FungibleRow from '@/components/wallet/portfolio/FungibleRow.vue'
 import AvaAsset from '@/js/AvaAsset'
 import Erc20Token from '@/js/Erc20Token'
@@ -80,6 +91,7 @@ export default defineComponent({
         CChainSdkRow,
         FaucetLink,
         FungibleRow,
+        Spinner,
     },
     props: {
         search: {
@@ -103,13 +115,12 @@ export default defineComponent({
             return assetsStore.AssetAVA
         })
 
+        const hideZeroBalance = ref(true)
+
         const erc20Balances = computed((): Erc20Token[] => {
             let tokens: Erc20Token[] = assetsStore.networkErc20Tokens
-            let filt = tokens.filter((token) => {
-                if (token.balanceBN.isZero()) return false
-                return true
-            })
-            return filt
+            if (!hideZeroBalance.value) return tokens
+            return tokens.filter((token) => !token.balanceBN.isZero())
         })
 
         const walletBalancesSorted = computed((): AvaAsset[] => {
@@ -151,6 +162,13 @@ export default defineComponent({
 
         const walletBalances = computed((): AvaAsset[] => {
             let balance = walletBalancesSorted.value
+
+            if (hideZeroBalance.value) {
+                // Total across available + locked + staked + multisig — an
+                // asset that's fully staked/locked still counts as "held",
+                // only a true zero across all of those should be hidden.
+                balance = balance.filter((val) => !val.getTotalAmount().isZero())
+            }
 
             if (props.search) {
                 balance = balance.filter((val) => {
@@ -195,6 +213,18 @@ export default defineComponent({
             )
             list = list.filter((a) => !defaultAddrs.has(a.address.toLowerCase()))
 
+            if (hideZeroBalance.value) {
+                list = list.filter((a) => {
+                    try {
+                        const s = (a.balance || '0').trim()
+                        const bn = s.startsWith('0x') ? new BN(s.slice(2) || '0', 16) : new BN(s, 10)
+                        return !bn.isZero()
+                    } catch {
+                        return true // unparseable balance — don't hide it silently
+                    }
+                })
+            }
+
             if (props.search) {
                 const query = props.search.toUpperCase()
                 list = list.filter((a) => {
@@ -219,6 +249,7 @@ export default defineComponent({
             addTokenModal,
             tokenlistModal,
             networkStatus,
+            hideZeroBalance,
             walletBalancesSorted,
             avaxToken,
             erc20Balances,
@@ -255,6 +286,30 @@ export default defineComponent({
 
     input {
         outline: none;
+    }
+}
+
+.filter_row {
+    display: flex;
+    justify-content: flex-end;
+    padding-top: 4px;
+}
+
+.hide_zero_toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--primary-color-light);
+    cursor: pointer;
+    user-select: none;
+
+    input {
+        cursor: pointer;
+    }
+
+    &:hover {
+        color: var(--primary-color);
     }
 }
 
@@ -301,6 +356,17 @@ export default defineComponent({
     padding: 14px 0;
     font-size: 13px;
     color: var(--primary-color-light);
+    display: flex;
+    align-items: center;
+}
+
+.sdk_loading_spinner {
+    // Spinner.vue's own scoped style sets width/height on its root — match
+    // BalanceCard.vue's existing override of the same component with
+    // !important, since a plain parent rule doesn't reliably win here.
+    width: 16px !important;
+    height: 16px !important;
+    margin-right: 8px;
 }
 
 .faucet {

@@ -7,6 +7,16 @@
         <p class="col_name">
             {{ asset.name }} ({{ asset.symbol }})
             <span>{{ ercLabel }}</span>
+            <a
+                :href="explorerUrl"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="explorer_link"
+                title="View contract on explorer"
+                @click.stop
+            >
+                <fa icon="link"></fa>
+            </a>
         </p>
         <router-link
             :to="sendLink"
@@ -22,6 +32,7 @@
 <script lang="ts">
 import { defineComponent, computed } from 'vue'
 import { useTheme } from '@/composables/useTheme'
+import { useAssetsStore } from '@/stores'
 import type { CChainSdkAsset } from '@/composables/useCChainSdkBalances'
 
 interface Props {
@@ -42,6 +53,15 @@ export default defineComponent({
     },
     setup(props: Props) {
         const { isDay } = useTheme()
+        const assetsStore = useAssetsStore()
+
+        const explorerUrl = computed(() => {
+            const base =
+                assetsStore.evmChainId === 43113
+                    ? 'https://testnet.snowtrace.io'
+                    : 'https://snowtrace.io'
+            return `${base}/token/${props.asset.address}`
+        })
 
         const ercLabel = computed(() => {
             switch (props.asset.type) {
@@ -69,7 +89,7 @@ export default defineComponent({
             return ''
         })
 
-        return { isDay, ercLabel, sendLink }
+        return { isDay, ercLabel, sendLink, explorerUrl }
     },
 })
 </script>
@@ -106,6 +126,19 @@ img {
     span {
         font-size: 12px;
         color: var(--secondary-color);
+    }
+}
+
+.explorer_link {
+    display: inline-flex;
+    margin-left: 6px;
+    color: var(--primary-color-light);
+    opacity: 0.6;
+    font-size: 12px;
+
+    &:hover {
+        opacity: 1;
+        color: var(--primary-color);
     }
 }
 

@@ -7,6 +7,16 @@
         <p class="col_name">
             {{ token.data.name }} ({{ token.data.symbol }})
             <span>ERC20</span>
+            <a
+                :href="explorerUrl"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="explorer_link"
+                title="View contract on explorer"
+                @click.stop
+            >
+                <fa icon="link"></fa>
+            </a>
         </p>
         <router-link :to="isBalance ? sendLink : ''" class="send_col" :class="{ disabled: !isBalance }">
             <img v-if="isDay" src="@/assets/sidebar/transfer_nav.png" />
@@ -21,6 +31,7 @@
 import { useTheme } from '@/composables/useTheme'
 import { defineComponent, computed } from 'vue'
 import Erc20Token from '@/js/Erc20Token'
+import { useAssetsStore } from '@/stores'
 
 interface Props {
     token: Erc20Token
@@ -36,6 +47,7 @@ export default defineComponent({
     },
     setup(props: Props) {
         const { isDay } = useTheme()
+        const assetsStore = useAssetsStore()
 
         const balText = computed(() => {
             return props.token.balanceBig.toLocaleString()
@@ -49,10 +61,19 @@ export default defineComponent({
             return `/wallet/transfer?chain=C&token=${props.token.data.address}`
         })
 
+        const explorerUrl = computed(() => {
+            const base =
+                assetsStore.evmChainId === 43113
+                    ? 'https://testnet.snowtrace.io'
+                    : 'https://snowtrace.io'
+            return `${base}/token/${props.token.data.address}`
+        })
+
         return {
             balText,
             isBalance,
             sendLink,
+            explorerUrl,
             isDay
         }
     }
@@ -93,6 +114,19 @@ img {
     span {
         font-size: 12px;
         color: var(--secondary-color);
+    }
+}
+
+.explorer_link {
+    display: inline-flex;
+    margin-left: 6px;
+    color: var(--primary-color-light);
+    opacity: 0.6;
+    font-size: 12px;
+
+    &:hover {
+        opacity: 1;
+        color: var(--primary-color);
     }
 }
 
