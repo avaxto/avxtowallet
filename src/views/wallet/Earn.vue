@@ -105,14 +105,12 @@ import { useI18n } from 'vue-i18n'
 import AddValidator from '@/components/wallet/earn/Validate/AddValidator.vue'
 import AddDelegator from '@/components/wallet/earn/Delegate/AddDelegator.vue'
 import { BN } from '@/avalanche'
-import UserRewards from '@/components/wallet/earn/UserRewards.vue'
 import { bnToBig } from '@/helpers/helper'
 import Big from 'big.js'
 
 export default defineComponent({
     name: 'earn',
     components: {
-        UserRewards,
         AddValidator,
         AddDelegator,
     },
@@ -141,8 +139,7 @@ export default defineComponent({
         }
 
         const viewRewards = () => {
-            pageNow.value = UserRewards
-            subtitle.value = t('earn.subtitle4') as string
+            router.push('/wallet/earn/rewards')
         }
 
         const cancel = () => {

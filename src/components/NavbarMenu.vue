@@ -158,7 +158,11 @@
                 </v-btn>
             </template>
             <v-list>
-                
+            <v-list-item>
+                    <v-list-item-title>
+                        <router-link to="/wallet/earn/rewards">Estimated Rewards</router-link>
+                    </v-list-item-title>
+                </v-list-item>
              <v-list-item>
                     <v-list-item-title>
                         <a 

@@ -11,6 +11,7 @@ import Create from '@/views/Create.vue'
 import Wallet from '@/views/Wallet.vue'
 import WalletHome from '@/views/wallet/Portfolio.vue'
 import Earn from '@/views/wallet/Earn.vue'
+import EarnRewards from '@/views/wallet/EarnRewards.vue'
 import Advanced from '@/views/wallet/Advanced.vue'
 import Activity from '@/views/wallet/Activity.vue'
 import Generator from '@/views/wallet/Generator.vue'
@@ -144,7 +145,11 @@ const routes: RouteRecordRaw[] = [
             {
                 path: 'earn',
                 component: Earn,
-            },            
+            },
+            {
+                path: 'earn/rewards',
+                component: EarnRewards,
+            },
             {
                 path: 'advanced',
                 component: Advanced,
