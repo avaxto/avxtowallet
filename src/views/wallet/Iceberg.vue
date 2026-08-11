@@ -730,6 +730,21 @@ export default defineComponent({
             const outTok = tokenOut.value
             const userAddress = '0x' + w.getEvmAddress()
 
+            // Explicit, locally-incrementing nonce — the approval plus one
+            // send per chunk all fire back-to-back below. Letting each ask
+            // the wallet/RPC for "the" current nonce independently is racy
+            // (the previous send may not be visible as pending yet), so two
+            // sends can get the same nonce and the second is rejected as
+            // "nonce too low" / "already used". Same fix WalletWizard's
+            // batch send already applies, for the identical reason.
+            let nextNonceVal: number | undefined
+            const nextNonce = async (): Promise<number> => {
+                if (nextNonceVal === undefined) {
+                    nextNonceVal = await web3.eth.getTransactionCount(userAddress, 'pending')
+                }
+                return nextNonceVal++
+            }
+
             try {
                 await authorizeBatch(w, authScopeReason, async () => {
                 // One-time approval covering the whole order (ERC20 inputs only).
@@ -751,7 +766,14 @@ export default defineComponent({
                         if (allowance.lt(totalAmountRaw.value)) {
                             rows.value[0].status = 'approving'
                             const gp = await GasHelper.getAdjustedGasPrice()
-                            await approveRouter(w, inTok.address, spender, totalAmountRaw.value, gp)
+                            await approveRouter(
+                                w,
+                                inTok.address,
+                                spender,
+                                totalAmountRaw.value,
+                                gp,
+                                await nextNonce()
+                            )
                             rows.value[0].status = 'pending'
                         }
                     }
@@ -779,7 +801,7 @@ export default defineComponent({
                         if (aborted.value) break
 
                         row.status = 'swapping'
-                        const res = await executeSwap(w, q, gp)
+                        const res = await executeSwap(w, q, gp, await nextNonce())
                         row.txHash = res.txHash
 
                         const outRaw = new BN(q.toAmount)

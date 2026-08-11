@@ -268,6 +268,15 @@ export async function getAllowance(
 /**
  * Broadcast a signed EVM transaction from the active wallet. Handles both
  * locally-signing wallets and injected browser wallets.
+ *
+ * Accepts an explicit `nonce` for callers sequencing several sends back-to-
+ * back (approve-then-swap, or an iceberg order's per-chunk swaps) — letting
+ * each send ask the wallet/RPC for "the" current nonce independently is
+ * racy, since the previous send may not be visible as pending yet by the
+ * time the next one asks, so two sends can get the same nonce and the
+ * second is rejected as "nonce too low" / "already used". Same fix already
+ * applied to InjectedWallet.sendEth/sendERC20 and WalletWizard's batch send,
+ * for the identical reason.
  */
 async function sendEvmTx(
     wallet: AvaWalletCore,
@@ -275,7 +284,8 @@ async function sendEvmTx(
     gasPrice: BN,
     gasLimit: number,
     /** Description used when offline signing captures this instead of sending. */
-    label = 'C-Chain transaction'
+    label = 'C-Chain transaction',
+    nonce?: number
 ): Promise<string> {
     const fromAddr = '0x' + wallet.getEvmAddress()
 
@@ -292,12 +302,13 @@ async function sendEvmTx(
             value: BigInt(txReq.value.toString()),
             gasPrice: BigInt(gasPrice.toString()),
             gas: BigInt(gasLimit),
+            ...(nonce !== undefined ? { nonce } : {}),
             chain: null,
         } as any)
         return hash
     }
 
-    const nonce = await web3.eth.getTransactionCount(fromAddr, 'pending')
+    const resolvedNonce = nonce ?? (await web3.eth.getTransactionCount(fromAddr, 'pending'))
     const chainId = await web3.eth.getChainId()
     const networkId = await web3.eth.net.getId()
     const chainParams = {
@@ -306,7 +317,7 @@ async function sendEvmTx(
 
     const tx = new Transaction(
         {
-            nonce,
+            nonce: resolvedNonce,
             gasPrice,
             gasLimit,
             to: txReq.to,
@@ -331,7 +342,9 @@ export async function approveRouter(
     tokenAddress: string,
     spender: string,
     amount: BN,
-    gasPrice: BN
+    gasPrice: BN,
+    /** See sendEvmTx — pass when sequencing this with other sends (e.g. the swap that follows). */
+    nonce?: number
 ): Promise<string> {
     // @ts-ignore - web3 typing for dynamic ABI
     const contract = new web3.eth.Contract(ERC20Abi.abi as any, tokenAddress)
@@ -351,7 +364,8 @@ export async function approveRouter(
         { to: tokenAddress, data, value: new BN(0) },
         gasPrice,
         gasLimit,
-        'Approve router to spend token'
+        'Approve router to spend token',
+        nonce
     )
 }
 
@@ -363,7 +377,9 @@ export async function approveRouter(
 export async function executeSwap(
     wallet: AvaWalletCore,
     quote: SwapQuote,
-    gasPrice: BN
+    gasPrice: BN,
+    /** See sendEvmTx — pass when sequencing this with other sends (e.g. an iceberg order's chunks). */
+    nonce?: number
 ): Promise<SwapResult> {
     // Pad the aggregator's gas estimate by 20% for safety.
     const gasLimit = Math.round(quote.gasLimit * 1.2)
@@ -374,7 +390,8 @@ export async function executeSwap(
         { to: quote.transactionRequest.to, data: quote.transactionRequest.data, value },
         gasPrice,
         gasLimit,
-        'Execute swap'
+        'Execute swap',
+        nonce
     )
     return { txHash }
 }

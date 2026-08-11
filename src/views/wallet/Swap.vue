@@ -400,6 +400,19 @@ export default defineComponent({
                 const gasPrice: BN = await GasHelper.getAdjustedGasPrice()
                 const amountInRaw = toBaseUnits(amountIn.value.trim(), tokenIn.value.decimals)
 
+                // Explicit, locally-incrementing nonce for the (up to) two
+                // sends below — asking the wallet/RPC for "the" current
+                // nonce independently for each is racy, since the approval
+                // may not be visible as pending yet by the time the swap
+                // asks, and both can get the same nonce.
+                let nextNonceVal: number | undefined
+                const nextNonce = async (): Promise<number> => {
+                    if (nextNonceVal === undefined) {
+                        nextNonceVal = await web3.eth.getTransactionCount(userAddress, 'pending')
+                    }
+                    return nextNonceVal++
+                }
+
                 // ERC20 inputs must approve LI.FI's quoted spender first — it
                 // can vary per route/quote, unlike Odos's single fixed router.
                 const spender = quote.value.approvalAddress
@@ -412,14 +425,21 @@ export default defineComponent({
                     if (allowance.lt(amountInRaw)) {
                         isApproving.value = true
                         statusMsg.value = 'Waiting for approval confirmation…'
-                        await approveRouter(w, tokenIn.value.address, spender, amountInRaw, gasPrice)
+                        await approveRouter(
+                            w,
+                            tokenIn.value.address,
+                            spender,
+                            amountInRaw,
+                            gasPrice,
+                            await nextNonce()
+                        )
                         isApproving.value = false
                     }
                 }
 
                 isSwapping.value = true
                 statusMsg.value = 'Broadcasting swap…'
-                const res = await executeSwap(w, quote.value, gasPrice)
+                const res = await executeSwap(w, quote.value, gasPrice, await nextNonce())
                 resultTx.value = res.txHash
                 statusMsg.value = ''
                 quote.value = null
