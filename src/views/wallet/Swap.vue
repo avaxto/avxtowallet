@@ -77,6 +77,17 @@
                     <span v-else-if="tokenOut" class="resolve_state ok">✓ {{ tokenOut.symbol }}</span>
                     <span v-else-if="targetError" class="resolve_state err">{{ targetError }}</span>
                 </div>
+                <div v-if="tokenOut && !isNativeToken(tokenOut.address)" class="contract_row">
+                    <div class="contract_addr">
+                        <span class="contract_label">Contract</span>
+                        <span class="mono">{{ tokenOut.address }}</span>
+                        <CopyText :value="tokenOut.address" class="copy_btn" />
+                    </div>
+                    <p class="contract_warn">
+                        Always verify this address yourself before swapping — anyone can
+                        create a token with the same symbol or name.
+                    </p>
+                </div>
             </div>
 
             <!-- ── Slippage ── -->
@@ -173,6 +184,7 @@ import { web3 } from '@/evm'
 import { GasHelper } from '@/avalanche-wallet-sdk'
 import { bnToBig } from '@/helpers/helper'
 import { toBaseUnits } from '@/js/TokenLauncher'
+import CopyText from '@/components/misc/CopyText.vue'
 import {
     getQuote,
     executeSwap,
@@ -197,6 +209,9 @@ const NATIVE_AVAX: SwapToken = {
 
 export default defineComponent({
     name: 'Swap',
+    components: {
+        CopyText,
+    },
     setup() {
         const mainStore = useMainStore()
         const assetsStore = useAssetsStore()
@@ -500,6 +515,7 @@ export default defineComponent({
             explorerUrl,
             balanceOf,
             fmtUsd,
+            isNativeToken,
             onAmountChange,
             onTargetChange,
             fetchQuote,
@@ -643,6 +659,45 @@ export default defineComponent({
         &.err {
             color: #f44336;
         }
+    }
+}
+
+.contract_row {
+    margin-top: 10px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    background: var(--bg-light);
+
+    .contract_addr {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .contract_label {
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--primary-color-light);
+        white-space: nowrap;
+    }
+
+    .mono {
+        font-family: monospace;
+        font-size: 12px;
+        color: var(--primary-color);
+        word-break: break-all;
+        flex: 1;
+    }
+
+    .copy_btn {
+        flex-shrink: 0;
+    }
+
+    .contract_warn {
+        margin-top: 6px;
+        font-size: 11.5px;
+        color: var(--secondary-color);
+        line-height: 1.4;
     }
 }
 
