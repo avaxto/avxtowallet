@@ -61,12 +61,27 @@ export default defineComponent({
             return earnStore.stakingTxs as EarnState['stakingTxs']
         })
 
+        // Every new delegation this app creates is now an
+        // AddPermissionlessDelegatorTx (see AbstractWallet.delegate()), not
+        // the legacy AddDelegatorTx these filters used to check for alone —
+        // without the permissionless variants, a wallet's most recent
+        // stakes silently vanished from this page while its OLDER,
+        // legacy-format stakes still showed up fine.
+        //
+        // @avalabs/glacier-sdk's PChainTransactionType enum only declares
+        // ADD_PERMISSIONLESS_VALIDATOR_TX, not a delegator equivalent — an
+        // SDK version lag, not a sign the API doesn't return one (its
+        // sibling is right there) — so txType has to be compared as a plain
+        // string rather than against the (incomplete) enum.
+        const VALIDATOR_TX_TYPES = new Set(['AddValidatorTx', 'AddPermissionlessValidatorTx'])
+        const DELEGATOR_TX_TYPES = new Set(['AddDelegatorTx', 'AddPermissionlessDelegatorTx'])
+
         const validatorTxs = computed(() => {
-            return stakingTxs.value.filter((tx) => tx.txType === 'AddValidatorTx')
+            return stakingTxs.value.filter((tx) => VALIDATOR_TX_TYPES.has(tx.txType as string))
         })
 
         const delegatorTxs = computed(() => {
-            return stakingTxs.value.filter((tx) => tx.txType === 'AddDelegatorTx')
+            return stakingTxs.value.filter((tx) => DELEGATOR_TX_TYPES.has(tx.txType as string))
         })
 
         const totLength = computed(() => {
