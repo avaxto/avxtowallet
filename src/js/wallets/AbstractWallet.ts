@@ -28,7 +28,6 @@ import Erc20Token from '@/js/Erc20Token'
 import { Transaction } from '@ethereumjs/tx'
 import type { Account, Address } from 'viem'
 import { defineChain } from 'viem'
-import type { XPAccount } from '@avalanche-sdk/client/accounts'
 import { createAvalancheWalletClient } from '@avalanche-sdk/client'
 import { activeNetwork } from '@/avalanche-wallet-sdk/Network/network'
 import { delegatePermissionlessLocal } from '@/js/permissionlessDelegate'
@@ -95,6 +94,30 @@ abstract class AbstractWallet implements AvaWalletCore {
         if (chain === 'P') return this.getCurrentAddressPlatform()
         if (chain === 'C') return this.getEvmAddressBech()
         return this.getCurrentAddressAvm()
+    }
+
+    /**
+     * The X/P-chain cross-chain-transfer DESTINATION address — always index
+     * 0, deliberately not getCurrentAddressAvm()/getCurrentAddressPlatform()
+     * (the next FRESH HD index, which advances as the wallet is used).
+     *
+     * exportFromXChain/exportFromPChain/exportFromCChain/importToXChain/
+     * importToPlatformChain below all land funds here so a cross-chain
+     * transfer always ends up at the same, predictable address regardless
+     * of how far the HD scan frontier has moved — matching InjectedWallet's
+     * existing "always land at index 0" convention for the same operations.
+     *
+     * Defaults to the current address, correct as-is for wallets with no
+     * HD index to pin (SingletonWallet, one key; InjectedWallet, which
+     * overrides the cross-chain methods directly). AbstractHdWallet
+     * overrides these for Mnemonic/Ledger, where the two actually differ.
+     */
+    getIndexZeroAddressAvm(): string {
+        return this.getCurrentAddressAvm()
+    }
+
+    getIndexZeroAddressPlatform(): string {
+        return this.getCurrentAddressPlatform()
     }
 
     abstract getEvmAddressBech(): string
@@ -288,7 +311,7 @@ abstract class AbstractWallet implements AvaWalletCore {
 
         // Get destination address
         const destinationAddr =
-            destinationChain === 'P' ? this.getCurrentAddressPlatform() : this.getEvmAddressBech()
+            destinationChain === 'P' ? this.getIndexZeroAddressPlatform() : this.getEvmAddressBech()
 
         // Add import fee to transaction
         if (importFee) {
@@ -330,7 +353,7 @@ abstract class AbstractWallet implements AvaWalletCore {
 
         // Destination address on the target chain
         const destinationAddr =
-            destinationChain === 'C' ? this.getEvmAddressBech() : this.getCurrentAddressAvm()
+            destinationChain === 'C' ? this.getEvmAddressBech() : this.getIndexZeroAddressAvm()
 
         // Single AvalancheJS path. The SDK branch that used to sit here signed
         // every input with one account key, which fails whenever UTXOs are spread
@@ -369,8 +392,8 @@ abstract class AbstractWallet implements AvaWalletCore {
 
         const destinationAddr =
             destinationChain === 'X'
-                ? this.getCurrentAddressAvm()
-                : this.getCurrentAddressPlatform()
+                ? this.getIndexZeroAddressAvm()
+                : this.getIndexZeroAddressPlatform()
 
         // Build the export transaction using the new Avalanche SDK
         const exportTxResult = await TxHelper.buildEvmExportTransaction(
@@ -407,8 +430,8 @@ abstract class AbstractWallet implements AvaWalletCore {
 
         const destinationAddr =
             destinationChain === 'X'
-                ? this.getCurrentAddressAvm()
-                : this.getCurrentAddressPlatform()
+                ? this.getIndexZeroAddressAvm()
+                : this.getIndexZeroAddressPlatform()
 
         return GasHelper.estimateExportGasFee(
             destinationChain,
@@ -438,7 +461,7 @@ abstract class AbstractWallet implements AvaWalletCore {
         }
 
         const sourceChainId = chainIdFromAlias(sourceChain)
-        const pToAddr = this.getCurrentAddressPlatform()
+        const pToAddr = this.getIndexZeroAddressPlatform()
         const hrp = ava.getHRP()
         const ownerAddrs = utxoSet
             .getAddresses()
@@ -466,7 +489,7 @@ abstract class AbstractWallet implements AvaWalletCore {
             throw new Error('Nothing to import.')
         }
 
-        const xToAddr = this.getCurrentAddressAvm()
+        const xToAddr = this.getIndexZeroAddressAvm()
 
         const hrp = ava.getHRP()
         const utxoAddrs = utxoSet
@@ -599,17 +622,20 @@ abstract class AbstractWallet implements AvaWalletCore {
     }
 
     /**
-     * Returns an XPAccount (see @avalanche-sdk/client/accounts) that can sign
-     * the AddPermissionlessDelegatorTx built in delegate() below, for wallet
-     * types that hold — or can reach — a private key locally. Returns null
-     * for wallet types that can't sign locally.
+     * Returns one XPAccount (see @avalanche-sdk/client/accounts) per
+     * candidate P-chain address this wallet can sign for locally — every
+     * address delegate() below might spend from, in the same order as
+     * getAllAddressesP(). Empty for wallet types that can't sign locally.
      *
-     * Overridden by MnemonicWallet, SingletonWallet and LedgerWallet.
-     * InjectedWallet doesn't need this — it overrides delegate() itself and
-     * routes through the injected provider instead (see InjectedWallet.ts).
+     * Overridden by MnemonicWallet and SingletonWallet (every scanned P-chain
+     * index) and LedgerWallet (just its primary index — see
+     * LedgerWallet.getXPAccountsForDelegation for why it doesn't loop over
+     * more). InjectedWallet doesn't need this — it overrides delegate()
+     * itself and routes through the injected provider instead (see
+     * InjectedWallet.ts).
      */
-    protected async getXPAccountForDelegation(): Promise<XPAccount | null> {
-        return null
+    protected async getXPAccountsForDelegation(): Promise<unknown[]> {
+        return []
     }
 
     /**
@@ -623,18 +649,22 @@ abstract class AbstractWallet implements AvaWalletCore {
      * Two params from the old implementation are now unused:
      *   - `start`: the permissionless format has no start-time field —
      *     delegation begins as soon as the transaction is accepted.
-     *   - `utxos`: the SDK builder fetches its own UTXOs for `fromAddress`;
+     *   - `utxos`: the SDK builder fetches its own UTXOs for `fromAddresses`;
      *     passing a hand-picked UTXO set (the "advanced" selector in
      *     AddDelegator.vue) isn't wired through yet.
      * Both are kept in the signature for interface compatibility with
      * validate() and existing call sites.
      *
-     * Restricted to the wallet's single primary P-chain address for
-     * from/change/reward: the SDK's local-signing path only signs with one
-     * XPAccount, so a transaction whose inputs span multiple HD-derived
-     * addresses would end up with unsigned credential slots and get
-     * rejected. Same constraint InjectedWallet already works under
-     * elsewhere in this codebase, same reason.
+     * fromAddresses is every address the wallet has funds at (getAllAddressesP()
+     * — the same set the old AddDelegatorTx-based implementation used), so a
+     * delegation can draw from AVAX spread across several HD-derived
+     * addresses, not just one. change/reward are still pinned to a single
+     * address (getIndexZeroAddressPlatform() — not
+     * getCurrentAddressPlatform()/getChangeAddressPlatform()/
+     * getPlatformRewardAddress(), which drift to the next FRESH HD index as
+     * the wallet gets used): those only ever need ONE destination, and index
+     * 0 is the predictable, always-reachable choice InjectedWallet already
+     * uses the same way for its own cross-chain destinations.
      */
     async delegate(
         nodeID: string,
@@ -644,14 +674,14 @@ abstract class AbstractWallet implements AvaWalletCore {
         rewardAddress?: string,
         _utxos?: PlatformUTXO[]
     ): Promise<string> {
-        const fromAddress = this.getCurrentAddressPlatform()
-        const changeAddress = this.getChangeAddressPlatform()
+        const fromAddresses = this.getAllAddressesP()
+        const changeAddress = this.getIndexZeroAddressPlatform()
         if (!rewardAddress) {
-            rewardAddress = this.getPlatformRewardAddress()
+            rewardAddress = changeAddress
         }
 
-        const xpAccount = await this.getXPAccountForDelegation()
-        if (!xpAccount) {
+        const xpAccounts = await this.getXPAccountsForDelegation()
+        if (xpAccounts.length === 0) {
             throw new Error(
                 'This wallet type cannot sign a delegation transaction locally. ' +
                     'Supported: Mnemonic, Singleton, Ledger and injected (Core) wallets.'
@@ -659,8 +689,8 @@ abstract class AbstractWallet implements AvaWalletCore {
         }
 
         return delegatePermissionlessLocal(
-            { nodeID, amount: amt, end, fromAddress, changeAddress, rewardAddress },
-            xpAccount
+            { nodeID, amount: amt, end, fromAddresses, changeAddress, rewardAddress },
+            xpAccounts
         )
     }
 }

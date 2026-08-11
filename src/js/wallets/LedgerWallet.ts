@@ -733,11 +733,14 @@ class LedgerWallet extends AbstractHdWallet implements AvaWalletCore {
     }
 
     /**
-     * Local XPAccount for the new AddPermissionlessDelegatorTx signing path
-     * (see js/permissionlessDelegate.ts). Restricted to the primary P-chain
-     * address (m/0/0, path "0/0") — same restriction InjectedWallet works
-     * under for the same tx, and it matches AbstractWallet.delegate()'s
-     * single fromAddress.
+     * Local XPAccounts for the new AddPermissionlessDelegatorTx signing path
+     * (see js/permissionlessDelegate.ts). Restricted to just the primary
+     * P-chain address (m/0/0, path "0/0") — unlike Mnemonic/Singleton,
+     * signing here means a real device APDU call per address, so this
+     * doesn't (yet) loop over every scanned index the way theirs does.
+     * AbstractWallet.delegate() still builds fromAddresses from
+     * getAllAddressesP() regardless; only UTXOs at this one address will
+     * actually get a matching signature.
      *
      * signTransaction hashes the tx the same way @avalabs/avalanchejs's own
      * secp256k1.sign() does (single sha256), then has the device sign that
@@ -746,7 +749,7 @@ class LedgerWallet extends AbstractHdWallet implements AvaWalletCore {
      * just against the new tx's bytes instead. Unverified against real
      * hardware.
      */
-    protected async getXPAccountForDelegation() {
+    protected async getXPAccountsForDelegation() {
         const node = this.platformHelper.masterKey.derive('m/0/0')
         const publicKeyHex = ('0x' + node.publicKey.toString('hex')) as `0x${string}`
 
@@ -785,16 +788,18 @@ class LedgerWallet extends AbstractHdWallet implements AvaWalletCore {
             }
         }
 
-        return {
-            publicKey: publicKeyHex,
-            signMessage: async () => {
-                throw new Error('Message signing is not implemented for this account.')
-            },
-            signTransaction,
-            verify: () => false,
-            type: 'local',
-            source: 'privateKey',
-        } as any
+        return [
+            {
+                publicKey: publicKeyHex,
+                signMessage: async () => {
+                    throw new Error('Message signing is not implemented for this account.')
+                },
+                signTransaction,
+                verify: () => false,
+                type: 'local',
+                source: 'privateKey',
+            } as any,
+        ]
     }
 
     async signC(unsignedTx: EVMUnsignedTx): Promise<EvmTx> {

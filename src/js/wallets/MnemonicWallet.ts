@@ -439,25 +439,35 @@ export default class MnemonicWallet extends AbstractHdWallet implements IAvaHdWa
     }
 
     /**
-     * Local XPAccount for the new AddPermissionlessDelegatorTx signing path
-     * (see js/permissionlessDelegate.ts) — the primary P-chain key (m/0/0),
-     * matching getCurrentAddressPlatform() / the single fromAddress
-     * AbstractWallet.delegate() now builds against.
+     * Local XPAccounts for the new AddPermissionlessDelegatorTx signing path
+     * (see js/permissionlessDelegate.ts) — one per P-chain index this wallet
+     * has scanned (0..platformHelper.hdIndex, same set getAllAddressesP()
+     * exposes as addresses), so a delegation can spend from AVAX at any of
+     * them, not just index 0.
      *
-     * The derived hex string held by the returned account's closures can't
+     * The derived hex strings held by the returned accounts' closures can't
      * be wiped (same tradeoff already accepted for getEvmPrivateKeyHex() /
-     * getMnemonic() below) — keep the account's lifetime short at the call
+     * getMnemonic() below) — keep the accounts' lifetime short at the call
      * site.
      */
-    protected async getXPAccountForDelegation() {
+    protected async getXPAccountsForDelegation() {
+        const maxIndex = this.platformHelper.hdIndex
         return this.withMasterKey((master) => {
             const account = master.derive(AVA_ACCOUNT_PATH)
-            const node = account.derive('m/0/0')
             try {
-                const hex = ('0x' + node.privateKey.toString('hex')) as `0x${string}`
-                return privateKeyToXPAccount(hex)
+                const accounts = []
+                // P addresses share m/0 with X external — see signP() above.
+                for (let i = 0; i <= maxIndex; i++) {
+                    const node = account.derive(`m/0/${i}`)
+                    try {
+                        const hex = ('0x' + node.privateKey.toString('hex')) as `0x${string}`
+                        accounts.push(privateKeyToXPAccount(hex))
+                    } finally {
+                        wipeNode(node)
+                    }
+                }
+                return accounts
             } finally {
-                wipeNode(node)
                 wipeNode(account)
             }
         })

@@ -287,18 +287,18 @@ class SingletonWallet extends AbstractWallet implements AvaWalletCore {
     }
 
     /**
-     * Local XPAccount for the new AddPermissionlessDelegatorTx signing path
+     * Local XPAccounts for the new AddPermissionlessDelegatorTx signing path
      * (see js/permissionlessDelegate.ts) — SingletonWallet has just the one
-     * key, so it's always the signer.
+     * key, so the returned array always has exactly one entry.
      *
      * The derived hex string held by the returned account's closures can't
      * be wiped (same tradeoff already accepted by withPrivateKey's other
      * callers) — keep the account's lifetime short at the call site.
      */
-    protected async getXPAccountForDelegation() {
+    protected async getXPAccountsForDelegation() {
         return this.withPrivateKey((_pkStr, pkBytes) => {
             const hex = ('0x' + BufferAvalanche.from(pkBytes).toString('hex')) as `0x${string}`
-            return privateKeyToXPAccount(hex)
+            return [privateKeyToXPAccount(hex)]
         })
     }
 

@@ -314,6 +314,18 @@ abstract class AbstractHdWallet extends AbstractWallet {
         return this.externalHelper.getCurrentAddress()
     }
 
+    // Cross-chain transfer destinations pin to index 0 rather than
+    // getCurrentAddressAvm()/getCurrentAddressPlatform() (the next FRESH HD
+    // index, which advances as the wallet gets used) — see
+    // AbstractWallet.getIndexZeroAddressAvm/Platform for why.
+    getIndexZeroAddressAvm(): string {
+        return this.externalHelper.getAddressForIndex(0)
+    }
+
+    getIndexZeroAddressPlatform(): string {
+        return this.platformHelper.getAddressForIndex(0)
+    }
+
     getChangeAddressAvm() {
         return this.internalHelper.getCurrentAddress()
     }
