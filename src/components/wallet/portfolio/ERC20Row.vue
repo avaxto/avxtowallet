@@ -17,6 +17,12 @@
             >
                 <fa icon="link"></fa>
             </a>
+            <CopyText
+                :value="token.data.address"
+                class="copy_addr"
+                title="Copy contract address"
+                @click.stop
+            ></CopyText>
         </p>
         <router-link :to="isBalance ? sendLink : ''" class="send_col" :class="{ disabled: !isBalance }">
             <img v-if="isDay" src="@/assets/sidebar/transfer_nav.png" />
@@ -32,6 +38,7 @@ import { useTheme } from '@/composables/useTheme'
 import { defineComponent, computed } from 'vue'
 import Erc20Token from '@/js/Erc20Token'
 import { useAssetsStore } from '@/stores'
+import CopyText from '@/components/misc/CopyText.vue'
 
 interface Props {
     token: Erc20Token
@@ -39,6 +46,7 @@ interface Props {
 
 export default defineComponent({
     name: 'ERC20Row',
+    components: { CopyText },
     props: {
         token: {
             type: Object as () => Erc20Token,
@@ -127,6 +135,25 @@ img {
     &:hover {
         opacity: 1;
         color: var(--primary-color);
+    }
+}
+
+.copy_addr {
+    display: inline-flex;
+    margin-left: 4px;
+    opacity: 0.6;
+    vertical-align: middle;
+
+    &:hover {
+        opacity: 1;
+    }
+
+    :deep(.copyBut) {
+        margin: 0;
+    }
+
+    :deep(.copyBut img) {
+        max-height: 12px;
     }
 }
 

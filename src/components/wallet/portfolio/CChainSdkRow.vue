@@ -17,6 +17,12 @@
             >
                 <fa icon="link"></fa>
             </a>
+            <CopyText
+                :value="asset.address"
+                class="copy_addr"
+                title="Copy contract address"
+                @click.stop
+            ></CopyText>
         </p>
         <router-link
             :to="sendLink"
@@ -34,6 +40,7 @@ import { defineComponent, computed } from 'vue'
 import { useTheme } from '@/composables/useTheme'
 import { useAssetsStore } from '@/stores'
 import type { CChainSdkAsset } from '@/composables/useCChainSdkBalances'
+import CopyText from '@/components/misc/CopyText.vue'
 
 interface Props {
     asset: CChainSdkAsset
@@ -41,6 +48,7 @@ interface Props {
 
 export default defineComponent({
     name: 'CChainSdkRow',
+    components: { CopyText },
     props: {
         asset: {
             type: Object as () => CChainSdkAsset,
@@ -139,6 +147,25 @@ img {
     &:hover {
         opacity: 1;
         color: var(--primary-color);
+    }
+}
+
+.copy_addr {
+    display: inline-flex;
+    margin-left: 4px;
+    opacity: 0.6;
+    vertical-align: middle;
+
+    &:hover {
+        opacity: 1;
+    }
+
+    :deep(.copyBut) {
+        margin: 0;
+    }
+
+    :deep(.copyBut img) {
+        max-height: 12px;
     }
 }
 
