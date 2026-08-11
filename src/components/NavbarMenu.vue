@@ -2,6 +2,7 @@
     <div class="navbar-menu">
         <SaveAccountModal ref="saveModal"></SaveAccountModal>
         <ConfirmLogout ref="logoutRef"></ConfirmLogout>
+        <AboutModal ref="aboutModal"></AboutModal>
         <v-menu offset-y>
             <template v-slot:activator="{ props }">
                 <v-btn text v-bind="props" class="menu-btn">
@@ -195,6 +196,9 @@
                 </v-btn>
             </template>
             <v-list>
+                <v-list-item @click="openAbout">
+                    <v-list-item-title>About</v-list-item-title>
+                </v-list-item>
                 <v-list-item>
                     <v-list-item-title>
                         <a 
@@ -274,7 +278,7 @@
                         </a>
                     </v-list-item-title>
                 </v-list-item>
-                 
+                
             </v-list>
         </v-menu>
    
@@ -293,6 +297,7 @@ import { defineComponent, ref, computed } from 'vue'
 import { useMainStore, useNotificationsStore } from '@/stores'
 import SaveAccountModal from '@/components/modals/SaveAccount/SaveAccountModal.vue'
 import ConfirmLogout from '@/components/modals/ConfirmLogout.vue'
+import AboutModal from '@/components/modals/AboutModal.vue'
 import NetworkMenu from '@/components/NetworkSettings/NetworkMenu.vue'
 import DayNightToggle from '@/components/misc/DayNightToggle.vue'
 
@@ -301,6 +306,7 @@ export default defineComponent({
     components: {
         SaveAccountModal,
         ConfirmLogout,
+        AboutModal,
         NetworkMenu,
         DayNightToggle,
     },
@@ -309,6 +315,7 @@ export default defineComponent({
         const notificationsStore = useNotificationsStore()
         const saveModal = ref<InstanceType<typeof SaveAccountModal>>()
         const logoutRef = ref<InstanceType<typeof ConfirmLogout>>()
+        const aboutModal = ref<InstanceType<typeof AboutModal>>()
 
         const isAuth = computed(() => mainStore.isAuth)
 
@@ -337,7 +344,21 @@ export default defineComponent({
             logoutRef.value?.open()
         }
 
-        return { isAuth, isInjected, avaxPriceText, saveModal, logoutRef, saveAccount, logout }
+        const openAbout = () => {
+            aboutModal.value?.open()
+        }
+
+        return {
+            isAuth,
+            isInjected,
+            avaxPriceText,
+            saveModal,
+            logoutRef,
+            aboutModal,
+            saveAccount,
+            logout,
+            openAbout,
+        }
     },
 })
 </script>

@@ -961,9 +961,7 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
      */
     async evmGetAtomicUTXOs(sourceChain: ExportChainsC): Promise<EVMUTXOSet> {
         const xpStyleAddr = this.getActiveCChainAtomicAddress()
-        console.log(`evm xpStyleAddr `, xpStyleAddr)
         const evmBytesAddr = this.getEvmAddressBech()
-        console.log(`evm evmBytesAddr `, evmBytesAddr)
         const addrs = [...new Set([xpStyleAddr, evmBytesAddr].filter(Boolean))]
         return await UtxoHelper.evmGetAtomicUTXOs(addrs, sourceChain)
     }

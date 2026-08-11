@@ -23,7 +23,7 @@
             @beforeClose="onPrivateKeyModalClose"
         ></PrivateKey>
         <PrivateKey
-            v-if="walletType !== 'ledger' && privateKeyC"
+            v-if="walletType !== 'ledger' && walletType !== 'injected' && privateKeyC"
             :privateKey="privateKeyC"
             ref="modal_priv_key_c"
             @beforeClose="onPrivateKeyCModalClose"
@@ -47,9 +47,7 @@
                         <p class="addressVal">
                             <b>{{ walletTitle }}</b>
                         </p>
-                        <Tooltip :text="$t('keys.tooltip')" v-if="isVolatile">
-                            <fa icon="exclamation-triangle" class="volatile_alert"></fa>
-                        </Tooltip>
+                        
                     </div>
                     <div class="buts">
                         <button class="selBut" @click="select" v-if="!is_default">
@@ -86,7 +84,10 @@
                             <button v-if="walletType == 'singleton'" @click="showPrivateKeyModal">
                                 {{ $t('keys.view_priv_key') }}
                             </button>
-                            <button v-if="walletType !== 'ledger'" @click="showPrivateKeyCModal">
+                            <button
+                                v-if="walletType !== 'ledger' && walletType !== 'injected'"
+                                @click="showPrivateKeyCModal"
+                            >
                                 {{ $t('keys.view_priv_key_c') }}
                             </button>
                             
@@ -333,6 +334,12 @@ export default defineComponent({
         }
 
         const showPrivateKeyCModal = async () => {
+            if (walletType.value === 'injected') {
+                // Injected wallets (MetaMask/Core App) never hold private keys
+                // locally — signing is delegated to the extension, so there is
+                // no key to reveal.
+                return
+            }
             try {
                 privateKeyC.value = await authorizeSingle(
                     props.wallet,

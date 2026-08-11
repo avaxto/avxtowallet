@@ -196,6 +196,8 @@ export default defineComponent({
 }
 
 #wallet_router {
+    width: 100%;
+    box-sizing: border-box;
     padding: 22px 20px;
     background-color: var(--bg-wallet-light);
     border-radius: 4px;
