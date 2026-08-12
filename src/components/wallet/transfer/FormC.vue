@@ -25,6 +25,19 @@
                     :gas-limit="gasLimit"
                 ></EVMInputDropdown>
             </div>
+            <div v-if="selectedTokenAddress" class="contract_row">
+                <span class="contract_label">Verify that {{ selectedTokenSymbol }} CA - Contract Address Is Correct!</span>
+                <div class="contract_addr">
+                    <a
+                        :href="selectedTokenExplorerUrl"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="mono"
+                        title="View contract on explorer"
+                    >{{ selectedTokenAddress }}</a>
+                    <CopyText :value="selectedTokenAddress" class="copy_btn"></CopyText>
+                </div>
+            </div>
         </div>
         <div class="right_col">
             <div class="to_address">
@@ -161,7 +174,7 @@
 </template>
 <script lang="ts">
 import { defineComponent, computed, ref, markRaw, onMounted, onBeforeUnmount, watch } from 'vue'
-import { useMainStore, useTransferPrefillStore } from '@/stores'
+import { useMainStore, useAssetsStore, useTransferPrefillStore } from '@/stores'
 import { useI18n } from 'vue-i18n'
 import AvaxInput from '@/components/misc/AvaxInput.vue'
 import { priceDict } from '@/types'
@@ -188,6 +201,7 @@ import { authorizeSingle, SessionAuthCancelled } from '@/js/security/authorize'
 import { useOfflineSigningStore, isOfflineTxId } from '@/stores'
 import SignOnlyToggle from '@/components/misc/SignOnlyToggle.vue'
 import SignedTxExport from '@/components/misc/SignedTxExport.vue'
+import CopyText from '@/components/misc/CopyText.vue'
 
 export default defineComponent({
     name: 'FormC',
@@ -198,9 +212,11 @@ export default defineComponent({
         BatchFormC,
         SignOnlyToggle,
         SignedTxExport,
+        CopyText,
     },
     setup() {
         const mainStore = useMainStore()
+        const assetsStore = useAssetsStore()
         const offline = useOfflineSigningStore()
         const transferPrefill = useTransferPrefillStore()
         const { t } = useI18n()
@@ -330,6 +346,28 @@ export default defineComponent({
         // Mnemonic (and other local-key) wallets keep the 2-step flow since
         // there's no external confirmation prompt to lean on.
         const isInjectedWallet = computed((): boolean => wallet.value?.type === 'injected')
+
+        // Contract address of the currently selected ERC20 (blank for native
+        // AVAX or while a collectible is selected instead).
+        const selectedTokenAddress = computed((): string => {
+            if (isCollectible.value) return ''
+            if (formToken.value === 'native') return ''
+            return formToken.value.data.address
+        })
+
+        const selectedTokenSymbol = computed((): string => {
+            if (formToken.value === 'native') return ''
+            return formToken.value.data.symbol
+        })
+
+        const selectedTokenExplorerUrl = computed((): string => {
+            if (!selectedTokenAddress.value) return ''
+            const base =
+                assetsStore.evmChainId === 43113
+                    ? 'https://testnet.snowtrace.io'
+                    : 'https://snowtrace.io'
+            return `${base}/token/${selectedTokenAddress.value}`
+        })
 
         const gasPriceNumber = computed({
             get: () => gasPriceGwei.value,
@@ -507,6 +545,9 @@ export default defineComponent({
             maxFeeUSD,
             canConfirm,
             isInjectedWallet,
+            selectedTokenAddress,
+            selectedTokenSymbol,
+            selectedTokenExplorerUrl,
             onAmountChange,
             onTokenChange,
             onCollectibleChange,
@@ -565,6 +606,46 @@ h4 {
 .list_item {
     margin-bottom: 12px;
 }
+
+.contract_row {
+    margin-bottom: 12px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    background: var(--bg-light);
+
+    .contract_label {
+        display: block;
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--primary-color-light);
+        margin-bottom: 4px;
+    }
+
+    .contract_addr {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .mono {
+        font-family: monospace;
+        font-size: 12px;
+        color: var(--primary-color);
+        word-break: break-all;
+        flex: 1;
+        text-decoration: none;
+
+        &:hover {
+            color: var(--secondary-color);
+            text-decoration: underline;
+        }
+    }
+
+    .copy_btn {
+        flex-shrink: 0;
+    }
+}
+
 .table_title {
     display: flex;
     flex-direction: row;
