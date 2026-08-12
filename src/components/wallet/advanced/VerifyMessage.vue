@@ -18,7 +18,7 @@
             block
             small
             depressed
-            @click="verify"
+            @click="submit"
             :disabled="!canSubmit"
         >
             {{ $t('advanced.verify.submit') }}
@@ -38,7 +38,7 @@ import createHash from 'create-hash'
 import { getPreferredHRP } from '@/avalanche/utils'
 import { avm } from '@/AVA'
 import { Buffer } from '@/avalanche'
-import { digestMessage } from '@/helpers/helper'
+import { digestMessage, errorToString } from '@/helpers/helper'
 
 export default defineComponent({
     name: 'VerifyMessage',
@@ -61,7 +61,7 @@ export default defineComponent({
             try {
                 verify()
             } catch (e) {
-                error.value = e
+                error.value = errorToString(e)
             }
         }
 

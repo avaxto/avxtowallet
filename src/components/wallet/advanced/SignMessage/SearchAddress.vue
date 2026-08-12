@@ -1,8 +1,8 @@
 <template>
     <div class="search_address">
-        <template v-if="selectedAddress">
+        <template v-if="modelValue">
             <p class="selected no_overflow_addr" @click="clearSelection">
-                {{ selectedAddress }}
+                {{ modelValue }}
             </p>
         </template>
         <template v-else>
@@ -34,7 +34,7 @@ import { LedgerWallet } from '@/js/wallets/LedgerWallet'
 export default defineComponent({
     name: 'SearchAddress',
     props: {
-        selectedAddress: {
+        modelValue: {
             type: String as () => string | null,
             default: null
         },
@@ -43,7 +43,7 @@ export default defineComponent({
             required: true
         }
     },
-    emits: ['change'],
+    emits: ['update:modelValue'],
     setup(props, { emit }) {
         const address = ref('')
         const matchingAddrs = ref<string[]>([])
@@ -57,7 +57,7 @@ export default defineComponent({
         })
 
         const emitChange = (val: string | null) => {
-            emit('change', val)
+            emit('update:modelValue', val)
         }
 
         const clearSelection = () => {
