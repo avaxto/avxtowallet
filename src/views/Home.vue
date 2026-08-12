@@ -1,6 +1,6 @@
 <template>
     <div class="home">
-        <b-container>
+        <b-container fluid>
             <b-row>
                 <b-col>
                     <div class="home_wrapper">
@@ -97,7 +97,7 @@ export default defineComponent({
 @use "../main";
 
 .homeh1 {
-    margin-left: main.$container-padding;
+    margin-left: 0px;
 }
 
 .home {
@@ -119,13 +119,6 @@ export default defineComponent({
         flex-direction: column;
         align-content: center;
         justify-content: center;
-
-        h1 {
-            text-align: left;
-            font-size: 22px;
-            font-weight: 400;
-
-        }
 
         .login_wrapper {
             margin-top: 60px;
