@@ -142,14 +142,26 @@ export async function tryEndpointFailover(failedUrl: string | undefined): Promis
     const { pinia, useNetworkStore } = await import('@/stores')
     const networkStore = useNetworkStore(pinia)
 
+    // selectedNetwork is only assigned partway through setNetwork() — after
+    // updateCredentials()/getBlockchainID()/getAssetDescription() already
+    // went out over the wire. The very first connection on app boot (which
+    // runs unconditionally, on every page including Home) races those calls
+    // against this failover: a 429 on any of them arrives while
+    // selectedNetwork is still null, so falling back to it here would bail
+    // out with zero candidates tried. The failed host itself still tells us
+    // which network (and networkId) was being attempted, so use that when
+    // there's no connected network yet.
     const current: AvaNetwork | null = networkStore.selectedNetwork
-    if (!current) return false
+    const targetNetworkId: number | undefined =
+        current?.networkId ??
+        networkStore.allNetworks.find((n: AvaNetwork) => networkHost(n) === failedHost)?.networkId
+    if (targetNetworkId === undefined) return false
 
     // Candidates: every registered network on the SAME network id, in
     // registration order (official endpoints first, then public backups,
     // then the user's custom networks).
     const candidates: AvaNetwork[] = networkStore.allNetworks.filter(
-        (n: AvaNetwork) => n.networkId === current.networkId
+        (n: AvaNetwork) => n.networkId === targetNetworkId
     )
 
     // Only handle hosts we can actually replace: one of the candidate
