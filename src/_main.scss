@@ -178,6 +178,14 @@ input[type='number']{
 
 label {
     margin-bottom: initial !important;
+    // Bootstrap's own `label { display: inline-block; }` rule (reboot.scss)
+    // never sets a color, so any <label> without its own explicit color
+    // falls back to plain inheritance — the same "dark on dark" trap as
+    // headings/body, just without a competing bootstrap rule to beat. No
+    // !important needed here: this is a low-specificity element selector,
+    // so any component's own more specific label rule (scoped rules compile
+    // with a data-v attribute, or the Vuetify overrides below) still wins.
+    color: var(--primary-color);
 }
 
 /* For vue transitions */
@@ -312,12 +320,12 @@ $secondary-color-light: $pink-light;
 $secondary-color-extra-light: $pink-extra-light;
 $background-color: $gray;
 
-h1 {
-    color: var(--primary-color);
-}
-
-h2 {
-    color: var(--primary-color);
+// !important: bootstrap's reboot compiles h1-h6 into one rule via
+// `@extend %heading` setting `color: var(--bs-heading-color)` — same
+// specificity as these, but it loads later in the bundle, so without
+// !important it silently wins (same class of bug as the `body` fix above).
+h1, h2, h3, h4, h5, h6 {
+    color: var(--primary-color) !important;
 }
 
 .button_primary {

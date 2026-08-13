@@ -304,11 +304,12 @@ export default defineComponent({
         font-size: 13px;
         font-weight: 600;
         margin-bottom: 6px;
+        color: var(--primary-color);
     }
 
     input {
         background: var(--bg);
-        border: 1px solid #d3d3d3;
+        border: 1px solid var(--bg-light);
         border-radius: 8px;
         padding: 10px 12px;
         font-size: 15px;
@@ -386,12 +387,14 @@ export default defineComponent({
         font-size: 13px;
         font-weight: 600;
         min-width: 70px;
+        color: var(--primary-color);
     }
 
     .result_value {
         font-size: 13px;
         word-break: break-all;
         flex: 1;
+        color: var(--primary-color);
     }
 
     .mono {
@@ -399,7 +402,7 @@ export default defineComponent({
     }
 
     .copy_btn {
-        border: 1px solid #d3d3d3;
+        border: 1px solid var(--bg-light);
         background: var(--bg);
         border-radius: 6px;
         padding: 4px 10px;
