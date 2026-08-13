@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 466 134" width="1398" height="402">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FF5D5D"/>
+      <stop offset="1" stop-color="#E22B3C"/>
+    </linearGradient>
+  </defs>
+
+  <!-- icon -->
+  <g transform="translate(0,0) scale(0.67)">
+    <rect x="0" y="0" width="200" height="200" rx="44" fill="url(#bg)"/>
+    <circle cx="148" cy="52" r="17" fill="#FFE8C2" opacity="0.95"/>
+    <path fill="#ffffff" opacity="0.45" d="M105,42 L152,148 L48,148 Z"/>
+    <path fill="#ffffff" d="M68,68 L118,148 L18,148 Z"/>
+    <path fill="#E22B3C" d="M68,68 L79,84 L57,84 Z"/>
+  </g>
+
+  <!-- wordmark -->
+  <text x="160" y="92" font-family="Avenir Next, Helvetica Neue, Arial, sans-serif" font-weight="800" font-size="76" letter-spacing="1" fill="#E22B3C">AVXTO</text>
+</svg>

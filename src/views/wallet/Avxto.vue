@@ -305,6 +305,7 @@ export default defineComponent({
     font-weight: 700;
     font-size: 15px;
     margin-bottom: 2px;
+    color: var(--primary-color);
 }
 
 .addr_copy {
@@ -333,7 +334,7 @@ export default defineComponent({
 
 .refresh_btn {
     background: var(--bg);
-    border: 1px solid #d3d3d3;
+    border: 1px solid var(--bg-light);
     border-radius: 8px;
     padding: 6px 14px;
     font-size: 13px;
@@ -383,6 +384,11 @@ export default defineComponent({
 
     .tx_row {
         border-top: 1px solid var(--bg);
+        // No color of its own meant addr_cell/amount_cell fell back to
+        // bootstrap's dark body color instead of this app's light
+        // --primary-color — same bug as .asset_row/.transfer_row in
+        // WalletWizard.vue and .token_list_name in TokenListPicker.vue.
+        color: var(--primary-color);
     }
 
     .time_cell {
