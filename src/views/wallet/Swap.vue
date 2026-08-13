@@ -202,6 +202,9 @@
             <a class="explorer_link" :href="explorerUrl" target="_blank" rel="noopener noreferrer">
                 View on Snowtrace ↗
             </a>
+            <button type="button" class="action_btn reset_btn" @click="resetForm">
+                New Swap
+            </button>
         </div>
     </div>
 </template>
@@ -395,6 +398,22 @@ export default defineComponent({
             }
         }
 
+        // Clears everything the "Swap Submitted" result depends on so the form
+        // is ready for another swap — keeps the selected source token (a
+        // convenience for swapping the same asset again) but clears the
+        // amount, target, quote and result/status.
+        const resetForm = () => {
+            amountIn.value = ''
+            tokenOutAddr.value = ''
+            tokenOut.value = null
+            targetError.value = ''
+            isResolving.value = false
+            quote.value = null
+            resultTx.value = ''
+            statusMsg.value = ''
+            if (resolveTimer) clearTimeout(resolveTimer)
+        }
+
         const onTargetChange = () => {
             tokenOut.value = null
             targetError.value = ''
@@ -554,6 +573,7 @@ export default defineComponent({
             onTargetChange,
             fetchQuote,
             doSwap,
+            resetForm,
             tokenDropdownOpen,
             tokenSelectWrap,
             toggleTokenDropdown,
@@ -910,6 +930,10 @@ export default defineComponent({
 .result_card {
     border-color: #4caf50;
 
+    h2 {
+        color: var(--primary-color);
+    }
+
     .result_row {
         display: flex;
         align-items: center;
@@ -922,12 +946,14 @@ export default defineComponent({
         font-size: 13px;
         font-weight: 600;
         min-width: 70px;
+        color: var(--primary-color-light);
     }
 
     .result_value {
         font-size: 13px;
         word-break: break-all;
         flex: 1;
+        color: var(--primary-color);
     }
 
     .mono {
@@ -943,6 +969,18 @@ export default defineComponent({
 
         &:hover {
             text-decoration: underline;
+        }
+    }
+
+    .reset_btn {
+        display: block;
+        background: transparent;
+        border: 1px solid #4caf50;
+        color: #4caf50;
+
+        &:hover:not(:disabled) {
+            background: rgba(76, 175, 80, 0.1);
+            opacity: 1;
         }
     }
 }

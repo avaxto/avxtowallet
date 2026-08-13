@@ -3,52 +3,55 @@
         <h1>{{ $t('access.title') }}</h1>
         <router-link to="/create" class="link">{{ $t('access.create') }}</router-link>
         <div class="menus">
+            <PlatformSelect></PlatformSelect>
             <AccountsFound class="accounts_menu"></AccountsFound>
+            <!--
+                Login options come from the active platform's `accessMethods`
+                rather than being hardcoded here, so adding a platform doesn't
+                mean editing this view.
+            -->
             <div class="options">
-                
-                <button
-                    class="menu_option button_primary"
-                    @click="connectWallet"
-                    :disabled="isConnecting"
-                >
-                    <span v-if="isConnecting">{{ $t('access.injected.waiting') }}</span>
-                    <span v-else>{{ $t('access.but_connect_wallet') }}</span>
-                    <ImageDayNight
-                        day="/img/coreapp.svg"
-                        night="/img/coreapp.svg"
-                    ></ImageDayNight>
-                </button>
-                <p v-if="connectError" class="connect_error">{{ connectError }}</p>                
-                <LedgerButton class="menu_option button_primary"></LedgerButton>                
-                 <router-link to="/access/mnemonic" class="menu_option button_primary">
-                    {{ $t('access.but_mnemonic') }}
-                    <ImageDayNight
-                        day="/img/access_icons/day/mnemonic.svg"
-                        night="/img/access_icons/night/mnemonic.svg"
-                    ></ImageDayNight>
-                </router-link>
- 
-                <router-link to="/access/privatekey" class="menu_option button_primary">
-                    {{ $t('access.but_private_key') }}
-                    <ImageDayNight
-                        day="/img/access_icons/day/privatekey.svg"
-                        night="/img/access_icons/night/privatekey.svg"
-                    ></ImageDayNight>
-                </router-link>
-               <router-link to="/access/keystore" class="menu_option button_primary">
-                    {{ $t('access.but_keystore') }}
-                    <ImageDayNight
-                        day="/img/access_icons/day/keystore.svg"
-                        night="/img/access_icons/night/keystore.svg"
-                    ></ImageDayNight>
-                </router-link>
-                
-                <router-link to="/access/xpub" class="menu_option button_primary">
-                    XPUB (Readonly)
-                    <span><fa icon="glasses"></fa></span>
-                </router-link>
+                <template v-for="method in accessMethods" :key="method.id">
+                    <template v-if="method.kind === 'action'">
+                        <button
+                            class="menu_option button_primary"
+                            @click="runAction(method)"
+                            :disabled="isConnecting"
+                        >
+                            <span v-if="isConnecting">{{ $t('access.injected.waiting') }}</span>
+                            <span v-else>{{ methodLabel(method) }}</span>
+                            <ImageDayNight
+                                v-if="method.icon"
+                                :day="method.icon.day"
+                                :night="method.icon.night"
+                            ></ImageDayNight>
+                        </button>
+                        <p v-if="connectError" class="connect_error">{{ connectError }}</p>
+                    </template>
 
-                
+                    <LedgerButton
+                        v-else-if="method.component === 'LedgerButton'"
+                        class="menu_option button_primary"
+                    ></LedgerButton>
+
+                    <router-link
+                        v-else-if="method.kind === 'route' && method.route"
+                        :to="method.route"
+                        class="menu_option button_primary"
+                    >
+                        {{ methodLabel(method) }}
+                        <ImageDayNight
+                            v-if="method.icon"
+                            :day="method.icon.day"
+                            :night="method.icon.night"
+                        ></ImageDayNight>
+                        <span v-else-if="method.readonly"><fa icon="glasses"></fa></span>
+                    </router-link>
+                </template>
+
+                <p v-if="!accessMethods.length" class="connect_error">
+                    This platform has no login methods available yet.
+                </p>
             </div>
         </div>
 
@@ -58,12 +61,15 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref } from 'vue'
-import { useMainStore } from '@/stores'
+import { defineComponent, computed, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import LedgerButton from '@/components/Ledger/LedgerButton.vue'
 import AccountsFound from '@/components/Access/AccountsFound.vue'
+import PlatformSelect from '@/components/Access/PlatformSelect.vue'
 import ToS from '@/components/misc/ToS.vue'
 import ImageDayNight from '@/components/misc/ImageDayNight.vue'
+import { useActivePlatformStore } from '@/platforms'
+import type { AccessMethodDescriptor } from '@/platforms'
 
 export default defineComponent({
     name: 'Menu',
@@ -72,25 +78,36 @@ export default defineComponent({
         ToS,
         LedgerButton,
         AccountsFound,
+        PlatformSelect,
     },
     setup() {
-        const mainStore = useMainStore()
+        const platformStore = useActivePlatformStore()
+        const { t, te } = useI18n()
         const isConnecting = ref(false)
         const connectError = ref('')
 
-        const connectWallet = async () => {
-            if (isConnecting.value) return
+        const accessMethods = computed(
+            (): AccessMethodDescriptor[] => platformStore.activePlatform?.accessMethods ?? []
+        )
+
+        // Prefer the translated label, but fall back to the descriptor's plain
+        // one so a platform that hasn't added translations still renders.
+        const methodLabel = (method: AccessMethodDescriptor): string =>
+            method.labelKey && te(method.labelKey) ? t(method.labelKey) : method.label
+
+        const runAction = async (method: AccessMethodDescriptor) => {
+            if (isConnecting.value || !method.run) return
             connectError.value = ''
             isConnecting.value = true
             try {
-                await mainStore.accessWalletInjected()
+                await method.run()
             } catch (e: any) {
-                connectError.value = e.message || 'Failed to connect wallet.'
+                connectError.value = e?.message || 'Failed to connect wallet.'
                 isConnecting.value = false
             }
         }
 
-        return { isConnecting, connectError, connectWallet }
+        return { accessMethods, methodLabel, isConnecting, connectError, runAction }
     },
 })
 </script>
