@@ -121,7 +121,7 @@ label {
     border-radius: 2px !important;
     height: 40px;
     font-size: 12px;
-    background-color: #f5f6fa;
+    background-color: var(--bg-light);
 }
 
 .err {

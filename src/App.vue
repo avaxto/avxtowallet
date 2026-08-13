@@ -54,10 +54,8 @@ import BaseAssetThrModal from '@/components/modals/BaseAssetThrModal.vue'
 import NetworkBlockedModal from '@/components/modals/NetworkBlockedModal.vue'
 import SessionPasswordModal from '@/components/modals/SessionPasswordModal.vue'
 import { useAccountsStore, useAssetsStore, useErc721Store, useMainStore, useNetworkStore, useOfflineSigningStore, useStatusBarStore } from '@/stores'
-import { useThemeStore } from '@/stores/theme'
-import { onMounted, onBeforeUnmount, watch } from 'vue'
+import { onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useTheme as useVuetifyTheme } from 'vuetify'
 
 export default {
     components: {
@@ -85,19 +83,7 @@ export default {
         const offlineSigning = useOfflineSigningStore()
         const route = useRoute()
         const router = useRouter()
-        const themeStore = useThemeStore()
-        const vuetifyTheme = useVuetifyTheme()
 
-        // Keep Vuetify's built-in theme in sync with the app day/night toggle
-        // so that v-list, v-menu dropdowns etc. react to theme changes.
-        watch(
-            () => themeStore.theme,
-            (val) => {
-                vuetifyTheme.change(val === 'night' ? 'dark' : 'light')
-            },
-            { immediate: true }
-        )
-                
         onMounted(async () => {
             window.addEventListener('avxto:network-paused', onNetworkPaused)
             window.addEventListener('avxto:network-resumed', onNetworkResumed)

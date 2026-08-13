@@ -16,7 +16,6 @@ import { createUnhead } from '@unhead/vue'
 // @ts-ignore
 import '@/vue_components'
 import { useStatusBarStore } from '@/stores'
-import { useThemeStore } from './stores/theme'
 import '@/utils/big-extensions'
 import { installRateLimiter } from '@/providers/rate_limiter'
 // Side-effect import: populates the platform registry before anything reads it.
@@ -54,18 +53,8 @@ const i18n = createI18n({
 })
 app.use(i18n)
 
-const themeStore = useThemeStore()
-themeStore.initTheme()
-
 // Restore the previously selected platform (defaults to Avalanche).
 useActivePlatformStore().initPlatform()
-
-app.config.globalProperties.$root = {
-    get theme() {
-        return themeStore.theme
-    }
-}
-
 
 const head = createUnhead()
 app.use({

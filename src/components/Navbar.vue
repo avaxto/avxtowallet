@@ -2,8 +2,7 @@
     <div id="nav">
         
         <router-link to="/" class="logo">
-            <img v-if="isDay" src="@/assets/avaxtowallet_logo.png" />
-            <img v-else src="@/assets/avaxtowallet_logo_dark.png" />            
+            <img src="@/assets/avaxtowallet_logo_dark.png" />
         </router-link>
         <v-spacer></v-spacer>
 
@@ -50,8 +49,7 @@
         >
             <v-list dense nav>
                 <div style="display: flex; justify-content: space-between; padding: 4px 8px">
-                    <img v-if="isDay" src="@/assets/wallet_logo.svg" />
-                    <img v-else src="@/assets/wallet_logo_dark.svg" />
+                    <img src="@/assets/wallet_logo_dark.svg" />
                 </div>
                 <template v-if="isAuth">
                     <router-link to="/wallet">{{ $t('wallet.sidebar.portfolio') }}</router-link>
@@ -78,7 +76,6 @@
 <script lang="ts">
 import { defineComponent, ref, computed } from 'vue'
 import { useMainStore } from '@/stores'
-import { useTheme } from '@/composables/useTheme'
 import LanguageSelect from './misc/LanguageSelect/LanguageSelect.vue'
 
 import NetworkMenu from './NetworkSettings/NetworkMenu.vue'
@@ -94,7 +91,6 @@ export default defineComponent({
     },
     setup() {
         const mainStore = useMainStore()
-        const { isDay } = useTheme()
 
         const isDrawer = ref(false)
         const popupOpen = ref(false)
@@ -135,7 +131,6 @@ export default defineComponent({
             isAuth,
             isSingleton,
             avaxPriceText,
-            isDay,
             isConnecting,
             togglePopup,
             connectWallet,

@@ -73,6 +73,7 @@ export default defineComponent({
 }
 p {
     margin-bottom: 4px;
+    color: var(--primary-color);
 }
 
 .name {

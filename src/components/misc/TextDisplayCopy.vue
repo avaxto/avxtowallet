@@ -23,7 +23,7 @@ export default {
     setup() {
         const notificationsStore = useNotificationsStore()
         return {
-            store
+            notificationsStore
         }
     },
     methods: {
@@ -40,26 +40,28 @@ export default {
 <style scoped>
 .display_copy {
     display: flex;
-    background-color: #e2e2e2;
+    background-color: var(--bg-light);
     border-radius: 2px;
     overflow: hidden;
-    border: 1px solid #d2d2d2;
+    border: 1px solid var(--bg);
 }
 
 .disp {
     padding: 6px;
     flex-grow: 1;
     text-align: center;
+    background-color: transparent;
+    color: var(--primary-color);
 }
 
 .copy {
     width: 50px;
-    background-color: #cecece;
-    color: #676767;
+    background-color: var(--bg);
+    color: var(--primary-color-light);
 }
 
 .copy:hover {
-    background-color: #f2f2f2;
-    color: #42b983;
+    background-color: var(--bg-light);
+    color: var(--success);
 }
 </style>

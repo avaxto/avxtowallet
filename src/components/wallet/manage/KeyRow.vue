@@ -35,12 +35,7 @@
                     <img src="@/assets/key_active.svg" class="key_logo" />
                 </template>
                 <template v-else>
-                    <img
-                        v-if="$root.theme === 'day'"
-                        src="@/assets/key_inactive.svg"
-                        class="key_logo"
-                    />
-                    <img v-else src="@/assets/key_inactive_night.png" class="key_logo" />
+                    <img src="@/assets/key_inactive_night.png" class="key_logo" />
                 </template>
                 <div class="header_cols">
                     <div class="detail">

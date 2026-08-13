@@ -63,10 +63,11 @@ $container_padding_mobile: 10px 10px;
     }
 }
 
+// No longer gates on html[data-theme='night'] — dark is the only theme, so
+// this just emits its content directly. Kept (rather than unwrapping the 5
+// call sites) so those rules didn't need to move or re-indent.
 @mixin night-mode {
-    html[data-theme='night'] {
-        @content;
-    }
+    @content;
 }
 
 /* ==========================================
@@ -77,8 +78,15 @@ html {
 }
 
 body {
-    background-color: var(--bg);
-    color: var(--primary-color);
+    // !important: bootstrap-vue-next's reboot CSS defines its own
+    // `body { color: var(--bs-body-color); background-color: var(--bs-body-bg) }`
+    // (light-theme values, #212529 on #fff) that loads after this rule in the
+    // bundle — same specificity, so without !important it silently wins and
+    // any element that falls back to inherited body color (rather than
+    // setting its own) renders dark text on our dark background instead of
+    // light — e.g. the token-picker rows below, which relied on inheritance.
+    background-color: var(--bg) !important;
+    color: var(--primary-color) !important;
 }
 
 /* ==========================================
@@ -446,29 +454,11 @@ textarea {
     }
 }
 
-html[data-theme='day'] {
-    --bg: #fff;
-    --bg-1: 255, 255, 255;
-    --bg-light: #f5f6fa;
-    --bg-light-1: 245, 246, 250;
-
-    --primary-color: #4c2e56;
-    --primary-color-light: #867e89;
-    --secondary-color: #e84970;
-    --selection-color: #6a91d8;
-    --link-secondary: #aeb4b9;
-    --error: #f00;
-    --success: #6bc688;
-    --info: #2c7490;
-    --info-1: 44, 116, 144;
-
-    --bg-wallet: #f5f6fa;
-    --bg-wallet-light: #fff;
-
-    --warning: #ef8f4a;
-}
-
-html[data-theme='night'] {
+// The app has one theme now (dark). These used to be split across
+// html[data-theme='day'] / html[data-theme='night'] blocks, toggled at
+// runtime by stores/theme.ts — that store is gone, there is no toggle, and
+// this is the only palette that exists.
+:root {
     --bg: #242729;
     --bg-1: 36, 39, 41;
     --bg-light: #2e3234;

@@ -31,8 +31,7 @@
             :class="{ disabled: asset.type !== 'erc20' }"
             @click="send"
         >
-            <img v-if="isDay" src="@/assets/sidebar/transfer_nav.png" />
-            <img v-else src="@/assets/sidebar/transfer_nav_night.svg" />
+            <img src="@/assets/sidebar/transfer_nav_night.svg" />
         </div>
         <p class="balance_col">{{ asset.balance }}</p>
     </div>
@@ -40,7 +39,6 @@
 <script lang="ts">
 import { defineComponent, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { useTheme } from '@/composables/useTheme'
 import { useAssetsStore, useNotificationsStore } from '@/stores'
 import type { CChainSdkAsset } from '@/composables/useCChainSdkBalances'
 import { goToTransfer } from '@/helpers/transfer_link'
@@ -62,7 +60,6 @@ export default defineComponent({
         },
     },
     setup(props: Props) {
-        const { isDay } = useTheme()
         const assetsStore = useAssetsStore()
         const notificationsStore = useNotificationsStore()
         const router = useRouter()
@@ -114,7 +111,7 @@ export default defineComponent({
             })
         }
 
-        return { isDay, ercLabel, send, explorerUrl, copyAddress }
+        return { ercLabel, send, explorerUrl, copyAddress }
     },
 })
 </script>

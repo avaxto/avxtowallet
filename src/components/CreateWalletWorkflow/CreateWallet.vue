@@ -7,12 +7,7 @@
                         <!-- PHASE 1 -->
                         <div v-if="!keyPhrase" class="stage_1">
                             <div class="img_container">
-                                <img
-                                    v-if="$root.theme === 'day'"
-                                    src="@/assets/diamond-secondary.png"
-                                    alt
-                                />
-                                <img v-else src="@/assets/diamond-secondary-night.svg" alt />
+                                <img src="@/assets/diamond-secondary-night.svg" alt />
                             </div>
                             <h1>{{ $t('create.generate') }}</h1>
                             <router-link to="/access" class="link">
@@ -47,12 +42,7 @@
                                 <!-- RIGHT -->
                                 <div class="phrase_disp_col">
                                     <template v-if="!isVerified">
-                                        <img
-                                            v-if="$root.theme === 'day'"
-                                            src="@/assets/keyphrase.png"
-                                            alt
-                                        />
-                                        <img v-else src="@/assets/keyphrase_night.svg" alt />
+                                        <img src="@/assets/keyphrase_night.svg" alt />
                                     </template>
                                     <template v-else>
                                         <img src="@/assets/success.svg" alt />

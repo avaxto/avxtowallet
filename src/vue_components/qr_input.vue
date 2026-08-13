@@ -77,9 +77,9 @@ export default QrInput
     .qr_input{
         display: flex;
         align-items: center;
-        color: #333;
+        color: var(--primary-color);
         height: 45px;
-        background-color: #f8f8f8;
+        background-color: var(--bg-light);
         margin-bottom: 8px;
     }
 
@@ -89,7 +89,7 @@ export default QrInput
         padding-right: 12px;
         padding-left: 12px;
         border-style: none;
-        border-right: 1px solid #d2d2d2;
+        border-right: 1px solid var(--bg);
         text-align: center;
         pointer-events: none;
         opacity: 0.7;

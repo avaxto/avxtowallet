@@ -1,3 +1,10 @@
+// Historically a separate light-theme palette, loaded by a few components
+// (Navbar.vue, NavbarMenu.vue, ExportWallet.vue) alongside _main.scss. The
+// app has one theme now (dark) — the rules below are rewritten to use the
+// same CSS custom properties as everywhere else (var(--primary-color) etc.,
+// defined once in _main.scss) instead of hardcoding the old light-theme hex
+// values, which no longer respond to the theme at all and read as low
+// contrast / wrong against the dark background.
 $purple: #4c2e56;
 $purple-light: #867e89;
 $pink: #e84970;
@@ -17,40 +24,40 @@ $secondary-color-extra-light: $pink-extra-light;
 $background-color: $gray;
 
 hr {
-    color: #f5f6fa;
-    border-color: #f5f6fa;
+    color: var(--bg-light);
+    border-color: var(--bg-light);
     border: none;
     border-top: 1px solid;
     margin: 10px 0;
 }
 
 a {
-    color: #4c2e56 !important;
+    color: var(--primary-color) !important;
     text-decoration: none !important;
 }
 
 .but_primary {
-    background-color: #4c2e56;
-    color: #fff !important;
+    background-color: var(--primary-color);
+    color: var(--bg) !important;
     text-transform: none !important;
     /*font-size: 13px;*/
     padding: 8px 18px;
     border-radius: 2px;
 
     &:disabled {
-        color: $purple-light !important;
-        background-color: $gray !important;
+        color: var(--primary-color-light) !important;
+        background-color: var(--bg-light) !important;
     }
 }
 
 .ava_button {
-    color: $white !important;
+    color: var(--bg) !important;
 }
 
 .ava_button_secondary {
-    color: $primary-color !important;
+    color: var(--primary-color) !important;
 }
 
 .link {
-    color: $primary-color-light !important;
+    color: var(--primary-color-light) !important;
 }

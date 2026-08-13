@@ -1,8 +1,7 @@
 <template>
     <div class="copyBut" @click="copy">
         <!--        <fa icon="copy"></fa>-->
-        <img v-if="isDay" src="/img/copy_icon.png" />
-        <img v-else src="/img/copy_night.svg" />
+        <img src="/img/copy_night.svg" />
         <p class="text">
             <slot></slot>
         </p>
@@ -12,7 +11,6 @@
 <script lang="ts">
 import { defineComponent, ref } from 'vue'
 import { useNotificationsStore } from '@/stores'
-import { useTheme } from '@/composables/useTheme'
 
 export default defineComponent({
     name: 'CopyText',
@@ -24,7 +22,6 @@ export default defineComponent({
     },
     setup(props) {
         const notificationsStore = useNotificationsStore()
-        const { isDay } = useTheme()
         const copytext = ref<HTMLInputElement>()
         
         const copy = () => {
@@ -41,7 +38,6 @@ export default defineComponent({
         }
 
         return {
-            isDay,
             copytext,
             copy
         }

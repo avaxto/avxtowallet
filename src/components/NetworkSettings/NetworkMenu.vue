@@ -11,8 +11,8 @@
                     backgroundColor: connectionColor,
                 }"
             ></span>
-            <p class="net_status_name" v-if="activeNetwork" :style="{ color: !isDay ? '#ccc' : '' }">{{ activeNetwork.name }}</p>
-            <p class="net_status_name" v-else :style="{ color: !isDay ? '#ccc' : '' }">Network Unstable</p>
+            <p class="net_status_name" v-if="activeNetwork">{{ activeNetwork.name }}</p>
+            <p class="net_status_name" v-else>Network Unstable</p>
         </div>
         <transition name="fade">
             <div class="network_dispose_bg" v-if="isActive" key="bg" @click="closeMenu"></div>
@@ -69,7 +69,6 @@ import ListPage from './ListPage.vue'
 import EditPage from '@/components/NetworkSettings/EditPage.vue'
 import { AvaNetwork } from '@/js/AvaNetwork'
 import { NetworkStatus } from '@/types'
-import { useTheme } from '@/composables/useTheme'
 
 export default defineComponent({
     name: 'NetworkMenu',
@@ -81,7 +80,6 @@ export default defineComponent({
     },
     setup() {
         const networkStore = useNetworkStore()
-        const { isDay } = useTheme()
 
         const page = ref('list')
         const isActive = ref(false)
@@ -165,8 +163,7 @@ export default defineComponent({
             status,
             activeNetwork,
             networks,
-            isTestnet,
-            isDay
+            isTestnet
         }
     }
 })

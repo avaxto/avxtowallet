@@ -31,7 +31,7 @@
                     <p>{{ t.symbol }}</p>
                     <p>{{ t.name }}</p>
                 </div>
-                <p class="token_list_balance">{{ t.balance.toLocaleString() }}</p>
+                <p class="token_list_balance" :title="t.balance.toLocaleString()">{{ t.balance.toLocaleString() }}</p>
             </div>
         </div>
     </div>
@@ -114,7 +114,11 @@ export default defineComponent({
 
 .token_list_item {
     display: grid;
-    grid-template-columns: max-content 1fr max-content;
+    // Balance used to be `max-content` — a very large balance (e.g.
+    // "123,456,789.123456") would grow as wide as it needed and squeeze the
+    // 1fr name column down to nothing. Capping it and truncating with
+    // ellipsis keeps the name legible regardless of balance size.
+    grid-template-columns: max-content 1fr minmax(0, 90px);
     column-gap: 12px;
     align-items: center;
     padding: 9px 12px;
@@ -156,6 +160,7 @@ $logo_w: 32px;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
+        color: var(--primary-color);
 
         &:last-of-type {
             font-size: 12px;
@@ -170,6 +175,8 @@ $logo_w: 32px;
     font-size: 13px;
     color: var(--primary-color-light);
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .token_list_empty {

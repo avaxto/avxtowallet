@@ -176,6 +176,7 @@ export default defineComponent({
     overflow: hidden;
     font-size: 1em;
     text-overflow: ellipsis;
+    color: var(--primary-color);
 
     span,
     p:last-of-type {

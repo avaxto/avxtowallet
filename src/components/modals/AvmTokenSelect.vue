@@ -116,6 +116,7 @@ export default defineComponent({
 
 .col_name {
     text-align: left;
+    color: var(--primary-color);
 
     p:last-of-type {
         color: var(--primary-color-light);
@@ -125,6 +126,7 @@ export default defineComponent({
 
 .col_balance {
     align-self: center;
+    color: var(--primary-color);
 }
 
 @include main.mobile-device {

@@ -149,7 +149,10 @@ export default createVuetify({
     directives,
     
     theme: {
-        defaultTheme: 'light',
+        // The app has one theme (dark) — this used to be overridden at
+        // runtime by a watch in App.vue synced to a theme store that no
+        // longer exists.
+        defaultTheme: 'dark',
         themes: {
             light: {
                 colors: {

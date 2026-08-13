@@ -10,8 +10,7 @@
         </p>
         <p class="name_col mobile_only">{{ symbol }}</p>
         <div class="send_col" :class="{ disabled: !isBalance }" @click="send">
-            <img v-if="isDay" src="@/assets/sidebar/transfer_nav.png" />
-            <img v-else src="@/assets/sidebar/transfer_nav_night.svg" />
+            <img src="@/assets/sidebar/transfer_nav_night.svg" />
         </div>
         
         <p class="balance_col" v-if="isBalance">
@@ -32,7 +31,6 @@ import 'reflect-metadata'
 import { defineComponent, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAssetsStore, useMainStore } from '@/stores'
-import { useTheme } from '@/composables/useTheme'
 
 import AvaAsset from '../../../js/AvaAsset'
 import Hexagon from '@/components/misc/Hexagon.vue'
@@ -63,7 +61,6 @@ export default defineComponent({
         const mainStore = useMainStore()
         const assetsStore = useAssetsStore()
         const router = useRouter()
-        const { isDay } = useTheme()
         const avaxToken = computed((): AvaAsset => {
             return assetsStore.AssetAVA
         })
@@ -156,7 +153,6 @@ export default defineComponent({
         return {
             iconUrl,
             isBalance,
-            isDay,
             totalUSD,
             priceDict,
             send,

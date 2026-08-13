@@ -27,8 +27,7 @@
             </a>
         </p>
         <div class="send_col" :class="{ disabled: !isBalance }" @click="send">
-            <img v-if="isDay" src="@/assets/sidebar/transfer_nav.png" />
-            <img v-else src="@/assets/sidebar/transfer_nav_night.svg" />
+            <img src="@/assets/sidebar/transfer_nav_night.svg" />
         </div>
         <p class="balance_col">
             {{ balText }}
@@ -36,7 +35,6 @@
     </div>
 </template>
 <script lang="ts">
-import { useTheme } from '@/composables/useTheme'
 import { defineComponent, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import Erc20Token from '@/js/Erc20Token'
@@ -56,7 +54,6 @@ export default defineComponent({
         }
     },
     setup(props: Props) {
-        const { isDay } = useTheme()
         const assetsStore = useAssetsStore()
         const notificationsStore = useNotificationsStore()
         const router = useRouter()
@@ -110,8 +107,7 @@ export default defineComponent({
             isBalance,
             send,
             explorerUrl,
-            copyAddress,
-            isDay
+            copyAddress
         }
     }
 })

@@ -11,12 +11,7 @@
                             <div class="login_option">
                                 <header>
                                     <div class="img_container">
-                                        <img
-                                            v-if="theme === 'day'"
-                                            src="@/assets/diamond-primary.svg"
-                                            alt=""
-                                        />
-                                        <img v-else src="@/assets/diamond-primary-night.svg" alt="" />
+                                        <img src="@/assets/diamond-primary-night.svg" alt="" />
                                     </div>
                                     <h2>{{ $t('home.access.title') }}</h2>
                                     <p>{{ $t('home.access.desc') }}</p>
@@ -35,16 +30,7 @@
                             <div class="login_option">
                                 <header>
                                     <div class="img_container">
-                                        <img
-                                            v-if="theme === 'day'"
-                                            src="@/assets/diamond-secondary.png"
-                                            alt=""
-                                        />
-                                        <img
-                                            v-else
-                                            src="@/assets/diamond-secondary-night.svg"
-                                            alt=""
-                                        />
+                                        <img src="@/assets/diamond-secondary-night.svg" alt="" />
                                     </div>
                                     <h2>{{ $t('home.create.title') }}</h2>
                                     <p>{{ $t('home.create.desc') }}</p>
@@ -71,25 +57,12 @@
 
 <script lang="ts">
 import { defineComponent } from 'vue'
-import { useThemeStore } from '@/stores/theme'
 import ToS from '@/components/misc/ToS.vue'
 import CookieConsent from '@/components/misc/CookieConsent.vue'
 
 export default defineComponent({
     name: 'Home',
     components: { ToS, CookieConsent },
-    setup() {
-        const themeStore = useThemeStore()
-        
-        return {
-            themeStore
-        }
-    },
-    computed: {
-        theme() {
-            return this.themeStore.theme
-        }
-    }
 })
 </script>
 

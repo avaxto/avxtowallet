@@ -2,18 +2,15 @@
     <div class="wallet_sidebar">
         <div class="stick">
             <div class="brand">
-                <img v-if="isDay" src="@/assets/avaxtowallet_logo.png" />
-                <img v-else src="@/assets/avaxtowallet_logo_dark.png" />
+                <img src="@/assets/avaxtowallet_logo_dark.png" />
             </div>
-            <div class="links">                
+            <div class="links">
                 <router-link to="/wallet" class="wallet_link">
-                    <img v-if="isDay" src="@/assets/sidebar/portfolio_nav.png" />
-                    <img v-else src="@/assets/sidebar/portfolio_nav_night.png" />
+                    <img src="@/assets/sidebar/portfolio_nav_night.png" />
                     {{ $t('wallet.sidebar.portfolio') }}
                 </router-link>
                 <router-link to="/wallet/transfer" data-cy="wallet_transfer" class="wallet_link">
-                    <img v-if="isDay" src="@/assets/sidebar/transfer_nav.png" />
-                    <img v-else src="@/assets/sidebar/transfer_nav_night.svg" />
+                    <img src="@/assets/sidebar/transfer_nav_night.svg" />
                     {{ $t('wallet.sidebar.send') }}
                 </router-link>
                 <router-link
@@ -26,24 +23,20 @@
                     {{ $t('wallet.sidebar.export') }}
                 </router-link>
                 <router-link to="/wallet/earn" data-cy="wallet_earn" class="wallet_link">
-                    <img v-if="isDay" src="@/assets/sidebar/earn_nav.png" />
-                    <img v-else src="@/assets/sidebar/earn_nav_night.png" />
+                    <img src="@/assets/sidebar/earn_nav_night.png" />
                     {{ $t('wallet.sidebar.earn') }}
                 </router-link>
-               
+
                 <router-link to="/wallet/activity" data-cy="wallet_activity" class="wallet_link">
-                    <img v-if="isDay" src="@/assets/sidebar/activity_nav.svg" />
-                    <img v-else src="@/assets/sidebar/activity_nav_night.svg" />
+                    <img src="@/assets/sidebar/activity_nav_night.svg" />
                     {{ $t('wallet.sidebar.activity') }}
                 </router-link>
                 <router-link to="/wallet/keys" data-cy="wallet_manage" class="wallet_link">
-                    <img v-if="isDay" src="@/assets/sidebar/manage_nav.png" />
-                    <img v-else src="@/assets/sidebar/manage_nav_night.svg" />
+                    <img src="@/assets/sidebar/manage_nav_night.svg" />
                     {{ $t('wallet.sidebar.manage') }}
                 </router-link>
                 <router-link to="/wallet/advanced" data-cy="wallet_advanced" class="wallet_link">
-                    <img v-if="isDay" src="@/assets/sidebar/advanced_nav.png" />
-                    <img v-else src="@/assets/sidebar/advanced_nav_night.png" />
+                    <img src="@/assets/sidebar/advanced_nav_night.png" />
                     {{ $t('wallet.sidebar.advanced') }}
                 </router-link>
                 <router-link to="/wallet/addresses" data-cy="wallet_addresses" class="wallet_link">
@@ -82,7 +75,6 @@
 </template>
 <script>
 import { defineComponent, computed } from 'vue'
-import { useTheme } from '@/composables/useTheme'
 import { useMainStore } from '@/stores'
 import LanguageSelect from '@/components/misc/LanguageSelect/LanguageSelect.vue'
 import AccountMenu from '@/components/wallet/sidebar/AccountMenu.vue'
@@ -94,13 +86,11 @@ export default defineComponent({
         LanguageSelect,
     },
     setup() {
-        const { isDay } = useTheme()
         const mainStore = useMainStore()
 
         const isSingleton = computed(() => mainStore.activeWallet?.type === 'singleton')
 
         return {
-            isDay,
             isSingleton,
         }
     }
