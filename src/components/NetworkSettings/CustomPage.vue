@@ -1,6 +1,6 @@
 <template>
     <div class="custom_network">
-        <form @submit.prevent="submit">
+        <form @submit.prevent="submit" autocomplete="off">
             <div>
                 <label>{{ $t('network.custom_page.label1') }}</label>
                 <input

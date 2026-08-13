@@ -2,7 +2,7 @@
     <div>
         <Modal ref="modal" :title="$t('keys.save_account.title')">
             <div class="remember_modal">
-                <form @submit.prevent="submit">
+                <form @submit.prevent="submit" autocomplete="off">
                     <div class="flex-row" style="justify-content: center">
                         <Identicon :value="baseAddresses.join('')"></Identicon>
                     </div>
@@ -13,16 +13,19 @@
                         :name="$t('keys.save_account.placeholder_1')"
                         placeholder="Account Name"
                         :disabled="existsInLocalStorage"
+                        autocomplete="off"
                     />
                     <input
                         type="password"
                         :placeholder="$t('keys.save_account.placeholder_2')"
                         v-model="password"
+                        autocomplete="new-password"
                     />
                     <input
                         type="password"
                         :placeholder="$t('keys.save_account.placeholder_3')"
                         v-model="password_confirm"
+                        autocomplete="new-password"
                     />
                     <p class="err">{{ err }}</p>
                     <p class="err small" style="text-align: center">

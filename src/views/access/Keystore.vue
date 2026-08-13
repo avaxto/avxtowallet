@@ -3,7 +3,7 @@
         <div class="content">
             <h1>{{ $t('keystore.title') }}</h1>
             <file-input class="file_in" @change="onfile"></file-input>
-            <form @submit.prevent="access">
+            <form @submit.prevent="access" autocomplete="off">
                 <v-text-field
                     class="pass"
                     :label="$t('password')"
@@ -14,6 +14,7 @@
                     v-model="pass"
                     v-if="file"
                     hide-details
+                    autocomplete="new-password"
                 ></v-text-field>
                 <SessionPasswordFields
                     v-if="file"

@@ -2,7 +2,7 @@
     <div class="access_card">
         <div class="content">
             <h1>Private Key</h1>
-            <form @submit.prevent="access">
+            <form @submit.prevent="access" autocomplete="off">
                 <v-text-field
                     class="pass"
                     label="Private Key"
@@ -12,6 +12,7 @@
                     type="password"
                     v-model="privatekey"
                     hide-details
+                    autocomplete="off"
                 ></v-text-field>
                 <SessionPasswordFields
                     v-model="sessionPassword"

@@ -3,7 +3,7 @@
         <div class="content">
             <h1>XPUB (Readonly)</h1>
             <p class="desc">Show AVAX balances.</p>
-            <form @submit.prevent="access">
+            <form @submit.prevent="access" autocomplete="off">
                 <p class="_label">X & P-Chain Extended Public Key</p>
                 <v-text-field
                     class="pass"
@@ -14,6 +14,7 @@
                     type="password"
                     v-model="xpubXP"
                     hide-details
+                    autocomplete="off"
                 ></v-text-field>
                 <p class="_label">C-Chain Address <span class="derived-note">(derived from xpub)</span></p>
                 <v-text-field
@@ -24,6 +25,7 @@
                     flat
                     v-model="evmAddr"
                     hide-details
+                    autocomplete="off"
                 ></v-text-field>
                 <p class="err">{{ error }}</p>
 

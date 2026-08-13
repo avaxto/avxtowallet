@@ -1,7 +1,7 @@
 <template>
     <div class="add_key_file">
         <label>{{ $t('keystore.title') }}</label>
-        <form @submit.prevent="importKeyfile">
+        <form @submit.prevent="importKeyfile" autocomplete="off">
             <file-input @change="onfile" class="formIn" ref="fileIn"></file-input>
             <label>{{ $t('keys.export_placeholder1') }}</label>
             <v-text-field
@@ -12,6 +12,7 @@
                 hide-details
                 type="password"
                 v-model="pass"
+                autocomplete="new-password"
             ></v-text-field>
             <SessionPasswordFields
                 v-model="sessionPassword"

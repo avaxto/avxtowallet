@@ -1,7 +1,7 @@
 <template>
     <div class="export_wallet">
         <p v-if="isDesc" class="explain">{{ $t('keys.export_key_desc') }}</p>
-        <form @submit.prevent="download">
+        <form @submit.prevent="download" autocomplete="off">
             <label>Password (min 9 characters)</label>
             <v-text-field
                 type="password"
@@ -12,6 +12,7 @@
                 dense
                 class="formIn"
                 height="40"
+                autocomplete="new-password"
             ></v-text-field>
             <label>Confirm Password</label>
             <v-text-field
@@ -23,6 +24,7 @@
                 dense
                 class="formIn"
                 height="40"
+                autocomplete="new-password"
             ></v-text-field>
             <p class="err">{{ err }}</p>
             <v-btn

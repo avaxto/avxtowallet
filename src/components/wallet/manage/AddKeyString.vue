@@ -1,7 +1,7 @@
 <template>
     <div>
    // QrInput component is globally registered by @avalabs/vue_components   <label>{{ $t('private_key') }}</label>
-        <form @submit.prevent="addKey">
+        <form @submit.prevent="addKey" autocomplete="off">
             <qr-input @change="validateQR" v-model="privateKeyInput" class="qrIn"></qr-input>
             <SessionPasswordFields
                 v-model="sessionPassword"

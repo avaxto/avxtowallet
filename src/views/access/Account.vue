@@ -3,12 +3,13 @@
         <div class="content">
             <Identicon :value="account.baseAddresses.join('')"></Identicon>
             <h1>{{ account.name }}</h1>
-            <form @submit.prevent="access">
+            <form @submit.prevent="access" autocomplete="off">
                 <input
                     class="single_line_input hover_border pass"
                     type="password"
                     placeholder="Password"
                     v-model="password"
+                    autocomplete="new-password"
                 />
                 <SessionPasswordFields
                     v-model="sessionPassword"

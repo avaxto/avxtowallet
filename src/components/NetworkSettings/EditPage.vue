@@ -1,6 +1,6 @@
 <template>
     <div class="custom_network">
-        <form @submit.prevent="">
+        <form @submit.prevent="" autocomplete="off">
             <div>
                 <label>Network Name</label>
                 <input type="text" placeholder="Network Name" v-model="name" />

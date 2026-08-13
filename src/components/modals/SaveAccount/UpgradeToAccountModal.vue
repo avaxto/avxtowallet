@@ -3,7 +3,7 @@
         <div class="remember_modal">
             <p>{{ $t('modal.activateWallet.desc') }}</p>
             <form @submit.prevent="onsubmit" autocomplete="off">
-                <input type="password" placeholder="Password" v-model="password" class="password" />
+                <input type="password" placeholder="Password" v-model="password" class="password" autocomplete="new-password" />
                 <SessionPasswordFields
                     v-model="sessionPassword"
                     :show-error="pwTouched"

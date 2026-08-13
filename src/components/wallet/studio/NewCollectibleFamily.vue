@@ -2,7 +2,7 @@
     <div class="new_family">
         <div>
             <p>{{ $t('studio.family.desc') }}</p>
-            <form @submit.prevent="submit" v-if="!isSuccess">
+            <form @submit.prevent="submit" v-if="!isSuccess" autocomplete="off">
                 <div style="display: flex">
                     <div style="flex-grow: 1">
                         <label>{{ $t('studio.family.label1') }}</label>

@@ -1,7 +1,7 @@
 <template>
     <div>
         <div class="cols">
-            <form @submit.prevent="">
+            <form @submit.prevent="" autocomplete="off">
                 <transition-group name="fade" mode="out-in" tag="div">
                     <div v-show="!isConfirm" key="form" class="ins_col">
                         <div style="margin-bottom: 30px">

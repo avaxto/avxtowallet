@@ -1,6 +1,6 @@
 <template>
-    <form @submit.prevent="submit">
-        <input class="single_line_input" type="password" v-model="pass" placeholder="Password" />
+    <form @submit.prevent="submit" autocomplete="off">
+        <input class="single_line_input" type="password" v-model="pass" placeholder="Password" autocomplete="new-password" />
         <p class="err">{{ error }}</p>
         <v-btn class="button_secondary" :disabled="!canSubmit" depressed block small type="submit">
             Delete

@@ -1,22 +1,25 @@
 <template>
-    <form @submit.prevent="submit" class="change_pass_form">
+    <form @submit.prevent="submit" class="change_pass_form" autocomplete="off">
         <input
             placeholder="Old Password"
             type="password"
             class="single_line_input"
             v-model="passOld"
+            autocomplete="new-password"
         />
         <input
             placeholder="New Password"
             type="password"
             class="single_line_input"
             v-model="pass"
+            autocomplete="new-password"
         />
         <input
             placeholder="Confirm Password"
             type="password"
             class="single_line_input"
             v-model="passConfirm"
+            autocomplete="new-password"
         />
         <p class="err">{{ error }}</p>
         <v-btn class="button_secondary" small block depressed :disabled="!canSubmit" type="submit">

@@ -3,7 +3,7 @@
         <div class="session_pw_body">
             <p class="reason">{{ reason }}</p>
 
-            <form @submit.prevent="submit">
+            <form @submit.prevent="submit" autocomplete="off">
                 <label for="session_pw">Session password</label>
                 <input
                     id="session_pw"

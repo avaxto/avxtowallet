@@ -1,7 +1,7 @@
 <template>
-    <form @submit.prevent="submit">
+    <form @submit.prevent="submit" autocomplete="off">
         <p>You have unsaved keys on your account.</p>
-        <input type="password" class="single_line_input" placeholder="Password" v-model="pass" />
+        <input type="password" class="single_line_input" placeholder="Password" v-model="pass" autocomplete="new-password" />
         <p class="err">{{ error }}</p>
         <v-btn class="button_secondary" small block depressed :disabled="!canSubmit" type="submit">
             Submit

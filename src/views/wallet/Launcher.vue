@@ -24,6 +24,7 @@
                     placeholder="My Token"
                     :disabled="isDeploying"
                     maxlength="64"
+                    autocomplete="off"
                 />
             </div>
 
@@ -36,6 +37,7 @@
                     :disabled="isDeploying"
                     maxlength="12"
                     @input="form.symbol = form.symbol.toUpperCase()"
+                    autocomplete="off"
                 />
             </div>
 
@@ -48,6 +50,7 @@
                         min="0"
                         max="18"
                         :disabled="isDeploying"
+                        autocomplete="off"
                     />
                 </div>
                 <div class="field">
@@ -57,6 +60,7 @@
                         type="text"
                         placeholder="1000000"
                         :disabled="isDeploying"
+                        autocomplete="off"
                     />
                     <span class="field_hint">Minted to your wallet on deploy.</span>
                 </div>
@@ -69,6 +73,7 @@
                     type="text"
                     placeholder="1000000"
                     :disabled="isDeploying"
+                    autocomplete="off"
                 />
                 <span class="field_hint">
                     Hard cap on total supply. You (the owner) can mint up to this amount later.

@@ -184,7 +184,7 @@ button {
 }
 
 #nav {
-    border-bottom: 1px solid #d3d3d3;
+    border-bottom: 1px solid #636363;
     .logo {
         display: flex;
         align-items: center;
