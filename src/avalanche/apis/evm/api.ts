@@ -292,12 +292,20 @@ export class EVMAPI extends JRPCAPI {
    * Returns the transaction data of a provided transaction ID by calling the node's `getAtomicTx` method.
    *
    * @param txID The string representation of the transaction ID
+   * @param encoding The encoding format to request the tx bytes in. Defaults
+   * to "hex" — like avm.getTx/platform.getTx, the node's own default here is
+   * NOT hex, so callers that skip this silently get back cb58-encoded bytes
+   * parsed as if they were hex (garbage).
    *
    * @returns Returns a Promise string containing the bytes retrieved from the node
    */
-  getAtomicTx = async (txID: string): Promise<string> => {
+  getAtomicTx = async (
+    txID: string,
+    encoding: string = "hex"
+  ): Promise<string> => {
     const params: GetAtomicTxParams = {
-      txID
+      txID,
+      encoding
     }
 
     const response: RequestResponseData = await this.callMethod(

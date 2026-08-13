@@ -20,7 +20,7 @@
             No pending imports — nothing in atomic memory across any chain pair.
         </div>
 
-        <div v-else class="table">
+        <div v-else class="imports_table">
             <div class="table_head">
                 <span class="col_route">Route</span>
                 <span class="col_addr">Address (source / destination)</span>
@@ -90,6 +90,7 @@ import CopyText from '@/components/misc/CopyText.vue'
 import Tooltip from '@/components/misc/Tooltip.vue'
 import Spinner from '@/components/misc/Spinner.vue'
 import { ava, avm, bintools, cChain, pChain } from '@/AVA'
+import { web3 } from '@/evm'
 import { BN, Buffer as BufferAvalanche } from '@/avalanche'
 import { GasHelper, avaxCtoX, ExportChainsP, ExportChainsC } from '@/avalanche-wallet-sdk'
 import { AvmImportChainType } from '@/js/wallets/types'
@@ -241,20 +242,50 @@ export default defineComponent({
                     return '—'
                 }
                 // C-chain: EVMInput carries the sender's EVM 0x address directly.
-                const hex = (await cChain.getAtomicTx(txId)) as string
-                const tx = new EvmTx()
-                tx.fromBuffer(BufferAvalanche.from(hex.replace(/^0x/, ''), 'hex'))
-                const inner = (tx.getUnsignedTx().getTransaction() as any)
-                const ins = inner.getInputs ? inner.getInputs() : (inner.ins ?? [])
-                for (const i of ins) {
-                    const addr = i.getAddress ? i.getAddress() : i.address
-                    if (addr) {
-                        const hexAddr = (addr as any).toString
-                            ? (addr as any).toString('hex')
-                            : ''
-                        if (hexAddr) return '0x' + hexAddr
+                // avax.getAtomicTx is served from /ext/bc/C/avax, which — unlike
+                // /ext/bc/C/rpc — only the official network entry serves; every
+                // RPC-failover backup (PublicNode, OnFinality, ZAN…) 404s on it.
+                // So this is tried first (it's the more precise source — the
+                // exact EVMInput — when it's reachable) and falls through to an
+                // eth_getTransactionByHash lookup otherwise.
+                try {
+                    const hex = (await cChain.getAtomicTx(txId, 'hex')) as string
+                    const tx = new EvmTx()
+                    tx.fromBuffer(BufferAvalanche.from(hex.replace(/^0x/, ''), 'hex'))
+                    const inner = (tx.getUnsignedTx().getTransaction() as any)
+                    const ins = inner.getInputs ? inner.getInputs() : (inner.ins ?? [])
+                    for (const i of ins) {
+                        const addr = i.getAddress ? i.getAddress() : i.address
+                        if (addr) {
+                            const hexAddr = (addr as any).toString
+                                ? (addr as any).toString('hex')
+                                : ''
+                            if (hexAddr) return '0x' + hexAddr
+                        }
                     }
+                } catch (e) {
+                    console.warn(
+                        `[PendingImports] avax.getAtomicTx failed for ${txId}, ` +
+                            'falling back to eth_getTransactionByHash',
+                        e
+                    )
                 }
+
+                // Fallback: an atomic tx's ID IS its EVM tx hash — cb58-encoded
+                // here instead of 0x-hex. Coreth exposes atomic transactions
+                // through the standard eth_getTransactionByHash RPC (served by
+                // every failover candidate) with a `from` field.
+                try {
+                    const ethHash = '0x' + bintools.cb58Decode(txId).toString('hex')
+                    const ethTx: any = await web3.eth.getTransaction(ethHash)
+                    if (ethTx && ethTx.from) return ethTx.from
+                } catch (e) {
+                    console.warn(
+                        `[PendingImports] eth_getTransactionByHash fallback failed for ${txId}`,
+                        e
+                    )
+                }
+
                 return '—'
             } catch (e) {
                 console.warn(
@@ -458,7 +489,16 @@ export default defineComponent({
     text-align: center;
 }
 
-.table {
+.imports_table {
+    // Named to NOT be plain "table" — bootstrap's `.table` component
+    // targets any element 3 DOM levels below it with
+    // `.table > :not(caption) > * > *`, forcing
+    // `background-color: var(--bs-table-bg)` (--bs-body-bg, white) and
+    // `color: var(--bs-table-color)` (--bs-body-color, near-black) onto
+    // whatever div/span happened to land at that depth — which is how the
+    // "tx id" cell here ended up white-on-white-text-on-white. This is a
+    // plain div grid, not a real <table>, so there's no reason to also
+    // wear bootstrap's `.table` class and fight its cascade.
     display: flex;
     flex-direction: column;
     border-radius: 4px;
