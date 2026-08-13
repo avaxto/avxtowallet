@@ -19,9 +19,6 @@ export function useTheme() {
         isDay,
         isNight,
         setTheme: themeStore.setTheme,
-        setDay: themeStore.setDay,
-        setNight: themeStore.setNight,
-        toggle: themeStore.toggle,
         initTheme: themeStore.initTheme
     }
 }

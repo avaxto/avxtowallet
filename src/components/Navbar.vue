@@ -8,7 +8,6 @@
         <v-spacer></v-spacer>
 
         <div class="buts_right">
-            <DayNightToggle class="action_but"></DayNightToggle>
             <button
                 v-if="!isAuth"
                 class="action_but connect_but"
@@ -31,7 +30,6 @@
                 AVAX ${{ avaxPriceText }}
             </p>
             <network-menu></network-menu>
-            <LanguageSelect class="lang_web"></LanguageSelect>
             
         </div>
 
@@ -54,7 +52,6 @@
                 <div style="display: flex; justify-content: space-between; padding: 4px 8px">
                     <img v-if="isDay" src="@/assets/wallet_logo.svg" />
                     <img v-else src="@/assets/wallet_logo_dark.svg" />
-                    <DayNightToggle class="action_but"></DayNightToggle>
                 </div>
                 <template v-if="isAuth">
                     <router-link to="/wallet">{{ $t('wallet.sidebar.portfolio') }}</router-link>
@@ -73,7 +70,6 @@
 
                 <div class="mobile_bottom">
                     <AccountMenu></AccountMenu>
-                    <LanguageSelect class="lang_mobile"></LanguageSelect>
                 </div>
             </v-list>
         </v-navigation-drawer>
@@ -85,7 +81,6 @@ import { useMainStore } from '@/stores'
 import { useTheme } from '@/composables/useTheme'
 import LanguageSelect from './misc/LanguageSelect/LanguageSelect.vue'
 
-import DayNightToggle from '@/components/misc/DayNightToggle.vue'
 import NetworkMenu from './NetworkSettings/NetworkMenu.vue'
 
 import AccountMenu from '@/components/wallet/sidebar/AccountMenu.vue'
@@ -95,7 +90,6 @@ export default defineComponent({
     components: {
         AccountMenu,
         NetworkMenu,
-        DayNightToggle,
         LanguageSelect
     },
     setup() {
@@ -219,6 +213,7 @@ button {
 .buts_right {
     display: flex;
     align-items: center;
+    justify-content: flex-end;
 
     a {
         margin: 0;
@@ -263,6 +258,17 @@ button {
 .lang_web {
     width: max-content;
     margin: 0;
+}
+
+// A native <select> takes its intrinsic width from its widest <option>
+// ("Nederlands, Vlaams", ~152px) rather than the selected one, so a short
+// value like "English" (~58px) rendered left-aligned inside that box left a
+// ~95px gap before the nav's right edge — even though the element itself is
+// already flush. Right-align the rendered value so the visible text ends at
+// the edge. Scoped to .lang_web so the drawer's .lang_mobile stays as-is.
+.lang_web :deep(select) {
+    text-align: right;
+    text-align-last: right;
 }
 
 @include main.medium-device {

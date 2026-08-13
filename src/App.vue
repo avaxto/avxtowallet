@@ -234,8 +234,13 @@ export default {
         padding: main.$container_padding_m;
         padding-bottom: calc(#{main.$container_padding_m} + 26px);
 
-        // Remove horizontal padding for home page to allow proper centering
-        &:has(.home) {
+        // Remove horizontal padding for the home page to allow proper
+        // centering. router-view's v-slot form doesn't render its own DOM
+        // node, so the id="router_view" attribute falls through onto the
+        // routed component's own root element — for Home.vue that's the
+        // same element as class="home", not an ancestor of it, so this must
+        // match itself (&.home), not a :has() descendant.
+        &.home {
             padding-left: 0;
             padding-right: 0;
         }
@@ -328,6 +333,10 @@ p {
     z-index: 2;
     background-color: transparent;
     padding: main.$container_padding_m;
+    // The nav's own right gutter was leaving buts_right's contents sitting
+    // well short of the viewport's actual right edge, reading as "left
+    // aligned" even though they correctly fill .buts_right edge-to-edge.
+    padding-right: 0;
 }
 
 @include main.mobile-device {
@@ -365,6 +374,10 @@ p {
     }
     #nav {
         padding: main.$container_padding_s;
+        // Same as the base #nav rule above — keep buts_right flush against
+        // the right edge instead of this breakpoint's shorthand silently
+        // reintroducing the right gutter.
+        padding-right: 0;
     }
 }
 </style>

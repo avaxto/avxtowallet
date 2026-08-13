@@ -1,6 +1,6 @@
 <template>
     <div class="home">
-        <b-container fluid>
+        <b-container>
             <b-row>
                 <b-col>
                     <div class="home_wrapper">
@@ -100,6 +100,15 @@ export default defineComponent({
     margin-left: 0px;
 }
 
+// Bootstrap's .container caps out at a max-width per breakpoint (540px up
+// to 1320px) — override it so the container spans the full page width
+// instead of sitting in a narrower, centered box.
+:deep(.container) {
+    width: 100%;
+    max-width: 100%;
+    padding-left: 28px;
+}
+
 .home {
     padding-top: 100px;
     /*background-color: #fff;*/
@@ -115,6 +124,7 @@ export default defineComponent({
     }
 
     .home_wrapper {
+        width: 100%;
         display: flex;
         flex-direction: column;
         align-content: center;

@@ -110,7 +110,7 @@ export default defineComponent({
 @use "../../main";
 
 .wallet_sidebar {
-    border-right: 1px solid #d3d3d3;
+    border-right: 1px solid #636363;
 
     .stick {
         display: flex;

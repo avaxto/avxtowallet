@@ -287,8 +287,6 @@
             AVAX ${{ avaxPriceText }}
         </p>
         <network-menu class="net_menu"></network-menu>
-        &nbsp;        &nbsp;
-        <DayNightToggle class="hover_but"></DayNightToggle>
     </div>
 </template>
 
@@ -299,7 +297,6 @@ import SaveAccountModal from '@/components/modals/SaveAccount/SaveAccountModal.v
 import ConfirmLogout from '@/components/modals/ConfirmLogout.vue'
 import AboutModal from '@/components/modals/AboutModal.vue'
 import NetworkMenu from '@/components/NetworkSettings/NetworkMenu.vue'
-import DayNightToggle from '@/components/misc/DayNightToggle.vue'
 
 export default defineComponent({
     name: 'NavbarMenu',
@@ -308,7 +305,6 @@ export default defineComponent({
         ConfirmLogout,
         AboutModal,
         NetworkMenu,
-        DayNightToggle,
     },
     setup() {
         const mainStore = useMainStore()
@@ -370,14 +366,18 @@ export default defineComponent({
 
 .wallet_link {
     font-size: 14px !important;
-    color: inherit;
+    color: var(--primary-color) !important;
     text-decoration: none;
 }
 
+// Vuetify applies its own text color straight to the <a>/router-link
+// rendered inside .v-list-item-title, so color:inherit from the title
+// wrapper (see the :deep(.v-list-item-title) rule below) never actually
+// reached it — same fix as Sidebar.vue's nav links: set the theme-aware
+// color explicitly, right on the link itself.
 :deep(.v-list-item-title a),
-:deep(.v-list-item-title .router-link-active),
-:deep(.v-list-item-title router-link) {
-    color: inherit;
+:deep(.v-list-item-title .router-link-active) {
+    color: var(--primary-color) !important;
     text-decoration: none;
 }
 
