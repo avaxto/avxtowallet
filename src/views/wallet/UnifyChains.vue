@@ -496,8 +496,8 @@ h2 {
     gap: 10px;
     padding: 14px 16px;
     border-radius: 6px;
-    border: 1px solid var(--bg-body);
-    background: var(--bg-body);
+    border: 1px solid var(--bg);
+    background: var(--bg);
     color: var(--primary-color-light);
     font-size: 14px;
     font-weight: 600;
@@ -521,7 +521,7 @@ h2 {
 
 /* ── Balances overview ── */
 .balances {
-    border: 1px solid var(--bg-body);
+    border: 1px solid var(--bg);
     border-radius: 6px;
     overflow: hidden;
     margin-bottom: 6px;
@@ -536,7 +536,7 @@ h2 {
     font-size: 13px;
 
     &:not(:last-child) {
-        border-bottom: 1px solid var(--bg-body);
+        border-bottom: 1px solid var(--bg);
     }
 
     &.is_target {
@@ -630,7 +630,7 @@ h2 {
 
 /* ── Operations list ── */
 .op_list {
-    border: 1px solid var(--bg-body);
+    border: 1px solid var(--bg);
     border-radius: 6px;
     overflow: hidden;
 }
@@ -644,7 +644,7 @@ h2 {
     font-size: 13px;
 
     &:not(:last-child) {
-        border-bottom: 1px solid var(--bg-body);
+        border-bottom: 1px solid var(--bg);
     }
 
     &.status_error {

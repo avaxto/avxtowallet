@@ -1273,8 +1273,8 @@ h2 {
     max-width: 220px;
     padding: 10px 16px;
     border-radius: 6px;
-    border: 1px solid var(--bg-body);
-    background: var(--bg-body);
+    border: 1px solid var(--bg);
+    background: var(--bg);
     color: var(--primary-color-light);
     font-size: 13px;
     font-weight: 600;
@@ -1309,8 +1309,8 @@ h2 {
 }
 
 .addr_input {
-    background: var(--bg-body);
-    border: 1px solid var(--bg-light-2, #d0d0d0);
+    background: var(--bg);
+    border: 1px solid var(--bg-light);
     border-radius: 4px;
     padding: 8px 12px;
     font-size: 13px;
@@ -1373,7 +1373,7 @@ h2 {
 }
 
 .mnemonic_word {
-    background: var(--bg-body);
+    background: var(--bg);
     border: 1px solid transparent;
     border-radius: 6px;
     padding: 6px 8px;
@@ -1390,6 +1390,7 @@ h2 {
     .word_val {
         font-size: 13px;
         font-weight: 500;
+        color: var(--primary-color);
     }
 
     &.highlight {
@@ -1423,8 +1424,8 @@ h2 {
 }
 
 .quiz_input {
-    background: var(--bg-body);
-    border: 1px solid var(--bg-light-2, #d0d0d0);
+    background: var(--bg);
+    border: 1px solid var(--bg-light);
     border-radius: 4px;
     padding: 6px 10px;
     font-size: 14px;
@@ -1449,7 +1450,7 @@ h2 {
     margin-bottom: 24px;
     border-radius: 6px;
     overflow: hidden;
-    border: 1px solid var(--bg-body);
+    border: 1px solid var(--bg);
 }
 
 .asset_row {
@@ -1461,7 +1462,7 @@ h2 {
     align-items: center;
 
     &.header {
-        background: var(--bg-body);
+        background: var(--bg);
         font-weight: 600;
         font-size: 12px;
         color: var(--primary-color-light);
@@ -1470,7 +1471,7 @@ h2 {
     }
 
     &:not(.header):nth-child(even) {
-        background: color-mix(in srgb, var(--bg-body) 40%, transparent);
+        background: color-mix(in srgb, var(--bg) 40%, transparent);
     }
 
     &.status_error {
@@ -1542,7 +1543,7 @@ h2 {
 
 /* ── P-chain action selector ─────────────────────────────────────────── */
 .pchain_action_section {
-    background: var(--bg-body);
+    background: var(--bg);
     border-radius: 6px;
     padding: 16px;
     margin-bottom: 24px;
@@ -1567,7 +1568,7 @@ h2 {
 
 /* ── New wallet preview ──────────────────────────────────────────────── */
 .new_wallet_preview {
-    background: var(--bg-body);
+    background: var(--bg);
     border-radius: 6px;
     padding: 16px;
     margin-bottom: 24px;
@@ -1613,8 +1614,8 @@ h2 {
 }
 
 .confirm_input {
-    background: var(--bg-body);
-    border: 1px solid var(--bg-light-2, #d0d0d0);
+    background: var(--bg);
+    border: 1px solid var(--bg-light);
     border-radius: 4px;
     padding: 8px 12px;
     font-size: 14px;
@@ -1641,7 +1642,7 @@ h2 {
     padding: 10px 14px;
     font-size: 13px;
     align-items: center;
-    border-bottom: 1px solid var(--bg-body);
+    border-bottom: 1px solid var(--bg);
 
     &.status_error {
         border-left: 3px solid var(--error);

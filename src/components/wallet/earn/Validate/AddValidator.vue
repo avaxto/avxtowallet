@@ -1067,7 +1067,7 @@ label {
     background-color: var(--bg-light);
     padding: 15px;
     border-radius: 4px;
-    border: 1px solid var(--bg-light-2);
+    border: 1px solid var(--bg);
 
     label {
         font-size: 13px;
@@ -1080,7 +1080,7 @@ label {
     input {
         width: 100%;
         padding: 8px;
-        border: 1px solid var(--bg-light-2);
+        border: 1px solid var(--bg-light);
         border-radius: 3px;
         background-color: var(--bg);
         color: var(--primary-color);

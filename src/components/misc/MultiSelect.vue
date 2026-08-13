@@ -20,7 +20,7 @@ interface Props {
     labels: string[]
     keys: string[]
     disabled: boolean
-    selection: string[]
+    modelValue: string[]
 }
 
 export default defineComponent({
@@ -38,25 +38,30 @@ export default defineComponent({
             type: Boolean,
             default: false
         },
-        selection: {
+        // Named to match RadioButtons.vue's convention (its sibling, used
+        // alongside it in ExportGlacierHistoryModal.vue) so `v-model` works —
+        // this used to be a non-standard `selection`/`change` pair, which
+        // `v-model="includeChains"` at the call site silently bound to
+        // nothing (Vue only wires v-model to modelValue/update:modelValue).
+        modelValue: {
             type: Array as () => string[],
             required: true
         }
     },
-    emits: ['change'],
+    emits: ['update:modelValue'],
     setup(props: Props, { emit }) {
         const selectionSet = computed(() => {
-            return new Set(props.selection)
+            return new Set(props.modelValue)
         })
 
         const select = (val: string) => {
-            const now: Set<string> = new Set(props.selection)
+            const now: Set<string> = new Set(props.modelValue)
             if (now.has(val)) {
                 now.delete(val)
             } else {
                 now.add(val)
             }
-            emit('change', Array.from(now))
+            emit('update:modelValue', Array.from(now))
         }
 
         return {
