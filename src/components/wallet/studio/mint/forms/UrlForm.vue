@@ -1,7 +1,15 @@
 <template>
     <div>
         <label>URL</label>
-        <input placeholder="https://" v-model="urlIn" @input="onInput" />
+        <input
+            placeholder="https://"
+            v-model="urlIn"
+            @input="onInput"
+            autocomplete="off"
+            name="url-form-field-a"
+            data-1p-ignore
+            data-lpignore="true"
+        />
     </div>
 </template>
 <script lang="ts">

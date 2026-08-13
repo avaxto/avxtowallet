@@ -3,18 +3,39 @@
         <div class="add_token_body">
             <div>
                 <label>ERC721 Contract Address</label>
-                <input v-model="tokenAddress" placeholder="0x" />
+                <input
+                    v-model="tokenAddress"
+                    placeholder="0x"
+                    autocomplete="off"
+                    name="add721-field-a"
+                    data-1p-ignore
+                    data-lpignore="true"
+                />
                 <p class="err">{{ err }}</p>
             </div>
 
             <div class="meta" :found="canAdd">
                 <div>
                     <label>Collectible Name</label>
-                    <input v-model="name" disabled />
+                    <input
+                        v-model="name"
+                        disabled
+                        autocomplete="off"
+                        name="add721-field-b"
+                        data-1p-ignore
+                        data-lpignore="true"
+                    />
                 </div>
                 <div>
                     <label>Collectible Symbol</label>
-                    <input v-model="symbol" disabled />
+                    <input
+                        v-model="symbol"
+                        disabled
+                        autocomplete="off"
+                        name="add721-field-c"
+                        data-1p-ignore
+                        data-lpignore="true"
+                    />
                 </div>
             </div>
 

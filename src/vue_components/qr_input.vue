@@ -6,7 +6,8 @@
             </button>
         </QRReader>
         <input type="text" class="pk_in" :placeholder="placeholder"
-               v-model="pk" @input="oninput" :disabled="disabled" autocomplete="off">
+               v-model="pk" @input="oninput" :disabled="disabled" autocomplete="off"
+               name="qr-in-field" data-1p-ignore data-lpignore="true">
     </div>
 </template>
 <script lang="ts">

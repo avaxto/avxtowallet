@@ -10,10 +10,12 @@
 
                     <input
                         v-model="accountName"
-                        :name="$t('keys.save_account.placeholder_1')"
+                        name="save-acct-field-a"
                         placeholder="Account Name"
                         :disabled="existsInLocalStorage"
                         autocomplete="off"
+                        data-1p-ignore
+                        data-lpignore="true"
                     />
                     <input
                         type="password"

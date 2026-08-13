@@ -50,6 +50,10 @@
                         spellcheck="false"
                         :disabled="isLocked"
                         @input="onTargetChange"
+                        autocomplete="off"
+                        name="iceberg-field-a"
+                        data-1p-ignore
+                        data-lpignore="true"
                     />
                     <span v-if="isResolving" class="resolve_state">Resolving…</span>
                     <span v-else-if="tokenOut" class="resolve_state ok">✓ {{ tokenOut.symbol }}</span>

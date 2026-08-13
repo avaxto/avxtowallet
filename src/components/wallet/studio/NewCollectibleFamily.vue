@@ -12,6 +12,10 @@
                             v-model="name"
                             style="width: 100%"
                             maxlength="128"
+                            autocomplete="off"
+                            name="new-family-field-a"
+                            data-1p-ignore
+                            data-lpignore="true"
                         />
                     </div>
                     <div class="symbol">
@@ -22,6 +26,10 @@
                             v-model="symbol"
                             max="4"
                             maxlength="4"
+                            autocomplete="off"
+                            name="new-family-field-b"
+                            data-1p-ignore
+                            data-lpignore="true"
                         />
                     </div>
                 </div>
@@ -34,6 +42,10 @@
                         min="1"
                         max="1024"
                         v-model="groupNum"
+                        autocomplete="off"
+                        name="new-family-field-c"
+                        data-1p-ignore
+                        data-lpignore="true"
                     />
                 </div>
                 <div>

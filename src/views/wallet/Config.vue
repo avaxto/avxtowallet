@@ -55,6 +55,10 @@
                         min="1"
                         max="1000"
                         class="field"
+                        autocomplete="off"
+                        name="config-rl-field-a"
+                        data-1p-ignore
+                        data-lpignore="true"
                     />
                 </div>
                 <div class="form_row">
@@ -65,6 +69,10 @@
                         min="100"
                         max="60000"
                         class="field"
+                        autocomplete="off"
+                        name="config-rl-field-b"
+                        data-1p-ignore
+                        data-lpignore="true"
                     />
                 </div>
 
@@ -95,6 +103,10 @@
                         v-model="netUrl"
                         placeholder="https://api.avax.network:443"
                         class="field"
+                        autocomplete="off"
+                        name="config-net-field-a"
+                        data-1p-ignore
+                        data-lpignore="true"
                     />
                 </div>
                 <div class="form_row">
@@ -104,6 +116,10 @@
                         v-model="netExplorerApi"
                         placeholder="https://explorerapi.avax.network"
                         class="field"
+                        autocomplete="off"
+                        name="config-net-field-b"
+                        data-1p-ignore
+                        data-lpignore="true"
                     />
                 </div>
                 <div class="form_row">
@@ -113,6 +129,10 @@
                         v-model="netExplorerSite"
                         placeholder="https://explorer-xp.avax.network"
                         class="field"
+                        autocomplete="off"
+                        name="config-net-field-c"
+                        data-1p-ignore
+                        data-lpignore="true"
                     />
                 </div>
 

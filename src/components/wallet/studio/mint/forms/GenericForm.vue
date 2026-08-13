@@ -2,15 +2,42 @@
     <div>
         <div class="input_cont">
             <label>{{ $t('studio.mint.forms.generic.label1') }}</label>
-            <input class="text" max="128" v-model="title" @input="onInput" />
+            <input
+                class="text"
+                max="128"
+                v-model="title"
+                @input="onInput"
+                autocomplete="off"
+                name="generic-mint-field-a"
+                data-1p-ignore
+                data-lpignore="true"
+            />
         </div>
         <div class="input_cont">
             <label>{{ $t('studio.mint.forms.generic.label2') }}</label>
-            <input class="text" placeholder="https://" v-model="imgUrl" @input="onInput" />
+            <input
+                class="text"
+                placeholder="https://"
+                v-model="imgUrl"
+                @input="onInput"
+                autocomplete="off"
+                name="generic-mint-field-b"
+                data-1p-ignore
+                data-lpignore="true"
+            />
         </div>
         <div class="input_cont">
             <label>{{ $t('studio.mint.forms.generic.label3') }}</label>
-            <textarea class="text" maxlength="256" v-model="description" @input="onInput" />
+            <textarea
+                class="text"
+                maxlength="256"
+                v-model="description"
+                @input="onInput"
+                autocomplete="off"
+                name="generic-mint-field-c"
+                data-1p-ignore
+                data-lpignore="true"
+            />
         </div>
         <!--        <div class="input_cont">-->
         <!--            <label>Corner Radius</label>-->

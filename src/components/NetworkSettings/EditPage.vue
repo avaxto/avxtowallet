@@ -3,7 +3,15 @@
         <form @submit.prevent="" autocomplete="off">
             <div>
                 <label>Network Name</label>
-                <input type="text" placeholder="Network Name" v-model="name" />
+                <input
+                    type="text"
+                    placeholder="Network Name"
+                    v-model="name"
+                    autocomplete="off"
+                    name="edit-net-field-a"
+                    data-1p-ignore
+                    data-lpignore="true"
+                />
             </div>
             <div>
                 <label>URL</label>
@@ -12,6 +20,10 @@
                     placeholder="http://localhost:9650"
                     v-model="url"
                     @input="checkUrl"
+                    autocomplete="off"
+                    name="edit-net-field-b"
+                    data-1p-ignore
+                    data-lpignore="true"
                 />
                 <p class="form_error" v-if="err_url">{{ err_url }}</p>
             </div>
@@ -22,6 +34,10 @@
                     placeholder="www"
                     v-model="explorer_api"
                     @input="cleanExplorerUrl"
+                    autocomplete="off"
+                    name="edit-net-field-c"
+                    data-1p-ignore
+                    data-lpignore="true"
                 />
             </div>
             <div>
@@ -31,12 +47,24 @@
                     placeholder="www"
                     v-model="explorer_site"
                     @input="cleanExplorerSite"
+                    autocomplete="off"
+                    name="edit-net-field-d"
+                    data-1p-ignore
+                    data-lpignore="true"
                 />
             </div>
             <div class="rowGroup">
                 <div>
                     <label>Network ID</label>
-                    <input type="number" placeholder="Network ID" v-model.number="networkId" />
+                    <input
+                        type="number"
+                        placeholder="Network ID"
+                        v-model.number="networkId"
+                        autocomplete="off"
+                        name="edit-net-field-e"
+                        data-1p-ignore
+                        data-lpignore="true"
+                    />
                 </div>
             </div>
             <p v-if="err" class="form_error">{{ err }}</p>

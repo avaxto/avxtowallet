@@ -8,6 +8,10 @@
                     placeholder="Network Name"
                     v-model="name"
                     data-cy="custom-network-name"
+                    autocomplete="off"
+                    name="custom-net-field-a"
+                    data-1p-ignore
+                    data-lpignore="true"
                 />
             </div>
             <div>
@@ -18,6 +22,10 @@
                     placeholder="http://localhost:9650"
                     v-model="url"
                     @input="checkUrl"
+                    autocomplete="off"
+                    name="custom-net-field-b"
+                    data-1p-ignore
+                    data-lpignore="true"
                 />
                 <p class="form_error" v-if="err_url">{{ err_url }}</p>
             </div>
@@ -28,6 +36,10 @@
                     placeholder="www"
                     v-model="explorer_api"
                     @input="cleanExplorerUrl"
+                    autocomplete="off"
+                    name="custom-net-field-c"
+                    data-1p-ignore
+                    data-lpignore="true"
                 />
             </div>
             <div>
@@ -37,6 +49,10 @@
                     placeholder="www"
                     v-model="explorer_site"
                     @input="cleanExplorerSite"
+                    autocomplete="off"
+                    name="custom-net-field-d"
+                    data-1p-ignore
+                    data-lpignore="true"
                 />
             </div>
             <p v-if="err" class="form_error">{{ err }}</p>

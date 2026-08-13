@@ -25,6 +25,9 @@
                     :disabled="isDeploying"
                     maxlength="64"
                     autocomplete="off"
+                    name="tl-field-a"
+                    data-1p-ignore
+                    data-lpignore="true"
                 />
             </div>
 
@@ -38,6 +41,9 @@
                     maxlength="12"
                     @input="form.symbol = form.symbol.toUpperCase()"
                     autocomplete="off"
+                    name="tl-field-b"
+                    data-1p-ignore
+                    data-lpignore="true"
                 />
             </div>
 
@@ -51,6 +57,9 @@
                         max="18"
                         :disabled="isDeploying"
                         autocomplete="off"
+                        name="tl-field-c"
+                        data-1p-ignore
+                        data-lpignore="true"
                     />
                 </div>
                 <div class="field">
@@ -61,6 +70,9 @@
                         placeholder="1000000"
                         :disabled="isDeploying"
                         autocomplete="off"
+                        name="tl-field-d"
+                        data-1p-ignore
+                        data-lpignore="true"
                     />
                     <span class="field_hint">Minted to your wallet on deploy.</span>
                 </div>
@@ -74,6 +86,9 @@
                     placeholder="1000000"
                     :disabled="isDeploying"
                     autocomplete="off"
+                    name="tl-field-e"
+                    data-1p-ignore
+                    data-lpignore="true"
                 />
                 <span class="field_hint">
                     Hard cap on total supply. You (the owner) can mint up to this amount later.
