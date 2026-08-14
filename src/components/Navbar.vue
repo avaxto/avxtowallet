@@ -2,7 +2,7 @@
     <div id="nav">
         
         <router-link to="/" class="logo">
-            <img src="@/assets/avaxtowallet_logo_dark.png" />
+            <PlatformLogo />
         </router-link>
         <v-spacer></v-spacer>
 
@@ -54,13 +54,15 @@
                 <template v-if="isAuth">
                     <router-link to="/wallet">{{ $t('wallet.sidebar.portfolio') }}</router-link>
                     <router-link to="/wallet/transfer">{{ $t('wallet.sidebar.send') }}</router-link>
-                    <router-link v-if="!isSingleton" to="/wallet/cross_chain">
+                    <router-link v-if="!isSingleton && canCrossChain" to="/wallet/cross_chain">
                         {{ $t('wallet.sidebar.export') }}
                     </router-link>
-                    <router-link to="/wallet/earn">{{ $t('wallet.sidebar.earn') }}</router-link>
+                    <router-link v-if="canStake" to="/wallet/earn">
+                        {{ $t('wallet.sidebar.earn') }}
+                    </router-link>
                     <router-link to="/wallet/activity">Activity</router-link>
                     <router-link to="/wallet/keys">{{ $t('wallet.sidebar.manage') }}</router-link>
-                    <router-link to="/wallet/advanced" data-cy="wallet_advanced">
+                    <router-link v-if="isMultiChain" to="/wallet/advanced" data-cy="wallet_advanced">
                         {{ $t('wallet.sidebar.advanced') }}
                     </router-link>
                                         
@@ -81,20 +83,30 @@ import LanguageSelect from './misc/LanguageSelect/LanguageSelect.vue'
 import NetworkMenu from './NetworkSettings/NetworkMenu.vue'
 
 import AccountMenu from '@/components/wallet/sidebar/AccountMenu.vue'
+import PlatformLogo from '@/components/misc/PlatformLogo.vue'
+import { useActivePlatformStore } from '@/platforms'
 
 export default defineComponent({
     name: 'Navbar',
     components: {
         AccountMenu,
         NetworkMenu,
-        LanguageSelect
+        LanguageSelect,
+        PlatformLogo
     },
     setup() {
         const mainStore = useMainStore()
+        const platformStore = useActivePlatformStore()
 
         const isDrawer = ref(false)
         const popupOpen = ref(false)
         const isConnecting = ref(false)
+
+        // Capability-gated nav, matching Sidebar.vue: a single-EVM-chain
+        // platform shows no cross-chain / staking / X-P surfaces.
+        const isMultiChain = computed(() => platformStore.isMultiChain)
+        const canCrossChain = computed(() => platformStore.can('crossChain'))
+        const canStake = computed(() => platformStore.can('stake'))
 
         const isAuth = computed((): boolean => {
             return mainStore.isAuth
@@ -103,6 +115,10 @@ export default defineComponent({
         const isSingleton = computed(() => mainStore.activeWallet?.type === 'singleton')
 
         const avaxPriceText = computed((): string | null => {
+            // The price feed only tracks AVAX, so this must not render while a
+            // platform with a different native asset is active — it would label
+            // an AVAX price with that platform's ticker.
+            if (platformStore.activePlatform?.descriptor.symbol !== 'AVAX') return null
             const usd = mainStore.prices.usd
             if (typeof usd !== 'number' || isNaN(usd) || usd <= 0) return null
             return usd.toFixed(2)
@@ -132,6 +148,9 @@ export default defineComponent({
             isSingleton,
             avaxPriceText,
             isConnecting,
+            isMultiChain,
+            canCrossChain,
+            canStake,
             togglePopup,
             connectWallet,
         }
@@ -200,6 +219,16 @@ button {
             height: 50px;
             max-height: none !important;
             object-fit: contain;
+            margin-right: 5px;
+        }
+
+        // The logo is now an inline SVG (PlatformLogo) so it can be tinted per
+        // platform. It declares width:100% for the sidebar's fixed-width brand
+        // slot, so here it needs an explicit height and an auto width or the
+        // flex row would stretch it across the nav.
+        :deep(.platform_logo) {
+            height: 50px;
+            width: auto;
             margin-right: 5px;
         }
     }

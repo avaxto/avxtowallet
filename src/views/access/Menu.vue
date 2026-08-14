@@ -4,7 +4,12 @@
         <router-link to="/create" class="link">{{ $t('access.create') }}</router-link>
         <div class="menus">
             <PlatformSelect></PlatformSelect>
-            <AccountsFound class="accounts_menu"></AccountsFound>
+            <!--
+                Saved accounts are keystore-encrypted local keys, so they only
+                mean anything on a platform that can be accessed by a local key.
+                Gated on that rather than on a platform id.
+            -->
+            <AccountsFound v-if="hasLocalKeyAccess" class="accounts_menu"></AccountsFound>
             <!--
                 Login options come from the active platform's `accessMethods`
                 rather than being hardcoded here, so adding a platform doesn't
@@ -90,6 +95,17 @@ export default defineComponent({
             (): AccessMethodDescriptor[] => platformStore.activePlatform?.accessMethods ?? []
         )
 
+        /**
+         * Whether this platform can be accessed by a locally-held key, which is
+         * what a saved account stores. Platforms that only connect through an
+         * extension (or a remote session) have nothing to save locally.
+         */
+        const hasLocalKeyAccess = computed((): boolean =>
+            accessMethods.value.some((m) =>
+                ['mnemonic', 'privatekey', 'keystore'].includes(m.id)
+            )
+        )
+
         // Prefer the translated label, but fall back to the descriptor's plain
         // one so a platform that hasn't added translations still renders.
         const methodLabel = (method: AccessMethodDescriptor): string =>
@@ -107,7 +123,14 @@ export default defineComponent({
             }
         }
 
-        return { accessMethods, methodLabel, isConnecting, connectError, runAction }
+        return {
+            accessMethods,
+            hasLocalKeyAccess,
+            methodLabel,
+            isConnecting,
+            connectError,
+            runAction,
+        }
     },
 })
 </script>

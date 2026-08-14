@@ -319,9 +319,11 @@ p {
     z-index: 2;
     background-color: transparent;
     padding: main.$container_padding_m;
-    // The nav's own right gutter was leaving buts_right's contents sitting
-    // well short of the viewport's actual right edge, reading as "left
-    // aligned" even though they correctly fill .buts_right edge-to-edge.
+    // The nav's own gutters were leaving both ends of #nav sitting well short
+    // of the viewport's actual edges: buts_right read as "left aligned" even
+    // though it correctly fills .buts_right edge-to-edge, and the logo sat
+    // $container_padding_m's 160px in from the left instead of flush.
+    padding-left: 0;
     padding-right: 0;
 }
 
@@ -360,9 +362,10 @@ p {
     }
     #nav {
         padding: main.$container_padding_s;
-        // Same as the base #nav rule above — keep buts_right flush against
-        // the right edge instead of this breakpoint's shorthand silently
-        // reintroducing the right gutter.
+        // Same as the base #nav rule above — keep the logo and buts_right
+        // flush against the edges instead of this breakpoint's shorthand
+        // silently reintroducing the gutters.
+        padding-left: 0;
         padding-right: 0;
     }
 }

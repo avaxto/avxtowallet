@@ -15,24 +15,56 @@ platforms/
   types.ts             the Platform / PlatformWallet interfaces
   registry.ts          register + look up platforms
   store.ts             useActivePlatformStore — which platform is active
+  theme.ts             applies a platform's interface tint
   plannedPlatform.ts   helper for not-yet-implemented entries
   index.ts             registers every platform (imported once from main.ts)
-  avalanche/           the only fully implemented platform today
+  avalanche/           multi-chain (X/P/C), wraps the existing implementation
+  robinhood/           Robinhood Chain — single EVM L2, self-contained
   ethereum/            \
   solana/               |  descriptor-only stubs, status: 'planned'
-  bitcoin/              |  listed in the UI but not loggable
-  robinhood/           /
+  bitcoin/             /   listed in the UI but not loggable
 ```
 
 ## Current state
 
-**Avalanche is the only implemented platform.** It is also the default
+**Avalanche and Robinhood Chain are implemented.** Avalanche is the default
 (`DEFAULT_PLATFORM_ID` in `registry.ts`), so with no saved preference the app
 behaves exactly as it always has.
 
-The other four are **descriptor-only stubs**: `status: 'planned'`, no access
-methods, all capabilities `false`. The registry reports them unavailable and the
-picker renders them disabled — there is no code path that logs into one.
+The other three are **descriptor-only stubs**: `status: 'planned'`, no access
+methods, all capabilities `false`, no chains or networks. The registry reports
+them unavailable and the picker renders them disabled — there is no code path
+that logs into one.
+
+### Chain shape — how X/P features hide themselves
+
+A platform declares its sub-chains via `chains: PlatformChain[]`, each tagged
+`kind: 'evm' | 'utxo' | 'staking'`. Avalanche declares three (X = utxo,
+P = staking, C = evm); Robinhood declares one evm chain.
+
+Views gate on that shape — `platformStore.isMultiChain`,
+`platformStore.hasChainKind('staking')`, `platformStore.can('crossChain')` —
+**never on a platform id**. That is what makes Robinhood render as a plain
+Ethereum-style wallet (no cross-chain, earn, addresses, wizard or advanced nav)
+without any view naming it.
+
+### Switching platforms starts from zero
+
+`setActivePlatform()` logs the current platform out, persists the new id, clears
+the stored wallet, and then **hard-reloads the app**. The reload is deliberate:
+platform state lives across many long-lived stores and module-level SDK
+singletons written assuming one platform per page load. Clearing them piecemeal
+risks one being missed and showing another chain's data — strictly worse than a
+reload.
+
+### Theming
+
+A platform may declare `descriptor.theme` (`accent` / `onAccent` / `logo`).
+`theme.ts` writes those into CSS custom properties on activation, and
+`components/misc/PlatformLogo.vue` renders the wordmark as inline SVG so it can
+be tinted exactly (Robinhood: `rgb(204, 255, 0)`). Backgrounds and body text are
+deliberately **not** overridable, so a platform theme can never make the
+interface unreadable.
 
 ### Important: this is a boundary, not a finished migration
 

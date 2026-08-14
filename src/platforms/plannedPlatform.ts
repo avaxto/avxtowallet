@@ -36,6 +36,11 @@ export function createPlannedPlatform(
         descriptor: { ...descriptor, status: 'planned' },
         capabilities: { ...NO_CAPABILITIES },
         accessMethods: [],
+        // Empty for the same reason capabilities are all false: a planned
+        // platform must not cause any chain- or network-driven UI to render.
+        chains: [],
+        networks: [],
+        getActiveNetwork: () => null,
         getActiveWallet: () => null,
         logout: async () => {
             /* nothing to disconnect */

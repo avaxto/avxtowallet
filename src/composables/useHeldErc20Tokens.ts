@@ -33,7 +33,11 @@ export interface HeldToken {
  * both Swap's "you pay" picker and the transfer page's token picker read
  * from, so neither omits what the other shows.
  */
-export function useHeldErc20Tokens(): { tokens: ComputedRef<HeldToken[]>; loading: ComputedRef<boolean> } {
+export function useHeldErc20Tokens(): {
+    tokens: ComputedRef<HeldToken[]>
+    loading: ComputedRef<boolean>
+    refresh: () => Promise<void>
+} {
     const mainStore = useMainStore()
     const assetsStore = useAssetsStore()
 
@@ -43,7 +47,26 @@ export function useHeldErc20Tokens(): { tokens: ComputedRef<HeldToken[]>; loadin
         return addr.startsWith('0x') ? addr : `0x${addr}`
     })
     const evmChainId = computed((): number => assetsStore.evmChainId)
-    const { assets: sdkAssets, loading } = useCChainSdkBalances(cChainAddress, evmChainId)
+    const { assets: sdkAssets, loading, fetchBalances } = useCChainSdkBalances(cChainAddress, evmChainId)
+
+    /**
+     * Re-fetches every balance this composable's `tokens` is built from.
+     *
+     * Needed because none of the three sources auto-update on their own: the
+     * native AVAX balance and the "Default Assets" ERC20 balances only change
+     * via an explicit fetch, and the SDK-discovered "All Assets" list is
+     * fetched once on address/chain change (see useCChainSdkBalances) with no
+     * polling. A caller that just broadcast a transaction (a swap, a send)
+     * must call this afterwards or `tokens` keeps reporting pre-transaction
+     * balances until an unrelated poller happens to tick.
+     */
+    const refresh = async (): Promise<void> => {
+        await Promise.all([
+            mainStore.activeWallet?.getEthBalance(),
+            assetsStore.updateERC20Balances(),
+            fetchBalances(),
+        ])
+    }
 
     const tokens = computed((): HeldToken[] => {
         const out: HeldToken[] = []
@@ -103,5 +126,5 @@ export function useHeldErc20Tokens(): { tokens: ComputedRef<HeldToken[]>; loadin
         return out
     })
 
-    return { tokens, loading }
+    return { tokens, loading, refresh }
 }

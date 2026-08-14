@@ -7,7 +7,13 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 
-import type { Platform, PlatformCapabilities, PlatformId } from './types'
+import type {
+    Platform,
+    PlatformCapabilities,
+    PlatformChain,
+    PlatformChainKind,
+    PlatformId,
+} from './types'
 import {
     DEFAULT_PLATFORM_ID,
     getPlatform,
@@ -15,6 +21,7 @@ import {
     listAvailablePlatforms,
     listPlatforms,
 } from './registry'
+import { applyPlatformTheme } from './theme'
 
 const STORAGE_KEY = 'activePlatform'
 
@@ -44,6 +51,29 @@ export const useActivePlatformStore = defineStore('activePlatform', () => {
     const can = (capability: keyof PlatformCapabilities): boolean =>
         capabilities.value?.[capability] ?? false
 
+    /** Sub-chains of the active platform. */
+    const chains = computed((): PlatformChain[] => activePlatform.value?.chains ?? [])
+
+    /**
+     * Whether the active platform exposes a chain of a given shape.
+     *
+     * This is the check that hides Avalanche's X/P surfaces on single-chain
+     * platforms: a view asks `hasChainKind('staking')` instead of testing the
+     * platform id, so a plain EVM platform renders as an ordinary account
+     * wallet with no edits to that view.
+     */
+    const hasChainKind = (kind: PlatformChainKind): boolean =>
+        chains.value.some((c) => c.kind === kind)
+
+    /** True when the platform has more than one sub-chain to move funds between. */
+    const isMultiChain = computed((): boolean => chains.value.length > 1)
+
+    /** The platform's single EVM chain id, when it has exactly one. */
+    const evmChainId = computed((): number | undefined => {
+        const evmChains = chains.value.filter((c) => c.kind === 'evm')
+        return evmChains.length === 1 ? evmChains[0].evmChainId : undefined
+    })
+
     /** Every registered platform, including ones that aren't built yet. */
     const platforms = computed((): Platform[] => listPlatforms())
     /** Only the ones that can actually be logged into. */
@@ -52,6 +82,18 @@ export const useActivePlatformStore = defineStore('activePlatform', () => {
     /**
      * Switch platforms. Rejects unknown or not-yet-implemented ids rather than
      * leaving the app pointing at a platform with no implementation behind it.
+     *
+     * Switching always lands on a **completely fresh wallet session**: the
+     * previous platform is logged out, and the app is then hard-reloaded.
+     *
+     * The reload is deliberate rather than lazy. Platform state is spread
+     * across many long-lived Pinia stores (wallets, assets, network, history,
+     * pollers, the vendored SDK's module-level singletons) that were written
+     * assuming a single platform for the lifetime of the page. Clearing them
+     * piecemeal would leave whichever one we forgot holding the old platform's
+     * data — a wallet showing another chain's balances is a far worse failure
+     * than a reload. The chosen id is persisted first, so the app comes back up
+     * on the new platform with everything else at its initial state.
      */
     const setActivePlatform = async (id: PlatformId): Promise<void> => {
         if (id === activePlatformId.value) return
@@ -62,13 +104,24 @@ export const useActivePlatformStore = defineStore('activePlatform', () => {
 
         const previous = activePlatform.value
         if (previous) {
+            try {
+                await previous.logout()
+            } catch (e) {
+                // A failed logout must not strand the user on the old platform;
+                // the reload below discards that session's state anyway.
+                console.warn('[platforms] logout during switch failed:', e)
+            }
             await previous.deactivate?.()
         }
 
-        activePlatformId.value = id
         localStorage.setItem(STORAGE_KEY, id)
+        // Drop any persisted Avalanche wallet so the new platform cannot come
+        // back up with the previous one's keys restored from storage.
+        localStorage.removeItem('w')
 
-        await getPlatform(id)?.activate?.()
+        activePlatformId.value = id
+
+        window.location.href = '/'
     }
 
     /**
@@ -80,6 +133,10 @@ export const useActivePlatformStore = defineStore('activePlatform', () => {
         const saved = localStorage.getItem(STORAGE_KEY)
         activePlatformId.value =
             saved && isPlatformAvailable(saved) ? saved : DEFAULT_PLATFORM_ID
+
+        // Tint the interface for the restored platform before the first paint.
+        applyPlatformTheme(activePlatform.value?.descriptor.theme)
+        void activePlatform.value?.activate?.()
     }
 
     return {
@@ -87,6 +144,10 @@ export const useActivePlatformStore = defineStore('activePlatform', () => {
         activePlatform,
         capabilities,
         can,
+        chains,
+        hasChainKind,
+        isMultiChain,
+        evmChainId,
         platforms,
         availablePlatforms,
         setActivePlatform,

@@ -255,7 +255,7 @@ export default defineComponent({
         // Glacier/chainkit SDK ("All Assets") — same merged list the
         // transfer page's token picker uses, so neither omits what the
         // other shows.
-        const { tokens: heldTokens, loading: sdkLoading } = useHeldErc20Tokens()
+        const { tokens: heldTokens, loading: sdkLoading, refresh: refreshHeldTokens } = useHeldErc20Tokens()
 
         const tokenInAddr = ref('')
         const tokenOutAddr = ref('')
@@ -510,6 +510,18 @@ export default defineComponent({
                     type: 'success',
                     title: 'Swap Submitted',
                     message: `Swapping ${tokenIn.value.symbol} → ${tokenOut.value!.symbol}`,
+                })
+
+                // Balances don't update on their own (see useHeldErc20Tokens's
+                // refresh() doc) — without this, tokenIn.balance still reads
+                // pre-swap, so a "Max" click on the next swap would offer to
+                // spend an amount the wallet no longer has. The broadcast tx
+                // above only guarantees the *submission* landed, not that the
+                // node's balance view has caught up yet, so this can still
+                // race the RPC by a block or two; it's the same best-effort
+                // freshness the rest of the app relies on after a send.
+                refreshHeldTokens().catch((e) => {
+                    console.warn('[Swap] post-swap balance refresh failed:', e)
                 })
                 })
             } catch (e: any) {

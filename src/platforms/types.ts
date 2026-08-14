@@ -98,6 +98,75 @@ export interface PlatformCapabilities {
     offlineSigning: boolean
 }
 
+/**
+ * What kind of chain a sub-chain is, so UI can reason about it without knowing
+ * platform names:
+ *  - `evm`      — account/nonce model, 0x addresses, ERC-20s (C-Chain, Ethereum,
+ *                 Robinhood Chain)
+ *  - `utxo`     — UTXO model with atomic imports/exports (Avalanche X, Bitcoin)
+ *  - `staking`  — a validator/delegation chain (Avalanche P)
+ */
+export type PlatformChainKind = 'evm' | 'utxo' | 'staking'
+
+/**
+ * One sub-chain exposed by a platform.
+ *
+ * Avalanche declares three (X/P/C); a single-chain platform declares exactly
+ * one. This is what lets the UI hide X/P features generically: it checks for
+ * the presence of a `utxo` / `staking` chain rather than testing
+ * `platformId === 'avalanche'`.
+ */
+export interface PlatformChain {
+    /** Short id, unique within the platform. Matches `PlatformAddress.chain`. */
+    id: string
+    /** Human label, e.g. 'X-Chain' or 'Robinhood Chain'. */
+    label: string
+    kind: PlatformChainKind
+    /** EVM chain id — present only on `kind: 'evm'` chains. */
+    evmChainId?: number
+}
+
+/**
+ * A network (mainnet / testnet / custom) a platform can be pointed at.
+ *
+ * This generalises what used to be Avalanche's `AvaNetwork`: the wallet needs
+ * an RPC endpoint, an explorer and the native asset's shape regardless of which
+ * platform it is talking to.
+ */
+export interface PlatformNetwork {
+    /** Stable id, unique within the platform (e.g. 'mainnet', 'testnet'). */
+    id: string
+    name: string
+    isTestnet: boolean
+    /** JSON-RPC endpoint used for reads and broadcasts. */
+    rpcUrl: string
+    /** Optional subscription endpoint, when the platform offers one. */
+    wsUrl?: string
+    /** Base URL of a block explorer, no trailing slash. */
+    explorerUrl?: string
+    /** EVM chain id, for `evm` platforms. */
+    evmChainId?: number
+    nativeSymbol: string
+    nativeDecimals: number
+}
+
+/**
+ * Per-platform interface tint.
+ *
+ * Applied as CSS custom properties when the platform becomes active, so the
+ * whole UI re-themes without any component knowing which platform is selected.
+ * Only the accent-ish tokens are overridable — backgrounds stay fixed so a
+ * platform can't render the app unreadable.
+ */
+export interface PlatformTheme {
+    /** Primary accent (buttons, active states). CSS colour string. */
+    accent: string
+    /** Text/icon colour to use *on top of* `accent`. */
+    onAccent: string
+    /** Colour the app logo is tinted to. */
+    logo: string
+}
+
 export interface PlatformDescriptor {
     id: PlatformId
     name: string
@@ -107,6 +176,8 @@ export interface PlatformDescriptor {
     /** Short line shown next to the platform in the picker. */
     description?: string
     icon?: string
+    /** Overrides the default interface colours while this platform is active. */
+    theme?: PlatformTheme
 }
 
 export interface PlatformAddress {
@@ -173,6 +244,23 @@ export interface Platform {
     readonly capabilities: PlatformCapabilities
     /** Empty for `planned` platforms — nothing to log into yet. */
     readonly accessMethods: AccessMethodDescriptor[]
+
+    /**
+     * Sub-chains this platform exposes.
+     *
+     * Empty for `planned` platforms. The UI uses this — not the platform id —
+     * to decide whether to show chain-shape-specific features, so a
+     * single-EVM-chain platform automatically renders as a plain account
+     * wallet with no cross-chain or staking surface.
+     */
+    readonly chains: PlatformChain[]
+
+    /** Networks this platform can be pointed at. Empty for `planned` ones. */
+    readonly networks: PlatformNetwork[]
+    /** The network currently selected, or null when the platform has none. */
+    getActiveNetwork?(): PlatformNetwork | null
+    /** Point the platform at one of its `networks`. */
+    setActiveNetwork?(id: string): Promise<void>
 
     /** Called when this platform becomes the active one. */
     activate?(): Promise<void>

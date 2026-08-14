@@ -2,7 +2,7 @@
     <div class="wallet_sidebar">
         <div class="stick">
             <div class="brand">
-                <img src="@/assets/avaxtowallet_logo_dark.png" />
+                <PlatformLogo />
             </div>
             <div class="links">
                 <router-link to="/wallet" class="wallet_link">
@@ -14,7 +14,7 @@
                     {{ $t('wallet.sidebar.send') }}
                 </router-link>
                 <router-link
-                    v-if="!isSingleton"
+                    v-if="!isSingleton && canCrossChain"
                     to="/wallet/cross_chain"
                     data-cy="wallet_export"
                     class="wallet_export wallet_link"
@@ -22,7 +22,12 @@
                     <span><fa icon="random" class="icon"></fa></span>
                     {{ $t('wallet.sidebar.export') }}
                 </router-link>
-                <router-link to="/wallet/earn" data-cy="wallet_earn" class="wallet_link">
+                <router-link
+                    v-if="canStake"
+                    to="/wallet/earn"
+                    data-cy="wallet_earn"
+                    class="wallet_link"
+                >
                     <img src="@/assets/sidebar/earn_nav_night.png" />
                     {{ $t('wallet.sidebar.earn') }}
                 </router-link>
@@ -35,23 +40,48 @@
                     <img src="@/assets/sidebar/manage_nav_night.svg" />
                     {{ $t('wallet.sidebar.manage') }}
                 </router-link>
-                <router-link to="/wallet/advanced" data-cy="wallet_advanced" class="wallet_link">
+                <router-link
+                    v-if="isMultiChain"
+                    to="/wallet/advanced"
+                    data-cy="wallet_advanced"
+                    class="wallet_link"
+                >
                     <img src="@/assets/sidebar/advanced_nav_night.png" />
                     {{ $t('wallet.sidebar.advanced') }}
                 </router-link>
-                <router-link to="/wallet/addresses" data-cy="wallet_addresses" class="wallet_link">
+                <router-link
+                    v-if="isMultiChain"
+                    to="/wallet/addresses"
+                    data-cy="wallet_addresses"
+                    class="wallet_link"
+                >
                     <span class="sidebar_icon"><fa icon="list" class="icon"></fa></span>
                     Addresses
                 </router-link>
-                <router-link to="/wallet/broadcast" data-cy="wallet_broadcast" class="wallet_link">
+                <router-link
+                    v-if="canOfflineSigning"
+                    to="/wallet/broadcast"
+                    data-cy="wallet_broadcast"
+                    class="wallet_link"
+                >
                     <span class="sidebar_icon"><fa icon="upload" class="icon"></fa></span>
                     Broadcast Tx
                 </router-link>
-                <router-link to="/wallet/wizard" data-cy="wallet_wizard" class="wallet_link">
+                <router-link
+                    v-if="isMultiChain"
+                    to="/wallet/wizard"
+                    data-cy="wallet_wizard"
+                    class="wallet_link"
+                >
                     <span class="sidebar_icon"><fa icon="magic" class="icon"></fa></span>
                     Wallet Wizard
                 </router-link>
-                <router-link to="/wallet/swap" data-cy="wallet_swap" class="wallet_link">
+                <router-link
+                    v-if="canSwap"
+                    to="/wallet/swap"
+                    data-cy="wallet_swap"
+                    class="wallet_link"
+                >
                     <span class="sidebar_icon"><fa icon="exchange-alt" class="icon"></fa></span>
                     Swap
                 </router-link>
@@ -76,22 +106,41 @@
 <script>
 import { defineComponent, computed } from 'vue'
 import { useMainStore } from '@/stores'
+import { useActivePlatformStore } from '@/platforms'
 import LanguageSelect from '@/components/misc/LanguageSelect/LanguageSelect.vue'
 import AccountMenu from '@/components/wallet/sidebar/AccountMenu.vue'
+import PlatformLogo from '@/components/misc/PlatformLogo.vue'
 
 export default defineComponent({
     name: 'Sidebar',
     components: {
         AccountMenu,
         LanguageSelect,
+        PlatformLogo,
     },
     setup() {
         const mainStore = useMainStore()
+        const platformStore = useActivePlatformStore()
 
         const isSingleton = computed(() => mainStore.activeWallet?.type === 'singleton')
 
+        // Nav entries are gated on what the active platform declares, not on
+        // which platform it is. A single-EVM-chain platform (Robinhood,
+        // Ethereum) therefore shows a plain send/receive/activity wallet with
+        // no X/P-chain surfaces, without this file naming any platform.
+        const isMultiChain = computed(() => platformStore.isMultiChain)
+        const canCrossChain = computed(() => platformStore.can('crossChain'))
+        const canStake = computed(() => platformStore.can('stake'))
+        const canSwap = computed(() => platformStore.can('swap'))
+        const canOfflineSigning = computed(() => platformStore.can('offlineSigning'))
+
         return {
             isSingleton,
+            isMultiChain,
+            canCrossChain,
+            canStake,
+            canSwap,
+            canOfflineSigning,
         }
     }
 })

@@ -21,7 +21,7 @@
  */
 import Big from 'big.js'
 
-import { useMainStore, useAssetsStore } from '@/stores'
+import { useMainStore, useAssetsStore, useNetworkStore } from '@/stores'
 import { bnToBig } from '@/helpers/helper'
 import type { Wallet } from '@/js/wallets/AbstractWallet'
 
@@ -31,7 +31,9 @@ import type {
     PlatformAddress,
     PlatformBalance,
     PlatformCapabilities,
+    PlatformChain,
     PlatformDescriptor,
+    PlatformNetwork,
     PlatformWallet,
 } from '../types'
 
@@ -54,6 +56,49 @@ const capabilities: PlatformCapabilities = {
     collectibles: true,
     offlineSigning: true,
 }
+
+/**
+ * Avalanche's three sub-chains, declared through the generic chain shape.
+ *
+ * This is what the UI reads to decide whether to render X/P-specific features,
+ * instead of assuming every wallet has an X and a P address. A platform with
+ * only an `evm` chain (Robinhood, Ethereum) therefore hides those surfaces with
+ * no per-platform branching in the views.
+ */
+const chains: PlatformChain[] = [
+    { id: 'X', label: 'X-Chain', kind: 'utxo' },
+    { id: 'P', label: 'P-Chain', kind: 'staking' },
+    { id: 'C', label: 'C-Chain', kind: 'evm', evmChainId: 43114 },
+]
+
+/**
+ * Mirrors the built-in entries in `@/stores/network`. Declared here so the
+ * generic layer can list a platform's networks uniformly; the Avalanche network
+ * *store* remains the authority on which one is connected, because switching
+ * involves far more than an RPC swap (blockchain ids, SDK config, pollers).
+ */
+const networks: PlatformNetwork[] = [
+    {
+        id: 'mainnet',
+        name: 'Mainnet',
+        isTestnet: false,
+        rpcUrl: 'https://api.avax.network:443',
+        explorerUrl: 'https://explorer-xp.avax.network',
+        evmChainId: 43114,
+        nativeSymbol: 'AVAX',
+        nativeDecimals: 18,
+    },
+    {
+        id: 'fuji',
+        name: 'Fuji',
+        isTestnet: true,
+        rpcUrl: 'https://api.avax-test.network:443',
+        explorerUrl: 'https://explorer-xp.avax-test.network',
+        evmChainId: 43113,
+        nativeSymbol: 'AVAX',
+        nativeDecimals: 18,
+    },
+]
 
 /**
  * Mirrors the buttons the access screen has always shown, in the same order.
@@ -240,6 +285,19 @@ export const avalanchePlatform: Platform = {
     descriptor,
     capabilities,
     accessMethods,
+    chains,
+    networks,
+
+    getActiveNetwork(): PlatformNetwork | null {
+        // Derived from the Avalanche network store rather than tracked here, so
+        // there is exactly one source of truth for the connected network.
+        const selected = useNetworkStore().selectedNetwork
+        if (!selected) return null
+        return (
+            networks.find((n) => n.evmChainId === (selected.networkId === 1 ? 43114 : 43113)) ??
+            null
+        )
+    },
 
     getActiveWallet(): PlatformWallet | null {
         const wallet = useMainStore().activeWallet
