@@ -198,7 +198,7 @@ import { iErc721SelectInput } from '@/components/misc/EVMInputDropdown/types'
 import { WalletHelper } from '@/helpers/wallet_helper'
 import BatchFormC from '@/components/wallet/transfer/BatchFormC.vue'
 import { authorizeSingle, SessionAuthCancelled } from '@/js/security/authorize'
-import { useOfflineSigningStore, isOfflineTxId } from '@/stores'
+import { useOfflineSigningStore, isOfflineTxId, useCChainSdkAssetsStore } from '@/stores'
 import SignOnlyToggle from '@/components/misc/SignOnlyToggle.vue'
 import SignedTxExport from '@/components/misc/SignedTxExport.vue'
 import CopyText from '@/components/misc/CopyText.vue'
@@ -497,6 +497,24 @@ export default defineComponent({
                 if (!isOfflineTxId(hash)) {
                     txHash.value = hash
                     isSuccess.value = true
+
+                    // Unlike the X-chain send path (Transfer.vue's onsuccess,
+                    // via assetsStore.updateUTXOs()), nothing on the C-chain
+                    // path refreshed balances after a broadcast — so the
+                    // portfolio kept showing pre-send amounts until an
+                    // unrelated poll tick happened to catch up. Covers all
+                    // three C-chain balance sources: native AVAX, "Default
+                    // Assets" ERC20s and the Glacier/chainkit-discovered
+                    // "All Assets" list (shared store — also updates the
+                    // Portfolio page even though it's kept-alive and won't
+                    // remount to refetch on its own).
+                    Promise.all([
+                        wallet.value.getEthBalance(),
+                        assetsStore.updateERC20Balances(),
+                        useCChainSdkAssetsStore().refresh(),
+                    ]).catch((e) => {
+                        console.warn('[FormC] post-send balance refresh failed:', e)
+                    })
                 }
                 canSendAgain.value = true
             } catch (e: any) {

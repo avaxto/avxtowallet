@@ -106,7 +106,7 @@
 </template>
 <script lang="ts">
 import { defineComponent, ref, computed, onMounted, onBeforeUnmount, markRaw } from 'vue'
-import { useMainStore } from '@/stores'
+import { useMainStore, useAssetsStore, useCChainSdkAssetsStore } from '@/stores'
 import { v1 as uuidv1 } from 'uuid'
 import { BN } from '@/avalanche'
 import { web3 } from '@/evm'
@@ -145,6 +145,7 @@ export default defineComponent({
     components: { QrInput, EVMInputDropdown, BatchTxReport, SignOnlyToggle, SignedTxExport },
     setup() {
         const mainStore = useMainStore()
+        const assetsStore = useAssetsStore()
         const offline = useOfflineSigningStore()
 
         const recipients = ref<BatchRowC[]>([newRow()])
@@ -326,6 +327,18 @@ export default defineComponent({
             // With offline signing the loop produced sentinel ids, not tx
             // hashes — the export panel replaces the broadcast report.
             isSuccess.value = !offline.hasRecords
+
+            // Same gap as FormC.vue's single-send path — see the comment
+            // there. Skipped for offline signing since nothing broadcast.
+            if (isSuccess.value && out.some((r) => r.status === 'success')) {
+                Promise.all([
+                    wallet.value.getEthBalance(),
+                    assetsStore.updateERC20Balances(),
+                    useCChainSdkAssetsStore().refresh(),
+                ]).catch((e) => {
+                    console.warn('[BatchFormC] post-send balance refresh failed:', e)
+                })
+            }
         }
 
         const startAgain = () => {

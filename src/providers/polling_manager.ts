@@ -5,7 +5,15 @@
 
 */
 import { AvaNetwork } from '@/js/AvaNetwork'
-import { pinia, useNetworkStore, useMainStore, useStatusBarStore, useAssetsStore, useHistoryStore } from '@/stores'
+import {
+    pinia,
+    useNetworkStore,
+    useMainStore,
+    useStatusBarStore,
+    useAssetsStore,
+    useHistoryStore,
+    useCChainSdkAssetsStore,
+} from '@/stores'
 import { Wallet } from '@/js/wallets/AbstractWallet'
 import { PROVIDER_CONFIG } from '@/providers/provider_config'
 import { globalRateLimiter } from '@/providers/rate_limiter'
@@ -205,10 +213,20 @@ class PollingManager {
         if (!wallet) return
 
         try {
-            // Refresh the native C-chain balance. The AVXTO (base asset)
-            // ERC20 balance is NOT updated here — the avxto store polls it
-            // on its own interval; doing it here too doubled the eth_calls.
-            await wallet.getEthBalance()
+            // Refresh every C-chain balance source, not just native AVAX —
+            // this is what makes an incoming ("receive") transfer show up on
+            // the portfolio without the user doing anything. It's gated the
+            // same way the native-only refresh always was: only on a tick
+            // where checkCChainUpdates() saw the block number actually move,
+            // i.e. at most once per the 10s cChain interval, not once per
+            // eth_call. This does mean AVXTO (a "Default Assets" token) now
+            // gets polled here too, on top of its own dedicated store poller
+            // — a small amount of overlap, not worth special-casing out.
+            await Promise.all([
+                wallet.getEthBalance(),
+                useAssetsStore(pinia).updateERC20Balances(),
+                useCChainSdkAssetsStore(pinia).refresh(),
+            ])
         } catch (error) {
             console.warn('C-Chain balance update error:', error)
         }
