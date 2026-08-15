@@ -7,7 +7,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { Avalanche } from '@avalanche-sdk/chainkit'
-import { findRegistryToken } from '@/token-registry'
+import { findRegistryToken, isSpoofedToken } from '@/token-registry'
 
 export type CChainSdkAsset = {
     type: 'erc20' | 'erc721' | 'erc1155'
@@ -62,19 +62,21 @@ export const useCChainSdkAssetsStore = defineStore('cChainSdkAssets', () => {
             const sdk = new Avalanche({ chainId: String(chainId), enableTelemetry: false })
             const result: CChainSdkAsset[] = []
 
-            // ERC-20 — gated by the token registry (see token-registry/index.ts):
-            // this SDK auto-discovers every contract the address has ever
-            // interacted with, which is exactly the kind of unvetted input the
-            // registry exists to filter. An unregistered token is dropped
-            // rather than shown as "unknown" — the whole point is that it
-            // never reaches the UI. For one that IS registered, the registry's
-            // name/symbol are used instead of whatever the SDK reported, same
-            // as the "Default Assets" path in stores/assets.ts.
+            // ERC-20 — checked against the token registry (see
+            // token-registry/index.ts): this SDK auto-discovers every
+            // contract the address has ever interacted with, so a discovered
+            // token claiming a symbol the registry knows (AVXTO, AVAX, …) at
+            // an address that isn't the real one is dropped as a spoof.
+            // Anything else discovered is shown as before — the registry
+            // doesn't restrict discovery, only catches impostors of known
+            // symbols. For a token that IS a registry-known address, its
+            // name/symbol are used instead of whatever the SDK reported,
+            // same as the "Default Assets" path in stores/assets.ts.
             const erc20Pages = await sdk.data.evm.address.balances.listErc20({ address })
             for await (const page of erc20Pages) {
                 for (const token of page.result.erc20TokenBalances) {
+                    if (isSpoofedToken(token.symbol, token.address, chainId)) continue
                     const registryEntry = findRegistryToken(token.address, chainId)
-                    if (!registryEntry) continue
 
                     const decimals = token.decimals ?? 18
                     const raw = BigInt(token.balance)
@@ -86,8 +88,8 @@ export const useCChainSdkAssetsStore = defineStore('cChainSdkAssets', () => {
                     result.push({
                         type: 'erc20',
                         address: token.address,
-                        name: registryEntry.name,
-                        symbol: registryEntry.symbol,
+                        name: registryEntry?.name ?? token.name,
+                        symbol: registryEntry?.symbol ?? token.symbol,
                         logoUri: token.logoUri,
                         balance: humanBal,
                         decimals,

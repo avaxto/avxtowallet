@@ -39,7 +39,7 @@ import Common from '@ethereumjs/common'
 import { AvaWalletCore } from '@/js/wallets/types'
 import ERC20Abi from '@openzeppelin/contracts/build/contracts/ERC20.json'
 import { broadcastEvm } from '@/helpers/broadcastEvm'
-import { findRegistryToken } from '@/token-registry'
+import { isSpoofedToken } from '@/token-registry'
 
 const LIFI_BASE = 'https://li.quest'
 export const AVALANCHE_CHAIN_ID = 43114
@@ -243,13 +243,15 @@ export async function resolveBySymbol(symbol: string): Promise<SwapToken | null>
  * Resolve a target token from free-text input that may be EITHER a contract
  * address (0x…) or a token symbol (e.g. "USDC"). Throws if it can't be found.
  *
- * Gated by the token registry (see token-registry/index.ts) regardless of
- * which path resolves it: an address the user typed or pasted, and a symbol
- * matched against LI.FI's own token list, are both untrusted input the same
- * way a live contract call is — nothing stops a scam token from deploying
- * with symbol "USDC", and this is the free-text swap/distribute target field,
- * so there's no prior list this input was picked from to have already
- * filtered it.
+ * Checked against the token registry (see token-registry/index.ts)
+ * regardless of which path resolves it: an address the user typed or
+ * pasted, and a symbol matched against LI.FI's own token list, are both
+ * untrusted the same way a live contract call is — nothing stops a scam
+ * token from deploying with symbol "USDC" (or "AVXTO", or "AVAX"). This is
+ * the free-text swap/distribute target field, so there's no prior filtered
+ * list this input was picked from. The registry only rejects an impostor of
+ * a symbol it knows, though — a token it has no opinion on resolves same as
+ * it always did.
  */
 export async function resolveTargetToken(input: string): Promise<SwapToken> {
     const q = (input || '').trim()
@@ -261,9 +263,13 @@ export async function resolveTargetToken(input: string): Promise<SwapToken> {
 
     if (!resolved) throw new Error(`No token found for "${input}"`)
 
-    if (!isNativeToken(resolved.address) && !findRegistryToken(resolved.address, AVALANCHE_CHAIN_ID)) {
+    if (
+        !isNativeToken(resolved.address) &&
+        isSpoofedToken(resolved.symbol, resolved.address, AVALANCHE_CHAIN_ID)
+    ) {
         throw new Error(
-            `${resolved.symbol} is not in the AVXTO token registry and can't be selected.`
+            `${resolved.symbol} at this address doesn't match the AVXTO token registry's known ` +
+                `contract for ${resolved.symbol} — this looks like an impostor token.`
         )
     }
 

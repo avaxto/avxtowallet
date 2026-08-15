@@ -5,70 +5,44 @@
 
 */
 /**
- * Token registry — the wallet's own allowlist of tokens it will ever display.
+ * Token registry — the wallet's pinned addresses for a handful of known
+ * token symbols, used to catch impostors WITHOUT restricting what the wallet
+ * can otherwise show.
  *
- * This exists because every other source of "what token is this" in the app
- * is untrusted input: a remote token-list URL the user can add, live
- * `symbol()`/`name()` calls against an arbitrary contract (which return
- * whatever that contract's author wrote — nothing stops a malicious ERC20
- * from claiming its symbol is "AVAX"), and the Glacier/chainkit SDK's
- * auto-discovery of anything the connected address has ever touched. None of
- * that is a source of truth about what a token actually is.
+ * Tokens still come from wherever they always did — the remote default
+ * token list, a custom token-list URL, the Glacier/chainkit SDK's
+ * auto-discovery, a manually-added contract, a Swap/Iceberg free-text
+ * target. The registry does not gate any of that; a token with no entry
+ * here is simply not something the registry has an opinion on, and is shown
+ * exactly as before.
  *
- * The registry is queried FIRST, everywhere a token would be displayed:
- *  - a contract address that has no matching entry (for the network in
- *    question) is not shown, full stop — not in the portfolio, not in the
- *    send/swap pickers, not addable via "Manually Add Token" or a custom
- *    token-list URL.
- *  - for an address that DOES match, the registry's own name/symbol/
- *    description win over whatever the token list or the live contract call
- *    reported — so a compromised or misconfigured contract can't relabel
- *    itself as something it isn't after being registered.
- *  - "AVAX" is reserved for the platform's actual native asset. Nothing else
- *    is allowed to use that symbol anywhere in the UI, registered or not —
- *    see `isReservedNativeSymbol`.
+ * What it DOES do: for the symbols it knows about, it records the one
+ * correct contract address. If something claiming that same symbol turns up
+ * at a DIFFERENT address — a live `symbol()` call is just whatever that
+ * contract's author wrote, so nothing stops a malicious ERC20 from claiming
+ * "AVXTO" or "AVAX" — that candidate is rejected as a spoof rather than
+ * shown next to (or instead of) the real one. See `isSpoofedToken`.
  *
- * See ./registry.json for the data and ./types.ts for the entry shape. AVXTO
- * (this app's own token) is merged in from `@/avxto/AVXTOConf` rather than
- * duplicated in the JSON, so its contract addresses can never drift out of
- * sync with the ones the rest of the app actually queries balances against.
+ * "AVAX" specifically can never be satisfied by any contract at all — the
+ * native asset's registry entry has `contractAddress: null` — so any
+ * contract-based token claiming that symbol is always treated as a spoof.
+ * X-chain assets ("ANTs") have no contract address to check in the first
+ * place; those are guarded separately by `isReservedNativeSymbol`, a plain
+ * symbol-text check.
+ *
+ * See ./registry.json for the data and ./types.ts for the entry shape,
+ * including AVXTO (this app's own token, mainnet and Fuji testnet) — it
+ * lives directly in the JSON alongside everything else rather than being
+ * injected separately, so there is exactly one place entries come from.
+ * Keep its contractAddress entries there in sync with `@/avxto/AVXTOConf` by
+ * hand if that ever changes; nothing enforces it automatically.
  */
 import type { RegistryToken } from './types'
 import staticRegistry from './registry.json'
-import {
-    AVXTO_CONTRACT_ADDRESS,
-    AVXTO_NAME,
-    AVXTO_SYMBOL,
-    TESTNET_AVXTO_CONTRACT_ADDRESS,
-    TESTNET_AVXTO_NAME,
-    TESTNET_AVXTO_SYMBOL,
-} from '@/avxto/AVXTOConf'
 
 export type { RegistryToken }
 
-const AVALANCHE_MAINNET_CHAIN_ID = 43114
-const AVALANCHE_FUJI_CHAIN_ID = 43113
-
-const avxtoEntries: RegistryToken[] = [
-    {
-        contractAddress: AVXTO_CONTRACT_ADDRESS,
-        chainId: AVALANCHE_MAINNET_CHAIN_ID,
-        name: AVXTO_NAME,
-        symbol: AVXTO_SYMBOL,
-        description: "AVXTO Wallet's own utility token on the Avalanche C-Chain.",
-        websiteUrl: `https://dexscreener.com/avalanche/${AVXTO_CONTRACT_ADDRESS}`,
-    },
-    {
-        contractAddress: TESTNET_AVXTO_CONTRACT_ADDRESS,
-        chainId: AVALANCHE_FUJI_CHAIN_ID,
-        name: TESTNET_AVXTO_NAME,
-        symbol: TESTNET_AVXTO_SYMBOL,
-        description: "AVXTO Wallet's Fuji testnet counterpart to AVXTO, for development and testing.",
-        websiteUrl: `https://dexscreener.com/avalanche-fuji/${TESTNET_AVXTO_CONTRACT_ADDRESS}`,
-    },
-]
-
-const REGISTRY: RegistryToken[] = [...(staticRegistry as RegistryToken[]), ...avxtoEntries]
+const REGISTRY: RegistryToken[] = staticRegistry as RegistryToken[]
 
 /** Every entry in the registry, native asset included. */
 export function getRegistry(): RegistryToken[] {
@@ -108,9 +82,33 @@ export function findRegistryToken(
     })
 }
 
-/** Whether a contract address is registered for the given chain. */
-export function isRegisteredContract(contractAddress: string, chainId?: number): boolean {
-    return findRegistryToken(contractAddress, chainId) !== undefined
+/**
+ * True when `symbol` matches a registry entry but `contractAddress` does not
+ * match ANY registered contract for that symbol (on `chainId`, when given) —
+ * i.e. this looks like a known token but isn't deployed where the real one
+ * is. False whenever `symbol` isn't one the registry has an entry for at
+ * all: an unrecognized token is not this function's concern, only a
+ * misrepresented one is.
+ *
+ * This is the actual gate everywhere it's called — it deliberately does NOT
+ * mean "not in the registry" (that would block every token the registry
+ * happens not to list yet, which is not the intent; see the module doc
+ * comment above).
+ */
+export function isSpoofedToken(symbol: string, contractAddress: string, chainId?: number): boolean {
+    if (!contractAddress) return false
+    const target = normalizeAddress(contractAddress)
+    const sameSymbol = REGISTRY.filter(
+        (t) => t.symbol.trim().toUpperCase() === symbol.trim().toUpperCase()
+    )
+    if (sameSymbol.length === 0) return false
+
+    const matchesAKnownAddress = sameSymbol.some((t) => {
+        if (!t.contractAddress) return false // the native entry — never satisfied by a contract
+        if (chainId !== undefined && t.chainId !== undefined && t.chainId !== chainId) return false
+        return normalizeAddress(t.contractAddress) === target
+    })
+    return !matchesAKnownAddress
 }
 
 /**

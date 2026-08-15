@@ -33,7 +33,7 @@ import { AVXTO_CONTRACT_ADDRESS, AVXTO_ICON, AVXTO_NAME, AVXTO_SYMBOL,
         AVXTO_THR,
         TESTNET_AVXTO_CONTRACT_ADDRESS, TESTNET_AVXTO_ICON, TESTNET_AVXTO_NAME, TESTNET_AVXTO_SYMBOL,
         TESTNET_AVXTO_THR} from '@/avxto/AVXTOConf'
-import { findRegistryToken, isReservedNativeSymbol } from '@/token-registry'
+import { findRegistryToken, isReservedNativeSymbol, isSpoofedToken } from '@/token-registry'
 
 
 // Types (inline definitions to avoid circular imports)
@@ -296,18 +296,24 @@ export const useAssetsStore = defineStore('assets', () => {
             }
         }
 
-        // Registry gate — see token-registry/index.ts. This is the bulk
-        // ingestion path (the built-in default list, and any remote
-        // token-list URL the user adds), so an unregistered entry is just
-        // dropped rather than surfaced as an error: there was no explicit
-        // per-token action to report failure against.
-        const registryEntry = findRegistryToken(token.address, token.chainId)
-        if (!registryEntry) return
+        // Registry gate — see token-registry/index.ts. Tokens are still
+        // fetched remotely same as always; this only rejects a symbol the
+        // registry knows about turning up at the WRONG address (a spoof of
+        // AVXTO, AVAX, etc.) — an unrecognized symbol is unaffected. This is
+        // the bulk ingestion path (the built-in default list, and any remote
+        // token-list URL the user adds), so a spoofed entry is just dropped
+        // rather than surfaced as an error: there was no explicit per-token
+        // action to report failure against.
+        if (isSpoofedToken(token.symbol, token.address, token.chainId)) return
 
-        // Registry values are authoritative for display — see the module
-        // doc comment on why the list/contract-reported name and symbol
-        // are not trusted here.
-        const t = new Erc20Token({ ...token, name: registryEntry.name, symbol: registryEntry.symbol })
+        // For a symbol the registry DOES recognize (and this address
+        // matches), its name/symbol win over whatever the list reported —
+        // see the module doc comment. An unrecognized symbol keeps the
+        // list's own values, unchanged from before the registry existed.
+        const registryEntry = findRegistryToken(token.address, token.chainId)
+        const t = new Erc20Token(
+            registryEntry ? { ...token, name: registryEntry.name, symbol: registryEntry.symbol } : token
+        )
         erc20Tokens.value.push(t)
     }
 
@@ -325,17 +331,21 @@ export const useAssetsStore = defineStore('assets', () => {
         }
 
         // Registry gate — this is an explicit "Manually Add Token" action, so
-        // (unlike addErc20Token above) a miss throws instead of failing
+        // (unlike addErc20Token above) a spoof throws instead of failing
         // silently: the caller (AddERC20TokenModal.vue) surfaces this to the
-        // user via its existing try/catch.
-        const registryEntry = findRegistryToken(token.address, token.chainId)
-        if (!registryEntry) {
+        // user via its existing try/catch. A symbol the registry has never
+        // heard of is not rejected — see token-registry/index.ts.
+        if (isSpoofedToken(token.symbol, token.address, token.chainId)) {
             throw new Error(
-                `${token.symbol || token.address} is not in the AVXTO token registry and can't be added.`
+                `${token.symbol} at this address doesn't match the AVXTO token registry's known ` +
+                    `contract for ${token.symbol} — this looks like an impostor token.`
             )
         }
 
-        const t = new Erc20Token({ ...token, name: registryEntry.name, symbol: registryEntry.symbol })
+        const registryEntry = findRegistryToken(token.address, token.chainId)
+        const t = new Erc20Token(
+            registryEntry ? { ...token, name: registryEntry.name, symbol: registryEntry.symbol } : token
+        )
         // Save token state to storage
         erc20TokensCustom.value.push(t)
 

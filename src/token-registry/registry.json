@@ -7,6 +7,22 @@
         "websiteUrl": "https://www.avax.network"
     },
     {
+        "contractAddress": "0xf56CeCc07d97Ac50630022CF84C19e612ae8C93D",
+        "chainId": 43114,
+        "name": "AVAX Toolbox Token",
+        "description": "Value token for AVXTO Wallet and the AVAX Toolbox, a suite of tools for Avalanche users and developers.",
+        "symbol": "AVXTO",
+        "websiteUrl": "https://avax.to"
+    },
+    {
+        "contractAddress": "0xCf568B85904790A03FB2d17DD5042e99AB8F80F8",
+        "chainId": 43113,
+        "name": "SomeToken",
+        "description": "Fuji testnet counterpart to AVXTO, for development and testing.",
+        "symbol": "SMTK",
+        "websiteUrl": "https://avax.to"
+    },
+    {
         "contractAddress": "0x60781C2586D68229fde47564546784ab3fACA982",
         "chainId": 43114,
         "name": "Pangolin",

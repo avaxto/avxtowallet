@@ -66,7 +66,7 @@ import { web3 } from '@/evm'
 import ERC20Abi from '@openzeppelin/contracts/build/contracts/ERC20.json'
 import Erc20Token from '@/js/Erc20Token'
 import { TokenListToken } from '@/types'
-import { findRegistryToken } from '@/token-registry'
+import { findRegistryToken, isSpoofedToken } from '@/token-registry'
 
 export default defineComponent({
     name: 'AddERC20TokenModal',
@@ -89,32 +89,37 @@ export default defineComponent({
                 err.value = ''
                 return false
             }
-
-            // Registry gate checked before the on-chain call, not after: a
-            // non-registry address is rejected outright regardless of what
-            // the contract itself claims to be, so there's no reason to pay
-            // for the RPC round-trip first. See token-registry/index.ts.
-            const registryEntry = findRegistryToken(val, assetsStore.evmChainId)
-            if (!registryEntry) {
-                canAdd.value = false
-                symbol.value = '-'
-                denomination.value = 0
-                name.value = '-'
-                err.value = 'This token is not in the AVXTO token registry and cannot be added.'
-                return false
-            }
-
             try {
                 //@ts-ignore
                 const tokenInst = new web3.eth.Contract(ERC20Abi.abi, val)
+                const tokenName = await tokenInst.methods.name().call()
+                const tokenSymbol = await tokenInst.methods.symbol().call()
                 const decimals = await tokenInst.methods.decimals().call()
 
-                // Registry values are authoritative for display, not
-                // whatever name()/symbol() the contract itself reports — see
-                // token-registry/index.ts.
-                symbol.value = registryEntry.symbol
+                // Registry check (see token-registry/index.ts): a symbol the
+                // registry knows about (AVXTO, AVAX, …) turning up at a
+                // DIFFERENT address than its known one is rejected as an
+                // impostor. A symbol the registry has no entry for at all is
+                // unaffected — this only catches misrepresented known
+                // tokens, it doesn't restrict which contracts can be added.
+                if (isSpoofedToken(tokenSymbol, val, assetsStore.evmChainId)) {
+                    canAdd.value = false
+                    symbol.value = '-'
+                    denomination.value = 0
+                    name.value = '-'
+                    err.value =
+                        `This contract claims to be ${tokenSymbol}, but its address doesn't match ` +
+                        `the AVXTO token registry's known contract for ${tokenSymbol} — this looks ` +
+                        'like an impostor token.'
+                    return false
+                }
+
+                // For an address the registry DOES recognize, its name/symbol
+                // win over whatever this contract itself reports.
+                const registryEntry = findRegistryToken(val, assetsStore.evmChainId)
+                symbol.value = registryEntry?.symbol ?? tokenSymbol
                 denomination.value = Number(decimals)
-                name.value = registryEntry.name
+                name.value = registryEntry?.name ?? tokenName
 
                 canAdd.value = true
                 return true
