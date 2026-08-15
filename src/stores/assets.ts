@@ -31,8 +31,9 @@ import { checkPendingImports } from '@/utils/checkPendingImports'
 import { AbstractWallet } from '@/js/wallets/AbstractWallet'
 import { AVXTO_CONTRACT_ADDRESS, AVXTO_ICON, AVXTO_NAME, AVXTO_SYMBOL,
         AVXTO_THR,
-        TESTNET_AVXTO_CONTRACT_ADDRESS, TESTNET_AVXTO_ICON, TESTNET_AVXTO_NAME, TESTNET_AVXTO_SYMBOL, 
+        TESTNET_AVXTO_CONTRACT_ADDRESS, TESTNET_AVXTO_ICON, TESTNET_AVXTO_NAME, TESTNET_AVXTO_SYMBOL,
         TESTNET_AVXTO_THR} from '@/avxto/AVXTOConf'
+import { findRegistryToken, isReservedNativeSymbol } from '@/token-registry'
 
 
 // Types (inline definitions to avoid circular imports)
@@ -290,12 +291,23 @@ export const useAssetsStore = defineStore('assets', () => {
         // Make sure its not added before
         for (let i = 0; i < tokens.length; i++) {
             const t = tokens[i]
-            if (token.address === t.data.address && token.chainId === t.data.chainId) {                
+            if (token.address === t.data.address && token.chainId === t.data.chainId) {
                 return
             }
         }
 
-        const t = new Erc20Token(token)
+        // Registry gate — see token-registry/index.ts. This is the bulk
+        // ingestion path (the built-in default list, and any remote
+        // token-list URL the user adds), so an unregistered entry is just
+        // dropped rather than surfaced as an error: there was no explicit
+        // per-token action to report failure against.
+        const registryEntry = findRegistryToken(token.address, token.chainId)
+        if (!registryEntry) return
+
+        // Registry values are authoritative for display — see the module
+        // doc comment on why the list/contract-reported name and symbol
+        // are not trusted here.
+        const t = new Erc20Token({ ...token, name: registryEntry.name, symbol: registryEntry.symbol })
         erc20Tokens.value.push(t)
     }
 
@@ -312,7 +324,18 @@ export const useAssetsStore = defineStore('assets', () => {
             }
         }
 
-        const t = new Erc20Token(token)
+        // Registry gate — this is an explicit "Manually Add Token" action, so
+        // (unlike addErc20Token above) a miss throws instead of failing
+        // silently: the caller (AddERC20TokenModal.vue) surfaces this to the
+        // user via its existing try/catch.
+        const registryEntry = findRegistryToken(token.address, token.chainId)
+        if (!registryEntry) {
+            throw new Error(
+                `${token.symbol || token.address} is not in the AVXTO token registry and can't be added.`
+            )
+        }
+
+        const t = new Erc20Token({ ...token, name: registryEntry.name, symbol: registryEntry.symbol })
         // Save token state to storage
         erc20TokensCustom.value.push(t)
 
@@ -637,6 +660,17 @@ export const useAssetsStore = defineStore('assets', () => {
         const res: IWalletAssetsDict = {}
 
         for (const assetId in assetsDictValue) {
+            // An X-chain asset ("ANT") is whatever its creator named it — an
+            // asset id, not a contract, so it has no registry entry to check
+            // against, but nothing stops one from being named/symboled "AVAX"
+            // to look like the real native asset in a balance list. Reject
+            // that here regardless of registry membership; see
+            // isReservedNativeSymbol's doc comment.
+            const candidate = assetsDictValue[assetId]
+            if (assetId !== AVA_ASSET_ID.value && isReservedNativeSymbol(candidate.symbol)) {
+                continue
+            }
+
             const balanceAmt = balanceDictValue[assetId]
 
             let asset: AvaAsset

@@ -1,0 +1,137 @@
+[
+    {
+        "contractAddress": null,
+        "name": "Avalanche",
+        "description": "AVAX is the native token of the Avalanche network — used to pay gas fees on all three chains and to secure the network via staking. It is not a contract, so it has no contract address.",
+        "symbol": "AVAX",
+        "websiteUrl": "https://www.avax.network"
+    },
+    {
+        "contractAddress": "0x60781C2586D68229fde47564546784ab3fACA982",
+        "chainId": 43114,
+        "name": "Pangolin",
+        "description": "Governance and fee-sharing token of Pangolin, a community-driven decentralized exchange on Avalanche.",
+        "symbol": "PNG",
+        "websiteUrl": "https://pangolin.exchange"
+    },
+    {
+        "contractAddress": "0xB31f66AA3C1e785363F0875A1B74E27b85FD66c7",
+        "chainId": 43114,
+        "name": "Wrapped AVAX",
+        "description": "ERC20-wrapped AVAX, used where a contract requires a token interface rather than the native gas asset (e.g. DEX liquidity pools).",
+        "symbol": "WAVAX",
+        "websiteUrl": "https://www.avax.network"
+    },
+    {
+        "contractAddress": "0xf20d962a6c8f70c731bd838a3a388D7d48fA6e15",
+        "chainId": 43114,
+        "name": "Ether",
+        "description": "Bridged representation of Ethereum's native ETH on the Avalanche C-Chain.",
+        "symbol": "ETH",
+        "websiteUrl": "https://ethereum.org"
+    },
+    {
+        "contractAddress": "0xde3A24028580884448a5397872046a019649b084",
+        "chainId": 43114,
+        "name": "Tether USD",
+        "description": "Bridged representation of Tether's USDT stablecoin on the Avalanche C-Chain.",
+        "symbol": "USDT",
+        "websiteUrl": "https://tether.to"
+    },
+    {
+        "contractAddress": "0xB3fe5374F67D7a22886A0eE082b2E2f9d2651651",
+        "chainId": 43114,
+        "name": "ChainLink Token",
+        "description": "Bridged representation of Chainlink's LINK token, used to pay for oracle services on the Avalanche C-Chain.",
+        "symbol": "LINK",
+        "websiteUrl": "https://chain.link"
+    },
+    {
+        "contractAddress": "0x8cE2Dee54bB9921a2AE0A63dBb2DF8eD88B91dD9",
+        "chainId": 43114,
+        "name": "Aave Token",
+        "description": "Bridged representation of Aave's governance token on the Avalanche C-Chain.",
+        "symbol": "AAVE",
+        "websiteUrl": "https://aave.com"
+    },
+    {
+        "contractAddress": "0xf39f9671906d8630812f9d9863bBEf5D523c84Ab",
+        "chainId": 43114,
+        "name": "Uniswap",
+        "description": "Bridged representation of Uniswap's governance token on the Avalanche C-Chain.",
+        "symbol": "UNI",
+        "websiteUrl": "https://uniswap.org"
+    },
+    {
+        "contractAddress": "0x408D4cD0ADb7ceBd1F1A1C33A0Ba2098E1295bAB",
+        "chainId": 43114,
+        "name": "Wrapped BTC",
+        "description": "Bridged representation of Wrapped Bitcoin on the Avalanche C-Chain.",
+        "symbol": "WBTC",
+        "websiteUrl": "https://wbtc.network"
+    },
+    {
+        "contractAddress": "0x8DF92E9C0508aB0030d432DA9F2C65EB1Ee97620",
+        "chainId": 43114,
+        "name": "Maker",
+        "description": "Bridged representation of MakerDAO's governance token on the Avalanche C-Chain.",
+        "symbol": "MKR",
+        "websiteUrl": "https://makerdao.com"
+    },
+    {
+        "contractAddress": "0x68e44C4619db40ae1a0725e77C02587bC8fBD1c9",
+        "chainId": 43114,
+        "name": "Synthetix Network Token",
+        "description": "Bridged representation of Synthetix's governance and collateral token on the Avalanche C-Chain.",
+        "symbol": "SNX",
+        "websiteUrl": "https://synthetix.io"
+    },
+    {
+        "contractAddress": "0x53CEedB4f6f277edfDDEdB91373B044FE6AB5958",
+        "chainId": 43114,
+        "name": "Compound",
+        "description": "Bridged representation of Compound's governance token on the Avalanche C-Chain.",
+        "symbol": "COMP",
+        "websiteUrl": "https://compound.finance"
+    },
+    {
+        "contractAddress": "0x421b2a69b886BA17a61C7dAd140B9070d5Ef300B",
+        "chainId": 43114,
+        "name": "HuobiToken",
+        "description": "Bridged representation of Huobi's exchange token on the Avalanche C-Chain.",
+        "symbol": "HT",
+        "websiteUrl": "https://www.htx.com"
+    },
+    {
+        "contractAddress": "0x39cf1BD5f15fb22eC3D9Ff86b0727aFc203427cc",
+        "chainId": 43114,
+        "name": "SushiToken",
+        "description": "Bridged representation of SushiSwap's governance token on the Avalanche C-Chain.",
+        "symbol": "SUSHI",
+        "websiteUrl": "https://www.sushi.com"
+    },
+    {
+        "contractAddress": "0xC84d7bfF2555955b44BDF6A307180810412D751B",
+        "chainId": 43114,
+        "name": "UMA Voting Token v1",
+        "description": "Bridged representation of UMA's governance and voting token on the Avalanche C-Chain.",
+        "symbol": "UMA",
+        "websiteUrl": "https://uma.xyz"
+    },
+    {
+        "contractAddress": "0xaEb044650278731Ef3DC244692AB9F64C78FfaEA",
+        "chainId": 43114,
+        "name": "Binance USD",
+        "description": "Bridged representation of Paxos's (formerly Binance-branded) USD-pegged stablecoin on the Avalanche C-Chain.",
+        "symbol": "BUSD",
+        "websiteUrl": "https://www.paxos.com"
+    },
+    {
+        "contractAddress": "0xbA7dEebBFC5fA1100Fb055a87773e1E99Cd3507a",
+        "chainId": 43114,
+        "name": "Dai Stablecoin",
+        "description": "Bridged representation of MakerDAO's decentralized USD-pegged stablecoin on the Avalanche C-Chain.",
+        "symbol": "DAI",
+        "websiteUrl": "https://makerdao.com"
+    }
+]
