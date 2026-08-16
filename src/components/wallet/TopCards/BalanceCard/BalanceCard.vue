@@ -23,7 +23,13 @@
                         {{ $t('top.balance.hide') }}
                     </button>
                 </template>
-                <button @click="showUTXOsModal" class="breakdown_toggle" v-if="!isSingleton">Show UTXOs</button>
+                <button
+                    @click="showUTXOsModal"
+                    class="breakdown_toggle"
+                    v-if="!isSingleton && (hasXChain || hasPChain)"
+                >
+                    Show UTXOs
+                </button>
             </div>
             <div class="balance_row">
                 <p class="balance" data-cy="wallet_balance" v-if="!balanceTextRight">
@@ -62,18 +68,18 @@
                             <label>Multisig</label>
                             <p>{{ balanceTextMultisig }} AVAX</p>
                         </div>
-                        <div v-if="!isSingleton">
+                        <div v-if="!isSingleton && canStake">
                             <label>{{ $t('top.balance.stake') }}</label>
                             <p>{{ stakingText }} AVAX</p>
                         </div>
                     </div>
                     <div class="alt_breakdown" v-else>
                         <div>
-                            <div class="balance-item" v-if="!isSingleton">
+                            <div class="balance-item" v-if="!isSingleton && hasXChain">
                                 <label>{{ $t('top.balance.available') }} (X)</label>
                                 <p>{{ cleanAvaxBN(avmUnlocked) }} AVAX</p>
                             </div>
-                            <div class="balance-item" v-if="!isSingleton">
+                            <div class="balance-item" v-if="!isSingleton && hasPChain">
                                 <label>{{ $t('top.balance.available') }} (P)</label>
                                 <p>{{ cleanAvaxBN(platformUnlocked) }} AVAX</p>
                             </div>
@@ -83,30 +89,30 @@
                             </div>
                         </div>
                         <div v-if="hasLocked">
-                            <div class="balance-item">
+                            <div class="balance-item" v-if="hasXChain">
                                 <label>{{ $t('top.balance.locked') }} (X)</label>
                                 <p>{{ cleanAvaxBN(avmLocked) }} AVAX</p>
                             </div>
-                            <div class="balance-item">
+                            <div class="balance-item" v-if="hasPChain">
                                 <label>{{ $t('top.balance.locked') }} (P)</label>
                                 <p>{{ cleanAvaxBN(platformLocked) }} AVAX</p>
                             </div>
-                            <div class="balance-item">
+                            <div class="balance-item" v-if="hasPChain">
                                 <label>{{ $t('top.balance.locked_stake') }} (P)</label>
                                 <p>{{ cleanAvaxBN(platformLockedStakeable) }} AVAX</p>
                             </div>
                         </div>
                         <div v-if="hasMultisig">
-                            <div class="balance-item">
+                            <div class="balance-item" v-if="hasXChain">
                                 <label>Multisig (X)</label>
                                 <p>{{ cleanAvaxBN(avmMultisig) }} AVAX</p>
                             </div>
-                            <div class="balance-item">
+                            <div class="balance-item" v-if="hasPChain">
                                 <label>Multisig (P)</label>
                                 <p>{{ cleanAvaxBN(platformMultisig) }} AVAX</p>
                             </div>
                         </div>
-                        <div v-if="!isSingleton">
+                        <div v-if="!isSingleton && canStake">
                             <div class="balance-item">
                                 <label>{{ $t('top.balance.stake') }}</label>
                                 <p>{{ stakingText }} AVAX</p>
@@ -121,6 +127,7 @@
 <script lang="ts">
 import { defineComponent, ref, computed } from 'vue'
 import { useAssetsStore, useHistoryStore, useMainStore } from '@/stores'
+import { useActivePlatformStore } from '@/platforms'
 import AvaAsset from '@/js/AvaAsset'
 import MnemonicWallet from '@/js/wallets/MnemonicWallet'
 import Spinner from '@/components/misc/Spinner.vue'
@@ -148,6 +155,15 @@ export default defineComponent({
         const mainStore = useMainStore()
         const assetsStore = useAssetsStore()
         const historyStore = useHistoryStore()
+        const platformStore = useActivePlatformStore()
+
+        // X and P balances/UTXOs/staking are Avalanche-only concepts — on a
+        // platform with no `utxo`/`staking` chain (Robinhood, ...) there is
+        // nothing behind these figures, so the breakdown must not offer them
+        // rather than show real-looking rows that are always zero.
+        const hasXChain = computed((): boolean => platformStore.hasChainKind('utxo'))
+        const hasPChain = computed((): boolean => platformStore.hasChainKind('staking'))
+        const canStake = computed((): boolean => platformStore.can('stake'))
 
         const isBreakdown = ref(true)
         const utxos_modal = ref<InstanceType<typeof UtxosBreakdownModal>>()
@@ -407,6 +423,7 @@ export default defineComponent({
 
         const hasLocked = computed((): boolean => {
             if (isSingleton.value) return false
+            if (!hasXChain.value && !hasPChain.value) return false
             return (
                 !avmLocked.value.isZero() ||
                 !platformLocked.value.isZero() ||
@@ -416,12 +433,16 @@ export default defineComponent({
 
         const hasMultisig = computed((): boolean => {
             if (isSingleton.value) return false
+            if (!hasXChain.value && !hasPChain.value) return false
             return !avmMultisig.value.isZero() || !platformMultisig.value.isZero()
         })
 
         return {
             isBreakdown,
             utxos_modal,
+            hasXChain,
+            hasPChain,
+            canStake,
             cleanAvaxBN,
             updateBalance,
             showUTXOsModal,
