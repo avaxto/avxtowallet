@@ -203,6 +203,7 @@ button {
 }
 
 #nav {
+    padding-left: 28px;
     border-bottom: 1px solid #636363;
     .logo {
         display: flex;
