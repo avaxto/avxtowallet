@@ -8,6 +8,7 @@
         </div>
         <p :sent="isSent" class="token">
             <span v-if="isSent">-</span>
+            <span v-else>+</span>
             {{ amountString }} {{ symbol }}
         </p>
     </div>

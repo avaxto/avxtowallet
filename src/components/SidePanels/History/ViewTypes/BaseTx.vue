@@ -49,7 +49,7 @@
                     :utxo="utxo"
                     :ins="inputUTXOs"
                     :outs="outputUTXOs"
-                    :is-sent="true"
+                    :is-sent="false"
                 ></BaseTxUtxo>
                 <!--                <BaseTxOutput-->
                 <!--                    v-for="(asset, assetId) in tokensReceived"-->
