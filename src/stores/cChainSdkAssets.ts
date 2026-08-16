@@ -7,6 +7,9 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { Avalanche } from '@avalanche-sdk/chainkit'
+import { getErc20History, getActiveNetworkConfig } from '@/avalanche-wallet-sdk'
+import { web3 } from '@/evm'
+import ERC20Abi from '@openzeppelin/contracts/build/contracts/ERC20.json'
 import { findRegistryToken, isSpoofedToken } from '@/token-registry'
 
 export type CChainSdkAsset = {
@@ -35,6 +38,86 @@ export type CChainSdkAsset = {
  * regardless of which one triggered it or whether the others are currently
  * mounted.
  */
+
+/**
+ * Discovers ERC-20 tokens via the C-chain block explorer (Snowtrace) rather
+ * than the chainkit SDK: Etherscan-family explorers have no "list current
+ * token balances" endpoint, only a transfer-history one, so this walks that
+ * history to find every contract address the wallet has ever received a
+ * transfer from, and reads the CURRENT balance directly off each contract
+ * (never trusting a balance figure the explorer itself reports).
+ *
+ * Registry-gated the same way as the chainkit path in `fetch()` below: a
+ * candidate claiming a symbol the registry knows about at the wrong address
+ * is dropped as a spoof, and one matching a known address gets the
+ * registry's canonical name/symbol. `alreadyFound` skips addresses the
+ * chainkit SDK already discovered, so a token both sources see isn't listed
+ * twice.
+ */
+async function fetchErc20FromExplorer(
+    address: string,
+    chainId: number,
+    alreadyFound: Set<string>
+): Promise<CChainSdkAsset[]> {
+    const out: CChainSdkAsset[] = []
+    try {
+        const history = await getErc20History(address, getActiveNetworkConfig())
+
+        // One entry per contract — this is transfer history, so the same
+        // token can appear many times; only its reported symbol/name/
+        // decimals are needed, and the first occurrence is as good as any.
+        const candidates = new Map<string, { symbol: string; name: string; decimals: number }>()
+        for (const tx of history) {
+            const addr = tx.contractAddress.toLowerCase()
+            if (!candidates.has(addr)) {
+                candidates.set(addr, {
+                    symbol: tx.tokenSymbol,
+                    name: tx.tokenName,
+                    decimals: parseInt(tx.tokenDecimal, 10) || 18,
+                })
+            }
+        }
+
+        for (const [addr, meta] of candidates) {
+            if (alreadyFound.has(addr)) continue
+            if (isSpoofedToken(meta.symbol, addr, chainId)) continue
+
+            try {
+                //@ts-ignore
+                const contract = new web3.eth.Contract(ERC20Abi.abi, addr)
+                const rawBalance: string = await contract.methods.balanceOf(address).call()
+                if (!rawBalance || rawBalance === '0') continue
+
+                const raw = BigInt(rawBalance)
+                const divisor = BigInt(10 ** meta.decimals)
+                const whole = raw / divisor
+                const frac = raw % divisor
+                const fracStr = frac.toString().padStart(meta.decimals, '0').replace(/0+$/, '')
+                const humanBal = fracStr ? `${whole}.${fracStr}` : `${whole}`
+
+                const registryEntry = findRegistryToken(addr, chainId)
+                out.push({
+                    type: 'erc20',
+                    address: addr,
+                    name: registryEntry?.name ?? meta.name,
+                    symbol: registryEntry?.symbol ?? meta.symbol,
+                    balance: humanBal,
+                    decimals: meta.decimals,
+                })
+            } catch (e) {
+                // One bad contract (e.g. a non-standard balanceOf) shouldn't
+                // drop every other explorer-discovered token.
+                console.warn(`[cChainSdkAssets] explorer balanceOf failed for ${addr}:`, e)
+            }
+        }
+    } catch (e) {
+        // Explorer discovery is a supplement, not the only source (chainkit
+        // above already ran) — its failure shouldn't fail the whole fetch.
+        console.warn('[cChainSdkAssets] explorer-based token discovery failed:', e)
+    }
+    return out
+}
+
 export const useCChainSdkAssetsStore = defineStore('cChainSdkAssets', () => {
     const assets = ref<CChainSdkAsset[]>([])
     const loading = ref(false)
@@ -96,6 +179,19 @@ export const useCChainSdkAssetsStore = defineStore('cChainSdkAssets', () => {
                     })
                 }
             }
+
+            // A second, independent ERC-20 discovery source: the C-chain
+            // block explorer (Snowtrace). The chainkit SDK above is Ava
+            // Labs' own indexer; this instead derives "what tokens does this
+            // address hold" from the explorer's public transfer-history API,
+            // then confirms each candidate's CURRENT balance directly from
+            // the contract rather than trusting the explorer's own balance
+            // figures. Same registry/spoof check as above, and duplicates
+            // against what chainkit already found are skipped.
+            const alreadyFound = new Set(
+                result.filter((a) => a.type === 'erc20').map((a) => a.address.toLowerCase())
+            )
+            result.push(...(await fetchErc20FromExplorer(address, chainId, alreadyFound)))
 
             // ERC-721
             const erc721Pages = await sdk.data.evm.address.balances.listErc721({ address })

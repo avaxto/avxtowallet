@@ -209,9 +209,32 @@ export const useAssetsStore = defineStore('assets', () => {
     const loadCustomErc20Tokens = () => {
         const tokensRaw = localStorage.getItem('erc20_tokens') || '[]'
         const tokens: TokenListToken[] = JSON.parse(tokensRaw)
+        let droppedAny = false
+
         for (let i = 0; i < tokens.length; i++) {
-            erc20TokensCustom.value.push(new Erc20Token(tokens[i]))
+            const token = tokens[i]
+
+            // Same registry check as addCustomErc20Token — this restores
+            // directly from localStorage on every startup, bypassing that
+            // gate entirely, so a spoofed token added before the registry
+            // existed (or any manipulated storage entry) would otherwise
+            // keep reappearing on every reload forever. Re-saved below once
+            // filtered, so it's actually purged rather than just re-hidden
+            // each load.
+            if (isSpoofedToken(token.symbol, token.address, token.chainId)) {
+                droppedAny = true
+                continue
+            }
+
+            const registryEntry = findRegistryToken(token.address, token.chainId)
+            erc20TokensCustom.value.push(
+                new Erc20Token(
+                    registryEntry ? { ...token, name: registryEntry.name, symbol: registryEntry.symbol } : token
+                )
+            )
         }
+
+        if (droppedAny) saveCustomErc20Tokens()
     }
 
     const saveCustomTokenLists = () => {
