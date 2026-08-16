@@ -66,7 +66,7 @@ import { web3 } from '@/evm'
 import ERC20Abi from '@openzeppelin/contracts/build/contracts/ERC20.json'
 import Erc20Token from '@/js/Erc20Token'
 import { TokenListToken } from '@/types'
-import { findRegistryToken, isSpoofedToken } from '@/token-registry'
+import { findRegistryToken, isSpoofedToken } from '@/platforms/avalanche/tokenRegistry'
 
 export default defineComponent({
     name: 'AddERC20TokenModal',
@@ -96,7 +96,7 @@ export default defineComponent({
                 const tokenSymbol = await tokenInst.methods.symbol().call()
                 const decimals = await tokenInst.methods.decimals().call()
 
-                // Registry check (see token-registry/index.ts): a symbol the
+                // Registry check (see platforms/avalanche/tokenRegistry/index.ts): a symbol the
                 // registry knows about (AVXTO, AVAX, …) turning up at a
                 // DIFFERENT address than its known one is rejected as an
                 // impostor. A symbol the registry has no entry for at all is

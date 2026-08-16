@@ -167,6 +167,71 @@ export interface PlatformTheme {
     logo: string
 }
 
+/**
+ * One entry in a platform's token registry — its pinned address for a known
+ * token symbol. See `PlatformTokenRegistry` for what the registry is for.
+ */
+export interface PlatformTokenRegistryEntry {
+    /**
+     * The platform's native asset is not a contract — it has no address to
+     * register. `null` is reserved for that entry specifically, not a
+     * placeholder for "unknown". Every other entry must have a real one.
+     */
+    contractAddress: string | null
+    name: string
+    description: string
+    symbol: string
+    websiteUrl: string
+    /**
+     * Sub-chain id (`PlatformChain.id`) or EVM chain id the contract is
+     * deployed on, for a platform that needs to disambiguate — e.g.
+     * Avalanche's mainnet/Fuji use the same symbols at different addresses.
+     * Omitted for the native entry and for any entry valid regardless of
+     * which of the platform's networks is active.
+     */
+    chainId?: number
+}
+
+/**
+ * A platform's own allowlist of pinned token addresses — used to catch
+ * impostors of well-known symbols WITHOUT restricting what the platform can
+ * otherwise discover or display. A token the registry has no entry for is
+ * simply not something it has an opinion on; it isn't hidden or blocked, it
+ * just isn't cross-checked. Only a candidate CLAIMING a symbol the registry
+ * *does* know, at an address that isn't the one on file, gets rejected — see
+ * `isSpoofedToken`.
+ *
+ * Optional on `Platform`: a platform with no registry yet has no
+ * impostor-detection layer at all, which is exactly how every platform
+ * behaved before this concept existed. See
+ * `platforms/avalanche/tokenRegistry/` for the canonical, fully-populated
+ * implementation and its complete design rationale — this interface is
+ * deliberately just the shape other platforms implement to get the same
+ * protection with their own data.
+ */
+export interface PlatformTokenRegistry {
+    /** Every entry, native asset included. */
+    getAll(): PlatformTokenRegistryEntry[]
+    /** The entry for the platform's native asset. */
+    getNativeEntry(): PlatformTokenRegistryEntry
+    /** The registry entry for a contract address, or undefined if unregistered. */
+    findToken(contractAddress: string, chainId?: number): PlatformTokenRegistryEntry | undefined
+    /**
+     * True when `symbol` matches a registry entry but `contractAddress`
+     * doesn't match any registered contract for that symbol — i.e. this
+     * looks like a known token but isn't deployed where the real one is.
+     * False whenever `symbol` isn't one the registry has an entry for.
+     */
+    isSpoofedToken(symbol: string, contractAddress: string, chainId?: number): boolean
+    /**
+     * True for any symbol/name that reads as the platform's native asset
+     * (e.g. "AVAX") — for chain shapes with no contract address to check
+     * (Avalanche's X-chain "ANTs"), so an impostor of the native symbol can
+     * still be rejected by name alone.
+     */
+    isReservedNativeSymbol(symbolOrName: string): boolean
+}
+
 export interface PlatformDescriptor {
     id: PlatformId
     name: string
@@ -257,6 +322,9 @@ export interface Platform {
 
     /** Networks this platform can be pointed at. Empty for `planned` ones. */
     readonly networks: PlatformNetwork[]
+
+    /** This platform's pinned-address allowlist, when it has one. See PlatformTokenRegistry. */
+    readonly tokenRegistry?: PlatformTokenRegistry
     /** The network currently selected, or null when the platform has none. */
     getActiveNetwork?(): PlatformNetwork | null
     /** Point the platform at one of its `networks`. */

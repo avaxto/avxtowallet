@@ -36,6 +36,7 @@ import type {
     PlatformNetwork,
     PlatformWallet,
 } from '../types'
+import { avalancheTokenRegistry } from './tokenRegistry'
 
 const descriptor: PlatformDescriptor = {
     id: 'avalanche',
@@ -287,6 +288,7 @@ export const avalanchePlatform: Platform = {
     accessMethods,
     chains,
     networks,
+    tokenRegistry: avalancheTokenRegistry,
 
     getActiveNetwork(): PlatformNetwork | null {
         // Derived from the Avalanche network store rather than tracked here, so

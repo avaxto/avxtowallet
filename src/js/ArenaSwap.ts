@@ -39,7 +39,7 @@ import Common from '@ethereumjs/common'
 import { AvaWalletCore } from '@/js/wallets/types'
 import ERC20Abi from '@openzeppelin/contracts/build/contracts/ERC20.json'
 import { broadcastEvm } from '@/helpers/broadcastEvm'
-import { isSpoofedToken } from '@/token-registry'
+import { isSpoofedToken } from '@/platforms/avalanche/tokenRegistry'
 
 const LIFI_BASE = 'https://li.quest'
 export const AVALANCHE_CHAIN_ID = 43114
@@ -243,7 +243,8 @@ export async function resolveBySymbol(symbol: string): Promise<SwapToken | null>
  * Resolve a target token from free-text input that may be EITHER a contract
  * address (0x…) or a token symbol (e.g. "USDC"). Throws if it can't be found.
  *
- * Checked against the token registry (see token-registry/index.ts)
+ * Checked against the Avalanche platform's token registry (see
+ * platforms/avalanche/tokenRegistry/index.ts)
  * regardless of which path resolves it: an address the user typed or
  * pasted, and a symbol matched against LI.FI's own token list, are both
  * untrusted the same way a live contract call is — nothing stops a scam

@@ -33,7 +33,7 @@ import { AVXTO_CONTRACT_ADDRESS, AVXTO_ICON, AVXTO_NAME, AVXTO_SYMBOL,
         AVXTO_THR,
         TESTNET_AVXTO_CONTRACT_ADDRESS, TESTNET_AVXTO_ICON, TESTNET_AVXTO_NAME, TESTNET_AVXTO_SYMBOL,
         TESTNET_AVXTO_THR} from '@/avxto/AVXTOConf'
-import { findRegistryToken, isReservedNativeSymbol, isSpoofedToken } from '@/token-registry'
+import { findRegistryToken, isReservedNativeSymbol, isSpoofedToken } from '@/platforms/avalanche/tokenRegistry'
 
 
 // Types (inline definitions to avoid circular imports)
@@ -319,7 +319,7 @@ export const useAssetsStore = defineStore('assets', () => {
             }
         }
 
-        // Registry gate — see token-registry/index.ts. Tokens are still
+        // Registry gate — see platforms/avalanche/tokenRegistry/index.ts. Tokens are still
         // fetched remotely same as always; this only rejects a symbol the
         // registry knows about turning up at the WRONG address (a spoof of
         // AVXTO, AVAX, etc.) — an unrecognized symbol is unaffected. This is
@@ -357,7 +357,7 @@ export const useAssetsStore = defineStore('assets', () => {
         // (unlike addErc20Token above) a spoof throws instead of failing
         // silently: the caller (AddERC20TokenModal.vue) surfaces this to the
         // user via its existing try/catch. A symbol the registry has never
-        // heard of is not rejected — see token-registry/index.ts.
+        // heard of is not rejected — see platforms/avalanche/tokenRegistry/index.ts.
         if (isSpoofedToken(token.symbol, token.address, token.chainId)) {
             throw new Error(
                 `${token.symbol} at this address doesn't match the AVXTO token registry's known ` +

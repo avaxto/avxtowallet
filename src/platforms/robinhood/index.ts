@@ -28,6 +28,7 @@ import type {
 } from '../types'
 import { ROBINHOOD_ACCENT, ROBINHOOD_CHAINS, ROBINHOOD_NETWORKS, getRobinhoodNetwork } from './config'
 import { peekActiveWallet } from './store'
+import { robinhoodTokenRegistry } from './tokenRegistry'
 import { connectInjected } from './wallet'
 
 const descriptor: PlatformDescriptor = {
@@ -94,6 +95,7 @@ export const robinhoodPlatform: Platform = {
     accessMethods,
     chains: ROBINHOOD_CHAINS,
     networks: ROBINHOOD_NETWORKS,
+    tokenRegistry: robinhoodTokenRegistry,
 
     getActiveNetwork(): PlatformNetwork | null {
         return getRobinhoodNetwork(activeNetworkId) ?? null

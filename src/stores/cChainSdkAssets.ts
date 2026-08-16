@@ -10,7 +10,7 @@ import { Avalanche } from '@avalanche-sdk/chainkit'
 import { getErc20History, getActiveNetworkConfig } from '@/avalanche-wallet-sdk'
 import { web3 } from '@/evm'
 import ERC20Abi from '@openzeppelin/contracts/build/contracts/ERC20.json'
-import { findRegistryToken, isSpoofedToken } from '@/token-registry'
+import { findRegistryToken, isSpoofedToken } from '@/platforms/avalanche/tokenRegistry'
 
 export type CChainSdkAsset = {
     type: 'erc20' | 'erc721' | 'erc1155'
@@ -145,8 +145,9 @@ export const useCChainSdkAssetsStore = defineStore('cChainSdkAssets', () => {
             const sdk = new Avalanche({ chainId: String(chainId), enableTelemetry: false })
             const result: CChainSdkAsset[] = []
 
-            // ERC-20 — checked against the token registry (see
-            // token-registry/index.ts): this SDK auto-discovers every
+            // ERC-20 — checked against the Avalanche platform's token
+            // registry (see platforms/avalanche/tokenRegistry/index.ts):
+            // this SDK auto-discovers every
             // contract the address has ever interacted with, so a discovered
             // token claiming a symbol the registry knows (AVXTO, AVAX, …) at
             // an address that isn't the real one is dropped as a spoof.

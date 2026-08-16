@@ -5,9 +5,28 @@
 
 */
 /**
- * Token registry — the wallet's pinned addresses for a handful of known
- * token symbols, used to catch impostors WITHOUT restricting what the wallet
- * can otherwise show.
+ * Avalanche's token registry — the platform's pinned addresses for a handful
+ * of known token symbols, used to catch impostors WITHOUT restricting what
+ * the wallet can otherwise show.
+ *
+ * Lives under platforms/avalanche/ (not a top-level, platform-agnostic
+ * module) because the registry is inherently per-platform data: a contract
+ * address only means something within one platform's chain(s), and a
+ * different platform (Robinhood Chain, a future Ethereum/Solana/Bitcoin
+ * platform) needs its own registry with its own entries — see
+ * `PlatformTokenRegistry` in platforms/types.ts for the shape every
+ * platform's registry implements, and `avalancheTokenRegistry` at the bottom
+ * of this file for how this one is exposed as `avalanchePlatform.
+ * tokenRegistry`. The Avalanche-specific call sites (stores/assets.ts,
+ * stores/cChainSdkAssets.ts, js/ArenaSwap.ts, AddERC20TokenModal.vue) import
+ * the named functions below directly instead of going through that, since
+ * those files only ever run in an Avalanche context regardless.
+ *
+ * The actual matching algorithm (homoglyph-normalized symbol comparison,
+ * address comparison, the spoof/reserved-symbol rules) lives in
+ * `../../tokenRegistryHelpers` and is shared by every platform's registry —
+ * see that module's doc comment for why. This file is just Avalanche's DATA
+ * (./registry.json) plus this thin wrapper of named exports.
  *
  * Tokens still come from wherever they always did — the remote default
  * token list, a custom token-list URL, the Glacier/chainkit SDK's
@@ -38,123 +57,33 @@
  * hand if that ever changes; nothing enforces it automatically.
  */
 import type { RegistryToken } from './types'
+import { createTokenRegistry } from '@/platforms/tokenRegistryHelpers'
 import staticRegistry from './registry.json'
 
 export type { RegistryToken }
 
 const REGISTRY: RegistryToken[] = staticRegistry as RegistryToken[]
 
+/**
+ * This registry as a `PlatformTokenRegistry` — what `platforms/avalanche/
+ * index.ts` puts on `avalanchePlatform.tokenRegistry`, so it's reachable
+ * generically (`activePlatform.tokenRegistry`) as well as through the named
+ * functions below, which the existing Avalanche-specific call sites
+ * (stores/assets.ts, stores/cChainSdkAssets.ts, js/ArenaSwap.ts,
+ * AddERC20TokenModal.vue) import directly — those files only ever run in an
+ * Avalanche context anyway, so there's no reason to route them through a
+ * platform-store lookup at runtime.
+ */
+export const avalancheTokenRegistry = createTokenRegistry(REGISTRY)
+
 /** Every entry in the registry, native asset included. */
 export function getRegistry(): RegistryToken[] {
-    return REGISTRY
+    return avalancheTokenRegistry.getAll()
 }
 
 /** The registry's entry for the chain's native asset (AVAX). */
 export function getNativeRegistryEntry(): RegistryToken {
-    // Present unconditionally — it's the first entry in registry.json — so
-    // this is a real invariant, not a soft lookup that can come back empty.
-    const entry = REGISTRY.find((t) => t.contractAddress === null)
-    if (!entry) throw new Error('Token registry is missing its native AVAX entry.')
-    return entry
-}
-
-function normalizeAddress(address: string): string {
-    return address.trim().toLowerCase()
-}
-
-/**
- * Cyrillic and Greek letters that are visually indistinguishable from a
- * Latin one in most fonts — mapped back to that Latin letter. This is the
- * standard trick behind a token whose symbol *looks* like "AVAX" but is a
- * different string byte-for-byte, so a plain case-fold compare (what this
- * module used to do) never catches it: e.g. Cyrillic А (U+0410) reads
- * identically to Latin A but is a wholly different character.
- *
- * Not an exhaustive confusables table — this is a targeted list covering the
- * letters that actually appear in this registry's symbols (A, B, C, E, H, K,
- * M, N, O, P, S, T, X, Y, Z and lowercase equivalents), which is what a
- * lookalike-token deployer is working with anyway: they need the result to
- * still resemble a real symbol.
- */
-const CONFUSABLE_TO_LATIN: Record<string, string> = {
-    // All written as \u escapes rather than the literal characters, for the
-    // same auditability reason as INVISIBLE_CHARS_RE above.
-    // Cyrillic uppercase.
-    '\u0410': 'A',
-    '\u0412': 'B',
-    '\u0415': 'E',
-    '\u041a': 'K',
-    '\u041c': 'M',
-    '\u041d': 'H',
-    '\u041e': 'O',
-    '\u0420': 'P',
-    '\u0421': 'C',
-    '\u0422': 'T',
-    '\u0423': 'Y',
-    '\u0425': 'X',
-    '\u0405': 'S',
-    '\u0406': 'I',
-    '\u0408': 'J',
-    // Cyrillic lowercase.
-    '\u0430': 'a',
-    '\u0435': 'e',
-    '\u043e': 'o',
-    '\u0440': 'p',
-    '\u0441': 'c',
-    '\u0443': 'y',
-    '\u0445': 'x',
-    '\u0456': 'i',
-    '\u0458': 'j',
-    '\u0455': 's',
-    // Greek uppercase, plus lowercase omicron (the only Greek lowercase
-    // letter that's a plain Latin look-alike on its own).
-    '\u0391': 'A',
-    '\u0392': 'B',
-    '\u0395': 'E',
-    '\u0396': 'Z',
-    '\u0397': 'H',
-    '\u0399': 'I',
-    '\u039a': 'K',
-    '\u039c': 'M',
-    '\u039d': 'N',
-    '\u039f': 'O',
-    '\u03a1': 'P',
-    '\u03a4': 'T',
-    '\u03a5': 'Y',
-    '\u03a7': 'X',
-    '\u03bf': 'o',
-}
-
-
-
-/**
- * Normalizes a reported token symbol/name before it's ever compared against
- * the registry: strips zero-width/invisible characters (the other classic
- * trick — "AVAX" plus an invisible code point still *renders* as "AVAX" but
- * fails a naive exact-match filter the opposite way, by never matching a
- * legitimate lookup either), then maps look-alike Cyrillic/Greek letters back
- * to Latin. Every symbol comparison in this module goes through this, not
- * just a `.toUpperCase()` — that was the actual gap: it made the check
- * case-insensitive but not script-insensitive.
- */
-// Zero-width space/non-joiner/joiner, LTR/RTL marks, the bidi
-// embedding/override range, word joiner, soft hyphen, and the
-// zero-width no-break space (BOM) \u200b-\u200f \u202a-\u202e \u2060 \u00ad
-// \ufeff. Written as \u escape sequences (verified below to be plain
-// ASCII in this source file, not the literal characters) rather than
-// pasting the invisible characters themselves, which would be
-// impossible to verify by looking at them.
-const INVISIBLE_CHARS_RE = /[\u200b-\u200f\u202a-\u202e\u2060\u00ad\ufeff]/g
-
-function normalizeSymbol(s: string): string {
-    return s
-        .normalize('NFKC')
-        .replace(INVISIBLE_CHARS_RE, '')
-        .split('')
-        .map((ch) => CONFUSABLE_TO_LATIN[ch] ?? ch)
-        .join('')
-        .trim()
-        .toUpperCase()
+    return avalancheTokenRegistry.getNativeEntry()
 }
 
 /**
@@ -167,14 +96,7 @@ export function findRegistryToken(
     contractAddress: string,
     chainId?: number
 ): RegistryToken | undefined {
-    if (!contractAddress) return undefined
-    const target = normalizeAddress(contractAddress)
-    return REGISTRY.find((t) => {
-        if (!t.contractAddress) return false
-        if (normalizeAddress(t.contractAddress) !== target) return false
-        if (chainId !== undefined && t.chainId !== undefined && t.chainId !== chainId) return false
-        return true
-    })
+    return avalancheTokenRegistry.findToken(contractAddress, chainId)
 }
 
 /**
@@ -191,30 +113,19 @@ export function findRegistryToken(
  * comment above).
  */
 export function isSpoofedToken(symbol: string, contractAddress: string, chainId?: number): boolean {
-    if (!contractAddress) return false
-    const target = normalizeAddress(contractAddress)
-    const normalizedSymbol = normalizeSymbol(symbol)
-    const sameSymbol = REGISTRY.filter((t) => normalizeSymbol(t.symbol) === normalizedSymbol)
-    if (sameSymbol.length === 0) return false
-
-    const matchesAKnownAddress = sameSymbol.some((t) => {
-        if (!t.contractAddress) return false // the native entry — never satisfied by a contract
-        if (chainId !== undefined && t.chainId !== undefined && t.chainId !== chainId) return false
-        return normalizeAddress(t.contractAddress) === target
-    })
-    return !matchesAKnownAddress
+    return avalancheTokenRegistry.isSpoofedToken(symbol, contractAddress, chainId)
 }
 
 /**
- * True for any symbol that reads as "AVAX" regardless of case/whitespace —
- * used to reject tokens (X-chain ANTs, ERC20s, SDK-discovered assets — any of
- * them, registered or not) that aren't the actual native asset but are named
- * to look like it. Comparing name/symbol text is deliberately allowed to be
- * cheap and over-eager here: the cost of a false positive is an unrelated
- * token called "avax" failing to display, which is not a real product this
- * wallet needs to support; the cost of a false negative is a spoofed balance
- * next to the real one.
+ * True for any symbol that reads as "AVAX" regardless of case/whitespace/
+ * homoglyph — used to reject tokens (X-chain ANTs, ERC20s, SDK-discovered
+ * assets — any of them, registered or not) that aren't the actual native
+ * asset but are named to look like it. Comparing name/symbol text is
+ * deliberately allowed to be cheap and over-eager here: the cost of a false
+ * positive is an unrelated token called "avax" failing to display, which is
+ * not a real product this wallet needs to support; the cost of a false
+ * negative is a spoofed balance next to the real one.
  */
 export function isReservedNativeSymbol(symbolOrName: string): boolean {
-    return normalizeSymbol(symbolOrName) === 'AVAX'
+    return avalancheTokenRegistry.isReservedNativeSymbol(symbolOrName)
 }
