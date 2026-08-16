@@ -63,6 +63,101 @@ function normalizeAddress(address: string): string {
 }
 
 /**
+ * Cyrillic and Greek letters that are visually indistinguishable from a
+ * Latin one in most fonts — mapped back to that Latin letter. This is the
+ * standard trick behind a token whose symbol *looks* like "AVAX" but is a
+ * different string byte-for-byte, so a plain case-fold compare (what this
+ * module used to do) never catches it: e.g. Cyrillic А (U+0410) reads
+ * identically to Latin A but is a wholly different character.
+ *
+ * Not an exhaustive confusables table — this is a targeted list covering the
+ * letters that actually appear in this registry's symbols (A, B, C, E, H, K,
+ * M, N, O, P, S, T, X, Y, Z and lowercase equivalents), which is what a
+ * lookalike-token deployer is working with anyway: they need the result to
+ * still resemble a real symbol.
+ */
+const CONFUSABLE_TO_LATIN: Record<string, string> = {
+    // All written as \u escapes rather than the literal characters, for the
+    // same auditability reason as INVISIBLE_CHARS_RE above.
+    // Cyrillic uppercase.
+    '\u0410': 'A',
+    '\u0412': 'B',
+    '\u0415': 'E',
+    '\u041a': 'K',
+    '\u041c': 'M',
+    '\u041d': 'H',
+    '\u041e': 'O',
+    '\u0420': 'P',
+    '\u0421': 'C',
+    '\u0422': 'T',
+    '\u0423': 'Y',
+    '\u0425': 'X',
+    '\u0405': 'S',
+    '\u0406': 'I',
+    '\u0408': 'J',
+    // Cyrillic lowercase.
+    '\u0430': 'a',
+    '\u0435': 'e',
+    '\u043e': 'o',
+    '\u0440': 'p',
+    '\u0441': 'c',
+    '\u0443': 'y',
+    '\u0445': 'x',
+    '\u0456': 'i',
+    '\u0458': 'j',
+    '\u0455': 's',
+    // Greek uppercase, plus lowercase omicron (the only Greek lowercase
+    // letter that's a plain Latin look-alike on its own).
+    '\u0391': 'A',
+    '\u0392': 'B',
+    '\u0395': 'E',
+    '\u0396': 'Z',
+    '\u0397': 'H',
+    '\u0399': 'I',
+    '\u039a': 'K',
+    '\u039c': 'M',
+    '\u039d': 'N',
+    '\u039f': 'O',
+    '\u03a1': 'P',
+    '\u03a4': 'T',
+    '\u03a5': 'Y',
+    '\u03a7': 'X',
+    '\u03bf': 'o',
+}
+
+
+
+/**
+ * Normalizes a reported token symbol/name before it's ever compared against
+ * the registry: strips zero-width/invisible characters (the other classic
+ * trick — "AVAX" plus an invisible code point still *renders* as "AVAX" but
+ * fails a naive exact-match filter the opposite way, by never matching a
+ * legitimate lookup either), then maps look-alike Cyrillic/Greek letters back
+ * to Latin. Every symbol comparison in this module goes through this, not
+ * just a `.toUpperCase()` — that was the actual gap: it made the check
+ * case-insensitive but not script-insensitive.
+ */
+// Zero-width space/non-joiner/joiner, LTR/RTL marks, the bidi
+// embedding/override range, word joiner, soft hyphen, and the
+// zero-width no-break space (BOM) \u200b-\u200f \u202a-\u202e \u2060 \u00ad
+// \ufeff. Written as \u escape sequences (verified below to be plain
+// ASCII in this source file, not the literal characters) rather than
+// pasting the invisible characters themselves, which would be
+// impossible to verify by looking at them.
+const INVISIBLE_CHARS_RE = /[\u200b-\u200f\u202a-\u202e\u2060\u00ad\ufeff]/g
+
+function normalizeSymbol(s: string): string {
+    return s
+        .normalize('NFKC')
+        .replace(INVISIBLE_CHARS_RE, '')
+        .split('')
+        .map((ch) => CONFUSABLE_TO_LATIN[ch] ?? ch)
+        .join('')
+        .trim()
+        .toUpperCase()
+}
+
+/**
  * The registry entry for a contract address, or undefined if it isn't
  * registered. `chainId` should almost always be passed — omitting it matches
  * against any chain's entry, which is only correct for lookups that are
@@ -98,9 +193,8 @@ export function findRegistryToken(
 export function isSpoofedToken(symbol: string, contractAddress: string, chainId?: number): boolean {
     if (!contractAddress) return false
     const target = normalizeAddress(contractAddress)
-    const sameSymbol = REGISTRY.filter(
-        (t) => t.symbol.trim().toUpperCase() === symbol.trim().toUpperCase()
-    )
+    const normalizedSymbol = normalizeSymbol(symbol)
+    const sameSymbol = REGISTRY.filter((t) => normalizeSymbol(t.symbol) === normalizedSymbol)
     if (sameSymbol.length === 0) return false
 
     const matchesAKnownAddress = sameSymbol.some((t) => {
@@ -122,5 +216,5 @@ export function isSpoofedToken(symbol: string, contractAddress: string, chainId?
  * next to the real one.
  */
 export function isReservedNativeSymbol(symbolOrName: string): boolean {
-    return symbolOrName.trim().toUpperCase() === 'AVAX'
+    return normalizeSymbol(symbolOrName) === 'AVAX'
 }
