@@ -81,13 +81,14 @@ export default defineComponent({
 })
 </script>
 <style scoped lang="scss">
+@use 'sass:math';
 @use '../../main';
 
 $countW: 18px;
 .count {
     position: absolute;
-    top: -$countW/2.5;
-    left: -$countW/2.5;
+    top: math.div(-$countW, 2.5);
+    left: math.div(-$countW, 2.5);
     width: $countW;
     height: $countW;
     border-radius: $countW;

@@ -168,10 +168,10 @@ export default {
             {
                 vmid: 'og:title',
                 name: 'og:title',
-                content: 'AVXTO - AVAX Toolbox and Wallet',
+                content: 'AVXTO Wallet for Avalanche and Robinhood',
             },
         ],
-        title: 'AVXTO - AVAX Toolbox and Wallet',
+        title: 'AVXTO Wallet for Avalanche and Robinhood',
         titleTemplate: '%s',
     },
 }

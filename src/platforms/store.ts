@@ -13,6 +13,7 @@ import type {
     PlatformChain,
     PlatformChainKind,
     PlatformId,
+    PlatformWallet,
 } from './types'
 import {
     DEFAULT_PLATFORM_ID,
@@ -39,6 +40,35 @@ export const useActivePlatformStore = defineStore('activePlatform', () => {
     const activePlatform = computed((): Platform | undefined =>
         getPlatform(activePlatformId.value)
     )
+
+    /**
+     * Bumped whenever a platform's active wallet connects/disconnects.
+     *
+     * `Platform.getActiveWallet()` is a plain synchronous function — Avalanche's
+     * implementation happens to read a Pinia ref (`mainStore.activeWallet`), so
+     * calling it from inside a Vue `computed` is naturally reactive there. A
+     * platform that instead mirrors its wallet in a module-scope variable for
+     * non-Vue contexts (see the comment on `peekActiveWallet` in
+     * platforms/robinhood/store.ts) is NOT naturally reactive — Vue's dependency
+     * tracker only sees a plain variable read, not a reactive one, so a
+     * `computed` calling `getActiveWallet()` would silently never re-run after
+     * connecting. `activeWallet` below depends on this ref so it re-evaluates on
+     * every wallet change regardless of how the underlying platform stores its
+     * wallet; platforms whose `getActiveWallet()` needs this call
+     * `notifyWalletChanged()` wherever they change it (Avalanche doesn't need
+     * to — its own reactive store already covers it, and an extra bump there is
+     * harmless besides).
+     */
+    const walletEpoch = ref(0)
+    const notifyWalletChanged = (): void => {
+        walletEpoch.value++
+    }
+
+    /** The active platform's connected wallet, or null. Reactive — see `walletEpoch` above. */
+    const activeWallet = computed((): PlatformWallet | null => {
+        void walletEpoch.value
+        return activePlatform.value?.getActiveWallet() ?? null
+    })
 
     /**
      * Capabilities of the active platform. Falls back to everything-off so a
@@ -142,6 +172,8 @@ export const useActivePlatformStore = defineStore('activePlatform', () => {
     return {
         activePlatformId,
         activePlatform,
+        activeWallet,
+        notifyWalletChanged,
         capabilities,
         can,
         chains,

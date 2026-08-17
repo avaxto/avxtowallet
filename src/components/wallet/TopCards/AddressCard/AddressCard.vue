@@ -131,7 +131,7 @@ export default defineComponent({
         })
 
         const platformAddress = computed((): string => {
-            return platformStore.activePlatform?.getActiveWallet()?.getPrimaryAddress() || '-'
+            return platformStore.activeWallet?.getPrimaryAddress() || '-'
         })
 
         const platformChainLabel = computed((): string => {

@@ -223,7 +223,7 @@ export default defineComponent({
     object-fit: contain;
 }
 
-.spinner::v-deep p {
+.spinner :deep(p) {
     color: inherit;
 }
 

@@ -293,6 +293,7 @@
 <script lang="ts">
 import { defineComponent, ref, computed } from 'vue'
 import { useMainStore, useNotificationsStore } from '@/stores'
+import { useActivePlatformStore } from '@/platforms'
 import SaveAccountModal from '@/components/modals/SaveAccount/SaveAccountModal.vue'
 import ConfirmLogout from '@/components/modals/ConfirmLogout.vue'
 import AboutModal from '@/components/modals/AboutModal.vue'
@@ -309,13 +310,20 @@ export default defineComponent({
     setup() {
         const mainStore = useMainStore()
         const notificationsStore = useNotificationsStore()
+        const platformStore = useActivePlatformStore()
         const saveModal = ref<InstanceType<typeof SaveAccountModal>>()
         const logoutRef = ref<InstanceType<typeof ConfirmLogout>>()
         const aboutModal = ref<InstanceType<typeof AboutModal>>()
 
-        const isAuth = computed(() => mainStore.isAuth)
+        // `mainStore.isAuth`/`activeWallet` only ever reflect Avalanche access —
+        // each platform keeps its own session store (see
+        // platforms/robinhood/store.ts), so a menu gated on those alone stays
+        // permanently "logged out" on any other platform. `platformStore.
+        // activeWallet` is the generic, platform-agnostic equivalent (backed by
+        // mainStore.activeWallet for Avalanche, so behaviour there is unchanged).
+        const isAuth = computed(() => platformStore.activeWallet !== null)
 
-        const isInjected = computed(() => mainStore.activeWallet?.type === 'injected')
+        const isInjected = computed(() => platformStore.activeWallet?.accessMethodId === 'injected')
 
         const avaxPriceText = computed((): string | null => {
             const usd = mainStore.prices.usd

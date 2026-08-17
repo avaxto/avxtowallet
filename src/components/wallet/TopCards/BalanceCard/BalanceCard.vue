@@ -11,18 +11,10 @@
                 </div>
                 <h4>{{ $t('top.title2') }}</h4>
                 <span v-if="walletTypeLabel" class="wallet_type_badge badge badge-info">{{ walletTypeLabel }}</span>
-                <template v-if="!isBreakdown">
-                    <button class="breakdown_toggle" @click="toggleBreakdown">
-                        <fa icon="eye"></fa>
-                        {{ $t('top.balance.show') }}
-                    </button>
-                </template>
-                <template v-else>
-                    <button class="breakdown_toggle" @click="toggleBreakdown">
-                        <fa icon="eye-slash"></fa>
-                        {{ $t('top.balance.hide') }}
-                    </button>
-                </template>
+                <button v-if="isAvalanche" class="breakdown_toggle" @click="toggleBreakdown">
+                    <fa :icon="isBreakdown ? 'eye-slash' : 'eye'"></fa>
+                    {{ isBreakdown ? $t('top.balance.hide') : $t('top.balance.show') }}
+                </button>
                 <button
                     @click="showUTXOsModal"
                     class="breakdown_toggle"
@@ -33,14 +25,14 @@
             </div>
             <div class="balance_row">
                 <p class="balance" data-cy="wallet_balance" v-if="!balanceTextRight">
-                    {{ balanceTextLeft }} AVAX
+                    {{ balanceTextLeft }} {{ nativeSymbolText }}
                 </p>
                 <p class="balance" data-cy="wallet_balance" v-else>
                     {{ balanceTextLeft }}
                     <span>.{{ balanceTextRight }}</span>
-                    AVAX
+                    {{ nativeSymbolText }}
                 </p>
-                <div style="display: flex; flex-direction: row">
+                <div style="display: flex; flex-direction: row" v-if="isAvalanche">
                     <p class="balance_usd">
                         <b>$ {{ totalBalanceUSDText }}</b>
                         USD
@@ -53,12 +45,12 @@
                     </p>
                 </div>
             </div>
-            
+
             <div class="alt_info">
-                    <div class="alt_non_breakdown" v-if="!isBreakdown">
+                    <div class="alt_non_breakdown" v-if="!isBreakdown || !isAvalanche">
                         <div>
                             <label>{{ $t('top.balance.available') }}</label>
-                            <p>{{ unlockedText }} AVAX</p>
+                            <p>{{ unlockedText }} {{ nativeSymbolText }}</p>
                         </div>
                         <div v-if="hasLocked">
                             <label>{{ $t('top.locked') }}</label>
@@ -125,7 +117,7 @@
     </div>
 </template>
 <script lang="ts">
-import { defineComponent, ref, computed } from 'vue'
+import { defineComponent, ref, computed, watch } from 'vue'
 import { useAssetsStore, useHistoryStore, useMainStore } from '@/stores'
 import { useActivePlatformStore } from '@/platforms'
 import AvaAsset from '@/js/AvaAsset'
@@ -165,6 +157,50 @@ export default defineComponent({
         const hasPChain = computed((): boolean => platformStore.hasChainKind('staking'))
         const canStake = computed((): boolean => platformStore.can('stake'))
 
+        /** True on Avalanche, false on any single-EVM-chain platform (Robinhood, ...). */
+        const isAvalanche = computed((): boolean => hasXChain.value || hasPChain.value)
+
+        /** The active platform's native ticker — "AVAX" on Avalanche, "ETH" on Robinhood. */
+        const nativeSymbolText = computed((): string => {
+            return platformStore.activePlatform?.descriptor.symbol ?? 'AVAX'
+        })
+
+        // Everything below this point (ava_asset, avmUnlocked/Locked, evmUnlocked
+        // via `wallet.ethBalance`, `priceDict`) reads mainStore — Avalanche's
+        // store — which is null/empty on any other platform, since each platform
+        // keeps its own session store (see platforms/robinhood/store.ts). A
+        // non-Avalanche platform's native balance instead comes from its own
+        // `PlatformWallet.getBalances()`, fetched here.
+        const platformNativeAmount = ref<Big>(Big(0))
+        const isFetchingPlatformBalance = ref(false)
+
+        const fetchPlatformBalance = async (): Promise<void> => {
+            const w = platformStore.activeWallet
+            if (!w) {
+                platformNativeAmount.value = Big(0)
+                return
+            }
+            isFetchingPlatformBalance.value = true
+            try {
+                const balances = await w.getBalances()
+                const native = balances.find((b) => b.assetId === 'native') ?? balances[0]
+                platformNativeAmount.value = native ? Big(native.amount.toString()) : Big(0)
+            } catch (e) {
+                console.warn('[BalanceCard] Could not fetch platform balance:', e)
+            } finally {
+                isFetchingPlatformBalance.value = false
+            }
+        }
+
+        watch(
+            () => platformStore.activeWallet,
+            (w) => {
+                if (!isAvalanche.value) fetchPlatformBalance()
+                else if (!w) platformNativeAmount.value = Big(0)
+            },
+            { immediate: true }
+        )
+
         const isBreakdown = ref(true)
         const utxos_modal = ref<InstanceType<typeof UtxosBreakdownModal>>()
 
@@ -174,6 +210,10 @@ export default defineComponent({
         }
 
         const updateBalance = (): void => {
+            if (!isAvalanche.value) {
+                fetchPlatformBalance()
+                return
+            }
             assetsStore.updateUTXOs()
             historyStore.updateTransactionHistory()
         }
@@ -245,6 +285,7 @@ export default defineComponent({
         })
 
         const balanceText = computed((): string => {
+            if (!isAvalanche.value) return platformNativeAmount.value.toLocaleString()
             if (ava_asset.value && ava_asset.value.denomination !== undefined) {
                 let denom = ava_asset.value.denomination
                 return totalBalanceBig.value.toLocaleString(denom)
@@ -330,6 +371,7 @@ export default defineComponent({
 
         const unlockedText = computed(() => {
             if (isUpdatingBalance.value) return '--'
+            if (!isAvalanche.value) return platformNativeAmount.value.toLocaleString()
 
             if (ava_asset.value && ava_asset.value.denomination !== undefined) {
                 let denom = ava_asset.value.denomination
@@ -413,6 +455,7 @@ export default defineComponent({
         })
 
         const isUpdatingBalance = computed((): boolean => {
+            if (!isAvalanche.value) return isFetchingPlatformBalance.value
             if (!wallet.value) return true
             return wallet.value.isFetchingUtxos
         })
@@ -443,6 +486,8 @@ export default defineComponent({
             hasXChain,
             hasPChain,
             canStake,
+            isAvalanche,
+            nativeSymbolText,
             cleanAvaxBN,
             updateBalance,
             showUTXOsModal,

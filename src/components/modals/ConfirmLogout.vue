@@ -21,7 +21,8 @@
 <script lang="ts">
 import 'reflect-metadata'
 import { defineComponent, ref } from 'vue'
-import { useMainStore, useNotificationsStore } from '@/stores'
+import { useNotificationsStore } from '@/stores'
+import { useActivePlatformStore } from '@/platforms'
 
 import Modal from '@/components/modals/Modal.vue'
 import CopyText from '@/components/misc/CopyText.vue'
@@ -43,7 +44,7 @@ export default defineComponent({
         }
     },
     setup() {
-        const mainStore = useMainStore()
+        const platformStore = useActivePlatformStore()
         const notificationsStore = useNotificationsStore()
         const isLoading = ref(false)
         const modalRef = ref<InstanceType<typeof Modal>>()
@@ -58,7 +59,11 @@ export default defineComponent({
 
         const submit = async () => {
             isLoading.value = true
-            await mainStore.logout()
+            // Logs out of whichever platform is actually active — each keeps
+            // its own session (mainStore for Avalanche, platforms/robinhood/
+            // store.ts for Robinhood, ...), so this must go through the
+            // active platform rather than always logging out of Avalanche.
+            await platformStore.activePlatform?.logout()
             await notificationsStore.add({
                 title: 'Logout',
                 message: 'You have successfully logged out of your wallet.',

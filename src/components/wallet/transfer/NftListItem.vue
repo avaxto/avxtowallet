@@ -128,12 +128,13 @@ export default defineComponent({
 })
 </script>
 <style scoped lang="scss">
+@use 'sass:math';
 $remove_w: 24px;
 .removeBut {
     position: absolute;
     z-index: 1;
-    top: -$remove_w/4;
-    right: -$remove_w/4;
+    top: math.div(-$remove_w, 4);
+    right: math.div(-$remove_w, 4);
     width: $remove_w;
     height: $remove_w;
     background-color: var(--bg-light);

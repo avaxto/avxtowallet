@@ -9,13 +9,12 @@
         <div class="buts_right">
             <button
                 v-if="!isAuth"
-                class="action_but connect_but"
+                class="ava_button button_secondary connect_but"
                 data-cy="connect_wallet"
                 @click="connectWallet"
                 :disabled="isConnecting"
             >
-                <span class="connect_span" v-if="isConnecting">{{ $t('access.injected.waiting') }}</span>
-                <span class="connect_span" v-else>{{ $t('access.but_connect_wallet') }}</span>
+                {{ isConnecting ? $t('access.injected.waiting') : $t('access.but_connect_wallet') }}
             </button>
             <template v-if="!isAuth">
                 <router-link to="/access" class="action_but" data-cy="access">
@@ -77,6 +76,7 @@
 </template>
 <script lang="ts">
 import { defineComponent, ref, computed } from 'vue'
+import { useRouter } from 'vue-router'
 import { useMainStore } from '@/stores'
 import LanguageSelect from './misc/LanguageSelect/LanguageSelect.vue'
 
@@ -97,6 +97,7 @@ export default defineComponent({
     setup() {
         const mainStore = useMainStore()
         const platformStore = useActivePlatformStore()
+        const router = useRouter()
 
         const isDrawer = ref(false)
         const popupOpen = ref(false)
@@ -108,8 +109,13 @@ export default defineComponent({
         const canCrossChain = computed(() => platformStore.can('crossChain'))
         const canStake = computed(() => platformStore.can('stake'))
 
+        // `mainStore.isAuth` only ever reflects Avalanche access — each
+        // platform keeps its own session store (see
+        // platforms/robinhood/store.ts), so this must go through the
+        // platform-agnostic `activeWallet` or the Connect/Access/Create
+        // buttons stay visible even after connecting on another platform.
         const isAuth = computed((): boolean => {
-            return mainStore.isAuth
+            return platformStore.activeWallet !== null
         })
 
         const isSingleton = computed(() => mainStore.activeWallet?.type === 'singleton')
@@ -130,9 +136,25 @@ export default defineComponent({
 
         const connectWallet = async () => {
             if (isConnecting.value) return
+
+            // Same access method the /access page's "Connect Wallet" button
+            // runs (see runAction() in views/access/Menu.vue) — read from the
+            // active platform rather than always calling Avalanche's
+            // mainStore.accessWalletInjected(), so this connects Robinhood (or
+            // any other platform) when that's the one selected.
+            const method = platformStore.activePlatform?.accessMethods.find(
+                (m) => m.id === 'injected' && m.kind === 'action' && m.run
+            )
+            if (!method?.run) {
+                // No in-place injected connect for this platform — fall back to
+                // the full access flow, same as clicking "Access Wallet".
+                router.push('/access')
+                return
+            }
+
             isConnecting.value = true
             try {
-                await mainStore.accessWalletInjected()
+                await method.run()
             } catch (e: any) {
                 console.error('Wallet connection failed:', e)
                 alert(e?.message || 'Failed to connect wallet.')
@@ -197,9 +219,12 @@ button {
     margin-right: 15px;
 }
 
-.connect_span {
-    color: var(--primary-color);
-    font-size: var(--bs-body-font-size);
+// `.ava_button`/`.button_secondary` are the same global classes Home.vue's
+// "Create New Wallet" button uses — this is deliberately not its own visual
+// style, just that one reused here so the two read as the same call to action.
+.connect_but {
+    margin-right: 15px;
+    min-width: unset;
 }
 
 #nav {

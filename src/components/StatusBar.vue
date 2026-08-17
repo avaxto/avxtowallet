@@ -19,26 +19,61 @@
 import { defineComponent, computed } from 'vue'
 import { useStatusBarStore } from '@/stores/statusbar'
 import { useNetworkStore } from '@/stores'
+import { useActivePlatformStore } from '@/platforms'
 
 export default defineComponent({
     name: 'StatusBar',
     setup() {
         const store = useStatusBarStore()
         const networkStore = useNetworkStore()
+        const platformStore = useActivePlatformStore()
+
+        // `networkStore` is Avalanche's own RPC connection tracker (it never
+        // runs at all for another platform — see stores/network.ts's
+        // `setNetwork`), so it's only authoritative while Avalanche is active.
+        const isAvalanche = computed(
+            (): boolean => platformStore.hasChainKind('utxo') || platformStore.hasChainKind('staking')
+        )
+
+        const platformName = computed((): string => platformStore.activePlatform?.descriptor.name ?? '')
+
+        const networkName = computed((): string | null => {
+            if (isAvalanche.value) {
+                // The live network object (handles custom/local networks too,
+                // not just the two built-in Mainnet/Fuji entries).
+                return networkStore.selectedNetwork?.name ?? null
+            }
+            return platformStore.activePlatform?.getActiveNetwork?.()?.name ?? null
+        })
+
+        /**
+         * Other platforms have no RPC-health poller of their own yet (nothing
+         * equivalent to networkStore's connecting/connected/disconnected
+         * tracking) — connected there just reflects whether a wallet is
+         * actually attached, which is the only connectivity signal available.
+         */
+        const connectionStatus = computed((): 'connected' | 'connecting' | 'disconnected' => {
+            if (isAvalanche.value) return networkStore.status
+            return platformStore.activeWallet ? 'connected' : 'disconnected'
+        })
 
         // When there's no active transient message, the bar falls back to
         // showing live connection status — so it always reads something,
         // like a native app's persistent status line, instead of just
-        // vanishing when idle.
+        // vanishing when idle. Always includes which platform this status is
+        // for, since more than one is selectable now.
         const idleMessage = computed(() => {
-            const net = networkStore.selectedNetwork
-            switch (networkStore.status) {
+            const platform = platformName.value
+            const net = networkName.value
+            const label = platform && net ? `${platform} — ${net}` : platform || net || ''
+
+            switch (connectionStatus.value) {
                 case 'connected':
-                    return net ? `Connected — ${net.name}` : 'Connected'
+                    return label ? `Connected — ${label}` : 'Connected'
                 case 'connecting':
-                    return 'Connecting…'
+                    return label ? `Connecting — ${label}…` : 'Connecting…'
                 default:
-                    return 'Disconnected'
+                    return label ? `Disconnected — ${label}` : 'Disconnected'
             }
         })
 
@@ -51,7 +86,7 @@ export default defineComponent({
                     error: '#f44336',
                 }[store.type]
             }
-            switch (networkStore.status) {
+            switch (connectionStatus.value) {
                 case 'connected':
                     return '#4caf50'
                 case 'connecting':
