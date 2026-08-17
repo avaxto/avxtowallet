@@ -13,7 +13,7 @@
  * logic: two copies drifting apart (one platform gets a homoglyph-normalization
  * fix, another doesn't) is a real, quiet way for this protection to have
  * gaps. A platform's own registry module (platforms/avalanche/tokenRegistry/,
- * platforms/robinhood/tokenRegistry.ts, …) is expected to be just DATA — a
+ * platforms/evm/tokenRegistry.ts, …) is expected to be just DATA — a
  * list of `PlatformTokenRegistryEntry` — passed to `createTokenRegistry`
  * below to get a full, correctly-behaving `PlatformTokenRegistry` back.
  */

@@ -121,7 +121,7 @@ export default defineComponent({
          * Everything below (X/P chain tabs, bech32, HD address index, Ledger
          * verify, paper wallet) is Avalanche-specific — it reads
          * `mainStore.activeWallet`, which is null for any other platform since
-         * each keeps its own session store (see platforms/robinhood/store.ts).
+         * each keeps its own session store (see platforms/evm/store.ts).
          * On a platform with no `utxo`/`staking` chain, this card falls back to
          * the platform's own single address instead of Avalanche's X/P/C
          * branching — see `activeAddress`, `addressLabel`, `addressMsg` below.

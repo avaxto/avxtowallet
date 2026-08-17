@@ -43,9 +43,17 @@ class Erc20Token {
 
         const assetsStore = useAssetsStore(pinia)
         const baseAsset = assetsStore.baseAsset
+        // The chain id is part of the identity check, not just the address.
+        // This branch navigates the user out of the wallet entirely, and a
+        // contract address is only unique *within* a chain — the same address
+        // routinely exists on several EVM chains (deterministic deploys, or
+        // simply the same deployer at the same nonce). Matching on the address
+        // alone would eject someone from the wallet because an unrelated token
+        // on another network happened to share AVXTO's address.
         if (
             baseAsset &&
             this.data.address.toLowerCase() === baseAsset.address.toLowerCase() &&
+            this.data.chainId === baseAsset.chainId &&
             baseAsset.thr
         ) {
             if (this.balanceBN.lt(baseAsset.thr)) {

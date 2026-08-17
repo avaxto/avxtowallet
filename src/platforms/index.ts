@@ -18,15 +18,17 @@ import { registerPlatform } from './registry'
 
 import { avalanchePlatform } from './avalanche'
 import { bitcoinPlatform } from './bitcoin'
-import { ethereumPlatform } from './ethereum'
-import { robinhoodPlatform } from './robinhood'
+import { evmPlatform } from './evm'
 import { solanaPlatform } from './solana'
 
 registerPlatform(avalanchePlatform)
-registerPlatform(ethereumPlatform)
+// One platform for every EVM chain — it differentiates by network, not by
+// platform, so a new chain is a row in src/evm/networks.json rather than a new
+// folder here. This supersedes the former per-chain `ethereum` and
+// `robinhood` platforms; both of those chains are entries in that registry now.
+registerPlatform(evmPlatform)
 registerPlatform(solanaPlatform)
 registerPlatform(bitcoinPlatform)
-registerPlatform(robinhoodPlatform)
 
 export * from './types'
 export * from './registry'

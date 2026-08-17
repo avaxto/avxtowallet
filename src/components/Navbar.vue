@@ -27,8 +27,9 @@
             <p v-if="avaxPriceText" class="avax_price">
                 AVAX ${{ avaxPriceText }}
             </p>
-            <network-menu></network-menu>
-            
+            <network-menu v-if="isAvalanche"></network-menu>
+            <evm-network-menu v-else-if="isEvm"></evm-network-menu>
+
         </div>
 
         <div class="mobile_right">
@@ -81,6 +82,7 @@ import { useMainStore } from '@/stores'
 import LanguageSelect from './misc/LanguageSelect/LanguageSelect.vue'
 
 import NetworkMenu from './NetworkSettings/NetworkMenu.vue'
+import EvmNetworkMenu from './NetworkSettings/EvmNetworkMenu.vue'
 
 import AccountMenu from '@/components/wallet/sidebar/AccountMenu.vue'
 import PlatformLogo from '@/components/misc/PlatformLogo.vue'
@@ -91,6 +93,7 @@ export default defineComponent({
     components: {
         AccountMenu,
         NetworkMenu,
+        EvmNetworkMenu,
         LanguageSelect,
         PlatformLogo
     },
@@ -109,9 +112,19 @@ export default defineComponent({
         const canCrossChain = computed(() => platformStore.can('crossChain'))
         const canStake = computed(() => platformStore.can('stake'))
 
+        // The two network switchers are not interchangeable: NetworkMenu edits
+        // Avalanche's own AvaNetwork objects and switching it re-points the
+        // Avalanche SDK and both web3 singletons, which is meaningless — and
+        // actively wrong — on any other platform. It used to render
+        // unconditionally.
+        const isAvalanche = computed(
+            () => platformStore.hasChainKind('utxo') || platformStore.hasChainKind('staking')
+        )
+        const isEvm = computed(() => platformStore.activePlatformId === 'evm')
+
         // `mainStore.isAuth` only ever reflects Avalanche access — each
         // platform keeps its own session store (see
-        // platforms/robinhood/store.ts), so this must go through the
+        // platforms/evm/store.ts), so this must go through the
         // platform-agnostic `activeWallet` or the Connect/Access/Create
         // buttons stay visible even after connecting on another platform.
         const isAuth = computed((): boolean => {
@@ -140,8 +153,8 @@ export default defineComponent({
             // Same access method the /access page's "Connect Wallet" button
             // runs (see runAction() in views/access/Menu.vue) — read from the
             // active platform rather than always calling Avalanche's
-            // mainStore.accessWalletInjected(), so this connects Robinhood (or
-            // any other platform) when that's the one selected.
+            // mainStore.accessWalletInjected(), so this connects whichever
+            // platform is actually selected.
             const method = platformStore.activePlatform?.accessMethods.find(
                 (m) => m.id === 'injected' && m.kind === 'action' && m.run
             )
@@ -173,6 +186,8 @@ export default defineComponent({
             isMultiChain,
             canCrossChain,
             canStake,
+            isAvalanche,
+            isEvm,
             togglePopup,
             connectWallet,
         }

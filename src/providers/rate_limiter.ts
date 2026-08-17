@@ -277,14 +277,99 @@ export function handleThrottleResponse(
 // instead of racing independent failover attempts.
 let escalationPromise: Promise<boolean> | null = null
 
+// ── Third-party host throttling ──────────────────────────────────────────────
+//
+// Escalation exists for the Avalanche RPC endpoints the wallet cannot run
+// without, and it ends in a PERMANENT global block when every endpoint is
+// exhausted. The app also talks to hosts that are not those endpoints and
+// have no failover candidates — block explorers, indexers, price feeds,
+// swap aggregators. A 429 from one of those must never reach escalation:
+// taking the whole wallet down (Avalanche included) because a third-party
+// explorer rate limited a background refresh is a far worse outcome than
+// that one feature degrading.
+//
+// Instead those hosts get a plain per-host cooldown. Callers that can
+// degrade gracefully check `isHostThrottled()` and skip the host until it
+// expires.
+
+const FOREIGN_HOST_COOLDOWN_MS = 120_000
+
+/** host -> timestamp (ms) after which the host may be tried again. */
+const throttledHosts: { [host: string]: number } = {}
+
+function noteHostThrottled(url: string | undefined): void {
+    const host = hostOf(url)
+    if (!host) return
+    throttledHosts[host] = Date.now() + FOREIGN_HOST_COOLDOWN_MS
+    console.warn(
+        `[RateLimiter] ${host} rate limited — backing off that host for ` +
+            `${FOREIGN_HOST_COOLDOWN_MS / 1000}s. Other hosts are unaffected.`
+    )
+}
+
+/**
+ * True while `url`'s host is in its post-429 cooldown.
+ *
+ * Multi-network features that fan out across many third-party endpoints
+ * should consult this and skip a throttled host rather than hammering it,
+ * degrading that one network instead of the whole feature.
+ */
+export function isHostThrottled(url: string | undefined): boolean {
+    const host = hostOf(url)
+    if (!host) return false
+    const until = throttledHosts[host]
+    if (until === undefined) return false
+    if (Date.now() >= until) {
+        delete throttledHosts[host]
+        return false
+    }
+    return true
+}
+
 /**
  * A request to `url` was rate limited (explicit 429 or the CORS-hidden
- * equivalent). Pause traffic, switch to the next backup network via the
- * failover module (a full networkStore.setNetwork reconnect), and only
- * hard-block when no candidates are left.
+ * equivalent). For a replaceable Avalanche RPC host: pause traffic, switch to
+ * the next backup network via the failover module (a full
+ * networkStore.setNetwork reconnect), and only hard-block when no candidates
+ * are left. For any other host: back that host off on its own and leave
+ * global state alone entirely.
  */
-function escalateThrottle(url: string | undefined): Promise<boolean> {
-    if (globalRateLimiter.blocked) return Promise.resolve(false)
+async function escalateThrottle(url: string | undefined): Promise<boolean> {
+    if (globalRateLimiter.blocked) return false
+
+    // Eligibility is resolved OUTSIDE the single-flight below, for two
+    // reasons: a third-party 429 must not stall the app even briefly, and it
+    // must not occupy the escalation slot — doing so would make a genuine
+    // Avalanche 429 arriving at the same moment silently inherit the
+    // third-party result and skip its failover.
+    let eligible = false
+    try {
+        // Dynamic import to avoid a static dependency cycle
+        // (rpc_failover imports this module for getRawFetch).
+        const { isFailoverEligibleHost } = await import('./rpc_failover')
+        eligible = await isFailoverEligibleHost(url)
+    } catch (e) {
+        // Fail open, not closed: without a reliable answer, back the single
+        // host off rather than risk a permanent global block on a host that
+        // may not even be ours.
+        console.error('[RateLimiter] Could not classify throttled host:', e)
+        noteHostThrottled(url)
+        return false
+    }
+
+    if (!eligible) {
+        noteHostThrottled(url)
+        return false
+    }
+
+    return runEndpointEscalation(url)
+}
+
+/**
+ * The original escalate-or-block path, now reached only for hosts failover
+ * can actually replace. Single-flight: concurrent 429s share one run.
+ */
+function runEndpointEscalation(url: string | undefined): Promise<boolean> {
     if (escalationPromise) return escalationPromise
 
     // Hold all traffic while probing backup candidates. The failover module
@@ -296,8 +381,6 @@ function escalateThrottle(url: string | undefined): Promise<boolean> {
 
     escalationPromise = (async () => {
         try {
-            // Dynamic import to avoid a static dependency cycle
-            // (rpc_failover imports this module for getRawFetch).
             const { tryEndpointFailover } = await import('./rpc_failover')
             const switched = await tryEndpointFailover(url)
             if (switched) {

@@ -41,14 +41,14 @@ import { PublicMnemonicWallet } from '@/avalanche-wallet-sdk'
  *
  * `mainStore.isAuth` alone only ever reflects Avalanche access — it has no way
  * to know about a wallet connected on another platform (Robinhood, ...), since
- * each platform keeps its own session store (see platforms/robinhood/store.ts).
+ * each platform keeps its own session store (see platforms/evm/store.ts).
  * Checking the active platform's own `getActiveWallet()` generically covers
  * every platform, Avalanche included (its implementation is backed by this
  * same `mainStore.activeWallet`) — the `mainStore.isAuth` check is kept first
  * purely as a cheap, already-proven fast path.
  *
  * `@/platforms` is imported dynamically here rather than at module scope:
- * platforms/robinhood/store.ts imports this router module (to redirect after
+ * platforms/evm/store.ts imports this router module (to redirect after
  * connecting), so a static top-level import back into `@/platforms` would be
  * a circular module dependency. The dynamic import sidesteps that — by the
  * time a guard actually runs, both modules have long finished evaluating.

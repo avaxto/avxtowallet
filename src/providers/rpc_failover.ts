@@ -125,20 +125,23 @@ async function notify(message: string, type: 'warning' | 'success'): Promise<voi
     }
 }
 
-/**
- * Called by the rate limiter when `failedUrl` was throttled (HTTP 429, or the
- * CORS-hidden equivalent). Marks the host dead for the session and switches
- * to the next live network from networkStore.allNetworks via a full
- * setNetwork() reconnect.
- *
- * Returns true if a working network was connected (do NOT block), false when
- * every candidate is exhausted (caller applies the hard block).
- */
-export async function tryEndpointFailover(failedUrl: string | undefined): Promise<boolean> {
-    if (!failedUrl) return false
-    const failedHost = hostOf(failedUrl)
-    if (!failedHost) return false
+type FailoverNetworkStore = {
+    selectedNetwork: AvaNetwork | null
+    setNetwork: (n: AvaNetwork, isFailover?: boolean) => Promise<boolean | undefined>
+}
 
+/**
+ * Resolves the replacement candidates for `failedHost`, or null when this
+ * host is not one failover can act on at all.
+ *
+ * Shared by `isFailoverEligibleHost` and `tryEndpointFailover` so the
+ * "is this even an Avalanche RPC endpoint?" test has exactly one definition —
+ * the two must never disagree, because the rate limiter uses the first to
+ * decide whether a 429 is allowed to touch global state.
+ */
+async function resolveFailoverCandidates(
+    failedHost: string
+): Promise<{ networkStore: FailoverNetworkStore; candidates: AvaNetwork[] } | null> {
     const { pinia, useNetworkStore } = await import('@/stores')
     const networkStore = useNetworkStore(pinia)
 
@@ -155,7 +158,7 @@ export async function tryEndpointFailover(failedUrl: string | undefined): Promis
     const targetNetworkId: number | undefined =
         current?.networkId ??
         networkStore.allNetworks.find((n: AvaNetwork) => networkHost(n) === failedHost)?.networkId
-    if (targetNetworkId === undefined) return false
+    if (targetNetworkId === undefined) return null
 
     // Candidates: every registered network on the SAME network id, in
     // registration order (official endpoints first, then public backups,
@@ -165,14 +168,53 @@ export async function tryEndpointFailover(failedUrl: string | undefined): Promis
     )
 
     // Only handle hosts we can actually replace: one of the candidate
-    // networks. Anything else (e.g. Glacier) has no fallback — the caller
-    // decides what to do.
+    // networks. Anything else (a block explorer, a price feed, an indexer)
+    // has no fallback here.
     const knownHosts = new Set<string>()
     for (const n of candidates) {
         const h = networkHost(n)
         if (h) knownHosts.add(h)
     }
-    if (!knownHosts.has(failedHost)) return false
+    if (!knownHosts.has(failedHost)) return null
+
+    return { networkStore, candidates }
+}
+
+/**
+ * True when a 429 from `url` is something this module can actually resolve by
+ * switching endpoints — i.e. the host is one of the registered Avalanche RPC
+ * networks.
+ *
+ * The rate limiter checks this BEFORE escalating, because escalation ends in
+ * a permanent, tab-lifetime global block when no candidate works. Applying
+ * that to a host failover was never able to replace (a block explorer, an
+ * indexer, a price feed) takes the entire wallet down over a third party the
+ * wallet does not even depend on.
+ */
+export async function isFailoverEligibleHost(url: string | undefined): Promise<boolean> {
+    if (!url) return false
+    const host = hostOf(url)
+    if (!host) return false
+    return (await resolveFailoverCandidates(host)) !== null
+}
+
+/**
+ * Called by the rate limiter when `failedUrl` was throttled (HTTP 429, or the
+ * CORS-hidden equivalent). Marks the host dead for the session and switches
+ * to the next live network from networkStore.allNetworks via a full
+ * setNetwork() reconnect.
+ *
+ * Returns true if a working network was connected (do NOT block), false when
+ * every candidate is exhausted (caller applies the hard block).
+ */
+export async function tryEndpointFailover(failedUrl: string | undefined): Promise<boolean> {
+    if (!failedUrl) return false
+    const failedHost = hostOf(failedUrl)
+    if (!failedHost) return false
+
+    const resolved = await resolveFailoverCandidates(failedHost)
+    if (!resolved) return false
+    const { networkStore, candidates } = resolved
 
     deadHosts.add(failedHost)
 
@@ -186,7 +228,7 @@ export async function tryEndpointFailover(failedUrl: string | undefined): Promis
 }
 
 async function runFailover(
-    networkStore: { selectedNetwork: AvaNetwork | null; setNetwork: (n: AvaNetwork, isFailover?: boolean) => Promise<boolean | undefined> },
+    networkStore: FailoverNetworkStore,
     candidates: AvaNetwork[]
 ): Promise<boolean> {
     // Already on a live host? Then a stale/queued request to a previously

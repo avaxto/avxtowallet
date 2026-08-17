@@ -168,7 +168,7 @@ export default defineComponent({
         // Everything below this point (ava_asset, avmUnlocked/Locked, evmUnlocked
         // via `wallet.ethBalance`, `priceDict`) reads mainStore — Avalanche's
         // store — which is null/empty on any other platform, since each platform
-        // keeps its own session store (see platforms/robinhood/store.ts). A
+        // keeps its own session store (see platforms/evm/store.ts). A
         // non-Avalanche platform's native balance instead comes from its own
         // `PlatformWallet.getBalances()`, fetched here.
         const platformNativeAmount = ref<Big>(Big(0))

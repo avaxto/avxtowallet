@@ -1,0 +1,181 @@
+[
+    {
+        "id": "avalanche-c",
+        "name": "Avalanche C-Chain",
+        "shortName": "Avalanche",
+        "evmChainId": 43114,
+        "isTestnet": false,
+        "rpcUrl": "https://api.avax.network/ext/bc/C/rpc",
+        "native": { "symbol": "AVAX", "name": "Avalanche", "decimals": 18 },
+        "explorerUrl": "https://snowtrace.io",
+        "explorerApi": {
+            "family": "glacier",
+            "url": "https://api.snowtrace.io/api",
+            "requiresKey": false
+        },
+        "txType": "legacy",
+        "coingeckoPlatformId": "avalanche",
+        "iconUrl": "/img/avax_icon_circle.png",
+        "color": "#e84142"
+    },
+    {
+        "id": "avalanche-fuji",
+        "name": "Avalanche Fuji",
+        "shortName": "Fuji",
+        "evmChainId": 43113,
+        "isTestnet": true,
+        "rpcUrl": "https://api.avax-test.network/ext/bc/C/rpc",
+        "native": { "symbol": "AVAX", "name": "Avalanche", "decimals": 18 },
+        "explorerUrl": "https://testnet.snowtrace.io",
+        "explorerApi": {
+            "family": "glacier",
+            "url": "https://api-testnet.snowtrace.io/api",
+            "requiresKey": false
+        },
+        "txType": "legacy",
+        "iconUrl": "/img/avax_icon_circle.png",
+        "color": "#e84142"
+    },
+    {
+        "id": "ethereum",
+        "name": "Ethereum",
+        "shortName": "Ethereum",
+        "evmChainId": 1,
+        "isTestnet": false,
+        "rpcUrl": "https://ethereum-rpc.publicnode.com",
+        "native": { "symbol": "ETH", "name": "Ether", "decimals": 18 },
+        "explorerUrl": "https://etherscan.io",
+        "explorerApi": {
+            "family": "blockscout",
+            "url": "https://eth.blockscout.com/api",
+            "requiresKey": false
+        },
+        "txType": "legacy",
+        "coingeckoPlatformId": "ethereum",
+        "color": "#627eea"
+    },
+    {
+        "id": "base",
+        "name": "Base",
+        "shortName": "Base",
+        "evmChainId": 8453,
+        "isTestnet": false,
+        "rpcUrl": "https://mainnet.base.org",
+        "native": { "symbol": "ETH", "name": "Ether", "decimals": 18 },
+        "explorerUrl": "https://basescan.org",
+        "explorerApi": {
+            "family": "blockscout",
+            "url": "https://base.blockscout.com/api",
+            "requiresKey": false
+        },
+        "txType": "legacy",
+        "coingeckoPlatformId": "base",
+        "color": "#0052ff"
+    },
+    {
+        "id": "arbitrum-one",
+        "name": "Arbitrum One",
+        "shortName": "Arbitrum",
+        "evmChainId": 42161,
+        "isTestnet": false,
+        "rpcUrl": "https://arb1.arbitrum.io/rpc",
+        "native": { "symbol": "ETH", "name": "Ether", "decimals": 18 },
+        "explorerUrl": "https://arbiscan.io",
+        "explorerApi": {
+            "family": "blockscout",
+            "url": "https://arbitrum.blockscout.com/api",
+            "requiresKey": false
+        },
+        "txType": "legacy",
+        "coingeckoPlatformId": "arbitrum-one",
+        "color": "#28a0f0"
+    },
+    {
+        "id": "optimism",
+        "name": "OP Mainnet",
+        "shortName": "Optimism",
+        "evmChainId": 10,
+        "isTestnet": false,
+        "rpcUrl": "https://mainnet.optimism.io",
+        "native": { "symbol": "ETH", "name": "Ether", "decimals": 18 },
+        "explorerUrl": "https://optimistic.etherscan.io",
+        "explorerApi": {
+            "family": "blockscout",
+            "url": "https://optimism.blockscout.com/api",
+            "requiresKey": false
+        },
+        "txType": "legacy",
+        "coingeckoPlatformId": "optimistic-ethereum",
+        "color": "#ff0420"
+    },
+    {
+        "id": "polygon",
+        "name": "Polygon",
+        "shortName": "Polygon",
+        "evmChainId": 137,
+        "isTestnet": false,
+        "rpcUrl": "https://polygon-rpc.com",
+        "native": { "symbol": "POL", "name": "Polygon Ecosystem Token", "decimals": 18 },
+        "explorerUrl": "https://polygonscan.com",
+        "explorerApi": {
+            "family": "blockscout",
+            "url": "https://polygon.blockscout.com/api",
+            "requiresKey": false
+        },
+        "txType": "legacy",
+        "coingeckoPlatformId": "polygon-pos",
+        "color": "#8247e5"
+    },
+    {
+        "id": "bnb",
+        "name": "BNB Smart Chain",
+        "shortName": "BNB Chain",
+        "evmChainId": 56,
+        "isTestnet": false,
+        "rpcUrl": "https://bsc-dataseed.bnbchain.org",
+        "native": { "symbol": "BNB", "name": "BNB", "decimals": 18 },
+        "explorerUrl": "https://bscscan.com",
+        "explorerApi": {
+            "family": "etherscan",
+            "url": "https://api.etherscan.io/v2/api",
+            "requiresKey": true
+        },
+        "txType": "legacy",
+        "coingeckoPlatformId": "binance-smart-chain",
+        "color": "#f0b90b"
+    },
+    {
+        "id": "robinhood",
+        "name": "Robinhood Chain",
+        "shortName": "Robinhood",
+        "evmChainId": 4663,
+        "isTestnet": false,
+        "rpcUrl": "https://rpc.mainnet.chain.robinhood.com",
+        "native": { "symbol": "ETH", "name": "Ether", "decimals": 18 },
+        "explorerUrl": "https://robinhoodchain.blockscout.com",
+        "explorerApi": {
+            "family": "blockscout",
+            "url": "https://robinhoodchain.blockscout.com/api",
+            "requiresKey": false
+        },
+        "txType": "legacy",
+        "color": "#ccff00"
+    },
+    {
+        "id": "robinhood-testnet",
+        "name": "Robinhood Chain Testnet",
+        "shortName": "Robinhood Testnet",
+        "evmChainId": 46630,
+        "isTestnet": true,
+        "rpcUrl": "https://rpc.testnet.chain.robinhood.com",
+        "native": { "symbol": "ETH", "name": "Ether", "decimals": 18 },
+        "explorerUrl": "https://explorer.testnet.chain.robinhood.com",
+        "explorerApi": {
+            "family": "blockscout",
+            "url": "https://explorer.testnet.chain.robinhood.com/api",
+            "requiresKey": false
+        },
+        "txType": "legacy",
+        "color": "#ccff00"
+    }
+]

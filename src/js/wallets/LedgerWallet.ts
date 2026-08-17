@@ -4,7 +4,6 @@ import AppAvax from '@obsidiansystems/hw-app-avalanche'
 //@ts-ignore
 import Eth from '@ledgerhq/hw-app-eth'
 
-import Common from '@ethereumjs/common'
 import { Transaction } from '@ethereumjs/tx'
 
 import Transport from '@ledgerhq/hw-transport'
@@ -57,7 +56,7 @@ import { getPreferredHRP, PayloadBase } from '@/avalanche/utils'
 import { AbstractHdWallet } from '@/js/wallets/AbstractHdWallet'
 import { WalletNameType } from '@/js/wallets/types'
 import { AbiParsed, decodeTxData } from '@/js/AbiDecoder'
-import { web3 } from '@/evm'
+import { commonForChainId } from '@/evm/common'
 import { AVA_ACCOUNT_PATH, ETH_ACCOUNT_PATH, LEDGER_ETH_ACCOUNT_PATH } from './MnemonicWallet'
 import { ChainIdType } from '@/constants'
 import { ParseableAvmTxEnum, ParseablePlatformEnum, ParseableEvmTxEnum } from '../TxHelper'
@@ -830,7 +829,10 @@ class LedgerWallet extends AbstractHdWallet implements AvaWalletCore {
             tx.to !== undefined ? tx.to.buf : Buffer.from([]),
             bnToRlp(new EthereumBN(tx.value.toString())),
             tx.data,
-            bnToRlp(new EthereumBN(tx.getChainId())),
+            // `tx.common.chainIdBN()` — NOT `tx.getChainId()`, which does not
+            // exist on @ethereumjs/tx v3's Transaction and threw a TypeError
+            // here before the device was ever reached.
+            bnToRlp(new EthereumBN(tx.common.chainIdBN().toString())),
             Buffer.from([]),
             Buffer.from([]),
         ])
@@ -850,14 +852,18 @@ class LedgerWallet extends AbstractHdWallet implements AvaWalletCore {
             )
             this.ledgerStore.closeModal()
 
-            const chainId = await web3.eth.getChainId()
-            const networkId = await web3.eth.net.getId()
-            
-            const common = Common.forCustomChain(
-                'mainnet',
-                { networkId, chainId },
-                'istanbul'
-            )
+            // Chain id comes from the transaction that was actually signed —
+            // NOT from a fresh RPC query. The device signed over this same
+            // value (see the rlp.encode above), and EIP-155 folds it into
+            // `v`, so the Common used to reconstruct the
+            // signed transaction must be built from the same number. Querying
+            // the network again here would reintroduce a window in which the
+            // provider moved between building and signing, yielding a
+            // signature that silently fails to verify or lands on the wrong
+            // chain. `networkId` is not part of a legacy signature, so
+            // deriving it from the chain id is equivalent (and identical for
+            // Avalanche, where the two match).
+            const signedChainId = tx.common.chainIdBN().toNumber()
 
             const signedTx = Transaction.fromTxData(
                 {
@@ -871,7 +877,7 @@ class LedgerWallet extends AbstractHdWallet implements AvaWalletCore {
                     r: signature.r,
                     s: signature.s,
                 },
-                { common: common as any }
+                commonForChainId(signedChainId)
             )
             return signedTx
         } catch (e) {

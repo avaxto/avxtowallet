@@ -49,7 +49,7 @@ export const useActivePlatformStore = defineStore('activePlatform', () => {
      * calling it from inside a Vue `computed` is naturally reactive there. A
      * platform that instead mirrors its wallet in a module-scope variable for
      * non-Vue contexts (see the comment on `peekActiveWallet` in
-     * platforms/robinhood/store.ts) is NOT naturally reactive — Vue's dependency
+     * platforms/evm/store.ts) is NOT naturally reactive — Vue's dependency
      * tracker only sees a plain variable read, not a reactive one, so a
      * `computed` calling `getActiveWallet()` would silently never re-run after
      * connecting. `activeWallet` below depends on this ref so it re-evaluates on
@@ -97,12 +97,6 @@ export const useActivePlatformStore = defineStore('activePlatform', () => {
 
     /** True when the platform has more than one sub-chain to move funds between. */
     const isMultiChain = computed((): boolean => chains.value.length > 1)
-
-    /** The platform's single EVM chain id, when it has exactly one. */
-    const evmChainId = computed((): number | undefined => {
-        const evmChains = chains.value.filter((c) => c.kind === 'evm')
-        return evmChains.length === 1 ? evmChains[0].evmChainId : undefined
-    })
 
     /** Every registered platform, including ones that aren't built yet. */
     const platforms = computed((): Platform[] => listPlatforms())
@@ -155,14 +149,42 @@ export const useActivePlatformStore = defineStore('activePlatform', () => {
     }
 
     /**
+     * Platform ids that no longer exist, mapped to their successor.
+     *
+     * The per-chain EVM platforms were folded into the single `evm` platform,
+     * which differentiates by network instead. Without this, anyone whose saved
+     * platform was one of them would silently land on Avalanche — the generic
+     * "unknown id" fallback — which reads as the app forgetting their choice
+     * rather than as the rename it actually is.
+     */
+    const RENAMED_PLATFORM_IDS: Record<string, PlatformId> = {
+        robinhood: 'evm',
+        ethereum: 'evm',
+    }
+
+    /**
      * Restore the previously chosen platform. A saved id that is no longer
-     * available (removed, or renamed between releases) silently falls back to
-     * the default rather than leaving the app unusable.
+     * available (removed between releases) silently falls back to the default
+     * rather than leaving the app unusable.
      */
     const initPlatform = (): void => {
         const saved = localStorage.getItem(STORAGE_KEY)
+        const migrated = saved ? RENAMED_PLATFORM_IDS[saved] : undefined
+
+        if (migrated && saved !== migrated) {
+            // Rewrite the stored id so the migration happens once rather than
+            // on every boot, and so the stale id cannot linger and confuse a
+            // later release.
+            try {
+                localStorage.setItem(STORAGE_KEY, migrated)
+            } catch {
+                /* storage unavailable — the in-memory value below still applies */
+            }
+        }
+
+        const resolved = migrated ?? saved
         activePlatformId.value =
-            saved && isPlatformAvailable(saved) ? saved : DEFAULT_PLATFORM_ID
+            resolved && isPlatformAvailable(resolved) ? resolved : DEFAULT_PLATFORM_ID
 
         // Tint the interface for the restored platform before the first paint.
         applyPlatformTheme(activePlatform.value?.descriptor.theme)
@@ -179,7 +201,6 @@ export const useActivePlatformStore = defineStore('activePlatform', () => {
         chains,
         hasChainKind,
         isMultiChain,
-        evmChainId,
         platforms,
         availablePlatforms,
         setActivePlatform,

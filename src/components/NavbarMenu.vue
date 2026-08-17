@@ -286,7 +286,8 @@
         <p v-if="avaxPriceText" class="avax_price">
             AVAX ${{ avaxPriceText }}
         </p>
-        <network-menu class="net_menu"></network-menu>
+        <network-menu v-if="isAvalanche" class="net_menu"></network-menu>
+        <evm-network-menu v-else-if="isEvm" class="net_menu"></evm-network-menu>
     </div>
 </template>
 
@@ -298,6 +299,7 @@ import SaveAccountModal from '@/components/modals/SaveAccount/SaveAccountModal.v
 import ConfirmLogout from '@/components/modals/ConfirmLogout.vue'
 import AboutModal from '@/components/modals/AboutModal.vue'
 import NetworkMenu from '@/components/NetworkSettings/NetworkMenu.vue'
+import EvmNetworkMenu from '@/components/NetworkSettings/EvmNetworkMenu.vue'
 
 export default defineComponent({
     name: 'NavbarMenu',
@@ -306,6 +308,7 @@ export default defineComponent({
         ConfirmLogout,
         AboutModal,
         NetworkMenu,
+        EvmNetworkMenu,
     },
     setup() {
         const mainStore = useMainStore()
@@ -317,13 +320,21 @@ export default defineComponent({
 
         // `mainStore.isAuth`/`activeWallet` only ever reflect Avalanche access —
         // each platform keeps its own session store (see
-        // platforms/robinhood/store.ts), so a menu gated on those alone stays
+        // platforms/evm/store.ts), so a menu gated on those alone stays
         // permanently "logged out" on any other platform. `platformStore.
         // activeWallet` is the generic, platform-agnostic equivalent (backed by
         // mainStore.activeWallet for Avalanche, so behaviour there is unchanged).
         const isAuth = computed(() => platformStore.activeWallet !== null)
 
         const isInjected = computed(() => platformStore.activeWallet?.accessMethodId === 'injected')
+
+        // Avalanche's network switcher is not generic — switching it re-points
+        // the Avalanche SDK and both web3 singletons, so it must only render
+        // while Avalanche is the active platform. See Navbar.vue.
+        const isAvalanche = computed(
+            () => platformStore.hasChainKind('utxo') || platformStore.hasChainKind('staking')
+        )
+        const isEvm = computed(() => platformStore.activePlatformId === 'evm')
 
         const avaxPriceText = computed((): string | null => {
             const usd = mainStore.prices.usd
@@ -355,6 +366,8 @@ export default defineComponent({
         return {
             isAuth,
             isInjected,
+            isAvalanche,
+            isEvm,
             avaxPriceText,
             saveModal,
             logoutRef,
