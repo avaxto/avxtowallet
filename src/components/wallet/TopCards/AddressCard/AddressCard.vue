@@ -3,7 +3,7 @@
         <q-r-modal ref="qrModalRef" :address="activeAddress"></q-r-modal>
         <paper-wallet
             ref="printModalRef"
-            v-if="walletType === 'mnemonic'"
+            v-if="isAvalanche && walletType === 'mnemonic'"
             :wallet="activeWallet as unknown as MnemonicWallet"
         ></paper-wallet>
         <p class="addr_info">{{ addressMsg }}</p>
@@ -14,7 +14,7 @@
             <div class="bottom_rest">
                 <div class="subtitle-row">
                     <p class="subtitle">{{ addressLabel }}</p>
-                    <div v-if="showIndexSpinner || walletType === 'injected'"
+                    <div v-if="isAvalanche && (showIndexSpinner || walletType === 'injected')"
                          :style="walletType === 'injected' ? { visibility: 'hidden' } : {}"
                          class="addr-index-ctrl">
                         <input
@@ -33,7 +33,7 @@
                 </p>
                 <div class="buts">
                     <button
-                        v-if="showNewAddressBtn"
+                        v-if="isAvalanche && showNewAddressBtn"
                         :tooltip="'Advance HD index and show the next X-Chain address'"
                         class="bech32 new-addr-btn"
                         @click="getNewXAddress"
@@ -42,7 +42,7 @@
                         {{ newAddrLoading ? '…' : 'New Address' }}
                     </button>
                     <button
-                        v-if="chainNow === 'C' && walletType !== 'injected'"
+                        v-if="isAvalanche && chainNow === 'C' && walletType !== 'injected'"
                         :tooltip="`View the bech32 encoded C-Chain address`"
                         class="bech32"
                         @click="toggleBech32"
@@ -56,13 +56,13 @@
                         class="qr_but"
                     ></button>
                     <button
-                        v-if="walletType === 'mnemonic'"
+                        v-if="isAvalanche && walletType === 'mnemonic'"
                         :tooltip="$t('top.hover2')"
                         @click="viewPrintModal"
                         class="print_but"
                     ></button>
                     <button
-                        v-if="walletType === 'ledger'"
+                        v-if="isAvalanche && walletType === 'ledger'"
                         :tooltip="$t('create.verify')"
                         @click="verifyLedgerAddress"
                         class="ledger_but"
@@ -75,7 +75,7 @@
                 </div>
             </div>
         </div>
-        <div class="bottom_tabs">
+        <div class="bottom_tabs" v-if="isAvalanche">
             <ChainSelect :modelValue="chainNow" @update:modelValue="chainNow = $event"></ChainSelect>
         </div>
     </div>
@@ -84,6 +84,7 @@
 import 'reflect-metadata'
 import { defineComponent, ref, computed, watch, onMounted } from 'vue'
 import { useMainStore } from '@/stores'
+import { useActivePlatformStore } from '@/platforms'
 import { useI18n } from 'vue-i18n'
 
 import CopyText from '@/components/misc/CopyText.vue'
@@ -113,8 +114,39 @@ export default defineComponent({
     },
     setup() {
         const mainStore = useMainStore()
+        const platformStore = useActivePlatformStore()
         const { t } = useI18n()
-        
+
+        /**
+         * Everything below (X/P chain tabs, bech32, HD address index, Ledger
+         * verify, paper wallet) is Avalanche-specific — it reads
+         * `mainStore.activeWallet`, which is null for any other platform since
+         * each keeps its own session store (see platforms/robinhood/store.ts).
+         * On a platform with no `utxo`/`staking` chain, this card falls back to
+         * the platform's own single address instead of Avalanche's X/P/C
+         * branching — see `activeAddress`, `addressLabel`, `addressMsg` below.
+         */
+        const isAvalanche = computed((): boolean => {
+            return platformStore.hasChainKind('utxo') || platformStore.hasChainKind('staking')
+        })
+
+        const platformAddress = computed((): string => {
+            return platformStore.activePlatform?.getActiveWallet()?.getPrimaryAddress() || '-'
+        })
+
+        const platformChainLabel = computed((): string => {
+            return platformStore.chains[0]?.label ?? 'Wallet'
+        })
+
+        const platformAddressLabel = computed((): string => {
+            return `${platformChainLabel.value} Address`
+        })
+
+        const platformAddressMsg = computed((): string => {
+            const symbol = platformStore.activePlatform?.descriptor.symbol ?? 'assets'
+            return `Use this address to receive ${symbol} and tokens on ${platformChainLabel.value}.`
+        })
+
         const qrModalRef = ref<QRModal>()
         const printModalRef = ref<PaperWallet>()
         const qrRef = ref<HTMLCanvasElement>()
@@ -172,6 +204,7 @@ export default defineComponent({
         })
 
         const activeAddress = computed((): string => {
+            if (!isAvalanche.value) return platformAddress.value
             switch (chainNow.value) {
                 case 'X':
                     // Use || so an empty-string override (returned when wallet has no
@@ -251,6 +284,7 @@ export default defineComponent({
         })
 
         const addressLabel = computed((): string => {
+            if (!isAvalanche.value) return platformAddressLabel.value
             switch (chainNow.value) {
                 default:
                     return t('top.address.title_x') as string
@@ -264,6 +298,7 @@ export default defineComponent({
         })
 
         const addressMsg = computed((): string => {
+            if (!isAvalanche.value) return platformAddressMsg.value
             switch (chainNow.value) {
                 default:
                     return getAddressMsgX()
@@ -433,6 +468,7 @@ export default defineComponent({
         })
 
         return {
+            isAvalanche,
             qrModalRef,
             printModalRef,
             qrRef,
