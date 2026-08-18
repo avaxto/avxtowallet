@@ -18,16 +18,6 @@
             <p class="balance_col">Balance</p>
         </div>
 
-        <div v-if="degraded.length" class="degraded alert alert-warning">
-            <p>
-                Could not read
-                {{ degraded.length }}
-                {{ degraded.length === 1 ? 'network' : 'networks' }}:
-                {{ degraded.map((d) => d.network.shortName).join(', ') }}.
-                Everything else below is complete.
-            </p>
-        </div>
-
         <div class="scrollable no_scroll_bar">
             <div
                 v-for="token in visibleTokens"
@@ -73,6 +63,30 @@
                 <p>No assets found on any known EVM network.</p>
             </div>
         </div>
+
+        <div v-if="degraded.length" class="degraded alert alert-warning">
+            <p>
+                Could not read
+                {{ degraded.length }}
+                {{ degraded.length === 1 ? 'network' : 'networks' }}:
+                {{ degraded.map((d) => d.network.shortName).join(', ') }}.
+                Everything else above is complete.
+                <button
+                    v-if="missingKeyNetworks.length"
+                    type="button"
+                    class="key_prompt_but"
+                    @click="showKeyForm = !showKeyForm"
+                >
+                    {{ showKeyForm ? 'Hide' : 'Add Etherscan API key' }}
+                </button>
+            </p>
+            <EtherscanKeyForm
+                v-if="showKeyForm"
+                :affected-networks="missingKeyNetworks.map((d) => d.network.shortName).join(', ')"
+                @saved="onKeySaved"
+                @close="showKeyForm = false"
+            ></EtherscanKeyForm>
+        </div>
     </div>
 </template>
 
@@ -90,7 +104,12 @@ import { defineComponent, computed, ref, watch, onMounted } from 'vue'
 import Big from 'big.js'
 
 import Spinner from '@/components/misc/Spinner.vue'
-import { useEvmPortfolioStore, type EvmPortfolioToken } from '@/stores/evmPortfolio'
+import EtherscanKeyForm from '@/components/wallet/portfolio/EtherscanKeyForm.vue'
+import {
+    useEvmPortfolioStore,
+    type EvmNetworkResult,
+    type EvmPortfolioToken,
+} from '@/stores/evmPortfolio'
 import { useActivePlatformStore } from '@/platforms'
 import { useEvmStore } from '@/platforms/evm/store'
 
@@ -99,7 +118,7 @@ const DUST_THRESHOLD = Big('0.000001')
 
 export default defineComponent({
     name: 'EvmFungibles',
-    components: { Spinner },
+    components: { Spinner, EtherscanKeyForm },
     props: {
         search: { type: String, default: '' },
     },
@@ -119,6 +138,13 @@ export default defineComponent({
 
         /** Networks that returned nothing usable, so a short list is never mistaken for an empty wallet. */
         const degraded = computed(() => portfolio.failedNetworks)
+
+        /** The subset of `degraded` an Etherscan key would actually unblock. */
+        const missingKeyNetworks = computed((): EvmNetworkResult[] =>
+            degraded.value.filter((d) => d.network.explorerApi.requiresKey)
+        )
+
+        const showKeyForm = ref(false)
 
         const visibleTokens = computed((): EvmPortfolioToken[] => {
             let list = portfolio.tokens
@@ -158,6 +184,11 @@ export default defineComponent({
             await portfolio.fetch(address.value, evmStore.network.isTestnet)
         }
 
+        const onKeySaved = () => {
+            showKeyForm.value = false
+            refresh()
+        }
+
         watch(address, refresh)
         onMounted(refresh)
 
@@ -166,6 +197,9 @@ export default defineComponent({
             loading,
             networkCount,
             degraded,
+            missingKeyNetworks,
+            showKeyForm,
+            onKeySaved,
             visibleTokens,
             formatBalance,
             shortAddress,
@@ -310,6 +344,13 @@ export default defineComponent({
     font-size: 12px;
     margin: 8px 0;
     padding: 6px 10px;
+}
+
+.key_prompt_but {
+    color: var(--secondary-color);
+    text-decoration: underline;
+    margin-left: 4px;
+    font-size: 12px;
 }
 
 .scrollable {

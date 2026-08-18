@@ -109,5 +109,6 @@ export default defineComponent({
     display: block;
     width: 100%;
     height: auto;
+    margin-left: 20px;
 }
 </style>

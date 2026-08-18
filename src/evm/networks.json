@@ -101,7 +101,7 @@
         "explorerUrl": "https://optimistic.etherscan.io",
         "explorerApi": {
             "family": "blockscout",
-            "url": "https://optimism.blockscout.com/api",
+            "url": "https://explorer.optimism.io/api",
             "requiresKey": false
         },
         "txType": "legacy",
