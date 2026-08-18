@@ -33,7 +33,13 @@ import {
 import { connectInjected as connectInjectedWallet, EvmWallet } from './wallet'
 
 const NETWORK_STORAGE_KEY = 'evm_active_network'
-const DEFAULT_NETWORK_ID = 'avalanche-c'
+/**
+ * Ethereum, not Avalanche C-Chain: this platform exists precisely because the
+ * user has a *separate* Avalanche platform, so defaulting it to Avalanche is
+ * both surprising and redundant. It is only a starting point anyway —
+ * connecting adopts whichever chain the extension is already on.
+ */
+const DEFAULT_NETWORK_ID = 'ethereum'
 
 /**
  * Module-scope mirrors of the active wallet and network.
@@ -93,10 +99,27 @@ export const useEvmStore = defineStore('evm', () => {
         useActivePlatformStore().notifyWalletChanged()
     }
 
+    const applyNetwork = (next: EvmNetwork): void => {
+        network.value = next
+        activeNetworkRef = next
+        try {
+            localStorage.setItem(NETWORK_STORAGE_KEY, next.id)
+        } catch {
+            /* persistence is a convenience, not a requirement */
+        }
+    }
+
     const connectInjected = async (): Promise<void> => {
         isConnecting.value = true
         try {
             const w = await connectInjectedWallet(network.value)
+            // The wallet may have adopted the chain the extension was already
+            // on instead of the selected one (see connectInjected in
+            // ./wallet.ts). Follow it, or the app would display and sign for a
+            // different network than the wallet is actually on.
+            if (w.network.evmChainId !== network.value.evmChainId) {
+                applyNetwork(w.network)
+            }
             setWallet(w)
             router.push('/wallet')
         } finally {
@@ -109,22 +132,21 @@ export const useEvmStore = defineStore('evm', () => {
         if (!next) throw new Error(`Unknown EVM network: ${id}`)
         if (next.evmChainId === network.value.evmChainId) return
 
-        network.value = next
-        activeNetworkRef = next
-        try {
-            localStorage.setItem(NETWORK_STORAGE_KEY, next.id)
-        } catch {
-            /* persistence is a convenience, not a requirement */
+        // An explicit pick from the network menu, so this one DOES move the
+        // extension — unlike connect, where the extension's own chain wins.
+        if (wallet.value) {
+            isConnecting.value = true
+            try {
+                const w = await connectInjectedWallet(next, { force: true })
+                applyNetwork(w.network)
+                setWallet(w)
+            } finally {
+                isConnecting.value = false
+            }
+            return
         }
 
-        // The connected wallet is bound to the previous network's chain id, so
-        // it must not survive the switch. Reconnect on the new chain when a
-        // wallet was attached, so the user isn't silently logged out by what
-        // reads as a network change.
-        if (wallet.value) {
-            setWallet(null)
-            await connectInjected()
-        }
+        applyNetwork(next)
     }
 
     const disconnect = (): void => {

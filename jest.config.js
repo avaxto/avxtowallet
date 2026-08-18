@@ -6,6 +6,10 @@ module.exports = {
         '^.+\\.js?$': 'babel-jest',
     },
     moduleNameMapper: {
+        // Vite resolves asset imports to URLs; Jest cannot parse the binary,
+        // so anything importing an image (e.g. avxto/AVXTOConf) would fail to
+        // load. Must precede the '@/' rule — first match wins.
+        '\\.(png|jpe?g|gif|svg|webp|avif|ico)$': '<rootDir>/tests/assetStub.js',
         '@/(.*)$': '<rootDir>/src/$1',
     },
     setupFilesAfterEnv: ['./jest.setup.js'],

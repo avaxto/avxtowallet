@@ -11,6 +11,7 @@
                     {{ $t('portfolio.assets1') }}
                 </button>
                 <button
+                    v-if="!isEvm"
                     @click="tab = 'collectibles'"
                     :active="tab === `collectibles`"
                     data-cy="wallet_nft"
@@ -26,12 +27,20 @@
         </div>
         <div class="pages">
             <transition-group name="fade" mode="out-in" tag="div">
+                <evm-fungibles
+                    v-if="isEvm"
+                    v-show="tab === `fungibles`"
+                    key="evm_fungibles"
+                    :search="search"
+                ></evm-fungibles>
                 <fungibles
+                    v-else
                     v-show="tab === `fungibles`"
                     key="fungibles"
                     :search="search"
                 ></fungibles>
                 <collectibles
+                    v-if="!isEvm"
                     v-show="tab === `collectibles`"
                     key="collectibles"
                     :search="search"
@@ -41,19 +50,30 @@
     </div>
 </template>
 <script lang="ts">
-import { defineComponent, ref, watch } from 'vue'
+import { defineComponent, ref, computed, watch } from 'vue'
 import Fungibles from '@/components/wallet/portfolio/Fungibles.vue'
+import EvmFungibles from '@/components/wallet/portfolio/EvmFungibles.vue'
 import Collectibles from '@/components/wallet/portfolio/Collectibles.vue'
+import { useActivePlatformStore } from '@/platforms'
 
 export default defineComponent({
     name: 'WalletHome',
     components: {
         Fungibles,
+        EvmFungibles,
         Collectibles,
     },
     setup() {
+        const platformStore = useActivePlatformStore()
         const search = ref<string>('')
         const tab = ref<string>('fungibles')
+
+        // Fungibles.vue reads Avalanche's X/P assets and resolves ERC-20
+        // balances through the Avalanche web3 singleton, so it cannot render
+        // the multi-network list. Collectibles is Avalanche-only too (there is
+        // no generic NFT indexer wired up yet), so it is hidden rather than
+        // shown empty.
+        const isEvm = computed(() => platformStore.activePlatformId === 'evm')
 
         watch(tab, () => {
             search.value = ''
@@ -61,7 +81,8 @@ export default defineComponent({
 
         return {
             search,
-            tab
+            tab,
+            isEvm,
         }
     }
 })

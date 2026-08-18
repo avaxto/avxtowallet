@@ -19,7 +19,7 @@
 import Big from 'big.js'
 
 import type { PlatformAddress, PlatformBalance, PlatformWallet } from '../types'
-import type { EvmNetwork } from '@/evm/networkRegistry'
+import { getEvmNetworkByChainId, type EvmNetwork } from '@/evm/networkRegistry'
 import { web3For } from '@/evm/providers'
 
 /** Minimal EIP-1193 surface this wallet needs. */
@@ -147,13 +147,26 @@ export class EvmWallet implements PlatformWallet {
 }
 
 /**
- * Connects the injected wallet and points it at `network`.
+ * Connects the injected wallet.
  *
- * The chain is added to the extension when unknown (error 4902) — a newer L2
- * will not be preconfigured in any wallet, and without this the connect flow
- * dead-ends on an unhelpful provider error.
+ * By default this **adopts the chain the extension is already on** when that
+ * chain is one the registry knows, rather than pushing the user onto
+ * `preferred`. Connecting a wallet is not a request to switch networks: firing
+ * an unsolicited "Add/Switch network" prompt the moment someone picks the EVM
+ * platform is both startling and usually wrong — they are already on the chain
+ * they care about.
+ *
+ * The switch only happens when the extension is on a chain the registry does
+ * not list (nothing sensible to adopt), or when the caller explicitly asks for
+ * one via `force` — which is what the network picker does.
+ *
+ * Returns a wallet bound to the network actually resolved; callers should read
+ * `wallet.network` rather than assuming it is `preferred`.
  */
-export async function connectInjected(network: EvmNetwork): Promise<EvmWallet> {
+export async function connectInjected(
+    preferred: EvmNetwork,
+    opts: { force?: boolean } = {}
+): Promise<EvmWallet> {
     const provider = getEvmProvider()
     if (!provider) {
         throw new Error('No wallet extension found. Install MetaMask to use this platform.')
@@ -164,7 +177,20 @@ export async function connectInjected(network: EvmNetwork): Promise<EvmWallet> {
         throw new Error('No accounts returned from the wallet extension.')
     }
 
-    await ensureChain(provider, network)
+    let network = preferred
+    if (opts.force) {
+        await ensureChain(provider, preferred)
+    } else {
+        const current = await getProviderChainId(provider)
+        const known = current !== null ? getEvmNetworkByChainId(current) : undefined
+        if (known) {
+            network = known
+        } else {
+            // Extension is on a chain the registry has no entry for — there is
+            // nothing to adopt, so fall back to moving it to the selected one.
+            await ensureChain(provider, preferred)
+        }
+    }
 
     return new EvmWallet({
         address: accounts[0],
