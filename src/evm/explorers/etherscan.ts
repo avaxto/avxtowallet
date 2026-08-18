@@ -49,10 +49,15 @@ export const etherscanAdapter: ExplorerAdapter = {
 
         const raw = await fetchExplorerJson<EtherscanResponse>(url)
 
-        // Etherscan reports failures with HTTP 200 and status '0'. "No
-        // transactions found" is a legitimate empty result, not an error —
-        // treating it as one would mark a perfectly healthy network as failed.
-        if (raw?.status === '0') {
+        // Etherscan reports failures with HTTP 200 and status '0'. A
+        // legitimate empty result also carries status '0' but returns
+        // `result` as an (empty) array — real errors return `result` as a
+        // string (the error message) or omit it. This is checked ahead of the
+        // message-text match below because wording is not something to build
+        // on: the same shape of bug in Blockscout's own tokentx endpoint (see
+        // ./blockscout.ts) turned out to use different phrasing for the
+        // identical case, and would have defeated a text-only check here too.
+        if (raw?.status === '0' && !Array.isArray(raw.result)) {
             const message = typeof raw.result === 'string' ? raw.result : raw.message
             if (/no transactions found/i.test(message ?? '')) return []
             throw new Error(`Etherscan: ${message ?? 'request failed'}`)

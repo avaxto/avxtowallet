@@ -1,6 +1,14 @@
 {
-  "extends": "./tsconfig.json",
-  "compilerOptions": {
-    "types": []
-  }
+    // Real type checking. The root tsconfig.json lists four `types` entries
+    // that cannot be resolved (cypress, ts-jest, vuetify, webpack-env); tsc
+    // treats that as a fatal config error and exits BEFORE checking any code,
+    // so `tsc -p tsconfig.json` silently checks nothing at all.
+    //
+    // Clearing `types` restores checking. `tests/` is excluded because it
+    // relies on the jest globals those same type packages would provide.
+    "extends": "./tsconfig.json",
+    "compilerOptions": {
+        "types": []
+    },
+    "exclude": ["**/node_modules/*", "../avalanche.js/*", "tests/**/*"]
 }

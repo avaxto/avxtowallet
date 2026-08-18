@@ -217,8 +217,12 @@ export const useEvmPortfolioStore = defineStore('evmPortfolio', () => {
     const results = ref<EvmNetworkResult[]>([])
     const loading = ref(false)
 
-    // Remembered so refresh() can re-run without callers replaying the address.
+    // Remembered so refresh() can re-run without callers replaying the
+    // address, and so `ensureLoaded` can tell "already have this" from
+    // "never scanned".
     let lastAddress: string | null = null
+    let lastIsTestnet: boolean | null = null
+    let inFlight: Promise<void> | null = null
 
     /** Flat token list across every network, highest balance first. */
     const tokens = computed((): EvmPortfolioToken[] =>
@@ -249,6 +253,7 @@ export const useEvmPortfolioStore = defineStore('evmPortfolio', () => {
 
     const fetch = async (address: string | null, isTestnet = false): Promise<void> => {
         lastAddress = address
+        lastIsTestnet = isTestnet
         if (!address) {
             results.value = []
             return
@@ -257,12 +262,16 @@ export const useEvmPortfolioStore = defineStore('evmPortfolio', () => {
         loading.value = true
         const networks = networksToScan(isTestnet)
 
-        // Seed the list so the UI can show every network as pending rather
-        // than popping rows in from nothing.
+        // Seed the pending list, but CARRY FORWARD whatever each network
+        // last returned. Blanking here made every refresh empty the list for
+        // the seconds a full scan takes — and because this store is shared,
+        // opening the token picker also wiped the portfolio page behind it.
+        // A refresh should update in place, not flash empty.
+        const previous = new Map(results.value.map((r) => [r.network.evmChainId, r]))
         results.value = networks.map((network) => ({
             network,
             status: 'loading' as EvmNetworkStatus,
-            tokens: [],
+            tokens: previous.get(network.evmChainId)?.tokens ?? [],
         }))
 
         try {
@@ -295,5 +304,35 @@ export const useEvmPortfolioStore = defineStore('evmPortfolio', () => {
         await fetch(lastAddress, isTestnet)
     }
 
-    return { results, tokens, failedNetworks, loading, fetch, refresh }
+    /**
+     * Loads only if this exact scan has not already been done.
+     *
+     * This is what every *consumer* should call — the portfolio page on mount,
+     * the token picker on open — so they all show one list produced by one
+     * scan. Forcing a fresh `fetch()` per consumer meant the picker kicked off
+     * a full re-scan of every network each time it opened, which is both slow
+     * and pointless when the data is already sitting there.
+     *
+     * Concurrent callers share the in-flight promise rather than starting
+     * competing scans. `fetch()` stays available for an explicit user-driven
+     * refresh.
+     */
+    const ensureLoaded = async (address: string | null, isTestnet = false): Promise<void> => {
+        if (address && address === lastAddress && isTestnet === lastIsTestnet) {
+            if (inFlight) await inFlight
+            return
+        }
+        if (inFlight) {
+            await inFlight
+            // The scan that just finished may have been for this exact
+            // request; re-check rather than starting a second one.
+            if (address === lastAddress && isTestnet === lastIsTestnet) return
+        }
+        inFlight = fetch(address, isTestnet).finally(() => {
+            inFlight = null
+        })
+        await inFlight
+    }
+
+    return { results, tokens, failedNetworks, loading, fetch, refresh, ensureLoaded }
 })

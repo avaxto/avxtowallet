@@ -40,6 +40,12 @@ interface BlockscoutTokenTx {
     tokenDecimal: string
 }
 
+interface BlockscoutTokenTxResponse {
+    status?: string
+    message?: string
+    result?: BlockscoutTokenTx[] | null
+}
+
 function parseDecimals(raw: string | number | undefined): number | undefined {
     if (raw === undefined || raw === null || raw === '') return undefined
     const n = typeof raw === 'number' ? raw : parseInt(raw, 10)
@@ -73,7 +79,25 @@ async function viaTokenTx(address: string, network: EvmNetwork): Promise<Discove
     const url =
         `${network.explorerApi.url}?module=account&action=tokentx` +
         `&address=${address}&sort=desc`
-    const raw = await fetchExplorerJson<{ result?: BlockscoutTokenTx[] }>(url)
+    const raw = await fetchExplorerJson<BlockscoutTokenTxResponse>(url)
+
+    // This endpoint reports failure with HTTP 200 and status '0' — verified
+    // directly against polygon.blockscout.com, which under load returns
+    // `{"status":"0","message":"Something went wrong.","result":null}` on the
+    // very same address that a moment earlier or later gave the legitimate
+    // `{"status":"0","message":"No token transfers found","result":[]}` for
+    // an address that has genuinely never held a token. The distinguishing
+    // signal is `result` being an array (possibly empty) vs `null` — message
+    // TEXT is not reliable to branch on: Blockscout's wording here ("No token
+    // transfers found") differs from Etherscan's own ("No transactions
+    // found") for the identical case. Without this check, a transient server
+    // error silently read as "this address holds nothing", which is a much
+    // worse failure than reporting the network as unavailable — it looks like
+    // an accurate answer instead of a missing one.
+    if (raw?.status === '0' && !Array.isArray(raw?.result)) {
+        throw new Error(`Blockscout: ${raw?.message ?? 'request failed'}`)
+    }
+
     const rows = Array.isArray(raw?.result) ? raw.result : []
 
     // Transfer history repeats a contract once per transfer; only the first

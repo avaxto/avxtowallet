@@ -21,8 +21,26 @@ export const DEFAULT_PLATFORM_ID: PlatformId = 'avalanche'
 export function registerPlatform(platform: Platform): void {
     const id = platform.descriptor.id
     if (registry.has(id)) {
-        // A duplicate id would make `getPlatform` ambiguous and silently shadow
-        // one implementation, so fail loudly at startup instead.
+        // `import.meta.hot` only exists under Vite's dev server, never in a
+        // production build. There, a duplicate id is a genuine authoring
+        // mistake (two platform folders declaring the same id within one
+        // execution of ./index.ts) and must fail loudly — a duplicate would
+        // make `getPlatform` ambiguous and silently shadow one implementation.
+        //
+        // In dev it can ALSO mean something harmless: `./index.ts` has
+        // top-level side effects (these `registerPlatform` calls), and this
+        // module — the one actually holding `registry`, the singleton these
+        // calls mutate — is not itself what changed, so it is not always part
+        // of the invalidated subgraph. Editing any file that imports
+        // `@/platforms` for the first time (adding the import itself is
+        // enough) can make Vite re-run `./index.ts` against this SAME,
+        // still-populated `registry`. Re-registering the identical platform
+        // object there is not a mistake, just Vite catching up — overwrite
+        // instead of throwing.
+        if (import.meta.hot) {
+            registry.set(id, platform)
+            return
+        }
         throw new Error(`[platforms] Duplicate platform id registered: ${id}`)
     }
     registry.set(id, platform)

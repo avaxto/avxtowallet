@@ -114,7 +114,7 @@
         "shortName": "Polygon",
         "evmChainId": 137,
         "isTestnet": false,
-        "rpcUrl": "https://polygon-rpc.com",
+        "rpcUrl": "https://polygon-bor-rpc.publicnode.com",
         "native": { "symbol": "POL", "name": "Polygon Ecosystem Token", "decimals": 18 },
         "explorerUrl": "https://polygonscan.com",
         "explorerApi": {

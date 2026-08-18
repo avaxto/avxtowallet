@@ -15,14 +15,12 @@
         <AvmTokenSelect
             ref="token_modal"
             @select="onselect"
-            :assets="assetArray"
             :disabled-ids="disabledIds"
         ></AvmTokenSelect>
     </div>
 </template>
 <script lang="ts">
 import { defineComponent, ref, computed } from 'vue'
-import { useAssetsStore } from '@/stores'
 
 import BalancePopup from '@/components/misc/BalancePopup/BalancePopup.vue'
 import AvaAsset from '@/js/AvaAsset'
@@ -50,13 +48,8 @@ export default defineComponent({
     },
     emits: ['update:modelValue', 'change'],
     setup(props, { emit }) {
-        const assetsStore = useAssetsStore()
         const isPopup = ref(false)
         const token_modal = ref<InstanceType<typeof AvmTokenSelect>>()
-
-        const assetArray = computed((): AvaAsset[] => {
-            return assetsStore.walletAssetsArray
-        })
 
         const disabledIds = computed((): string[] => {
             let disabledIds = props.disabled_assets.map((a) => a.id)
@@ -86,7 +79,6 @@ export default defineComponent({
         return {
             isPopup,
             token_modal,
-            assetArray,
             disabledIds,
             symbol,
             showPopup,

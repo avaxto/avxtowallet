@@ -93,6 +93,18 @@ export class EvmWallet implements PlatformWallet {
         return `evm:${this.network.evmChainId}:${this.address.toLowerCase()}`
     }
 
+    /**
+     * Duck-typed to match Avalanche's wallet `.type` field so this wallet
+     * plugs straight into `authorizeWalletOp` (`js/security/authorize.ts`)
+     * without that gate needing to know about a second wallet hierarchy.
+     * 'injected' is externally authorized there (the extension itself
+     * prompts); 'watch' has no provider and correctly falls through to that
+     * gate's default refusal — a watch-only wallet must not be able to sign.
+     */
+    get type(): string {
+        return this.accessMethodId
+    }
+
     getAddresses(): PlatformAddress[] {
         return [{ chain: 'EVM', address: this.address, label: this.network.name }]
     }
@@ -120,6 +132,91 @@ export class EvmWallet implements PlatformWallet {
                 chain: 'EVM',
             },
         ]
+    }
+
+    /**
+     * Sends the network's native asset via the injected provider's own
+     * `eth_sendTransaction`.
+     *
+     * Deliberately leaves gas fields unset: this wallet has to work across
+     * every registry network — some legacy, some EIP-1559 — and the injected
+     * extension already knows how to price and confirm a transaction
+     * correctly for whichever chain it is connected to. Setting them here
+     * would mean re-implementing per-chain gas rules (see `evm/gas.ts`) for a
+     * value the wallet's own confirmation UI shows the user anyway.
+     */
+    async sendNative(to: string, amountWei: string): Promise<string> {
+        if (!/^0x[0-9a-fA-F]{40}$/.test(to)) {
+            throw new Error('Enter a valid 0x address.')
+        }
+        const provider = this.requireProvider()
+        return await provider.request({
+            method: 'eth_sendTransaction',
+            params: [
+                {
+                    from: this.address,
+                    to,
+                    value: '0x' + BigInt(amountWei).toString(16),
+                },
+            ],
+        })
+    }
+
+    /**
+     * Sends an ERC-20 via the injected provider.
+     *
+     * The `transfer(address,uint256)` calldata is encoded by hand rather than
+     * through a web3 Contract, for the same reason `sendNative` exists: a
+     * web3 Contract binds to the provider of the instance that created it, so
+     * routing a send through one would reintroduce exactly the
+     * "which chain did this actually go to?" ambiguity this platform is
+     * designed to avoid. Here the chain is whatever the extension is on, and
+     * `assertOnChain` below is what guarantees that is the intended one.
+     *
+     * `amountRaw` is the unscaled integer amount — callers scale by the
+     * token's verified on-chain decimals (see evm/tokenReader.ts), never by a
+     * value an explorer reported.
+     */
+    async sendErc20(tokenAddress: string, to: string, amountRaw: string): Promise<string> {
+        if (!/^0x[0-9a-fA-F]{40}$/.test(to)) {
+            throw new Error('Enter a valid 0x address.')
+        }
+        if (!/^0x[0-9a-fA-F]{40}$/.test(tokenAddress)) {
+            throw new Error('Invalid token contract address.')
+        }
+        const provider = this.requireProvider()
+
+        // transfer(address,uint256) = 0xa9059cbb, then two 32-byte words.
+        const paddedTo = to.toLowerCase().replace(/^0x/, '').padStart(64, '0')
+        const paddedAmount = BigInt(amountRaw).toString(16).padStart(64, '0')
+        const data = `0xa9059cbb${paddedTo}${paddedAmount}`
+
+        return await provider.request({
+            method: 'eth_sendTransaction',
+            params: [{ from: this.address, to: tokenAddress, data }],
+        })
+    }
+
+    /**
+     * Throws unless the extension is currently on this wallet's network.
+     *
+     * Called immediately before a send. `eth_sendTransaction` goes to whatever
+     * chain the extension happens to be on, and the user can switch it at any
+     * moment from inside the extension without the app hearing about it — so
+     * anything checked earlier is already stale. Without this, a transfer
+     * composed for a token on one chain can be broadcast on another to the
+     * same address, which is a silent loss rather than a visible error.
+     */
+    async assertOnChain(): Promise<void> {
+        const provider = this.requireProvider()
+        const current = await getProviderChainId(provider)
+        if (current === null) return // unreadable — let the extension decide
+        if (current !== this.network.evmChainId) {
+            throw new Error(
+                `Your wallet is on chain ${current}, but this transaction is for ` +
+                    `${this.network.name} (${this.network.evmChainId}). Switch networks and try again.`
+            )
+        }
     }
 
     async signMessage(message: string, address?: string): Promise<string> {

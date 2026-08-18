@@ -12,7 +12,7 @@
             placeholder="Search token…"
             autofocus
         />
-        <div class="token_list_scroll">
+        <div class="token_list_scroll no_scroll_bar">
             <div v-if="loading" class="token_list_loading">
                 <Spinner class="token_list_spinner"></Spinner>
                 Loading tokens…
@@ -20,7 +20,7 @@
             <div v-if="!filtered.length && !loading" class="token_list_empty">No matches</div>
             <div
                 v-for="t in filtered"
-                :key="t.address"
+                :key="tokenKey(t)"
                 class="token_list_item"
                 :class="{ active: isSelected(t) }"
                 @click="$emit('select', t)"
@@ -28,7 +28,20 @@
                 <img v-if="t.logoUri" :src="t.logoUri" class="token_list_logo" />
                 <div v-else class="token_list_logo placeholder">?</div>
                 <div class="token_list_name">
-                    <p>{{ t.symbol }}</p>
+                    <p>
+                        {{ t.symbol }}
+                        <span
+                            v-if="t.network"
+                            class="token_net_chip"
+                            :style="{ borderColor: t.network.color }"
+                        >
+                            <span
+                                class="token_net_dot"
+                                :style="{ backgroundColor: t.network.color }"
+                            ></span>
+                            {{ t.network.shortName }}
+                        </span>
+                    </p>
                     <p>{{ t.name }}</p>
                 </div>
                 <p class="token_list_balance" :title="t.balance.toLocaleString()">{{ t.balance.toLocaleString() }}</p>
@@ -76,21 +89,52 @@ export default defineComponent({
                 (t) =>
                     t.symbol.toLowerCase().includes(q) ||
                     t.name.toLowerCase().includes(q) ||
-                    t.address.toLowerCase().includes(q)
+                    t.address.toLowerCase().includes(q) ||
+                    (t.network?.shortName.toLowerCase().includes(q) ?? false)
             )
         })
+
+        /**
+         * List identity. Scoped by chain id when the token carries a network:
+         * the same contract address exists on several chains, so an
+         * address-only key would collide and Vue would reuse the wrong row.
+         */
+        const tokenKey = (t: HeldToken): string =>
+            t.network ? `${t.network.evmChainId}:${t.address.toLowerCase()}` : t.address
 
         const isSelected = (t: HeldToken): boolean => {
             return !!props.selectedAddress && t.address.toLowerCase() === props.selectedAddress.toLowerCase()
         }
 
-        return { searchQuery, filtered, isSelected }
+        return { searchQuery, filtered, tokenKey, isSelected }
     },
 })
 </script>
 <style scoped lang="scss">
 .token_list_picker {
     width: 100%;
+}
+
+.token_net_chip {
+    display: inline-flex;
+    align-items: center;
+    margin-left: 6px;
+    font-size: 10px;
+    white-space: nowrap;
+    color: var(--primary-color-light);
+    border: 1px solid var(--bg-light);
+    border-radius: 9px;
+    padding: 0 6px 0 4px;
+    vertical-align: middle;
+}
+
+.token_net_dot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    margin-right: 4px;
+    flex-shrink: 0;
 }
 
 .token_search_input {

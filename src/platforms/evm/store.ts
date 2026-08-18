@@ -20,6 +20,7 @@
  */
 import { defineStore } from 'pinia'
 import { computed, ref, shallowRef } from 'vue'
+import Big from 'big.js'
 
 import router from '@/router'
 import type { PlatformWallet } from '../types'
@@ -30,6 +31,7 @@ import {
     loadCustomEvmNetworks,
     type EvmNetwork,
 } from '@/evm/networkRegistry'
+import { readNativeBalance } from '@/evm/tokenReader'
 import { connectInjected as connectInjectedWallet, EvmWallet } from './wallet'
 
 const NETWORK_STORAGE_KEY = 'evm_active_network'
@@ -90,6 +92,30 @@ export const useEvmStore = defineStore('evm', () => {
     const isAuth = computed(() => wallet.value !== null)
     const networks = computed(() => getEvmNetworks())
 
+    // Native balance for the connected wallet. Unlike Avalanche's `Wallet`
+    // (whose `ethBalance` is a reactive field the wallet class itself keeps
+    // current), `EvmWallet` only exposes an async `getBalances()` — this ref is
+    // what the send form and anything else needing a synchronous number reads
+    // instead.
+    const nativeBalance = shallowRef<Big>(Big(0))
+    const isLoadingBalance = ref(false)
+
+    const refreshNativeBalance = async (): Promise<void> => {
+        const w = wallet.value
+        if (!w) {
+            nativeBalance.value = Big(0)
+            return
+        }
+        isLoadingBalance.value = true
+        try {
+            nativeBalance.value = await readNativeBalance(w.getPrimaryAddress(), w.network)
+        } catch (e) {
+            console.warn('[evm/store] Could not refresh native balance:', e)
+        } finally {
+            isLoadingBalance.value = false
+        }
+    }
+
     const setWallet = (w: EvmWallet | null) => {
         wallet.value = w
         activeWalletRef = w
@@ -97,6 +123,7 @@ export const useEvmStore = defineStore('evm', () => {
         // reading it through `Platform.getActiveWallet()` would otherwise know
         // to re-run when it changes — see `walletEpoch` in platforms/store.ts.
         useActivePlatformStore().notifyWalletChanged()
+        void refreshNativeBalance()
     }
 
     const applyNetwork = (next: EvmNetwork): void => {
@@ -163,6 +190,9 @@ export const useEvmStore = defineStore('evm', () => {
         networks,
         isConnecting,
         isAuth,
+        nativeBalance,
+        isLoadingBalance,
+        refreshNativeBalance,
         connectInjected,
         setNetwork,
         disconnect,

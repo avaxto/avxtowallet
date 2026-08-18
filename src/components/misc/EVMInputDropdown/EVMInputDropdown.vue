@@ -1,5 +1,5 @@
 <template>
-    <div class="evm_input_dropdow">
+    <div class="evm_input_dropdown">
         <div class="col_in hover_border" :disabled="disabled">
             <template v-if="!isCollectible">
                 <button class="max_but" @click="maxOut" :disabled="disabled">MAX</button>
@@ -14,7 +14,7 @@
                         class="bigIn"
                         :disabled="disabled"
                     ></BigNumInput>
-                    <p class="usd_val" :active="token === 'native'">
+                    <p class="usd_val" :active="token === 'native' && !isGeneralEvm">
                         ${{ usd_val.toLocaleString(2) }}
                     </p>
                 </div>
@@ -32,6 +32,7 @@
             @change="onAssetChange"
             @changeCollectible="onCollectibleChange"
             :disabled="disabled"
+            :native-symbol="nativeSymbol"
             ref="dropdown"
         ></EVMAssetDropdown>
         <div class="bal_col" v-if="!isCollectible">
@@ -46,10 +47,14 @@ import { useMainStore } from '@/stores'
 //@ts-ignore
 import { BigNumInput } from '@/vue_components'
 import { BN } from '@/avalanche'
+import { bigToBN } from '@/avalanche-wallet-sdk'
 import EVMAssetDropdown from '@/components/misc/EVMInputDropdown/EVMAssetDropdown.vue'
 import Erc20Token from '@/js/Erc20Token'
+import type { EvmPortfolioToken } from '@/stores/evmPortfolio'
 import Big from 'big.js'
 import { Wallet } from '@/js/wallets/AbstractWallet'
+import { useActivePlatformStore } from '@/platforms'
+import { useEvmStore } from '@/platforms/evm/store'
 
 import { bnToBig } from '@/helpers/helper'
 import EVMTokenSelectModal from '@/components/modals/EvmTokenSelect/EVMTokenSelectModal.vue'
@@ -82,10 +87,23 @@ export default defineComponent({
     emits: ['tokenChange', 'collectibleChange', 'amountChange'],
     setup(props, { emit }) {
         const mainStore = useMainStore()
+        const platformStore = useActivePlatformStore()
+        const evmStore = useEvmStore()
         const bigIn = ref<InstanceType<typeof BigNumInput>>()
         const dropdown = ref<InstanceType<typeof EVMAssetDropdown>>()
-        
-        const token = ref<Erc20Token | 'native'>('native')
+
+        // True on the generalized EVM platform (Optimism, Polygon, BNB, …)
+        // rather than Avalanche's own C-Chain — its wallet and balance live in
+        // a different store, so every native-asset read below has to branch.
+        const isGeneralEvm = computed(
+            (): boolean => platformStore.activePlatform?.descriptor.id === 'evm'
+        )
+
+        const nativeSymbol = computed((): string =>
+            isGeneralEvm.value ? evmStore.network.native.symbol : 'AVAX'
+        )
+
+        const token = ref<Erc20Token | EvmPortfolioToken | 'native'>('native')
         const isCollectible = ref(false)
         const collectible = ref<iErc721SelectInput | null>(null)
         const amt = shallowRef(new BN(0))
@@ -98,6 +116,11 @@ export default defineComponent({
 
         const usd_val = computed((): Big => {
             if (token.value != 'native') return Big(0)
+            // mainStore.prices.usd is Avalanche's AVAX price — applying it to
+            // any other chain's native asset would show a fabricated number,
+            // not just a missing one. There is no multi-chain price feed wired
+            // up yet, so this is honestly blank until there is one.
+            if (isGeneralEvm.value) return Big(0)
 
             let price = mainStore.prices.usd
             if (typeof price !== 'number' || isNaN(price)) {
@@ -114,9 +137,11 @@ export default defineComponent({
         const denomination = computed((): number => {
             if (isNative.value) {
                 return 18
-            } else {
-                return parseInt((token.value as Erc20Token).data.decimals as string)
             }
+            const t = token.value as Erc20Token | EvmPortfolioToken
+            // EvmPortfolioToken carries decimals read from the contract
+            // itself; Erc20Token keeps them (as a string) under `.data`.
+            return 'data' in t ? parseInt(t.data.decimals as string) : t.decimals
         })
 
         const stepSize = computed((): BN => {
@@ -145,6 +170,9 @@ export default defineComponent({
         })
 
         const avaxBalanceBN = computed((): BN => {
+            if (isGeneralEvm.value) {
+                return bigToBN(evmStore.nativeBalance, evmStore.network.native.decimals)
+            }
             let w: Wallet | null = mainStore.activeWallet
             if (!w) return new BN(0)
             return w.ethBalance
@@ -158,14 +186,19 @@ export default defineComponent({
             if (token.value === 'native') {
                 return avaxBalance.value
             }
-            return token.value.balanceBig
+            const t = token.value
+            return 'data' in t ? t.balanceBig : t.balance
         })
 
         const balanceBN = computed((): BN => {
             if (token.value === 'native') {
                 return avaxBalanceBN.value
             }
-            return token.value.balanceBN
+            const t = token.value
+            // EvmPortfolioToken keeps the unscaled integer as a decimal
+            // string (`raw`) rather than a BN, since it never passes through
+            // Avalanche's BN-based helpers.
+            return 'data' in t ? t.balanceBN : new BN(t.raw)
         })
 
         const max_amount = computed((): BN => {
@@ -185,7 +218,7 @@ export default defineComponent({
             }
         }
 
-        const setToken = (tokenValue: 'native' | Erc20Token) => {
+        const setToken = (tokenValue: 'native' | Erc20Token | EvmPortfolioToken) => {
             if (dropdown.value) {
                 dropdown.value.select(tokenValue)
             }
@@ -200,7 +233,7 @@ export default defineComponent({
             }
         }
 
-        const onAssetChange = (tokenValue: Erc20Token | 'native') => {
+        const onAssetChange = (tokenValue: Erc20Token | EvmPortfolioToken | 'native') => {
             isCollectible.value = false
             token.value = tokenValue
             nextTick(() => {
@@ -225,6 +258,8 @@ export default defineComponent({
         return {
             bigIn,
             dropdown,
+            isGeneralEvm,
+            nativeSymbol,
             token,
             isCollectible,
             collectible,
@@ -254,7 +289,11 @@ export default defineComponent({
 <style scoped lang="scss">
 .evm_input_dropdown {
     display: grid;
-    grid-template-columns: 1fr 90px;
+    // minmax(0, …) — not a bare px value — so the token button's label
+    // ("Transferring X (Click to Change)") wraps inside this column instead
+    // of forcing it wider (grid tracks default to min-width: auto, sized to
+    // the child's un-wrapped content).
+    grid-template-columns: 1fr minmax(0, 110px);
     column-gap: 10px;
     font-size: 15px;
 

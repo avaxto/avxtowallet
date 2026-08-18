@@ -6,9 +6,9 @@
         </div>
         <div class="card_body" v-else>
             <FormC v-show="formType === 'C'">
-                <ChainInput v-model="formType" :disabled="isConfirm"></ChainInput>
+                <ChainInput v-if="hasXChain" v-model="formType" :disabled="isConfirm"></ChainInput>
             </FormC>
-            <div class="new_order_Form" v-show="formType === 'X'">
+            <div class="new_order_Form" v-if="hasXChain" v-show="formType === 'X'">
                 <div class="batch_toggle_row">
                     <ChainInput
                         v-model="formType"
@@ -196,6 +196,7 @@ import { authorizeSingle, SessionAuthCancelled } from '@/js/security/authorize'
 import { useOfflineSigningStore, isOfflineTxId } from '@/stores'
 import SignOnlyToggle from '@/components/misc/SignOnlyToggle.vue'
 import SignedTxExport from '@/components/misc/SignedTxExport.vue'
+import { useActivePlatformStore } from '@/platforms'
 
 export default defineComponent({
     name: 'Transfer',
@@ -219,9 +220,19 @@ export default defineComponent({
         const notificationsStore = useNotificationsStore()
         const historyStore = useHistoryStore()
         const transferPrefill = useTransferPrefillStore()
+        const platformStore = useActivePlatformStore()
         const { t } = useI18n()
 
-        const formType = ref<ChainIdType>('X')
+        // X-chain (and the toggle between it and C) is an Avalanche-only
+        // concept. `networkStore` — read below by `networkStatus` — is
+        // likewise Avalanche's own RPC connection and, since App.vue only
+        // boots it while Avalanche is active, never becomes 'connected' on
+        // any other platform.
+        const hasXChain = computed(
+            () => platformStore.hasChainKind('utxo') || platformStore.hasChainKind('staking')
+        )
+
+        const formType = ref<ChainIdType>(hasXChain.value ? 'X' : 'C')
         const batchMode = ref(false)
         const showAdvanced = ref(false)
         const isAjax = ref(false)
@@ -451,8 +462,17 @@ export default defineComponent({
         }
 
         // Computed properties
+        /**
+         * Drives the top-level "Network is disconnected" gate. On Avalanche
+         * this is `networkStore`'s real RPC connection state; other platforms
+         * have no equivalent poller of their own yet (see the same pattern in
+         * StatusBar.vue), so readiness there just means a wallet is attached —
+         * otherwise this would read 'disconnected' forever post-App.vue-fix
+         * and permanently hide the send form on every non-Avalanche platform.
+         */
         const networkStatus = computed(() => {
-            return networkStore.status
+            if (hasXChain.value) return networkStore.status
+            return platformStore.activeWallet !== null ? 'connected' : 'disconnected'
         })
 
         const hasNFT = computed(() => {
@@ -610,6 +630,7 @@ export default defineComponent({
             submit,
             waitTxConfirm,
             networkStatus,
+            hasXChain,
             hasNFT,
             faucetLink,
             canSend,

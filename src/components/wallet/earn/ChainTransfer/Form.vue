@@ -107,8 +107,12 @@ export default defineComponent({
             return currentWallet
         })
 
+        // `mainStore.activeWallet` is Avalanche's own wallet — null on any
+        // other platform, since each keeps its own session store (see
+        // ChainInput.vue's identical guard for the same reason this used to
+        // crash unguarded).
         const isEVMSupported = computed(() => {
-            return wallet.value.ethAddress
+            return !!wallet.value?.ethAddress
         })
 
         const sourceOptions = computed((): ChainIdType[] => {

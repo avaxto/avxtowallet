@@ -179,9 +179,20 @@ export default defineComponent({
         const explorerLink = (token: EvmPortfolioToken): string =>
             `${token.network.explorerUrl}/token/${token.address}`
 
+        /** The Refresh button — an explicit user request, so always re-scan. */
         const refresh = async () => {
             if (!address.value) return
             await portfolio.fetch(address.value, evmStore.network.isTestnet)
+        }
+
+        /**
+         * Mount / wallet-change: load only if this scan has not been done.
+         * Navigating back to the portfolio, or opening the token picker, then
+         * reuses the existing list instead of re-scanning every network.
+         */
+        const load = async () => {
+            if (!address.value) return
+            await portfolio.ensureLoaded(address.value, evmStore.network.isTestnet)
         }
 
         const onKeySaved = () => {
@@ -189,8 +200,8 @@ export default defineComponent({
             refresh()
         }
 
-        watch(address, refresh)
-        onMounted(refresh)
+        watch(address, load)
+        onMounted(load)
 
         return {
             hideDust,

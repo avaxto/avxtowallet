@@ -56,6 +56,7 @@ import SessionPasswordModal from '@/components/modals/SessionPasswordModal.vue'
 import { useAccountsStore, useAssetsStore, useErc721Store, useMainStore, useNetworkStore, useOfflineSigningStore, useStatusBarStore } from '@/stores'
 import { onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useActivePlatformStore } from '@/platforms'
 
 export default {
     components: {
@@ -81,6 +82,7 @@ export default {
         const erc721Store = useErc721Store()
         const statusBar = useStatusBarStore()
         const offlineSigning = useOfflineSigningStore()
+        const platformStore = useActivePlatformStore()
         const route = useRoute()
         const router = useRouter()
 
@@ -88,23 +90,37 @@ export default {
             window.addEventListener('avxto:network-paused', onNetworkPaused)
             window.addEventListener('avxto:network-resumed', onNetworkResumed)
             try {
-                
+
                 // Init language preference
                 let locale = localStorage.getItem('lang')
                 if (locale) {
                     // Note: this.$root.$i18n.locale setting needs to be handled differently in Composition API
                     // For now, we'll skip this until i18n is properly set up
                 }
-                
-                // Initialize network
-                const aka = await networkStore.init()
-                
+
+                // `networkStore` is Avalanche's own RPC connection — it used to
+                // run unconditionally here regardless of which platform is
+                // active, so on the EVM platform it still silently connected
+                // to Avalanche Mainnet in the background and left
+                // `networkStore.status === 'connected'`. Views that gate on
+                // that status to mean "my platform is ready" (Transfer.vue is
+                // one) then rendered their Avalanche-only children — X/C chain
+                // toggle, X-chain form — while `mainStore.activeWallet` was
+                // correctly null for the actual (non-Avalanche) active
+                // platform, crashing on the first unguarded read of it. Only
+                // boot it while Avalanche is actually the active platform.
+                const isAvalanche = platformStore.hasChainKind('utxo') || platformStore.hasChainKind('staking')
+                if (isAvalanche) {
+                    // Initialize network
+                    const aka = await networkStore.init()
+                    mainStore.updateAvaxPrice()
+                }
+
                 // Load accounts and initialize other stores
                 accountsStore.loadAccounts()
                 // TODO this is legacy code from original wallet
                 //assetsStore.initErc20List()
                 erc721Store.init()
-                mainStore.updateAvaxPrice()
 
                 // Route to access page if accounts exist
                 if (accountsStore.accounts.length > 0) {
@@ -171,7 +187,7 @@ export default {
                 content: 'AVXTO Wallet for Avalanche and Robinhood',
             },
         ],
-        title: 'AVXTO Wallet for Avalanche and Robinhood',
+        title: 'AVXTO Wallet for Avalanche Robinhood',
         titleTemplate: '%s',
     },
 }

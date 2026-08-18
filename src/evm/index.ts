@@ -24,7 +24,15 @@ export class FetchHttpProvider {
             body: JSON.stringify(payload),
         })
             .then(async (res) => {
-                if (!res.ok) throw new Error(`Invalid JSON RPC response: HTTP ${res.status}`)
+                // Include the host: without it, every RPC failure across
+                // every network (this app talks to a dozen+ endpoints) reads
+                // as the identical bare "HTTP 401" / "HTTP 500", with nothing
+                // in the message pointing at which one — the previous wording
+                // cost a manual test of every registry URL to track down a
+                // Polygon RPC that had quietly started requiring an API key.
+                if (!res.ok) {
+                    throw new Error(`RPC request to ${this.host} failed: HTTP ${res.status}`)
+                }
                 return res.json()
             })
             .then((json) => callback(null, json))

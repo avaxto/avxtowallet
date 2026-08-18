@@ -21,6 +21,7 @@ import Big from 'big.js'
 import EVMTokenSelectModal from '@/components/modals/EvmTokenSelect/EVMTokenSelectModal.vue'
 import { iErc721SelectInput } from '@/components/misc/EVMInputDropdown/types'
 import ERC721Token from '@/js/ERC721Token'
+import type { EvmPortfolioToken } from '@/stores/evmPortfolio'
 
 export default defineComponent({
     name: 'EVMAssetDropdown',
@@ -31,6 +32,11 @@ export default defineComponent({
         disabled: {
             type: Boolean,
             default: false
+        },
+        /** Symbol to show while `selected` is `'native'`. */
+        nativeSymbol: {
+            type: String,
+            default: 'AVAX'
         }
     },
     emits: ['change', 'changeCollectible'],
@@ -38,11 +44,15 @@ export default defineComponent({
         const mainStore = useMainStore()
         const select_modal = ref<InstanceType<typeof EVMTokenSelectModal>>()
         const isPopup = ref(false)
-        const selected = ref<Erc20Token | ERC721Token | 'native'>('native')
+        const selected = ref<Erc20Token | ERC721Token | EvmPortfolioToken | 'native'>('native')
 
         const symbol = computed(() => {
-            if (selected.value === 'native') return 'AVAX'
-            else return selected.value.data.symbol
+            if (selected.value === 'native') return props.nativeSymbol
+            // Avalanche's Erc20Token/ERC721Token wrap their metadata in
+            // `.data`; an EvmPortfolioToken is flat.
+            return 'data' in selected.value
+                ? selected.value.data.symbol
+                : selected.value.symbol
         })
 
         const showPopup = () => {
@@ -58,7 +68,7 @@ export default defineComponent({
             return bnToBig(balBN, 18)
         })
 
-        const select = (token: Erc20Token | 'native') => {
+        const select = (token: Erc20Token | EvmPortfolioToken | 'native') => {
             selected.value = token
             emit('change', token)
         }
@@ -90,9 +100,16 @@ export default defineComponent({
 @use "../../../main";
 .evm_dropdown {
     position: relative;
+    // A button's intrinsic content width doesn't shrink to fit a CSS grid
+    // track on its own (grid items default to min-width: auto) — without
+    // this the "Transferring X (Click to Change)" label blows out past
+    // whatever column EVMInputDropdown gives it instead of wrapping inside
+    // it.
+    min-width: 0;
 }
 
 button {
+    width: 100%;
     text-align: center;
     top: 0;
     left: 0;
@@ -101,7 +118,7 @@ button {
     border-radius: 4px;
     padding: 4px 10px;
     background-color: var(--primary-color);
-    border-color: var(--primary-color);    
+    border-color: var(--primary-color);
     color: #fff;
     border: 1px solid var(--bg-light) !important;
     cursor: pointer;

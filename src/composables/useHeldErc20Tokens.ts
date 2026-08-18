@@ -11,6 +11,7 @@ import { useCChainSdkBalances } from '@/composables/useCChainSdkBalances'
 import { bnToBig } from '@/helpers/helper'
 import { BN } from '@/avalanche'
 import { NATIVE_TOKEN_ADDRESS } from '@/js/ArenaSwap'
+import type { EvmNetwork } from '@/evm/networkRegistry'
 
 export interface HeldToken {
     address: string // NATIVE_TOKEN_ADDRESS for native AVAX
@@ -20,6 +21,17 @@ export interface HeldToken {
     logoUri?: string
     balance: Big
     isNative: boolean
+    /**
+     * Which EVM network this token lives on.
+     *
+     * Absent on the Avalanche path, where there is only ever one chain in play
+     * and the answer is implicit. Set on the unified EVM platform, whose token
+     * list spans every registry network at once — there, a bare address is
+     * ambiguous, so anything that displays or sends a token needs to know
+     * which chain it belongs to. Optional rather than required so the
+     * Avalanche callers are untouched.
+     */
+    network?: EvmNetwork
 }
 
 /**

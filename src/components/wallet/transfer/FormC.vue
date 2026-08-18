@@ -79,9 +79,9 @@
             <div class="fees" v-if="isConfirm">
                 <p>
                     {{ $t('transfer.fee_tx') }}
-                    <span>{{ maxFeeText }} AVAX</span>
+                    <span>{{ maxFeeText }} {{ feeSymbol }}</span>
                 </p>
-                <p>
+                <p v-if="!isGeneralEvm">
                     <span>${{ maxFeeUSD.toLocaleString(2) }} USD</span>
                 </p>
             </div>
@@ -191,6 +191,10 @@ import Big from 'big.js'
 import { BN } from '@/avalanche'
 import { bnToBig, errorToString } from '@/helpers/helper'
 import { web3 } from '@/evm'
+import { gasFor } from '@/evm/gas'
+import { useActivePlatformStore } from '@/platforms'
+import { useEvmStore } from '@/platforms/evm/store'
+import type { EvmPortfolioToken } from '@/stores/evmPortfolio'
 import EVMInputDropdown from '@/components/misc/EVMInputDropdown/EVMInputDropdown.vue'
 import Erc20Token from '@/js/Erc20Token'
 import { resolveErc20Token } from '@/helpers/erc20_resolve'
@@ -219,7 +223,16 @@ export default defineComponent({
         const assetsStore = useAssetsStore()
         const offline = useOfflineSigningStore()
         const transferPrefill = useTransferPrefillStore()
+        const platformStore = useActivePlatformStore()
+        const evmStore = useEvmStore()
         const { t } = useI18n()
+
+        // True on the generalized EVM platform (Optimism, Polygon, BNB, …)
+        // rather than Avalanche's own C-Chain. Its wallet lives in a different
+        // store and sends through the injected provider rather than this app's
+        // signing path, so both the native and ERC-20 sends branch separately
+        // below. NFTs are still Avalanche-only.
+        const isGeneralEvm = computed((): boolean => platformStore.activePlatform?.descriptor.id === 'evm')
 
         const isConfirm = ref(false)
         const isSuccess = ref(false)
@@ -235,7 +248,7 @@ export default defineComponent({
 
         const formAddress = ref('')
         const formAmount = ref(new BN(0))
-        const formToken = ref<Erc20Token | 'native'>('native')
+        const formToken = ref<Erc20Token | EvmPortfolioToken | 'native'>('native')
         const canSendAgain = ref(false)
 
         const isCollectible = ref(false)
@@ -248,7 +261,12 @@ export default defineComponent({
 
         const updateGasPrice = async () => {
             try {
-                const price = await GasHelper.getAdjustedGasPrice()
+                // gasFor() is the multi-network façade (evm/gas.ts): Avalanche
+                // keeps using GasHelper's own quote under the hood, any other
+                // registry network is quoted from its own RPC.
+                const price = isGeneralEvm.value
+                    ? await gasFor(evmStore.network)
+                    : await GasHelper.getAdjustedGasPrice()
                 gasPrice.value = markRaw(price)
                 gasPriceGwei.value = price.div(new BN(1000000000)).toNumber()
             } catch (e) {
@@ -338,7 +356,9 @@ export default defineComponent({
 
         // ---- Computed ----
 
-        const wallet = computed(() => mainStore.activeWallet as any)
+        const wallet = computed(() =>
+            isGeneralEvm.value ? (evmStore.wallet as any) : (mainStore.activeWallet as any)
+        )
 
         // Injected wallets (Core App / MetaMask) sign+broadcast through the
         // extension's own confirmation UI, so this app's separate Confirm step
@@ -352,12 +372,14 @@ export default defineComponent({
         const selectedTokenAddress = computed((): string => {
             if (isCollectible.value) return ''
             if (formToken.value === 'native') return ''
-            return formToken.value.data.address
+            const t = formToken.value
+            return 'data' in t ? t.data.address : t.address
         })
 
         const selectedTokenSymbol = computed((): string => {
             if (formToken.value === 'native') return ''
-            return formToken.value.data.symbol
+            const t = formToken.value
+            return 'data' in t ? t.data.symbol : t.symbol
         })
 
         const selectedTokenExplorerUrl = computed((): string => {
@@ -385,7 +407,16 @@ export default defineComponent({
             return bnToAvaxC(maxFee.value)
         })
 
+        /** Gas is paid in whichever network's own native asset, not always AVAX. */
+        const feeSymbol = computed((): string =>
+            isGeneralEvm.value ? evmStore.network.native.symbol : 'AVAX'
+        )
+
         const maxFeeUSD = computed((): Big => {
+            // No multi-chain price feed wired up yet — see usd_val in
+            // EVMInputDropdown for the same call. Avalanche's AVAX price would
+            // misprice any other chain's fee, so this stays honestly blank.
+            if (isGeneralEvm.value) return Big(0)
             const prices = (mainStore as any).prices
             const usd = prices?.usd
             if (typeof usd !== 'number' || isNaN(usd)) return Big(0)
@@ -407,7 +438,7 @@ export default defineComponent({
             amountIn.value = markRaw(val)
         }
 
-        const onTokenChange = (token: Erc20Token | 'native') => {
+        const onTokenChange = (token: Erc20Token | EvmPortfolioToken | 'native') => {
             formToken.value = token
         }
 
@@ -469,6 +500,36 @@ export default defineComponent({
                                 formCollectible.value.token,
                                 formCollectible.value.id
                             )
+                        } else if (isGeneralEvm.value) {
+                            // The generalized EVM platform, checked BEFORE the
+                            // Erc20Token branch below: its tokens are
+                            // EvmPortfolioTokens, not Erc20Tokens, so testing
+                            // `instanceof Erc20Token` first would let a
+                            // selected ERC-20 fall through to the native send
+                            // and transfer the wrong asset entirely.
+                            //
+                            // EvmWallet has no signEvm/getEvmAddress (those are
+                            // Avalanche's AvaWalletCore surface) — it sends
+                            // directly through the injected provider instead.
+                            const evmWallet = evmStore.wallet!
+                            // Re-verify the chain here, not earlier: the user
+                            // can switch networks inside the extension at any
+                            // moment, and eth_sendTransaction goes wherever the
+                            // extension currently points.
+                            await evmWallet.assertOnChain()
+
+                            if (formToken.value === 'native') {
+                                return await evmWallet.sendNative(
+                                    formAddress.value,
+                                    formAmount.value.toString()
+                                )
+                            }
+                            const evmToken = formToken.value as EvmPortfolioToken
+                            return await evmWallet.sendErc20(
+                                evmToken.address,
+                                formAddress.value,
+                                formAmount.value.toString()
+                            )
                         } else if (
                             formToken.value !== 'native' &&
                             formToken.value instanceof Erc20Token
@@ -508,13 +569,19 @@ export default defineComponent({
                     // "All Assets" list (shared store — also updates the
                     // Portfolio page even though it's kept-alive and won't
                     // remount to refetch on its own).
-                    Promise.all([
-                        wallet.value.getEthBalance(),
-                        assetsStore.updateERC20Balances(),
-                        useCChainSdkAssetsStore().refresh(),
-                    ]).catch((e) => {
-                        console.warn('[FormC] post-send balance refresh failed:', e)
-                    })
+                    if (isGeneralEvm.value) {
+                        evmStore.refreshNativeBalance().catch((e) => {
+                            console.warn('[FormC] post-send balance refresh failed:', e)
+                        })
+                    } else {
+                        Promise.all([
+                            wallet.value.getEthBalance(),
+                            assetsStore.updateERC20Balances(),
+                            useCChainSdkAssetsStore().refresh(),
+                        ]).catch((e) => {
+                            console.warn('[FormC] post-send balance refresh failed:', e)
+                        })
+                    }
                 }
                 canSendAgain.value = true
             } catch (e: any) {
@@ -540,6 +607,7 @@ export default defineComponent({
 
         return {
             offline,
+            isGeneralEvm,
             isConfirm,
             isSuccess,
             batchMode,
@@ -560,6 +628,7 @@ export default defineComponent({
             updateGasPrice,
             gasPriceNumber,
             maxFeeText,
+            feeSymbol,
             maxFeeUSD,
             canConfirm,
             isInjectedWallet,

@@ -141,9 +141,19 @@ export const useCChainSdkAssetsStore = defineStore('cChainSdkAssets', () => {
         loading.value = true
         error.value = null
 
+        const result: CChainSdkAsset[] = []
+        // Collected rather than thrown immediately: ERC-20, ERC-721 and
+        // ERC-1155 discovery are independent SDK calls, and a failure in one
+        // (a transient listErc721/listErc1155 hiccup, say) must not discard
+        // asset types that already discovered successfully — the whole
+        // `assets.value` used to be replaced only on total success, so any one
+        // of these throwing wiped out every token already found, including a
+        // wallet's ordinary ERC-20 balances. Same isolation principle as
+        // `fetchErc20FromExplorer`'s own internal catch below.
+        const errors: string[] = []
+
         try {
             const sdk = new Avalanche({ chainId: String(chainId), enableTelemetry: false })
-            const result: CChainSdkAsset[] = []
 
             // ERC-20 — checked against the Avalanche platform's token
             // registry (see platforms/avalanche/tokenRegistry/index.ts):
@@ -156,29 +166,34 @@ export const useCChainSdkAssetsStore = defineStore('cChainSdkAssets', () => {
             // symbols. For a token that IS a registry-known address, its
             // name/symbol are used instead of whatever the SDK reported,
             // same as the "Default Assets" path in stores/assets.ts.
-            const erc20Pages = await sdk.data.evm.address.balances.listErc20({ address })
-            for await (const page of erc20Pages) {
-                for (const token of page.result.erc20TokenBalances) {
-                    if (isSpoofedToken(token.symbol, token.address, chainId)) continue
-                    const registryEntry = findRegistryToken(token.address, chainId)
+            try {
+                const erc20Pages = await sdk.data.evm.address.balances.listErc20({ address })
+                for await (const page of erc20Pages) {
+                    for (const token of page.result.erc20TokenBalances) {
+                        if (isSpoofedToken(token.symbol, token.address, chainId)) continue
+                        const registryEntry = findRegistryToken(token.address, chainId)
 
-                    const decimals = token.decimals ?? 18
-                    const raw = BigInt(token.balance)
-                    const divisor = BigInt(10 ** decimals)
-                    const whole = raw / divisor
-                    const frac = raw % divisor
-                    const fracStr = frac.toString().padStart(decimals, '0').replace(/0+$/, '')
-                    const humanBal = fracStr ? `${whole}.${fracStr}` : `${whole}`
-                    result.push({
-                        type: 'erc20',
-                        address: token.address,
-                        name: registryEntry?.name ?? token.name,
-                        symbol: registryEntry?.symbol ?? token.symbol,
-                        logoUri: token.logoUri,
-                        balance: humanBal,
-                        decimals,
-                    })
+                        const decimals = token.decimals ?? 18
+                        const raw = BigInt(token.balance)
+                        const divisor = BigInt(10 ** decimals)
+                        const whole = raw / divisor
+                        const frac = raw % divisor
+                        const fracStr = frac.toString().padStart(decimals, '0').replace(/0+$/, '')
+                        const humanBal = fracStr ? `${whole}.${fracStr}` : `${whole}`
+                        result.push({
+                            type: 'erc20',
+                            address: token.address,
+                            name: registryEntry?.name ?? token.name,
+                            symbol: registryEntry?.symbol ?? token.symbol,
+                            logoUri: token.logoUri,
+                            balance: humanBal,
+                            decimals,
+                        })
+                    }
                 }
+            } catch (e: any) {
+                errors.push(e?.message ?? 'ERC-20 discovery failed')
+                console.warn('[cChainSdkAssets] chainkit ERC-20 listing failed:', e)
             }
 
             // A second, independent ERC-20 discovery source: the C-chain
@@ -195,39 +210,54 @@ export const useCChainSdkAssetsStore = defineStore('cChainSdkAssets', () => {
             result.push(...(await fetchErc20FromExplorer(address, chainId, alreadyFound)))
 
             // ERC-721
-            const erc721Pages = await sdk.data.evm.address.balances.listErc721({ address })
-            for await (const page of erc721Pages) {
-                for (const token of page.result.erc721TokenBalances) {
-                    result.push({
-                        type: 'erc721',
-                        address: token.address,
-                        name: token.metadata?.name ?? token.name,
-                        symbol: token.symbol,
-                        logoUri: token.metadata?.imageUri,
-                        balance: '1',
-                        tokenId: token.tokenId,
-                    })
+            try {
+                const erc721Pages = await sdk.data.evm.address.balances.listErc721({ address })
+                for await (const page of erc721Pages) {
+                    for (const token of page.result.erc721TokenBalances) {
+                        result.push({
+                            type: 'erc721',
+                            address: token.address,
+                            name: token.metadata?.name ?? token.name,
+                            symbol: token.symbol,
+                            logoUri: token.metadata?.imageUri,
+                            balance: '1',
+                            tokenId: token.tokenId,
+                        })
+                    }
                 }
+            } catch (e: any) {
+                errors.push(e?.message ?? 'ERC-721 discovery failed')
+                console.warn('[cChainSdkAssets] chainkit ERC-721 listing failed:', e)
             }
 
             // ERC-1155
-            const erc1155Pages = await sdk.data.evm.address.balances.listErc1155({ address })
-            for await (const page of erc1155Pages) {
-                for (const token of page.result.erc1155TokenBalances) {
-                    result.push({
-                        type: 'erc1155',
-                        address: token.address,
-                        name: token.metadata?.name ?? `Token #${token.tokenId}`,
-                        symbol: `#${token.tokenId}`,
-                        logoUri: token.metadata?.imageUri,
-                        balance: token.balance,
-                        tokenId: token.tokenId,
-                    })
+            try {
+                const erc1155Pages = await sdk.data.evm.address.balances.listErc1155({ address })
+                for await (const page of erc1155Pages) {
+                    for (const token of page.result.erc1155TokenBalances) {
+                        result.push({
+                            type: 'erc1155',
+                            address: token.address,
+                            name: token.metadata?.name ?? `Token #${token.tokenId}`,
+                            symbol: `#${token.tokenId}`,
+                            logoUri: token.metadata?.imageUri,
+                            balance: token.balance,
+                            tokenId: token.tokenId,
+                        })
+                    }
                 }
+            } catch (e: any) {
+                errors.push(e?.message ?? 'ERC-1155 discovery failed')
+                console.warn('[cChainSdkAssets] chainkit ERC-1155 listing failed:', e)
             }
 
             assets.value = result
+            error.value = errors.length > 0 ? errors.join('; ') : null
         } catch (e: any) {
+            // Something outside the per-type isolation above (e.g. the SDK
+            // constructor itself) — still surface whatever was collected
+            // rather than discarding it.
+            assets.value = result
             error.value = e?.message ?? 'Failed to fetch C-chain balances'
             console.error('useCChainSdkAssetsStore fetch error:', e)
         } finally {

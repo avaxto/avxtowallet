@@ -37,8 +37,13 @@ export default defineComponent({
             return mainStore.activeWallet
         })
 
+        // `mainStore.activeWallet` is Avalanche's own wallet — null on any
+        // other platform, since each keeps its own session store. This
+        // component (the X/C chain toggle) is itself an Avalanche-only
+        // concept, so null here correctly means "nothing to toggle" rather
+        // than a state that should never happen.
         const isEVMSupported = computed(() => {
-            return wallet.value.ethAddress
+            return !!wallet.value?.ethAddress
         })
 
         const set = (val: ChainIdType) => {
