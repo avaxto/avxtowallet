@@ -1,6 +1,6 @@
 # AVXTO Wallet
 
-AVXTO Wallet - An Avalanche $AVAX wallet for power users
+AVXTO Wallet - A multi-chain wallet for power users
 
 
 # This Wallet is Part of AVAX Toolbox Project
