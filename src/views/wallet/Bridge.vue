@@ -623,6 +623,10 @@ export default defineComponent({
         color: var(--primary-color-light);
     }
 
+    span:last-child {
+        color: var(--primary-color);
+    }
+
     &.dust span:last-child {
         color: var(--warning);
     }
