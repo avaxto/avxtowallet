@@ -21,6 +21,7 @@ import Launcher from '@/views/wallet/Launcher.vue'
 import Swap from '@/views/wallet/Swap.vue'
 import Iceberg from '@/views/wallet/Iceberg.vue'
 import Avxto from '@/views/wallet/Avxto.vue'
+import Bridge from '@/views/wallet/Bridge.vue'
 import Log from '@/views/wallet/Log.vue'
 import Account from '@/views/access/Account.vue'
 import { useMainStore } from '@/stores'
@@ -228,6 +229,10 @@ const routes: RouteRecordRaw[] = [
             {
                 path: 'avxto',
                 component: Avxto,
+            },
+            {
+                path: 'bridge',
+                component: Bridge,
             },
             {
                 path: 'log',
