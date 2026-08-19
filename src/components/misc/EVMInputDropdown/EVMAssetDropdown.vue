@@ -109,17 +109,33 @@ export default defineComponent({
 }
 
 button {
+    // A <button> has an intrinsic min-width based on its own unwrapped text
+    // (form/replaced elements ignore `width: 100%` shrink-to-fit by default,
+    // regardless of a parent's own `min-width: 0`) — without this here too,
+    // "Transferring X (Click to Change)" keeps forcing itself wider than the
+    // 110px grid column EVMInputDropdown.vue caps it at, spilling past the
+    // button's own border instead of wrapping inside it.
+    min-width: 0;
+    box-sizing: border-box;
     width: 100%;
     text-align: center;
     top: 0;
     left: 0;
     font-weight: bold;
     font-size: 14px;
+    line-height: 1.3;
+    white-space: normal;
+    overflow-wrap: break-word;
     border-radius: 4px;
     padding: 4px 10px;
+    // `--primary-color` is a light, text-intended token (near-white, meant to
+    // sit on the app's dark background) — used here as the button's own
+    // background, so its paired text must be dark, matching how
+    // `.button_primary` (_main.scss) pairs the same background with
+    // `var(--bg)` rather than white.
     background-color: var(--primary-color);
     border-color: var(--primary-color);
-    color: #fff;
+    color: var(--bg);
     border: 1px solid var(--bg-light) !important;
     cursor: pointer;
     transition: background-color 0.15s, border-color 0.15s;
@@ -127,7 +143,12 @@ button {
     &:hover:not(:disabled) {
         background-color: var(--secondary-color);
         border-color: var(--secondary-color);
-        color: #fff;
+        // `--secondary-color` is the platform accent — a high-luminance
+        // chartreuse on the EVM platform's theme — so, same as
+        // `.button_secondary` (_main.scss), the text has to follow
+        // `--platform-on-accent` rather than a hardcoded white, or it reads
+        // as white-on-yellow.
+        color: var(--platform-on-accent, #fff);
     }
 
     &:disabled {
