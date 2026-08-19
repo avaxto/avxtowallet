@@ -30,21 +30,27 @@
             </v-list>
         </v-menu>
 
-        <v-menu offset-y>
+        <v-menu offset-y v-if="isAvalanche">
             <template v-slot:activator="{ props }">
                 <v-btn text v-bind="props" class="menu-btn">
                     Toolbox
                 </v-btn>
             </template>
             <v-list>
+                <!--
+                    Addresses / Address Derivation / Unify Chains / Quick
+                    Delegate only — these are all X/P-chain and staking
+                    concepts, so there is nothing for them to do on a
+                    single-EVM-chain platform, which is also why the whole
+                    menu is gated on `isAvalanche` above rather than each item
+                    individually. Wallet Generator/Wizard, Token Launcher and
+                    Broadcast TX used to live here too; dropped from this menu
+                    (not deleted — their routes/pages are untouched) at the
+                    user's request to narrow it to these four.
+                -->
                 <v-list-item>
                     <v-list-item-title>
                         <router-link to="/wallet/addresses">Addresses</router-link>
-                    </v-list-item-title>
-                </v-list-item>
-                <v-list-item>
-                    <v-list-item-title>
-                        <router-link to="/wallet/generator">{{ $t('wallet.topnavbar.generator') }}</router-link>
                     </v-list-item-title>
                 </v-list-item>
                 <v-list-item>
@@ -54,22 +60,7 @@
                 </v-list-item>
                 <v-list-item>
                     <v-list-item-title>
-                        <router-link to="/wallet/wizard">Wallet Wizard</router-link>
-                    </v-list-item-title>
-                </v-list-item>
-                <v-list-item>
-                    <v-list-item-title>
                         <router-link to="/wallet/unifychains">Unify Chains</router-link>
-                    </v-list-item-title>
-                </v-list-item>
-                <v-list-item>
-                    <v-list-item-title>
-                        <router-link to="/wallet/launcher">Token Launcher</router-link>
-                    </v-list-item-title>
-                </v-list-item>
-                <v-list-item>
-                    <v-list-item-title>
-                        <router-link to="/wallet/broadcast">Broadcast TX</router-link>
                     </v-list-item-title>
                 </v-list-item>
                 <v-list-item>
@@ -152,7 +143,7 @@
             </v-list>
         </v-menu>
 
-        <v-menu offset-y>
+        <v-menu offset-y v-if="isAvalanche">
             <template v-slot:activator="{ props }">
                 <v-btn text v-bind="props" class="menu-btn">
                     Avalanche

@@ -120,6 +120,7 @@
 import { defineComponent, ref, computed, watch } from 'vue'
 import { useAssetsStore, useHistoryStore, useMainStore } from '@/stores'
 import { useActivePlatformStore } from '@/platforms'
+import { useEvmStore } from '@/platforms/evm/store'
 import AvaAsset from '@/js/AvaAsset'
 import MnemonicWallet from '@/js/wallets/MnemonicWallet'
 import Spinner from '@/components/misc/Spinner.vue'
@@ -148,6 +149,7 @@ export default defineComponent({
         const assetsStore = useAssetsStore()
         const historyStore = useHistoryStore()
         const platformStore = useActivePlatformStore()
+        const evmStore = useEvmStore()
 
         // X and P balances/UTXOs/staking are Avalanche-only concepts — on a
         // platform with no `utxo`/`staking` chain (Robinhood, ...) there is
@@ -160,9 +162,24 @@ export default defineComponent({
         /** True on Avalanche, false on any single-EVM-chain platform (Robinhood, ...). */
         const isAvalanche = computed((): boolean => hasXChain.value || hasPChain.value)
 
-        /** The active platform's native ticker — "AVAX" on Avalanche, "ETH" on Robinhood. */
+        /**
+         * The currency BalanceCard's headline figure is denominated in.
+         *
+         * On Avalanche this is always AVAX (`activePlatform.descriptor.symbol`
+         * is correct there — that platform has exactly one native asset).
+         *
+         * On the unified EVM platform it is NOT a fixed platform-level
+         * constant — `evmPlatform.descriptor.symbol` is hardcoded 'ETH', but
+         * which chain is actually being signed on (and so which gas token the
+         * displayed balance is even measured in) is a per-network choice made
+         * in `EvmNetworkMenu.vue` and tracked in `evmStore.network`. Reading
+         * from that same store, rather than the fixed descriptor, is what
+         * makes this correctly read AVAX when the signing network is
+         * Avalanche C-Chain, POL on Polygon, BNB on BNB Chain, and so on.
+         */
         const nativeSymbolText = computed((): string => {
-            return platformStore.activePlatform?.descriptor.symbol ?? 'AVAX'
+            if (isAvalanche.value) return platformStore.activePlatform?.descriptor.symbol ?? 'AVAX'
+            return evmStore.network?.native?.symbol ?? platformStore.activePlatform?.descriptor.symbol ?? 'ETH'
         })
 
         // Everything below this point (ava_asset, avmUnlocked/Locked, evmUnlocked

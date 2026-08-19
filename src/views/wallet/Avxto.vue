@@ -253,7 +253,7 @@ export default defineComponent({
 
 <style lang="scss" scoped>
 .avxto_page {
-    max-width: 760px;
+    width: 100%;
 
     h1 {
         margin-bottom: 8px;

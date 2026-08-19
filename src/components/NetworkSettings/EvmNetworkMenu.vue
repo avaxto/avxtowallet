@@ -2,12 +2,18 @@
     <v-menu offset-y>
         <template v-slot:activator="{ props }">
             <v-btn text v-bind="props" class="evm_net_but">
-                <span class="net_dot" :style="{ backgroundColor: activeNetwork.color }"></span>
+                <span class="signing_label">Signing:</span>
                 {{ activeNetwork.shortName }}
                 <span v-if="activeNetwork.isTestnet" class="testnet_tag">testnet</span>
             </v-btn>
         </template>
         <v-list>
+            <v-list-item class="menu_note" disabled>
+                <v-list-item-title>
+                    Which network your wallet signs on. Your portfolio always
+                    includes every network below, regardless of this choice.
+                </v-list-item-title>
+            </v-list-item>
             <v-list-item
                 v-for="net in networks"
                 :key="net.id"
@@ -15,7 +21,6 @@
                 :active="net.evmChainId === activeNetwork.evmChainId"
             >
                 <v-list-item-title>
-                    <span class="net_dot" :style="{ backgroundColor: net.color }"></span>
                     {{ net.name }}
                     <span v-if="net.isTestnet" class="testnet_tag">testnet</span>
                 </v-list-item-title>
@@ -26,12 +31,21 @@
 
 <script lang="ts">
 /**
- * Network switcher for the unified EVM platform.
+ * Signing-network switcher for the unified EVM platform.
  *
- * Separate from `NetworkMenu.vue`, which is Avalanche's: that one edits
- * `AvaNetwork` objects (network id, /ext/info credentials, X/P/C endpoints) and
- * switching it re-points the Avalanche SDK. None of that applies here, where a
- * network is a plain entry in `src/evm/networks.json`.
+ * Deliberately NOT styled like `NetworkMenu.vue` (Avalanche's): that one
+ * shows a single "connected to network X" indicator with a health dot, which
+ * is the right model for Avalanche — one network, one RPC, one connection to
+ * be up or down. It is the wrong model here. This platform's portfolio scans
+ * every registry network in parallel regardless of what this control is set
+ * to (see stores/evmPortfolio.ts) — per-network reachability is already
+ * surfaced there (EvmFungibles.vue's degraded-networks banner), not here.
+ *
+ * What this control actually is: which single chain the injected wallet will
+ * sign transactions on when you send — a real, unavoidably single-value
+ * choice (a wallet is only ever on one chain at a time), but a narrower one
+ * than "the network", so it is labelled and framed as exactly that rather
+ * than reusing Avalanche's broader "this is my connection" framing.
  */
 import { defineComponent, computed } from 'vue'
 import { useEvmStore } from '@/platforms/evm/store'
@@ -66,13 +80,10 @@ export default defineComponent({
     box-shadow: none !important;
 }
 
-.net_dot {
-    display: inline-block;
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    margin-right: 6px;
-    flex-shrink: 0;
+.signing_label {
+    color: var(--primary-color-light);
+    font-size: 12px;
+    margin-right: 4px;
 }
 
 .testnet_tag {
@@ -83,6 +94,19 @@ export default defineComponent({
     border: 1px solid var(--warning);
     border-radius: 3px;
     padding: 0 4px;
+}
+
+.menu_note {
+    max-width: 260px;
+    white-space: normal !important;
+    opacity: 1 !important;
+
+    :deep(.v-list-item-title) {
+        font-size: 11px !important;
+        color: var(--primary-color-light) !important;
+        line-height: 1.4;
+        white-space: normal;
+    }
 }
 
 :deep(.v-overlay__content .v-list) {
