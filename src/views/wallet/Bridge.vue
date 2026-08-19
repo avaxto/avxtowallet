@@ -535,6 +535,7 @@ export default defineComponent({
         color: var(--primary-color-light);
     }
     p {
+        color: var(--primary-color);
         font-size: 15px;
         font-weight: 600;
     }
@@ -554,6 +555,9 @@ export default defineComponent({
 
     label {
         color: var(--primary-color-light);
+    }
+    p {
+        color: var(--primary-color);
     }
 }
 
@@ -643,6 +647,11 @@ export default defineComponent({
 }
 
 .success_card {
+    p {
+        color: var(--primary-color);
+        line-height: 1.5;
+    }
+
     .links {
         display: flex;
         flex-direction: column;
