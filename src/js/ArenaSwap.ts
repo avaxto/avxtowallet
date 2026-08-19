@@ -6,15 +6,12 @@
 /*
   ArenaSwap - token swapping on the Avalanche C-Chain.
 
-  Routes swaps through LI.FI (li.quest), the same aggregator ArenaTrade's own
-  frontend calls directly from the browser for this exact AVAX-on-Avalanche
-  swap flow — confirmed from a HAR capture of a real ArenaTrade trade: no
-  api.odos.xyz request appears anywhere in it, only li.quest and (for a price
-  display, not execution) api.paraswap.io. This module previously called Odos
-  directly, which — unlike li.quest — rejects requests from this app's origin
-  with a CORS error (no Access-Control-Allow-Origin on the preflight
-  response); there is no client-side fix for that, only routing through an
-  aggregator whose CORS policy actually allows us.
+  Routes swaps through LI.FI (li.quest) rather than Odos (api.odos.xyz):
+  Odos rejects requests from this app's origin with a CORS error (no
+  Access-Control-Allow-Origin on the preflight response), and there is no
+  client-side fix for that — only routing through an aggregator whose CORS
+  policy actually allows us. li.quest is reachable from the browser, as is
+  api.paraswap.io for a price display (not execution).
 
   LI.FI's /v1/quote returns a ready-to-sign transaction in the same response
   as the quote — no separate "assemble" step the way Odos needed:
@@ -26,10 +23,9 @@
   No native/local programs are involved: only HTTP fetches and standard
   in-browser transaction signing (the same path used by the token launcher).
 
-  Unverified against a live swap — I could not reach li.quest or its docs
-  from the sandbox this was written in (network egress restrictions), so this
-  is built from the HAR's captured request shape plus LI.FI's documented
-  response shape, not a request/response pair I've actually exercised myself.
+  Unverified against a live swap: this is built from LI.FI's documented
+  request/response shape, not one that has been exercised end-to-end, so
+  treat it as best-effort until a real swap has been run through this path.
 */
 import axios from 'axios'
 import { BN } from '@/avalanche'

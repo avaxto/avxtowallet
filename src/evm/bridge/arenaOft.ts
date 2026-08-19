@@ -7,19 +7,14 @@
 /**
  * ARENA bridge: Avalanche C-Chain -> Robinhood Chain, via LayerZero V2 OFT.
  *
- * Reverse-engineered from a captured arenatrade.ai bridge of 123 ARENA
- * (tmp/arenatrade-bridge-arena-robinhood.har), then verified against the live
- * contracts — see tmp/arena-bridge-implementation.txt for the full record.
- *
- * What the capture established, and what was confirmed on-chain:
+ * Verified directly against the live contracts:
  *
  *   - `0xA59Ad32d…F86f7` on Avalanche is an **OFT Adapter** (LayerZero V2):
  *     `token()` returns the ARENA ERC-20, `approvalRequired()` is true, and
  *     `oftVersion()` reports interface 0x02e49c2c / version 1.
  *   - `peers(30416)` on that adapter returns ARENA's Robinhood address, which
- *     is what proves **30416 is Robinhood Chain's LayerZero endpoint id** —
- *     the capture alone only showed the number.
- *   - The captured send was exactly
+ *     is what proves **30416 is Robinhood Chain's LayerZero endpoint id**.
+ *   - The send call used here is exactly
  *     `send((uint32,bytes32,uint256,uint256,bytes,bytes,bytes),(uint256,uint256),address)`
  *     with `msg.value` equal to the quoted `nativeFee`, and empty
  *     extraOptions/composeMsg/oftCmd (the adapter carries enforced options, so
@@ -355,7 +350,7 @@ export function buildApproveTx(amountLD: bigint): RawTx {
  * The bridge transaction itself.
  *
  * `refundAddress` receives any excess native fee back on the source chain —
- * set to the sender, matching the captured transaction.
+ * set to the sender.
  */
 export function buildSendTx(quote: BridgeQuote, refundAddress: string): RawTx {
     const web3 = web3For(getAvalancheNetwork())

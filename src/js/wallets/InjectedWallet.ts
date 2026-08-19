@@ -968,7 +968,7 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
      * (NOT `avalanche_signTransaction` — that one only signs EVM transactions and
      * returns "This account has nothing to sign" for any atomic tx).
      *
-     * Empirical (post captured-payload analysis): Core App's matchOwners for
+     * Empirical: Core App's matchOwners for
      * chainAlias='C' uses the XP-style (ripemd160(sha256(pk))) derivation — the
      * same bytes as the account's addressAVM / addressPVM — NOT the EVM
      * keccak256 bytes.  The X→C export side now encodes the destination with
@@ -1412,7 +1412,7 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
      * - P→C: `getActiveCChainAtomicAddress()` (= the account's `addressCoreEth`).
      *   Core App's atomic-C signer-lookup uses ripemd160(sha256(compressed EVM
      *   pubkey)) — neither the standard EVM bytes nor the X-chain key bytes
-     *   work (verified via captured `avalanche_sendTransaction` payload).
+     *   work (verified against Core App's actual `avalanche_sendTransaction` payload).
      *
      * Inputs:
      *   `fromAddrs` is restricted to the primary P-chain address

@@ -407,8 +407,7 @@ function runEndpointEscalation(url: string | undefined): Promise<boolean> {
 // WITHOUT CORS headers. The browser then hides the response from JavaScript
 // entirely: fetch() rejects with a bare TypeError and axios reports a network
 // error with no `error.response`. The status check above never sees the 429,
-// which is exactly what a captured HAR showed — 41 429s on the wire, zero
-// visible to the app, so the hard-block never engaged.
+// so the hard-block never engages even while the host is actively throttling.
 //
 // Since the status is unreadable, infer throttling instead: N consecutive
 // opaque network failures to the SAME host, while the browser is online,

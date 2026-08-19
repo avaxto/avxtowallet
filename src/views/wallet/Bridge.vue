@@ -163,8 +163,7 @@
  * contract calls (an ERC-20 approve and a payable `send`), which neither
  * `EvmWallet` nor Avalanche's `WalletHelper` exposes a generic path for; and
  * doing it this way means the page works whichever platform is active, since
- * both reach Avalanche C-Chain through the same extension. That is also
- * exactly what the captured arenatrade.ai flow does.
+ * both reach Avalanche C-Chain through the same extension.
  *
  * Protocol details, and the on-chain verification behind the addresses, live
  * in `@/evm/bridge/arenaOft`.
