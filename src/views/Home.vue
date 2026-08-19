@@ -30,7 +30,7 @@
                             <div class="login_option">
                                 <header>
                                     <div class="img_container">
-                                        <img src="@/assets/diamond-secondary-night.svg" alt="" />
+                                        <img :src="createWalletIconSrc" alt="" />
                                     </div>
                                     <h2>{{ $t('home.create.title') }}</h2>
                                     <p>{{ $t('home.create.desc') }}</p>
@@ -56,13 +56,35 @@
 </template>
 
 <script lang="ts">
-import { defineComponent } from 'vue'
+import { defineComponent, computed } from 'vue'
 import ToS from '@/components/misc/ToS.vue'
 import CookieConsent from '@/components/misc/CookieConsent.vue'
+import { useActivePlatformStore } from '@/platforms'
+import diamondAvalanche from '@/assets/diamond-secondary-avalanche.svg'
+import diamondEvm from '@/assets/diamond-secondary-evm.svg'
 
 export default defineComponent({
     name: 'Home',
     components: { ToS, CookieConsent },
+    setup() {
+        const platformStore = useActivePlatformStore()
+
+        /**
+         * The "Create New Wallet" card's icon used to be one static asset with
+         * a pink circle baked into the SVG itself (`diamond-secondary-night.svg`,
+         * `fill="#E84970"`) — a plain <img src> reference, so that colour
+         * couldn't be retargeted with CSS the way an inline SVG or
+         * PlatformLogo.vue can be. Swapping the whole asset per platform is
+         * what makes it follow the active platform's colour at all: yellow to
+         * match the EVM platform's accent, red instead of the old pink for
+         * Avalanche.
+         */
+        const createWalletIconSrc = computed((): string => {
+            return platformStore.activePlatformId === 'evm' ? diamondEvm : diamondAvalanche
+        })
+
+        return { createWalletIconSrc }
+    },
 })
 </script>
 

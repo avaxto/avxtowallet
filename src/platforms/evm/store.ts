@@ -32,7 +32,7 @@ import {
     type EvmNetwork,
 } from '@/evm/networkRegistry'
 import { readNativeBalance } from '@/evm/tokenReader'
-import { connectInjected as connectInjectedWallet, EvmWallet } from './wallet'
+import { connectInjected as connectInjectedWallet, EvmWallet, type Eip1193Provider } from './wallet'
 
 const NETWORK_STORAGE_KEY = 'evm_active_network'
 /**
@@ -124,6 +124,62 @@ export const useEvmStore = defineStore('evm', () => {
         // to re-run when it changes — see `walletEpoch` in platforms/store.ts.
         useActivePlatformStore().notifyWalletChanged()
         void refreshNativeBalance()
+        if (w) attachAccountsChangedListener(w)
+    }
+
+    // Which provider object the listener below is currently attached to, so
+    // reconnecting on the SAME provider (the common case — `window.ethereum`
+    // is one object for the page's lifetime) doesn't register a second
+    // listener, and switching to a genuinely different provider tears the old
+    // one down first. A plain closure variable, not a Vue ref: this is
+    // bookkeeping for the browser API, not UI state.
+    let listenerProvider: Eip1193Provider | null = null
+    let accountsChangedListener: ((accounts: string[]) => void) | null = null
+
+    /**
+     * Keeps the connected wallet following whichever account is active in the
+     * extension. Without this, switching accounts in MetaMask while the EVM
+     * platform is active did nothing at all — the app kept signing/displaying
+     * the OLD account indefinitely, silently wrong, until a manual
+     * disconnect/reconnect or a full page reload. Avalanche's own
+     * `mainStore.accessWalletInjected()` has had the equivalent listener since
+     * before this platform existed; this was the one place it was missing.
+     */
+    const attachAccountsChangedListener = (w: EvmWallet): void => {
+        const provider = w.native
+        if (!provider || provider === listenerProvider) return
+
+        if (listenerProvider && accountsChangedListener) {
+            listenerProvider.removeListener?.('accountsChanged', accountsChangedListener)
+        }
+
+        accountsChangedListener = (accounts: string[]) => {
+            if (!accounts || accounts.length === 0) {
+                // Extension disconnected/locked — log out cleanly, same as
+                // Avalanche's own listener does for the identical event.
+                disconnect()
+                return
+            }
+            const newAddress = accounts[0]
+            const current = wallet.value
+            if (!current) return
+            if (current.getPrimaryAddress().toLowerCase() === newAddress.toLowerCase()) return
+
+            // Same network and provider — only the account changed, so there
+            // is no need to re-run ensureChain() or re-request permissions,
+            // just rebuild the wallet object around the new address.
+            setWallet(
+                new EvmWallet({
+                    address: newAddress,
+                    network: current.network,
+                    provider: current.native,
+                    accessMethodId: current.accessMethodId,
+                })
+            )
+        }
+
+        provider.on?.('accountsChanged', accountsChangedListener)
+        listenerProvider = provider
     }
 
     const applyNetwork = (next: EvmNetwork): void => {

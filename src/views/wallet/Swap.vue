@@ -7,7 +7,7 @@
     <div class="swap_page">
         <h1>Swap</h1>
         <p class="desc">
-            Swap tokens on the Avalanche C-Chain. Routing is powered by LI.FI for
+            Swap tokens on the currently loaded platform. Routing is powered by select routers for
             best-price execution across on-chain liquidity. Quotes and the
             executable transaction are fetched via API; signing and broadcasting happen locally
             with your active wallet.
