@@ -5,21 +5,27 @@
 */
 /*
   TokenLauncher - deploys a parameterized OpenZeppelin ERC20 (the
-  AVXTOLaunchToken template) to the Avalanche C-Chain via RPC.
+  AVXTOLaunchToken template) to any EVM chain.
 
   The Solidity template lives in /contracts/AVXTOLaunchToken.sol and is
   pre-compiled into src/avxto/contracts/AVXTOLaunchToken.json by
   `npm run compile:contracts`. Here we ABI-encode the constructor arguments,
-  append them to the creation bytecode, sign the deployment transaction with
-  the active wallet, broadcast it, and report the resulting contract address.
+  append them to the creation bytecode, and hand the result to an `EvmSigner`.
+
+  Nothing here is chain-specific any more. It used to take an `AvaWalletCore`
+  and reach for the C-Chain-pinned `web3` singleton for gas, nonce, chain id and
+  broadcast — which pinned the whole feature to Avalanche for reasons unrelated
+  to deploying an ERC20. All of that now comes from the signer, so the same code
+  deploys on Robinhood Chain, Ethereum or anything else in the registry
+  depending only on which wallet is connected. See `@/evm/signer`.
 */
 import { BN } from '@/avalanche'
-import { web3 } from '@/evm'
-import { Transaction } from '@ethereumjs/tx'
-import Common from '@ethereumjs/common'
-import { AvaWalletCore } from '@/js/wallets/types'
+import type Web3 from 'web3'
+
+import { explorerAddressUrl } from '@/evm/networkRegistry'
+import type { EvmNetwork } from '@/evm/networkRegistry'
+import type { EvmSigner } from '@/evm/signer'
 import artifact from '@/avxto/contracts/AVXTOLaunchToken.json'
-import { broadcastEvm } from '@/helpers/broadcastEvm'
 import { isOfflineTxId } from '@/stores/offlineSigning'
 
 export interface TokenLaunchParams {
@@ -60,8 +66,12 @@ export function toBaseUnits(amount: string, decimals: number): BN {
 /**
  * Build the contract-creation calldata: creation bytecode followed by the
  * ABI-encoded constructor arguments.
+ *
+ * Takes a `Web3` only for its ABI codec, which is pure — the instance's network
+ * is irrelevant here, and passing the signer's avoids constructing a second one
+ * just to encode.
  */
-function encodeDeployData(params: TokenLaunchParams): string {
+export function encodeDeployData(web3: Web3, params: TokenLaunchParams): string {
     const decimals = params.decimals
     const initial = toBaseUnits(params.initialSupply, decimals)
     const cap = toBaseUnits(params.maxSupply, decimals)
@@ -83,60 +93,24 @@ function encodeDeployData(params: TokenLaunchParams): string {
 }
 
 /**
- * Estimate gas for the deployment, padded by 20% and capped.
- */
-async function estimateDeployGas(from: string, data: string): Promise<number> {
-    try {
-        const est = await web3.eth.estimateGas({ from, data })
-        return Math.min(Math.round(Number(est) * 1.2), MAX_DEPLOY_GAS)
-    } catch (e) {
-        // Fall back to a safe ceiling if estimation reverts (e.g. node quirk).
-        return MAX_DEPLOY_GAS
-    }
-}
-
-/**
- * Deploy the ERC20 to the C-Chain. Returns the tx hash and the new contract
- * address. Supports locally-signing wallets (mnemonic/singleton/ledger) and
- * injected browser wallets.
+ * Deploy the ERC20 to the signer's chain. Returns the tx hash and the new
+ * contract address.
+ *
+ * Works with every wallet an `EvmSigner` covers: locally-signing wallets
+ * (mnemonic / private key / Ledger, including offline capture) and injected
+ * browser wallets, on whatever network the signer is bound to.
  */
 export async function deployToken(
-    wallet: AvaWalletCore,
-    params: TokenLaunchParams,
-    gasPrice: BN
+    signer: EvmSigner,
+    params: TokenLaunchParams
 ): Promise<TokenLaunchResult> {
-    const fromAddr = '0x' + wallet.getEvmAddress()
-    const data = encodeDeployData(params)
-    const gasLimit = await estimateDeployGas(fromAddr, data)
+    const data = encodeDeployData(signer.reader(), params)
 
-    // Injected wallets sign and broadcast through their own provider.
-    if (wallet.type === 'injected') {
-        return deployViaInjected(wallet, data, gasPrice, gasLimit)
-    }
+    // No `to`: that is what makes this a contract creation.
+    const request = { data, label: `Deploy token ${params.symbol}` }
+    const gasLimit = Math.min(await signer.estimateGas(request, MAX_DEPLOY_GAS), MAX_DEPLOY_GAS)
 
-    const nonce = await web3.eth.getTransactionCount(fromAddr, 'pending')
-    const chainId = await web3.eth.getChainId()
-    const networkId = await web3.eth.net.getId()
-    const chainParams = {
-        common: Common.forCustomChain('mainnet', { networkId, chainId }, 'istanbul') as any,
-    }
-
-    // Contract creation: omit `to`.
-    const tx = new Transaction(
-        {
-            nonce: nonce,
-            gasPrice: gasPrice,
-            gasLimit: gasLimit,
-            value: '0x0',
-            data: data,
-        },
-        chainParams
-    )
-
-    const signedTx = await wallet.signEvm(tx)
-    const txHex = signedTx.serialize().toString('hex')
-
-    const txHash = await broadcastEvm(txHex, `Deploy token ${params.symbol}`)
+    const txHash = await signer.send({ ...request, gasLimit })
 
     // Offline signing captured the transaction instead of sending it. The
     // contract address is only assigned when the deploy is mined, so there is
@@ -145,57 +119,24 @@ export async function deployToken(
         return { txHash, contractAddress: '' }
     }
 
-    const receipt = await web3.eth.getTransactionReceipt(txHash)
-    if (!receipt?.contractAddress) {
-        throw new Error('Deployment succeeded but no contract address was returned')
-    }
-
-    return {
-        txHash: receipt.transactionHash,
-        contractAddress: receipt.contractAddress,
-    }
-}
-
-async function deployViaInjected(
-    wallet: AvaWalletCore,
-    data: string,
-    gasPrice: BN,
-    gasLimit: number
-): Promise<TokenLaunchResult> {
-    const fromAddr = ('0x' + wallet.getEvmAddress()) as `0x${string}`
-    const provider = (wallet as any).provider
-
-    const { createWalletClient, custom, publicActions } = await import('viem')
-    const walletClient = createWalletClient({
-        transport: custom(provider),
-    }).extend(publicActions)
-
-    const txHash = await walletClient.sendTransaction({
-        account: fromAddr,
-        data: data as `0x${string}`,
-        gasPrice: BigInt(gasPrice.toString()),
-        gas: BigInt(gasLimit),
-        chain: null,
-    } as any)
-
-    // Wait for the receipt so we can surface the deployed address.
-    const receipt = await walletClient.waitForTransactionReceipt({ hash: txHash })
+    const receipt = await signer.waitForReceipt(txHash)
     if (!receipt.contractAddress) {
         throw new Error('Deployment succeeded but no contract address was returned')
     }
 
     return {
-        txHash: txHash,
+        txHash: receipt.txHash,
         contractAddress: receipt.contractAddress,
     }
 }
 
 /**
- * Build a C-Chain (Snowtrace) explorer URL for the given contract address,
- * selecting mainnet vs. Fuji testnet from the EVM chain id.
+ * Explorer URL for a deployed contract.
+ *
+ * Takes the network rather than a chain id: the previous signature
+ * (`address, evmChainId`) could only ever resolve Avalanche's two chains and
+ * silently sent every other chain's contracts to snowtrace.
  */
-export function cChainExplorerAddressUrl(address: string, evmChainId: number): string {
-    // 43114 = Avalanche mainnet C-Chain, 43113 = Fuji testnet C-Chain.
-    const base = evmChainId === 43113 ? 'https://testnet.snowtrace.io' : 'https://snowtrace.io'
-    return `${base}/address/${address}`
+export function tokenExplorerUrl(network: EvmNetwork, address: string): string {
+    return explorerAddressUrl(network, address)
 }

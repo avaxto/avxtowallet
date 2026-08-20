@@ -4,14 +4,13 @@
   Licensed under the BSD 3 Clause License. See LICENSE file in the project root for details.
 */
 /*
-  ArenaSwap - token swapping on the Avalanche C-Chain.
+  ArenaSwap - token swapping on any EVM chain.
 
   Routes swaps through LI.FI (li.quest) rather than Odos (api.odos.xyz):
   Odos rejects requests from this app's origin with a CORS error (no
   Access-Control-Allow-Origin on the preflight response), and there is no
   client-side fix for that — only routing through an aggregator whose CORS
-  policy actually allows us. li.quest is reachable from the browser, as is
-  api.paraswap.io for a price display (not execution).
+  policy actually allows us. li.quest is reachable from the browser.
 
   LI.FI's /v1/quote returns a ready-to-sign transaction in the same response
   as the quote — no separate "assemble" step the way Odos needed:
@@ -21,7 +20,15 @@
     3. execute   sign quote.transactionRequest with the active wallet + broadcast
 
   No native/local programs are involved: only HTTP fetches and standard
-  in-browser transaction signing (the same path used by the token launcher).
+  in-browser transaction signing (the same path the token launcher uses).
+
+  **Chain-neutral.** This used to hardcode 43114 into every LI.FI request, read
+  balances and allowances through the C-Chain-pinned `web3` singleton, sign with
+  an `AvaWalletCore`, and check tokens against Avalanche's registry. All four
+  now follow the `EvmSigner` it is handed, so a swap runs on whatever chain the
+  connected wallet is on. LI.FI covers many chains; one it does not cover simply
+  returns no route, which surfaces as "no route found" rather than a swap
+  quietly priced for the wrong network.
 
   Unverified against a live swap: this is built from LI.FI's documented
   request/response shape, not one that has been exercised end-to-end, so
@@ -29,19 +36,19 @@
 */
 import axios from 'axios'
 import { BN } from '@/avalanche'
-import { web3 } from '@/evm'
-import { Transaction } from '@ethereumjs/tx'
-import Common from '@ethereumjs/common'
-import { AvaWalletCore } from '@/js/wallets/types'
 import ERC20Abi from '@openzeppelin/contracts/build/contracts/ERC20.json'
-import { broadcastEvm } from '@/helpers/broadcastEvm'
-import { isSpoofedToken } from '@/platforms/avalanche/tokenRegistry'
+
+import { explorerTxUrl } from '@/evm/networkRegistry'
+import type { EvmNetwork } from '@/evm/networkRegistry'
+import type { EvmSigner } from '@/evm/signer'
 
 const LIFI_BASE = 'https://li.quest'
-export const AVALANCHE_CHAIN_ID = 43114
 
-// LI.FI uses the zero address to denote the chain's native token (AVAX here) —
-// same convention Odos used, so this didn't need to change.
+/**
+ * LI.FI uses the zero address to denote a chain's native token — AVAX on
+ * Avalanche, ETH on Robinhood Chain and Ethereum, and so on. Same convention
+ * Odos used, so this didn't need to change.
+ */
 export const NATIVE_TOKEN_ADDRESS = '0x0000000000000000000000000000000000000000'
 
 // Identifies this app to LI.FI (their analytics/fee-attribution, mirroring
@@ -52,7 +59,7 @@ export const NATIVE_TOKEN_ADDRESS = '0x0000000000000000000000000000000000000000'
 const INTEGRATOR = 'avxto-wallet'
 
 export interface SwapToken {
-    address: string // 0x0000..0000 for native AVAX
+    address: string // 0x0000..0000 for the chain's native asset
     symbol: string
     name: string
     decimals: number
@@ -67,7 +74,7 @@ export interface SwapQuote {
     toAmountUSD: number
     /** Self-computed from the USD values above — LI.FI doesn't return this as a flat field. */
     priceImpact: number | null
-    /** ERC20 spender to approve for a non-native input — null when the input is native AVAX. */
+    /** ERC20 spender to approve for a non-native input — null when the input is native. */
     approvalAddress: string | null
     gasLimit: number
     /** The exact transaction LI.FI priced this quote against — sign and send as-is. */
@@ -95,9 +102,29 @@ function parseNumber(v: string | number | undefined): number {
 }
 
 function lifiError(e: any, fallback: string): string {
-    const detail = e?.response?.data?.message || e?.response?.data?.error || e?.response?.data?.detail
+    const detail =
+        e?.response?.data?.message || e?.response?.data?.error || e?.response?.data?.detail
     if (detail) return typeof detail === 'string' ? detail : JSON.stringify(detail)
     return e?.message || fallback
+}
+
+/**
+ * An ERC-20 bound to the signer's own network.
+ *
+ * Goes through `signer.reader()` rather than a module-level web3 so the read
+ * lands on the chain the swap is actually for — a contract object binds to the
+ * provider that created it for its whole lifetime, which is exactly how the
+ * previous version read every chain's allowances off Avalanche.
+ */
+function erc20(signer: EvmSigner, address: string) {
+    // The instance goes in a local first, deliberately: `new
+    // signer.reader().eth.Contract(...)` parses as
+    // `(new signer.reader()).eth.Contract(...)` — JS binds `new` to the
+    // shortest member expression before the argument list, so it would try to
+    // construct `reader` itself and throw.
+    const web3 = signer.reader()
+    // @ts-ignore - web3 typing for dynamic ABI
+    return new web3.eth.Contract(ERC20Abi.abi as any, address)
 }
 
 /** True if the string is a well-formed 0x EVM address. */
@@ -108,8 +135,11 @@ export function isValidAddress(address: string): boolean {
 /**
  * Request a priced, ready-to-execute route. `amountInRaw` is the input
  * amount in base units (already scaled by the input token's decimals).
+ *
+ * Both legs are on `chainId` — this is a same-chain swap, not a bridge.
  */
 export async function getQuote(params: {
+    chainId: number
     tokenIn: SwapToken
     tokenOut: SwapToken
     amountInRaw: BN
@@ -119,8 +149,8 @@ export async function getQuote(params: {
     try {
         const { data } = await axios.get(`${LIFI_BASE}/v1/quote`, {
             params: {
-                fromChain: AVALANCHE_CHAIN_ID,
-                toChain: AVALANCHE_CHAIN_ID,
+                fromChain: params.chainId,
+                toChain: params.chainId,
                 fromToken: params.tokenIn.address,
                 toToken: params.tokenOut.address,
                 fromAmount: params.amountInRaw.toString(),
@@ -142,8 +172,7 @@ export async function getQuote(params: {
         const priceImpact =
             fromAmountUSD > 0 ? ((toAmountUSD - fromAmountUSD) / fromAmountUSD) * 100 : null
 
-        const gasLimitRaw =
-            tx.gasLimit ?? data.estimate?.gasCosts?.[0]?.limit ?? 500000
+        const gasLimitRaw = tx.gasLimit ?? data.estimate?.gasCosts?.[0]?.limit ?? 500000
         const gasLimit = Math.round(Number(parseValueToBN(gasLimitRaw).toString()) || 500000)
 
         return {
@@ -171,22 +200,29 @@ export async function getQuote(params: {
 /**
  * Resolve on-chain metadata (symbol, name, decimals) for an arbitrary ERC20
  * address so the UI can display and correctly scale a token the user does not
- * hold. Throws if the address is not a readable ERC20.
+ * hold. Throws if the address is not a readable ERC20 on the signer's chain.
  */
-export async function resolveErc20Metadata(address: string): Promise<SwapToken> {
+export async function resolveErc20Metadata(signer: EvmSigner, address: string): Promise<SwapToken> {
     if (isNativeToken(address)) {
-        return { address: NATIVE_TOKEN_ADDRESS, symbol: 'AVAX', name: 'Avalanche', decimals: 18 }
+        return {
+            address: NATIVE_TOKEN_ADDRESS,
+            symbol: signer.network.native.symbol,
+            name: signer.network.native.name,
+            decimals: signer.network.native.decimals,
+        }
     }
     if (!isValidAddress(address)) {
         throw new Error('Enter a valid token contract address (0x…)')
     }
-    // @ts-ignore - web3 typing for dynamic ABI
-    const contract = new web3.eth.Contract(ERC20Abi.abi as any, address)
+    const contract = erc20(signer, address)
     try {
         const [symbol, decimals, name] = await Promise.all([
             contract.methods.symbol().call(),
             contract.methods.decimals().call(),
-            contract.methods.name().call().catch(() => ''),
+            contract.methods
+                .name()
+                .call()
+                .catch(() => ''),
         ])
         return {
             address,
@@ -199,18 +235,23 @@ export async function resolveErc20Metadata(address: string): Promise<SwapToken> 
     }
 }
 
-let cachedTokenMap: Record<string, SwapToken> | null = null
-
 /**
- * Fetch (and cache) LI.FI's curated token list for Avalanche, keyed by
- * lowercased address. Used to resolve a user-typed symbol to an address.
+ * LI.FI's curated token list, cached per chain.
+ *
+ * Keyed by chain id rather than a single module-level cache: the previous
+ * version cached one list globally, so the first chain to load it would have
+ * answered symbol lookups for every other chain — resolving "USDC" to an
+ * address that does not exist where the swap is about to run.
  */
-export async function getSwapTokenMap(): Promise<Record<string, SwapToken>> {
-    if (cachedTokenMap) return cachedTokenMap
-    const { data } = await axios.get(`${LIFI_BASE}/v1/tokens`, {
-        params: { chains: AVALANCHE_CHAIN_ID },
-    })
-    const list: any[] = data.tokens?.[AVALANCHE_CHAIN_ID] ?? data.tokens?.[String(AVALANCHE_CHAIN_ID)] ?? []
+const cachedTokenMaps = new Map<number, Record<string, SwapToken>>()
+
+/** Fetch (and cache) the tradable token list for `chainId`, keyed by lowercased address. */
+export async function getSwapTokenMap(chainId: number): Promise<Record<string, SwapToken>> {
+    const cached = cachedTokenMaps.get(chainId)
+    if (cached) return cached
+
+    const { data } = await axios.get(`${LIFI_BASE}/v1/tokens`, { params: { chains: chainId } })
+    const list: any[] = data.tokens?.[chainId] ?? data.tokens?.[String(chainId)] ?? []
     const map: Record<string, SwapToken> = {}
     for (const t of list) {
         map[(t.address || '').toLowerCase()] = {
@@ -220,15 +261,15 @@ export async function getSwapTokenMap(): Promise<Record<string, SwapToken>> {
             decimals: parseInt(t.decimals) || 18,
         }
     }
-    cachedTokenMap = map
+    cachedTokenMaps.set(chainId, map)
     return map
 }
 
 /** Find a tradable token by its symbol (case-insensitive, first exact match). */
-export async function resolveBySymbol(symbol: string): Promise<SwapToken | null> {
+export async function resolveBySymbol(chainId: number, symbol: string): Promise<SwapToken | null> {
     const sym = (symbol || '').trim().toLowerCase()
     if (!sym) return null
-    const map = await getSwapTokenMap()
+    const map = await getSwapTokenMap(chainId)
     for (const k of Object.keys(map)) {
         if ((map[k].symbol || '').toLowerCase() === sym) return map[k]
     }
@@ -239,154 +280,86 @@ export async function resolveBySymbol(symbol: string): Promise<SwapToken | null>
  * Resolve a target token from free-text input that may be EITHER a contract
  * address (0x…) or a token symbol (e.g. "USDC"). Throws if it can't be found.
  *
- * Checked against the Avalanche platform's token registry (see
- * platforms/avalanche/tokenRegistry/index.ts)
- * regardless of which path resolves it: an address the user typed or
- * pasted, and a symbol matched against LI.FI's own token list, are both
- * untrusted the same way a live contract call is — nothing stops a scam
- * token from deploying with symbol "USDC" (or "AVXTO", or "AVAX"). This is
+ * Checked against the token registry **for the signer's own chain** (see
+ * `evm/tokenRegistry.ts`) regardless of which path resolves it: an address the
+ * user typed or pasted, and a symbol matched against LI.FI's own token list,
+ * are both untrusted the same way a live contract call is — nothing stops a
+ * scam token from deploying with symbol "USDC" (or "AVXTO", or "AVAX"). This is
  * the free-text swap/distribute target field, so there's no prior filtered
- * list this input was picked from. The registry only rejects an impostor of
- * a symbol it knows, though — a token it has no opinion on resolves same as
- * it always did.
+ * list this input was picked from. The registry only rejects an impostor of a
+ * symbol it knows, though — a token it has no opinion on resolves same as it
+ * always did.
+ *
+ * Per-chain rather than always Avalanche's: checking a Robinhood Chain address
+ * against Avalanche's pinned contracts would reject every legitimate token that
+ * happens to share a well-known symbol.
  */
-export async function resolveTargetToken(input: string): Promise<SwapToken> {
+export async function resolveTargetToken(signer: EvmSigner, input: string): Promise<SwapToken> {
     const q = (input || '').trim()
     if (!q) throw new Error('Enter a token address or symbol')
+    const chainId = signer.network.evmChainId
 
-    const resolved = isNativeToken(q) || isValidAddress(q)
-        ? await resolveErc20Metadata(q)
-        : await resolveBySymbol(q)
+    const resolved =
+        isNativeToken(q) || isValidAddress(q)
+            ? await resolveErc20Metadata(signer, q)
+            : await resolveBySymbol(chainId, q)
 
     if (!resolved) throw new Error(`No token found for "${input}"`)
 
     if (
         !isNativeToken(resolved.address) &&
-        isSpoofedToken(resolved.symbol, resolved.address, AVALANCHE_CHAIN_ID)
+        signer.tokenRegistry().isSpoofedToken(resolved.symbol, resolved.address, chainId)
     ) {
         throw new Error(
-            `${resolved.symbol} at this address doesn't match the AVXTO token registry's known ` +
-                `contract for ${resolved.symbol} — this looks like an impostor token.`
+            `${resolved.symbol} at this address doesn't match the token registry's known ` +
+                `contract for ${resolved.symbol} on ${signer.network.name} — this looks like ` +
+                'an impostor token.'
         )
     }
 
     return resolved
 }
 
-/** Current ERC20 allowance the owner has granted to the spender. */
+/** Current ERC20 allowance the owner has granted to the spender, on the signer's chain. */
 export async function getAllowance(
+    signer: EvmSigner,
     tokenAddress: string,
     owner: string,
     spender: string
 ): Promise<BN> {
-    // @ts-ignore - web3 typing for dynamic ABI
-    const contract = new web3.eth.Contract(ERC20Abi.abi as any, tokenAddress)
+    const contract = erc20(signer, tokenAddress)
     const allowance = await contract.methods.allowance(owner, spender).call()
     return new BN(allowance.toString())
 }
 
 /**
- * Broadcast a signed EVM transaction from the active wallet. Handles both
- * locally-signing wallets and injected browser wallets.
- *
- * Accepts an explicit `nonce` for callers sequencing several sends back-to-
- * back (approve-then-swap, or an iceberg order's per-chunk swaps) — letting
- * each send ask the wallet/RPC for "the" current nonce independently is
- * racy, since the previous send may not be visible as pending yet by the
- * time the next one asks, so two sends can get the same nonce and the
- * second is rejected as "nonce too low" / "already used". Same fix already
- * applied to InjectedWallet.sendEth/sendERC20 and WalletWizard's batch send,
- * for the identical reason.
- */
-async function sendEvmTx(
-    wallet: AvaWalletCore,
-    txReq: { to: string; data: string; value: BN },
-    gasPrice: BN,
-    gasLimit: number,
-    /** Description used when offline signing captures this instead of sending. */
-    label = 'C-Chain transaction',
-    nonce?: number
-): Promise<string> {
-    const fromAddr = '0x' + wallet.getEvmAddress()
-
-    if (wallet.type === 'injected') {
-        const provider = (wallet as any).provider
-        const { createWalletClient, custom, publicActions } = await import('viem')
-        const walletClient = createWalletClient({ transport: custom(provider) }).extend(
-            publicActions
-        )
-        const hash = await walletClient.sendTransaction({
-            account: fromAddr as `0x${string}`,
-            to: txReq.to as `0x${string}`,
-            data: txReq.data as `0x${string}`,
-            value: BigInt(txReq.value.toString()),
-            gasPrice: BigInt(gasPrice.toString()),
-            gas: BigInt(gasLimit),
-            ...(nonce !== undefined ? { nonce } : {}),
-            chain: null,
-        } as any)
-        return hash
-    }
-
-    const resolvedNonce = nonce ?? (await web3.eth.getTransactionCount(fromAddr, 'pending'))
-    const chainId = await web3.eth.getChainId()
-    const networkId = await web3.eth.net.getId()
-    const chainParams = {
-        common: Common.forCustomChain('mainnet', { networkId, chainId }, 'istanbul') as any,
-    }
-
-    const tx = new Transaction(
-        {
-            nonce: resolvedNonce,
-            gasPrice,
-            gasLimit,
-            to: txReq.to,
-            value: txReq.value,
-            data: txReq.data,
-        },
-        chainParams
-    )
-
-    const signedTx = await wallet.signEvm(tx)
-    const txHex = signedTx.serialize().toString('hex')
-    return await broadcastEvm(txHex, label)
-}
-
-/**
  * Approve `spender` (quote.approvalAddress) to spend `amount` of the given
- * ERC20 token. Returns the approval tx hash. (Native AVAX never needs
+ * ERC20 token. Returns the approval tx hash. (A native input never needs
  * approval — callers should check isNativeToken()/approvalAddress first.)
+ *
+ * `nonce` sequences this with the swap that follows: letting each send ask the
+ * RPC for "the" current nonce independently is racy, since the approval may not
+ * be visible as pending yet by the time the swap asks, so both can get the same
+ * nonce and the second is rejected as "nonce too low".
  */
 export async function approveRouter(
-    wallet: AvaWalletCore,
+    signer: EvmSigner,
     tokenAddress: string,
     spender: string,
     amount: BN,
-    gasPrice: BN,
-    /** See sendEvmTx — pass when sequencing this with other sends (e.g. the swap that follows). */
     nonce?: number
 ): Promise<string> {
-    // @ts-ignore - web3 typing for dynamic ABI
-    const contract = new web3.eth.Contract(ERC20Abi.abi as any, tokenAddress)
-    const data = contract.methods.approve(spender, amount.toString()).encodeABI()
+    const data = erc20(signer, tokenAddress).methods.approve(spender, amount.toString()).encodeABI()
 
-    const fromAddr = '0x' + wallet.getEvmAddress()
-    let gasLimit = 80_000
-    try {
-        const est = await web3.eth.estimateGas({ from: fromAddr, to: tokenAddress, data })
-        gasLimit = Math.round(Number(est) * 1.2)
-    } catch (e) {
-        /* keep default */
+    const request = {
+        to: tokenAddress,
+        data,
+        label: 'Approve router to spend token',
+        nonce,
     }
+    const gasLimit = await signer.estimateGas(request, 80_000)
 
-    return sendEvmTx(
-        wallet,
-        { to: tokenAddress, data, value: new BN(0) },
-        gasPrice,
-        gasLimit,
-        'Approve router to spend token',
-        nonce
-    )
+    return await signer.send({ ...request, gasLimit })
 }
 
 /**
@@ -395,29 +368,31 @@ export async function approveRouter(
  * the executable transaction — there's no separate assemble call here.
  */
 export async function executeSwap(
-    wallet: AvaWalletCore,
+    signer: EvmSigner,
     quote: SwapQuote,
-    gasPrice: BN,
-    /** See sendEvmTx — pass when sequencing this with other sends (e.g. an iceberg order's chunks). */
+    /** See `approveRouter` — pass when sequencing this with other sends. */
     nonce?: number
 ): Promise<SwapResult> {
-    // Pad the aggregator's gas estimate by 20% for safety.
-    const gasLimit = Math.round(quote.gasLimit * 1.2)
-    const value = parseValueToBN(quote.transactionRequest.value)
-
-    const txHash = await sendEvmTx(
-        wallet,
-        { to: quote.transactionRequest.to, data: quote.transactionRequest.data, value },
-        gasPrice,
-        gasLimit,
-        'Execute swap',
-        nonce
-    )
+    const txHash = await signer.send({
+        to: quote.transactionRequest.to,
+        data: quote.transactionRequest.data,
+        value: parseValueToBN(quote.transactionRequest.value),
+        // The aggregator priced the route against this figure; pad it by 20%
+        // rather than re-estimating, which would probe a different state.
+        gasLimit: Math.round(quote.gasLimit * 1.2),
+        label: 'Execute swap',
+        nonce,
+    })
     return { txHash }
 }
 
-/** Snowtrace transaction URL for the given hash. */
-export function cChainExplorerTxUrl(txHash: string, evmChainId: number): string {
-    const base = evmChainId === 43113 ? 'https://testnet.snowtrace.io' : 'https://snowtrace.io'
-    return `${base}/tx/${txHash}`
+/**
+ * Explorer URL for a swap transaction.
+ *
+ * Takes the network rather than a chain id: the previous signature could only
+ * resolve Avalanche's two chains and sent every other chain's transactions to
+ * snowtrace.
+ */
+export function swapExplorerTxUrl(network: EvmNetwork, txHash: string): string {
+    return explorerTxUrl(network, txHash)
 }

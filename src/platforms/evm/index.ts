@@ -34,9 +34,11 @@ import type {
     PlatformWallet,
 } from '../types'
 import { getEvmNetworks, type EvmNetwork } from '@/evm/networkRegistry'
+import type { EvmSigner } from '@/evm/signer'
+import { InjectedEvmSigner } from './signer'
 import { peekActiveNetwork, peekActiveWallet } from './store'
 import { activeEvmTokenRegistry } from './tokenRegistry'
-import { connectInjected } from './wallet'
+import { connectInjected, type EvmWallet } from './wallet'
 
 /** High-luminance chartreuse — carried over from the Robinhood integration. */
 export const EVM_ACCENT = 'rgb(204, 255, 0)'
@@ -160,6 +162,17 @@ export const evmPlatform: Platform = {
         // Pinia store: this is called from synchronous contexts that may run
         // before Pinia is installed. See the note in ./store.ts.
         return peekActiveWallet()
+    },
+
+    /**
+     * Bound to the connected wallet's own network — `EvmWallet.network`, not
+     * the picker's current selection. Connecting adopts whatever chain the
+     * extension was already on (see `connectInjected`), so those two can
+     * legitimately differ, and the wallet's is the one its transactions go to.
+     */
+    getEvmSigner(): EvmSigner | null {
+        const wallet = peekActiveWallet()
+        return wallet ? new InjectedEvmSigner(wallet as EvmWallet) : null
     },
 
     async logout(): Promise<void> {

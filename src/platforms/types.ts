@@ -27,6 +27,8 @@
  */
 import type Big from 'big.js'
 
+import type { EvmSigner } from '@/evm/signer'
+
 /**
  * Known platform ids. The `(string & {})` arm keeps the union open so a new
  * platform folder can introduce its own id without editing this file, while
@@ -337,6 +339,18 @@ export interface Platform {
 
     /** The currently connected wallet on this platform, or null. */
     getActiveWallet(): PlatformWallet | null
+
+    /**
+     * An EVM signer for the connected wallet, when this platform has an `evm`
+     * chain and something is connected to sign with.
+     *
+     * Absent on platforms with no EVM chain at all (Bitcoin, Solana) — which is
+     * how EVM-only features stay generic: they ask the active platform for a
+     * signer and disable themselves when there isn't one, instead of testing
+     * a platform id. See `@/evm/signer`.
+     */
+    getEvmSigner?(): EvmSigner | null
+
     /** Disconnect and clear all session state for this platform. */
     logout(): Promise<void>
 }

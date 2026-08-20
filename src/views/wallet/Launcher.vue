@@ -7,11 +7,19 @@
     <div class="launcher_page">
         <h1>Token Launcher</h1>
         <p class="desc">
-            Deploy your own ERC20 token to the Avalanche C-Chain. Choose a name, symbol, supply
-            and decimals — the launcher compiles the standard OpenZeppelin ERC20 template, signs
-            the deployment with your active wallet and broadcasts it via RPC. You receive the
-            contract address and a C-Chain explorer link.
+            Deploy your own ERC20 token to
+            <strong>{{ targetNetwork ? targetNetwork.name : 'the connected network' }}</strong>.
+            Choose a name, symbol, supply and decimals — the launcher compiles the standard
+            OpenZeppelin ERC20 template, signs the deployment with your active wallet and
+            broadcasts it via RPC. You receive the contract address and an explorer link.
         </p>
+
+        <div v-if="!signer" class="card notice">
+            <p>
+                No EVM wallet is connected. Connect a wallet on a platform with an EVM chain —
+                Avalanche or the EVM platform — to deploy a token.
+            </p>
+        </div>
 
         <div class="card">
             <h2>Token Details</h2>
@@ -126,8 +134,14 @@
                 <span class="result_label">Tx Hash</span>
                 <span class="result_value mono">{{ result.txHash }}</span>
             </div>
-            <a class="explorer_link" :href="explorerUrl" target="_blank" rel="noopener noreferrer">
-                View on C-Chain Explorer ↗
+            <a
+                v-if="explorerUrl"
+                class="explorer_link"
+                :href="explorerUrl"
+                target="_blank"
+                rel="noopener noreferrer"
+            >
+                View on {{ explorerLabel }} ↗
             </a>
         </div>
     </div>
@@ -135,23 +149,20 @@
 
 <script lang="ts">
 import { defineComponent, ref, reactive, computed } from 'vue'
-import { useMainStore, useNotificationsStore } from '@/stores'
-import { BN } from '@/avalanche'
-import { web3 } from '@/evm'
-import { GasHelper } from '@/avalanche-wallet-sdk'
+import { useNotificationsStore } from '@/stores'
 import {
     deployToken,
-    cChainExplorerAddressUrl,
+    tokenExplorerUrl,
     TokenLaunchParams,
     TokenLaunchResult,
 } from '@/js/TokenLauncher'
-import { AvaWalletCore } from '@/js/wallets/types'
+import { activeEvmSigner } from '@/platforms/evmSigner'
+import { explorerName } from '@/evm/networkRegistry'
 import { authorizeSingle, SessionAuthCancelled } from '@/js/security/authorize'
 
 export default defineComponent({
     name: 'Launcher',
     setup() {
-        const mainStore = useMainStore()
         const notifications = useNotificationsStore()
 
         const form = reactive({
@@ -164,9 +175,23 @@ export default defineComponent({
 
         const isDeploying = ref(false)
         const result = ref<TokenLaunchResult | null>(null)
-        const evmChainId = ref(43114)
 
-        const wallet = computed(() => mainStore.activeWallet as AvaWalletCore | null)
+        /**
+         * The signer for whichever platform is active — Avalanche's wallet
+         * hierarchy or the unified EVM platform's. Null when nothing is
+         * connected or the platform has no EVM chain, which is what disables
+         * the form rather than any check on a platform id.
+         *
+         * Recomputed for display; the deploy below resolves it ONCE and threads
+         * it through, per the invariant in `@/evm/signer`.
+         */
+        const signer = computed(() => activeEvmSigner())
+
+        /** The chain a deploy would land on, for labels and the explorer link. */
+        const targetNetwork = computed(() => signer.value?.network ?? null)
+
+        /** Pinned when the deploy is submitted, so the result card cannot relabel itself. */
+        const resultNetwork = ref(targetNetwork.value)
 
         const validationError = computed(() => {
             if (!form.name.trim()) return null
@@ -194,7 +219,7 @@ export default defineComponent({
 
         const canDeploy = computed(() => {
             return (
-                !!wallet.value &&
+                !!signer.value &&
                 !!form.name.trim() &&
                 !!form.symbol.trim() &&
                 !!form.maxSupply.trim() &&
@@ -204,19 +229,25 @@ export default defineComponent({
         })
 
         const explorerUrl = computed(() =>
-            result.value
-                ? cChainExplorerAddressUrl(result.value.contractAddress, evmChainId.value)
+            result.value && resultNetwork.value
+                ? tokenExplorerUrl(resultNetwork.value, result.value.contractAddress)
                 : ''
         )
 
+        const explorerLabel = computed(() =>
+            resultNetwork.value ? explorerName(resultNetwork.value) : 'the explorer'
+        )
+
         const deploy = async () => {
-            if (!wallet.value || !canDeploy.value) return
+            // Resolved once, here, and used for the whole flow — re-reading it
+            // mid-deploy could hand back a signer for a different chain than
+            // the one the gas was estimated against.
+            const activeSigner = signer.value
+            if (!activeSigner || !canDeploy.value) return
             isDeploying.value = true
             result.value = null
             try {
-                evmChainId.value = await web3.eth.getChainId()
-
-                const gasPrice: BN = await GasHelper.getAdjustedGasPrice()
+                resultNetwork.value = activeSigner.network
 
                 const params: TokenLaunchParams = {
                     name: form.name.trim(),
@@ -226,8 +257,10 @@ export default defineComponent({
                     maxSupply: form.maxSupply.trim(),
                 }
 
-                const res = await authorizeSingle(wallet.value, 'Deploy a token contract', () =>
-                    deployToken(wallet.value, params, gasPrice)
+                const res = await authorizeSingle(
+                    activeSigner.authSubject,
+                    'Deploy a token contract',
+                    () => deployToken(activeSigner, params)
                 )
                 result.value = res
                 notifications.add({
@@ -258,7 +291,10 @@ export default defineComponent({
             result,
             validationError,
             canDeploy,
+            signer,
+            targetNetwork,
             explorerUrl,
+            explorerLabel,
             deploy,
             copy,
         }
@@ -292,6 +328,11 @@ export default defineComponent({
         margin: 0 0 16px;
         font-size: 18px;
     }
+}
+
+.notice p {
+    color: var(--primary-color-light);
+    line-height: 1.5;
 }
 
 .field {
@@ -344,7 +385,13 @@ export default defineComponent({
     border: none;
     border-radius: 8px;
     background: var(--secondary-color);
-    color: #fff;
+    // `--platform-on-accent` is set alongside `--secondary-color` whenever a
+    // platform overrides the accent (e.g. a high-luminance chartreuse, which
+    // needs dark text to stay legible) — see platforms/theme.ts. Falls back
+    // to white, correct against every accent with no platform theme.
+    // !important: `body` in _main.scss forces --primary-color with
+    // !important, which otherwise wins over this regardless of specificity.
+    color: var(--platform-on-accent, #fff) !important;
     font-size: 15px;
     font-weight: 600;
     cursor: pointer;

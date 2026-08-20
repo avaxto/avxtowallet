@@ -199,8 +199,14 @@
                 <span class="result_label">Tx Hash</span>
                 <span class="result_value mono">{{ resultTx }}</span>
             </div>
-            <a class="explorer_link" :href="explorerUrl" target="_blank" rel="noopener noreferrer">
-                View on Snowtrace ↗
+            <a
+                v-if="explorerUrl"
+                class="explorer_link"
+                :href="explorerUrl"
+                target="_blank"
+                rel="noopener noreferrer"
+            >
+                View on {{ explorerLabel }} ↗
             </a>
             <button type="button" class="action_btn reset_btn" @click="resetForm">
                 New Swap
@@ -211,10 +217,8 @@
 
 <script lang="ts">
 import { defineComponent, ref, computed, onMounted, onUnmounted } from 'vue'
-import { useMainStore, useAssetsStore, useNotificationsStore } from '@/stores'
+import { useAssetsStore, useNotificationsStore } from '@/stores'
 import { BN } from '@/avalanche'
-import { web3 } from '@/evm'
-import { GasHelper } from '@/avalanche-wallet-sdk'
 import { bnToBig } from '@/helpers/helper'
 import { toBaseUnits } from '@/js/TokenLauncher'
 import CopyText from '@/components/misc/CopyText.vue'
@@ -228,11 +232,12 @@ import {
     getAllowance,
     isNativeToken,
     resolveTargetToken,
-    cChainExplorerTxUrl,
+    swapExplorerTxUrl,
     SwapToken,
     SwapQuote,
 } from '@/js/ArenaSwap'
-import { AvaWalletCore } from '@/js/wallets/types'
+import { activeEvmSigner } from '@/platforms/evmSigner'
+import { explorerName } from '@/evm/networkRegistry'
 import { authorizeWalletOp, AuthScope, SessionAuthCancelled } from '@/js/security/authorize'
 
 export default defineComponent({
@@ -243,11 +248,18 @@ export default defineComponent({
         TokenListPicker,
     },
     setup() {
-        const mainStore = useMainStore()
         const assetsStore = useAssetsStore()
         const notifications = useNotificationsStore()
 
-        const wallet = computed(() => mainStore.activeWallet as AvaWalletCore | null)
+        /**
+         * The signer for whichever platform is active. Null when nothing is
+         * connected or the platform has no EVM chain — that is what disables
+         * the form, rather than any check on a platform id.
+         *
+         * Recomputed for display only; `doSwap` resolves it ONCE and threads it
+         * through, per the invariant in `@/evm/signer`.
+         */
+        const signer = computed(() => activeEvmSigner())
 
         // Source list: ONLY tokens the wallet currently holds (native AVAX +
         // any ERC20 with a positive balance), merging the assets store
@@ -292,7 +304,8 @@ export default defineComponent({
         const isSwapping = ref(false)
         const statusMsg = ref('')
         const resultTx = ref('')
-        const evmChainId = ref(43114)
+        /** Pinned when the swap is submitted, so the result link cannot follow a later switch. */
+        const resultNetwork = ref(signer.value?.network ?? null)
 
         // Target token is a free-text address, resolved on-chain to metadata.
         const tokenOut = ref<SwapToken | null>(null)
@@ -308,7 +321,7 @@ export default defineComponent({
 
         const canQuote = computed(() => {
             return (
-                !!wallet.value &&
+                !!signer.value &&
                 !!tokenIn.value &&
                 !!tokenOut.value &&
                 tokenInAddr.value.toLowerCase() !== (tokenOut.value?.address || '').toLowerCase() &&
@@ -347,7 +360,13 @@ export default defineComponent({
         })
 
         const explorerUrl = computed(() =>
-            resultTx.value ? cChainExplorerTxUrl(resultTx.value, evmChainId.value) : ''
+            resultTx.value && resultNetwork.value
+                ? swapExplorerTxUrl(resultNetwork.value, resultTx.value)
+                : ''
+        )
+
+        const explorerLabel = computed(() =>
+            resultNetwork.value ? explorerName(resultNetwork.value) : 'the explorer'
         )
 
         const fmtUsd = (v: number) => (v || 0).toFixed(2)
@@ -365,6 +384,11 @@ export default defineComponent({
             tokenOut.value = null
             quote.value = null
             if (!raw) return
+            const activeSigner = signer.value
+            if (!activeSigner) {
+                targetError.value = 'Connect an EVM wallet first.'
+                return
+            }
             isResolving.value = true
             try {
                 // Prefer known-list metadata (match by address or symbol) to
@@ -384,7 +408,7 @@ export default defineComponent({
                           name: (known as any).data.name,
                           decimals: parseInt((known as any).data.decimals as string) || 18,
                       }
-                    : await resolveTargetToken(raw)
+                    : await resolveTargetToken(activeSigner, raw)
 
                 if (resolved.address.toLowerCase() === tokenInAddr.value.toLowerCase()) {
                     targetError.value = 'Target must differ from source'
@@ -423,7 +447,8 @@ export default defineComponent({
         }
 
         const fetchQuote = async () => {
-            if (!canQuote.value || !wallet.value) return
+            const activeSigner = signer.value
+            if (!canQuote.value || !activeSigner) return
             isQuoting.value = true
             quote.value = null
             resultTx.value = ''
@@ -431,10 +456,11 @@ export default defineComponent({
             try {
                 const amountInRaw = toBaseUnits(amountIn.value.trim(), tokenIn.value.decimals)
                 const q = await getQuote({
+                    chainId: activeSigner.network.evmChainId,
                     tokenIn: tokenIn.value,
                     tokenOut: tokenOut.value!,
                     amountInRaw,
-                    userAddress: '0x' + wallet.value.getEvmAddress(),
+                    userAddress: activeSigner.address,
                     slippagePercent: slippage.value,
                 })
                 quote.value = q
@@ -450,17 +476,22 @@ export default defineComponent({
         }
 
         const doSwap = async () => {
-            if (!quote.value || !wallet.value) return
-            const w = wallet.value
-            const userAddress = '0x' + w.getEvmAddress()
+            // Resolved once, here. Re-reading it mid-swap could hand back a
+            // signer for a different chain than the quote was priced against.
+            const activeSigner = signer.value
+            if (!quote.value || !activeSigner) return
+            const userAddress = activeSigner.address
             resultTx.value = ''
             statusMsg.value = ''
             try {
                 // An ERC20 input needs an approval before the swap, so this
                 // scope may cover two signatures from one password entry.
-                await authorizeWalletOp(w, AuthScope.BATCH, 'Approve and swap', async () => {
-                evmChainId.value = await web3.eth.getChainId()
-                const gasPrice: BN = await GasHelper.getAdjustedGasPrice()
+                await authorizeWalletOp(
+                    activeSigner.authSubject,
+                    AuthScope.BATCH,
+                    'Approve and swap',
+                    async () => {
+                resultNetwork.value = activeSigner.network
                 const amountInRaw = toBaseUnits(amountIn.value.trim(), tokenIn.value.decimals)
 
                 // Explicit, locally-incrementing nonce for the (up to) two
@@ -471,7 +502,7 @@ export default defineComponent({
                 let nextNonceVal: number | undefined
                 const nextNonce = async (): Promise<number> => {
                     if (nextNonceVal === undefined) {
-                        nextNonceVal = await web3.eth.getTransactionCount(userAddress, 'pending')
+                        nextNonceVal = await activeSigner.getNonce()
                     }
                     return nextNonceVal++
                 }
@@ -481,6 +512,7 @@ export default defineComponent({
                 const spender = quote.value.approvalAddress
                 if (!isNativeToken(tokenIn.value.address) && spender) {
                     const allowance = await getAllowance(
+                        activeSigner,
                         tokenIn.value.address,
                         userAddress,
                         spender
@@ -489,11 +521,10 @@ export default defineComponent({
                         isApproving.value = true
                         statusMsg.value = 'Waiting for approval confirmation…'
                         await approveRouter(
-                            w,
+                            activeSigner,
                             tokenIn.value.address,
                             spender,
                             amountInRaw,
-                            gasPrice,
                             await nextNonce()
                         )
                         isApproving.value = false
@@ -502,7 +533,7 @@ export default defineComponent({
 
                 isSwapping.value = true
                 statusMsg.value = 'Broadcasting swap…'
-                const res = await executeSwap(w, quote.value, gasPrice, await nextNonce())
+                const res = await executeSwap(activeSigner, quote.value, await nextNonce())
                 resultTx.value = res.txHash
                 statusMsg.value = ''
                 quote.value = null
@@ -523,7 +554,8 @@ export default defineComponent({
                 refreshHeldTokens().catch((e) => {
                     console.warn('[Swap] post-swap balance refresh failed:', e)
                 })
-                })
+                    }
+                )
             } catch (e: any) {
                 if (e instanceof SessionAuthCancelled) {
                     isApproving.value = false
@@ -578,6 +610,8 @@ export default defineComponent({
             statusMsg,
             resultTx,
             explorerUrl,
+            explorerLabel,
+            signer,
             setMaxAmount,
             fmtUsd,
             isNativeToken,

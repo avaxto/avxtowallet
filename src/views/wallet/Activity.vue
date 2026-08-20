@@ -462,7 +462,12 @@ export default defineComponent({
     h1 {
         font-weight: normal;
         margin-bottom: 14px;
-        color: #fff;
+        // Falls back to white, correct against every accent that has no
+        // platform theme (see .button_secondary above for the full story).
+        // !important: both `body` and `h1` in _main.scss force
+        // --primary-color with !important, which otherwise wins over this
+        // regardless of selector specificity.
+        color: var(--platform-on-accent, #fff) !important;
     }
 
     .warning_body {
@@ -470,7 +475,9 @@ export default defineComponent({
         flex-direction: column;
         max-width: 380px;
         background-color: var(--secondary-color);
-        color: #fff;
+        // !important for the same reason as the h1 rule above — this box's
+        // <p> otherwise inherits the global `body { color !important }`.
+        color: var(--platform-on-accent, #fff) !important;
         padding: 30px;
         border-radius: 12px;
     }

@@ -301,8 +301,6 @@ import { defineComponent, ref, shallowRef, computed, onMounted, onBeforeUnmount 
 import { onBeforeRouteLeave } from 'vue-router'
 import { useMainStore, useAssetsStore, useNotificationsStore } from '@/stores'
 import { BN } from '@/avalanche'
-import { web3 } from '@/evm'
-import { GasHelper } from '@/avalanche-wallet-sdk'
 import { bnToBig } from '@/helpers/helper'
 import { toBaseUnits } from '@/js/TokenLauncher'
 import {
@@ -312,10 +310,11 @@ import {
     getAllowance,
     isNativeToken,
     resolveTargetToken,
-    cChainExplorerTxUrl,
+    swapExplorerTxUrl,
     NATIVE_TOKEN_ADDRESS,
     SwapToken,
 } from '@/js/ArenaSwap'
+import { activeEvmSigner } from '@/platforms/evmSigner'
 import { AvaWalletCore } from '@/js/wallets/types'
 import { authorizeBatch, SessionAuthCancelled } from '@/js/security/authorize'
 
@@ -362,6 +361,17 @@ export default defineComponent({
         const notifications = useNotificationsStore()
 
         const wallet = computed(() => mainStore.activeWallet as AvaWalletCore | null)
+
+        /**
+         * The EVM signer for the active platform, used for every send below.
+         *
+         * Note the rest of this page is still Avalanche-shaped: the reserve
+         * maths and the balance readings come off `wallet.ethBalance`, i.e. the
+         * C-Chain wallet, and the gas figures are labelled nAVAX. Routing the
+         * sends through the signer is what stops it *signing* on the wrong
+         * chain; making the whole page multi-chain is a separate job.
+         */
+        const signer = computed(() => activeEvmSigner())
 
         // ── Source token list: held tokens only (native + positive ERC20) ──
         const heldTokens = computed<SwapToken[]>(() => {
@@ -419,7 +429,8 @@ export default defineComponent({
         let gasTimer: ReturnType<typeof setInterval> | undefined
         const refreshGasPrice = async () => {
             try {
-                gasPriceWei.value = await GasHelper.getAdjustedGasPrice()
+                const active = signer.value
+                if (active) gasPriceWei.value = await active.getGasPrice()
             } catch {
                 /* keep last known */
             }
@@ -587,6 +598,11 @@ export default defineComponent({
             targetError.value = ''
             tokenOut.value = null
             if (!raw) return
+            const activeSigner = signer.value
+            if (!activeSigner) {
+                targetError.value = 'Connect an EVM wallet first.'
+                return
+            }
             isResolving.value = true
             try {
                 const known = [
@@ -604,7 +620,7 @@ export default defineComponent({
                           name: (known as any).data.name,
                           decimals: parseInt((known as any).data.decimals as string) || 18,
                       }
-                    : await resolveTargetToken(raw)
+                    : await resolveTargetToken(activeSigner, raw)
 
                 if (resolved.address.toLowerCase() === tokenInAddr.value.toLowerCase()) {
                     targetError.value = 'Target must differ from source'
@@ -689,7 +705,8 @@ export default defineComponent({
         // ── Helpers ──
         const delay = (ms: number) => new Promise((r) => setTimeout(r, ms))
         const shortHash = (h: string) => (h ? `${h.slice(0, 8)}…${h.slice(-6)}` : '')
-        const txUrl = (h: string) => cChainExplorerTxUrl(h, 43114)
+        const txUrl = (h: string) =>
+            signer.value ? swapExplorerTxUrl(signer.value.network, h) : ''
 
         function formatDuration(ms: number): string {
             if (!isFinite(ms) || ms <= 0) return '—'
@@ -704,7 +721,11 @@ export default defineComponent({
 
         // ── Order execution ──
         const startOrder = async () => {
-            if (!canSubmit.value || !wallet.value || !tokenIn.value || !tokenOut.value) return
+            // Resolved once for the whole order — an iceberg runs for minutes,
+            // and re-reading this per chunk could start signing on a different
+            // chain partway through.
+            const activeSigner = signer.value
+            if (!canSubmit.value || !activeSigner || !tokenIn.value || !tokenOut.value) return
 
             // Snapshot the chunk plan so later config-model changes can't mutate it.
             const plan = chunkAmounts.value.map((a) => a.clone())
@@ -729,10 +750,10 @@ export default defineComponent({
             startTime.value = Date.now()
             nowTick.value = Date.now()
 
-            const w = wallet.value
             const inTok = tokenIn.value
             const outTok = tokenOut.value
-            const userAddress = '0x' + w.getEvmAddress()
+            const userAddress = activeSigner.address
+            const chainId = activeSigner.network.evmChainId
 
             // Explicit, locally-incrementing nonce — the approval plus one
             // send per chunk all fire back-to-back below. Letting each ask
@@ -744,13 +765,13 @@ export default defineComponent({
             let nextNonceVal: number | undefined
             const nextNonce = async (): Promise<number> => {
                 if (nextNonceVal === undefined) {
-                    nextNonceVal = await web3.eth.getTransactionCount(userAddress, 'pending')
+                    nextNonceVal = await activeSigner.getNonce()
                 }
                 return nextNonceVal++
             }
 
             try {
-                await authorizeBatch(w, authScopeReason, async () => {
+                await authorizeBatch(activeSigner.authSubject, authScopeReason, async () => {
                 // One-time approval covering the whole order (ERC20 inputs only).
                 // LI.FI's approval spender is per-quote rather than one fixed
                 // router address (Odos's model) — probe with a throwaway
@@ -758,6 +779,7 @@ export default defineComponent({
                 // approval has to happen before any chunk is actually quoted.
                 if (!isNativeToken(inTok.address)) {
                     const probe = await getQuote({
+                        chainId,
                         tokenIn: inTok,
                         tokenOut: outTok,
                         amountInRaw: plan[0],
@@ -766,16 +788,19 @@ export default defineComponent({
                     })
                     const spender = probe.approvalAddress
                     if (spender) {
-                        const allowance = await getAllowance(inTok.address, userAddress, spender)
+                        const allowance = await getAllowance(
+                            activeSigner,
+                            inTok.address,
+                            userAddress,
+                            spender
+                        )
                         if (allowance.lt(totalAmountRaw.value)) {
                             rows.value[0].status = 'approving'
-                            const gp = await GasHelper.getAdjustedGasPrice()
                             await approveRouter(
-                                w,
+                                activeSigner,
                                 inTok.address,
                                 spender,
                                 totalAmountRaw.value,
-                                gp,
                                 await nextNonce()
                             )
                             rows.value[0].status = 'pending'
@@ -793,9 +818,9 @@ export default defineComponent({
                     const row = rows.value[i]
                     try {
                         row.status = 'quoting'
-                        const gp = await GasHelper.getAdjustedGasPrice()
-                        gasPriceWei.value = gp
+                        gasPriceWei.value = await activeSigner.getGasPrice()
                         const q = await getQuote({
+                            chainId,
                             tokenIn: inTok,
                             tokenOut: outTok,
                             amountInRaw: row.amount,
@@ -805,7 +830,7 @@ export default defineComponent({
                         if (aborted.value) break
 
                         row.status = 'swapping'
-                        const res = await executeSwap(w, q, gp, await nextNonce())
+                        const res = await executeSwap(activeSigner, q, await nextNonce())
                         row.txHash = res.txHash
 
                         const outRaw = new BN(q.toAmount)

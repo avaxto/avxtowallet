@@ -226,3 +226,34 @@ export function removeCustomEvmNetwork(chainId: number): boolean {
     persist()
     return true
 }
+
+/**
+ * Explorer URL for a transaction on `network`.
+ *
+ * Replaces the per-feature `cChainExplorerTxUrl(hash, chainId)` helpers, which
+ * each hardcoded the same snowtrace/testnet-snowtrace pair and so pointed every
+ * chain's transactions at Avalanche's explorer. Returns an empty string when a
+ * network has no explorer configured, so callers can hide the link rather than
+ * render one that 404s.
+ */
+export function explorerTxUrl(network: EvmNetwork, txHash: string): string {
+    if (!network.explorerUrl) return ''
+    return `${network.explorerUrl.replace(/\/+$/, '')}/tx/${txHash}`
+}
+
+/** Explorer URL for an address (or contract) on `network`. See `explorerTxUrl`. */
+export function explorerAddressUrl(network: EvmNetwork, address: string): string {
+    if (!network.explorerUrl) return ''
+    return `${network.explorerUrl.replace(/\/+$/, '')}/address/${address}`
+}
+
+/**
+ * A human name for a network's explorer, derived from its host.
+ *
+ * Derived rather than configured because the registry already carries the URL,
+ * and a second field for the name is a second thing to keep in sync.
+ */
+export function explorerName(network: EvmNetwork): string {
+    const host = (network.explorerUrl ?? '').replace(/^https?:\/\//, '').split('/')[0]
+    return host || 'the explorer'
+}

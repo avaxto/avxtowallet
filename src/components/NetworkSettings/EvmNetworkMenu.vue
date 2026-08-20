@@ -2,7 +2,7 @@
     <v-menu offset-y>
         <template v-slot:activator="{ props }">
             <v-btn text v-bind="props" class="evm_net_but">
-                <span class="signing_label">Signing:</span>
+                <span class="signing_label">Now signing for:</span>
                 {{ activeNetwork.shortName }}
                 <span v-if="activeNetwork.isTestnet" class="testnet_tag">testnet</span>
             </v-btn>

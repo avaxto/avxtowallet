@@ -7,9 +7,8 @@
     <div class="bridge_page">
         <h1>ARENA Bridge</h1>
         <p class="desc">
-            Move ARENA from Avalanche C-Chain to Robinhood Chain over LayerZero.
-            Your tokens are locked on Avalanche and minted to the same address on
-            Robinhood Chain.
+            Move ARENA between Avalanche C-Chain and Robinhood Chain over
+            LayerZero. Your tokens are {{ route.mechanism }}.
         </p>
 
         <!-- Preconditions -->
@@ -29,32 +28,48 @@
                 </button>
             </div>
 
-            <div v-else-if="!onAvalanche" class="card notice">
-                <p>
-                    Bridging starts on Avalanche C-Chain, but your wallet is on
-                    chain {{ currentChainId ?? 'unknown' }}.
-                </p>
-                <button class="ava_button button_secondary" @click="switchToAvalanche" :disabled="busy">
-                    Switch to Avalanche C-Chain
-                </button>
-            </div>
-
             <template v-else>
                 <div class="card">
                     <div class="route_row">
                         <div class="route_leg">
                             <label>From</label>
-                            <p>Avalanche C-Chain</p>
+                            <p>{{ route.sourceName }}</p>
                         </div>
-                        <span class="route_arrow">→</span>
+                        <button
+                            class="swap_but"
+                            @click="flipDirection"
+                            :disabled="busy"
+                            :title="`Bridge from ${route.destName} instead`"
+                        >
+                            ⇄
+                        </button>
                         <div class="route_leg">
                             <label>To</label>
-                            <p>Robinhood Chain</p>
+                            <p>{{ route.destName }}</p>
                         </div>
                     </div>
 
+                    <!--
+                        Balances are read straight from the source chain's RPC, so
+                        they show whichever way the bridge is pointed. Only signing
+                        needs the wallet to actually be on that chain.
+                    -->
+                    <div v-if="!onSourceChain" class="chain_notice">
+                        <p>
+                            This direction is signed on {{ route.sourceName }}, but your
+                            wallet is on chain {{ currentChainId ?? 'unknown' }}.
+                        </p>
+                        <button
+                            class="ava_button button_secondary"
+                            @click="switchToSource"
+                            :disabled="busy"
+                        >
+                            Switch to {{ route.sourceName }}
+                        </button>
+                    </div>
+
                     <div class="balance_row">
-                        <label>ARENA balance</label>
+                        <label>ARENA balance on {{ route.sourceName }}</label>
                         <p>
                             <span v-if="balance === null">…</span>
                             <span v-else>{{ formatAmount(balance) }} ARENA</span>
@@ -89,7 +104,7 @@
                             <span>{{ formatAmount(quote.amountSentLD) }} ARENA</span>
                         </div>
                         <div class="quote_line">
-                            <span>You receive</span>
+                            <span>You receive on {{ route.destName }}</span>
                             <span>{{ formatAmount(quote.amountReceivedLD) }} ARENA</span>
                         </div>
                         <div v-if="quote.dustLD > 0" class="quote_line dust">
@@ -98,12 +113,17 @@
                         </div>
                         <div class="quote_line">
                             <span>LayerZero fee</span>
-                            <span>{{ formatAmount(quote.nativeFee) }} AVAX</span>
+                            <span>{{ formatAmount(quote.nativeFee) }} {{ route.feeSymbol }}</span>
+                        </div>
+                        <div class="quote_line">
+                            <span>Per-transfer limit</span>
+                            <span>{{ formatAmount(quote.maxTransferLD) }} ARENA</span>
                         </div>
                     </div>
                     <p v-if="quote && quote.dustLD > 0" class="dust_note">
                         ARENA bridges at 6-decimal precision, so anything below that
-                        is rounded off and stays in your wallet on Avalanche.
+                        is rounded off and stays in your wallet on
+                        {{ route.sourceName }}.
                     </p>
 
                     <p v-if="err" class="err">{{ err }}</p>
@@ -113,7 +133,7 @@
                             v-if="needsApproval"
                             class="ava_button button_secondary"
                             @click="approve"
-                            :disabled="busy || !quote"
+                            :disabled="busy || !quote || !onSourceChain"
                         >
                             {{ isApproving ? 'Approving…' : 'Approve ARENA' }}
                         </button>
@@ -121,9 +141,9 @@
                             v-else
                             class="ava_button button_secondary"
                             @click="bridge"
-                            :disabled="busy || !quote"
+                            :disabled="busy || !quote || !onSourceChain"
                         >
-                            {{ isBridging ? 'Bridging…' : 'Bridge to Robinhood' }}
+                            {{ isBridging ? 'Bridging…' : `Bridge to ${route.destName}` }}
                         </button>
                     </div>
 
@@ -131,18 +151,24 @@
                         A one-time approval lets the bridge contract move this amount
                         of ARENA. You'll confirm the bridge itself after.
                     </p>
+                    <p v-else-if="!route.approvalToken && quote" class="approve_note">
+                        No approval is needed this way — the ARENA contract on
+                        {{ route.sourceName }} is the bridge, and burns from your own
+                        balance.
+                    </p>
                 </div>
 
                 <!-- Result -->
                 <div v-if="sentTxHash" class="card success_card">
                     <h2>Bridge submitted</h2>
                     <p>
-                        Avalanche transaction confirmed. Delivery to Robinhood Chain is
-                        handled by LayerZero and usually lands within a few minutes.
+                        {{ sentRoute.sourceName }} transaction confirmed. Delivery to
+                        {{ sentRoute.destName }} is handled by LayerZero and usually
+                        lands within a few minutes.
                     </p>
                     <div class="links">
-                        <a :href="avalancheTxUrl" target="_blank" rel="noopener noreferrer">
-                            View on Snowtrace
+                        <a :href="sourceTxUrl" target="_blank" rel="noopener noreferrer">
+                            View on {{ sourceExplorerName }}
                         </a>
                         <a :href="lzScanUrl" target="_blank" rel="noopener noreferrer">
                             Track delivery on LayerZero Scan
@@ -156,30 +182,33 @@
 
 <script lang="ts">
 /**
- * ARENA bridge page.
+ * ARENA bridge page, both directions.
  *
  * Signs through the injected provider directly rather than through either
  * platform's wallet class. Two reasons: the bridge is a pair of arbitrary
  * contract calls (an ERC-20 approve and a payable `send`), which neither
  * `EvmWallet` nor Avalanche's `WalletHelper` exposes a generic path for; and
  * doing it this way means the page works whichever platform is active, since
- * both reach Avalanche C-Chain through the same extension.
+ * both chains are reached through the same extension.
  *
- * Protocol details, and the on-chain verification behind the addresses, live
- * in `@/evm/bridge/arenaOft`.
+ * Protocol details, the per-direction route table, and the on-chain
+ * verification behind the addresses live in `@/evm/bridge/arenaOft`.
  */
 import { defineComponent, ref, computed, watch, onMounted } from 'vue'
 
 import {
     ARENA_DECIMALS,
-    AVALANCHE_CHAIN_ID,
+    DEFAULT_DIRECTION,
     buildApproveTx,
     buildSendTx,
     getArenaAllowance,
     getArenaBalance,
-    getAvalancheNetwork,
+    getRoute,
+    getSourceNetwork,
     layerZeroScanUrl,
+    oppositeDirection,
     quoteBridge,
+    type BridgeDirection,
     type BridgeQuote,
 } from '@/evm/bridge/arenaOft'
 import {
@@ -213,6 +242,7 @@ export default defineComponent({
         const balance = ref<bigint | null>(null)
         const allowance = ref<bigint | null>(null)
 
+        const direction = ref<BridgeDirection>(DEFAULT_DIRECTION)
         const amountIn = ref('')
         const quote = ref<BridgeQuote | null>(null)
         const err = ref('')
@@ -223,9 +253,14 @@ export default defineComponent({
         const isBridging = ref(false)
         const isConnecting = ref(false)
         const sentTxHash = ref('')
+        /** The direction the submitted transaction went, so the result card survives a flip. */
+        const sentDirection = ref<BridgeDirection>(DEFAULT_DIRECTION)
+
+        const route = computed(() => getRoute(direction.value))
+        const sentRoute = computed(() => getRoute(sentDirection.value))
 
         const hasProvider = computed(() => provider.value !== null)
-        const onAvalanche = computed(() => currentChainId.value === AVALANCHE_CHAIN_ID)
+        const onSourceChain = computed(() => currentChainId.value === route.value.sourceChainId)
         const busy = computed(
             () => isQuoting.value || isApproving.value || isBridging.value || isConnecting.value
         )
@@ -237,9 +272,14 @@ export default defineComponent({
             return allowance.value < quote.value.amountSentLD
         })
 
-        const avalancheTxUrl = computed(
-            () => `${getAvalancheNetwork().explorerUrl}/tx/${sentTxHash.value}`
+        const sourceTxUrl = computed(
+            () => `${getSourceNetwork(sentDirection.value).explorerUrl}/tx/${sentTxHash.value}`
         )
+        const sourceExplorerName = computed(() => {
+            const url = getSourceNetwork(sentDirection.value).explorerUrl ?? ''
+            const host = url.replace(/^https?:\/\//, '').split('/')[0]
+            return host || 'the explorer'
+        })
         const lzScanUrl = computed(() => layerZeroScanUrl(sentTxHash.value))
 
         /** Formats base units for display, trimming trailing zeros. */
@@ -267,13 +307,21 @@ export default defineComponent({
             }
         }
 
+        /**
+         * Reads through the source chain's own RPC rather than the wallet, so
+         * these stay correct no matter which network the extension is on.
+         */
         const refreshBalances = async (): Promise<void> => {
-            if (!account.value || !onAvalanche.value) return
+            if (!account.value) return
+            const forDirection = direction.value
             try {
                 const [bal, allow] = await Promise.all([
-                    getArenaBalance(account.value),
-                    getArenaAllowance(account.value),
+                    getArenaBalance(forDirection, account.value),
+                    getArenaAllowance(forDirection, account.value),
                 ])
+                // The user can flip direction mid-read; a late answer for the
+                // other leg would show the wrong chain's balance.
+                if (direction.value !== forDirection) return
                 balance.value = bal
                 allowance.value = allow
             } catch (e: any) {
@@ -297,11 +345,11 @@ export default defineComponent({
             }
         }
 
-        const switchToAvalanche = async (): Promise<void> => {
+        const switchToSource = async (): Promise<void> => {
             if (!provider.value) return
             err.value = ''
             try {
-                await ensureChain(provider.value, getAvalancheNetwork())
+                await ensureChain(provider.value, getSourceNetwork(direction.value))
                 await readChain()
                 await refreshBalances()
             } catch (e: any) {
@@ -309,22 +357,37 @@ export default defineComponent({
             }
         }
 
+        const flipDirection = async (): Promise<void> => {
+            direction.value = oppositeDirection(direction.value)
+            amountIn.value = ''
+            quote.value = null
+            err.value = ''
+            amountErr.value = ''
+            balance.value = null
+            allowance.value = null
+            await refreshBalances()
+        }
+
         const refreshQuote = async (): Promise<void> => {
             quote.value = null
             amountErr.value = ''
             const amt = amountLD.value
-            if (!amt || amt <= BigInt(0) || !account.value || !onAvalanche.value) return
+            if (!amt || amt <= BigInt(0) || !account.value) return
             if (balance.value !== null && amt > balance.value) {
-                amountErr.value = 'Amount exceeds your ARENA balance.'
+                amountErr.value = `Amount exceeds your ARENA balance on ${route.value.sourceName}.`
                 return
             }
 
             isQuoting.value = true
             err.value = ''
+            const forDirection = direction.value
             try {
-                quote.value = await quoteBridge(account.value, amt)
+                const q = await quoteBridge(forDirection, account.value, amt)
+                if (direction.value === forDirection) quote.value = q
             } catch (e: any) {
-                amountErr.value = e?.message ?? 'Could not quote this bridge.'
+                if (direction.value === forDirection) {
+                    amountErr.value = e?.message ?? 'Could not quote this bridge.'
+                }
             } finally {
                 isQuoting.value = false
             }
@@ -334,15 +397,15 @@ export default defineComponent({
          * Re-checks the chain immediately before signing. The extension can be
          * moved to another network at any moment, and both of these calls are
          * plain `eth_sendTransaction` — they go wherever the extension points,
-         * so a stale check would submit an Avalanche-intended transaction on
+         * so a stale check would submit a transaction meant for one chain on
          * whatever chain it drifted to.
          */
-        const assertStillOnAvalanche = async (): Promise<void> => {
+        const assertOnSourceChain = async (): Promise<void> => {
             await readChain()
-            if (!onAvalanche.value) {
+            if (!onSourceChain.value) {
                 throw new Error(
-                    `Your wallet is on chain ${currentChainId.value}, not Avalanche C-Chain. ` +
-                        'Switch back and try again.'
+                    `Your wallet is on chain ${currentChainId.value}, not ` +
+                        `${route.value.sourceName}. Switch back and try again.`
                 )
             }
         }
@@ -364,8 +427,8 @@ export default defineComponent({
             isApproving.value = true
             err.value = ''
             try {
-                await assertStillOnAvalanche()
-                await submit(buildApproveTx(quote.value.amountSentLD))
+                await assertOnSourceChain()
+                await submit(buildApproveTx(direction.value, quote.value.amountSentLD))
                 // The extension resolves as soon as the tx is broadcast, not
                 // mined, so poll the allowance rather than assuming it landed.
                 await pollAllowance(quote.value.amountSentLD)
@@ -379,12 +442,14 @@ export default defineComponent({
         /** Waits for the approval to actually take effect on-chain. */
         const pollAllowance = async (required: bigint): Promise<void> => {
             if (!account.value) return
+            const forDirection = direction.value
             for (let i = 0; i < 40; i++) {
                 await new Promise((r) => setTimeout(r, 1500))
+                if (direction.value !== forDirection) return
                 try {
-                    const allow = await getArenaAllowance(account.value)
+                    const allow = await getArenaAllowance(forDirection, account.value)
                     allowance.value = allow
-                    if (allow >= required) return
+                    if (allow !== null && allow >= required) return
                 } catch {
                     /* transient RPC hiccup — keep polling */
                 }
@@ -397,13 +462,19 @@ export default defineComponent({
             if (!quote.value || !account.value) return
             isBridging.value = true
             err.value = ''
+            const forDirection = direction.value
             try {
-                await assertStillOnAvalanche()
+                await assertOnSourceChain()
                 // Re-quote immediately before sending: the LayerZero fee moves
                 // with gas, and an under-funded msg.value reverts.
-                const fresh = await quoteBridge(account.value, quote.value.amountSentLD)
+                const fresh = await quoteBridge(
+                    forDirection,
+                    account.value,
+                    quote.value.amountSentLD
+                )
                 quote.value = fresh
                 const hash = await submit(buildSendTx(fresh, account.value))
+                sentDirection.value = forDirection
                 sentTxHash.value = hash
                 amountIn.value = ''
                 quote.value = null
@@ -460,7 +531,9 @@ export default defineComponent({
             hasProvider,
             account,
             currentChainId,
-            onAvalanche,
+            route,
+            sentRoute,
+            onSourceChain,
             balance,
             amountIn,
             quote,
@@ -471,11 +544,13 @@ export default defineComponent({
             isBridging,
             needsApproval,
             sentTxHash,
-            avalancheTxUrl,
+            sourceTxUrl,
+            sourceExplorerName,
             lzScanUrl,
             formatAmount,
             connect,
-            switchToAvalanche,
+            switchToSource,
+            flipDirection,
             approve,
             bridge,
             setMax,
@@ -521,6 +596,20 @@ export default defineComponent({
     }
 }
 
+.chain_notice {
+    margin-bottom: 20px;
+    padding: 14px;
+    background: var(--bg);
+    border-radius: 8px;
+
+    p {
+        margin-bottom: 10px;
+        font-size: 13px;
+        color: var(--primary-color-light);
+        line-height: 1.5;
+    }
+}
+
 .route_row {
     display: flex;
     align-items: center;
@@ -541,15 +630,26 @@ export default defineComponent({
     }
 }
 
-.route_arrow {
-    color: var(--primary-color-light);
+.swap_but {
+    flex-shrink: 0;
+    color: var(--secondary-color);
     font-size: 18px;
+    line-height: 1;
+    padding: 6px 10px;
+    border-radius: 6px;
+    background: var(--bg);
+
+    &:disabled {
+        opacity: 0.4;
+        cursor: default;
+    }
 }
 
 .balance_row {
     display: flex;
     justify-content: space-between;
     align-items: baseline;
+    gap: 12px;
     margin-bottom: 16px;
     font-size: 13px;
 
@@ -558,6 +658,7 @@ export default defineComponent({
     }
     p {
         color: var(--primary-color);
+        white-space: nowrap;
     }
 }
 
@@ -617,6 +718,7 @@ export default defineComponent({
 .quote_line {
     display: flex;
     justify-content: space-between;
+    gap: 12px;
     padding: 3px 0;
 
     span:first-child {
@@ -625,6 +727,7 @@ export default defineComponent({
 
     span:last-child {
         color: var(--primary-color);
+        white-space: nowrap;
     }
 
     &.dust span:last-child {

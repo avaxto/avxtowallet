@@ -23,7 +23,11 @@ import Big from 'big.js'
 
 import { useMainStore, useAssetsStore, useNetworkStore } from '@/stores'
 import { bnToBig } from '@/helpers/helper'
+import type { EvmSigner } from '@/evm/signer'
 import type { Wallet } from '@/js/wallets/AbstractWallet'
+import type { AvaWalletCore } from '@/js/wallets/types'
+
+import { AvalancheEvmSigner, cChainNetworkFor } from './signer'
 
 import type {
     AccessMethodDescriptor,
@@ -304,6 +308,23 @@ export const avalanchePlatform: Platform = {
     getActiveWallet(): PlatformWallet | null {
         const wallet = useMainStore().activeWallet
         return wallet ? new AvalancheWallet(wallet as Wallet) : null
+    },
+
+    /**
+     * Bound to the C-Chain of whichever Avalanche network is selected, read
+     * from the network store rather than tracked here — same single source of
+     * truth as `getActiveNetwork` above.
+     */
+    getEvmSigner(): EvmSigner | null {
+        const wallet = useMainStore().activeWallet
+        if (!wallet) return null
+
+        const selected = useNetworkStore().selectedNetwork
+        const chainId = selected?.networkId === 1 ? 43114 : 43113
+        return new AvalancheEvmSigner(
+            (wallet as unknown) as AvaWalletCore,
+            cChainNetworkFor(chainId)
+        )
     },
 
     async logout(): Promise<void> {
