@@ -4,26 +4,29 @@
   Licensed under the BSD 3 Clause License. See LICENSE file in the project root for details.
 -->
 <!--
-  The "AVXTO" dropdown — activity link plus where to buy it.
+  The "AVXTO" dropdown — where to buy it.
 
   Extracted out of NavbarMenu.vue so the same menu can appear on the
   pre-login Home page, not only inside the logged-in wallet layout
-  (NavbarMenu.vue is otherwise built around post-login state — isAuth,
-  isAvalanche, save/logout modals — none of which this menu needs). Both
-  places render this component now, so the two link lists cannot drift.
+  (NavbarMenu.vue is otherwise built around post-login state — isAvalanche,
+  save/logout modals — none of which this menu needs). Both places render
+  this component now, so the two link lists cannot drift.
 
-  "AVXTO Activity" points at a `/wallet` route, which is guarded and bounces
-  an unauthenticated visitor back to '/' — the same thing clicking any other
-  /wallet link while logged out already does elsewhere in the app, so it is
-  left in rather than special-cased out for this one page.
+  The button label is the one piece that does depend on login state: logged
+  out, "AVXTO Required For Access" explains why the menu is even there on the
+  home page; logged in, that framing no longer applies (access already
+  happened) so it collapses to a plain "AVXTO", matching every other
+  NavbarMenu dropdown's bare-word label.
 -->
 <template>
     <v-menu offset-y>
         <template v-slot:activator="{ props }">
-            <v-btn text v-bind="props" class="menu-btn">AVXTO Required For Access</v-btn>
+            <v-btn text v-bind="props" class="menu-btn">
+                <fa icon="coins" class="avxto_icon"></fa>
+                {{ isAuth ? 'AVXTO' : 'AVXTO Required For Access' }}
+            </v-btn>
         </template>
         <v-list>
-
             <v-list-item>
                 <v-list-item-title>
                     <a
@@ -67,10 +70,20 @@
 </template>
 
 <script lang="ts">
-import { defineComponent } from 'vue'
+import { defineComponent, computed } from 'vue'
+import { useActivePlatformStore } from '@/platforms'
 
 export default defineComponent({
     name: 'AvxtoMenu',
+    setup() {
+        const platformStore = useActivePlatformStore()
+        // Same check NavbarMenu.vue's own `isAuth` uses — platform-generic
+        // rather than Avalanche's `mainStore.isAuth`, so this reads correctly
+        // logged into the EVM platform too, not just Avalanche.
+        const isAuth = computed(() => platformStore.activeWallet !== null)
+
+        return { isAuth }
+    },
 })
 </script>
 
@@ -92,6 +105,11 @@ export default defineComponent({
 :deep(.v-list-item-title .router-link-active) {
     color: var(--primary-color) !important;
     text-decoration: none;
+}
+
+.avxto_icon {
+    margin-right: 8px;
+    font-size: 15px;
 }
 
 .menu-btn {
