@@ -58,7 +58,7 @@
                         rel="noopener noreferrer"
                         class="wallet_link"
                     >
-                        DEXScreener
+                        More info @ DEXScreener
                     </a>
                 </v-list-item-title>
             </v-list-item>
@@ -98,6 +98,7 @@ export default defineComponent({
     font-size: 18px !important;
     box-shadow: none !important;
     text-transform: none !important;
+    font-weight: bold !important;
 
     &:hover,
     &:focus-visible,
