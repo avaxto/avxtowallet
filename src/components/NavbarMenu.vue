@@ -5,9 +5,7 @@
         <AboutModal ref="aboutModal"></AboutModal>
         <v-menu offset-y>
             <template v-slot:activator="{ props }">
-                <v-btn text v-bind="props" class="menu-btn">
-                    File
-                </v-btn>
+                <v-btn text v-bind="props" class="menu-btn">File</v-btn>
             </template>
             <v-list>
                 <v-list-item>
@@ -15,7 +13,7 @@
                         <router-link to="/wallet/config">Settings</router-link>
                     </v-list-item-title>
                 </v-list-item>
-                
+
                 <v-list-item v-if="isAuth && !isInjected" @click="saveAccount">
                     <v-list-item-title>Save Account</v-list-item-title>
                 </v-list-item>
@@ -32,9 +30,7 @@
 
         <v-menu offset-y v-if="isAvalanche">
             <template v-slot:activator="{ props }">
-                <v-btn text v-bind="props" class="menu-btn">
-                    Toolbox
-                </v-btn>
+                <v-btn text v-bind="props" class="menu-btn">Toolbox</v-btn>
             </template>
             <v-list>
                 <!--
@@ -70,11 +66,9 @@
                 </v-list-item>
             </v-list>
         </v-menu>
- <v-menu offset-y>
+        <v-menu offset-y>
             <template v-slot:activator="{ props }">
-                <v-btn text v-bind="props" class="menu-btn">
-                    Trading
-                </v-btn>
+                <v-btn text v-bind="props" class="menu-btn">Trading</v-btn>
             </template>
             <v-list>
                 <v-list-item>
@@ -82,7 +76,7 @@
                         <router-link to="/wallet/iceberg">Iceberg Order</router-link>
                     </v-list-item-title>
                 </v-list-item>
-               <v-list-item>
+                <v-list-item>
                     <v-list-item-title>
                         <router-link to="/wallet/swap">Token Swap</router-link>
                     </v-list-item-title>
@@ -91,9 +85,7 @@
         </v-menu>
         <v-menu offset-y>
             <template v-slot:activator="{ props }">
-                <v-btn text v-bind="props" class="menu-btn">
-                    Arena
-                </v-btn>
+                <v-btn text v-bind="props" class="menu-btn">Arena</v-btn>
             </template>
             <v-list>
                 <v-list-item>
@@ -104,112 +96,59 @@
                 <v-list-item>
                     <v-list-item-title>
                         <a
-                        href="https://arenatrade.ai/"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        class="wallet_link">
+                            href="https://arenatrade.ai/"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            class="wallet_link"
+                        >
                             ArenaTrade
                         </a>
                     </v-list-item-title>
                 </v-list-item>
             </v-list>
         </v-menu>
-     <v-menu offset-y>
+        <AvxtoMenu></AvxtoMenu>
+
+        <v-menu offset-y v-if="isAvalanche">
             <template v-slot:activator="{ props }">
-                <v-btn text v-bind="props" class="menu-btn">
-                    AVXTO
-                </v-btn>
+                <v-btn text v-bind="props" class="menu-btn">Avalanche</v-btn>
             </template>
             <v-list>
                 <v-list-item>
                     <v-list-item-title>
-                        <router-link to="/wallet/avxto">AVXTO Activity</router-link>
+                        <router-link to="/wallet/earn/rewards">Estimated Rewards</router-link>
+                    </v-list-item-title>
+                </v-list-item>
+                <v-list-item>
+                    <v-list-item-title>
+                        <a
+                            href="https://notify.avax.network/"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            class="wallet_link"
+                        >
+                            Validator Monitoring
+                        </a>
                     </v-list-item-title>
                 </v-list-item>
 
                 <v-list-item>
                     <v-list-item-title>
                         <a
-                        href="https://lfj.gg/avalanche/trade/0xf56cecc07d97ac50630022cf84c19e612ae8c93d"
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        class="wallet_link">
-                            Buy AVXTO at LFJ
-                        </a>
-                    </v-list-item-title>
-                </v-list-item>
-
-
-                <v-list-item>
-                    <v-list-item-title>
-                        <a 
-                        href="https://arenatrade.ai/token/0xf56cecc07d97ac50630022cf84c19e612ae8c93d" 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        class="wallet_link"> 
-                            Buy AVXTO at ArenaTrade
-                        </a>
-                    </v-list-item-title>
-                </v-list-item>
-
-                <v-list-item>
-                    <v-list-item-title>
-                        <a 
-                        href="https://dexscreener.com/avalanche/0x2bdebde7e1088e42aafef104b5f7457aca5ab86f" 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        class="wallet_link"> 
-                            DEXScreener
-                        </a>
-                    </v-list-item-title>
-                </v-list-item>                
-                
-                
-            </v-list>
-        </v-menu>
-
-        <v-menu offset-y v-if="isAvalanche">
-            <template v-slot:activator="{ props }">
-                <v-btn text v-bind="props" class="menu-btn">
-                    Avalanche
-                </v-btn>
-            </template>
-            <v-list>
-            <v-list-item>
-                    <v-list-item-title>
-                        <router-link to="/wallet/earn/rewards">Estimated Rewards</router-link>
-                    </v-list-item-title>
-                </v-list-item>
-             <v-list-item>
-                    <v-list-item-title>
-                        <a 
-                        href="https://notify.avax.network/" 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        class="wallet_link">
-                            Validator Monitoring
-                        </a>
-                    </v-list-item-title>
-                </v-list-item>
-                
-            <v-list-item>
-                    <v-list-item-title>
-                        <a 
-                        href="https://core.app/download" 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        class="wallet_link">
+                            href="https://core.app/download"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            class="wallet_link"
+                        >
                             Download Core App
                         </a>
                     </v-list-item-title>
-                </v-list-item>    
+                </v-list-item>
             </v-list>
         </v-menu>
         <v-menu offset-y>
             <template v-slot:activator="{ props }">
-                <v-btn text v-bind="props" class="menu-btn">
-                    Help
-                </v-btn>
+                <v-btn text v-bind="props" class="menu-btn">Help</v-btn>
             </template>
             <v-list>
                 <v-list-item @click="openAbout">
@@ -217,91 +156,95 @@
                 </v-list-item>
                 <v-list-item>
                     <v-list-item-title>
-                        <a 
-                        href="https://avax.to/telegram" 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        class="wallet_link">
+                        <a
+                            href="https://avax.to/telegram"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            class="wallet_link"
+                        >
                             AVXTO Telegram Group
                         </a>
                     </v-list-item-title>
                 </v-list-item>
-                
+
                 <v-list-item>
                     <v-list-item-title>
-                        <a 
-                        href="https://avax.to/avxto/" 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        class="wallet_link">
+                        <a
+                            href="https://avax.to/avxto/"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            class="wallet_link"
+                        >
                             AVXTO Manual and Blog
                         </a>
                     </v-list-item-title>
                 </v-list-item>
                 <v-list-item>
                     <v-list-item-title>
-                        <a 
-                        href="https://avax.to/avxto/quick-start/" 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        class="wallet_link">
+                        <a
+                            href="https://avax.to/avxto/quick-start/"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            class="wallet_link"
+                        >
                             AVXTO Quick Start
                         </a>
                     </v-list-item-title>
                 </v-list-item>
-                
+
                 <v-list-item>
                     <v-list-item-title>
-                        <a 
-                        href="https://avax.to/avxto/faq/" 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        class="wallet_link">
+                        <a
+                            href="https://avax.to/avxto/faq/"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            class="wallet_link"
+                        >
                             AVXTO FAQ
                         </a>
                     </v-list-item-title>
-                </v-list-item>                
+                </v-list-item>
                 <v-list-item>
                     <v-list-item-title>
-                        <a 
-                        href="https://avax.to/avxto/privacy/" 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        class="wallet_link">
+                        <a
+                            href="https://avax.to/avxto/privacy/"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            class="wallet_link"
+                        >
                             AVXTO Privacy
                         </a>
                     </v-list-item-title>
                 </v-list-item>
                 <v-list-item>
                     <v-list-item-title>
-                        <a 
-                        href="https://github.com/avaxto/avxtowallet/issues/new" 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        class="wallet_link">
+                        <a
+                            href="https://github.com/avaxto/avxtowallet/issues/new"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            class="wallet_link"
+                        >
                             Report Issue
                         </a>
                     </v-list-item-title>
                 </v-list-item>
                 <v-list-item>
                     <v-list-item-title>
-                        <a 
-                        href="https://github.com/avaxto/avxtowallet/issues" 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        class="wallet_link">
+                        <a
+                            href="https://github.com/avaxto/avxtowallet/issues"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            class="wallet_link"
+                        >
                             Check Issues
                         </a>
                     </v-list-item-title>
                 </v-list-item>
-                
             </v-list>
         </v-menu>
-   
+
         <v-spacer></v-spacer>
-        <p v-if="avaxPriceText" class="avax_price">
-            AVAX ${{ avaxPriceText }}
-        </p>
+        <p v-if="avaxPriceText" class="avax_price">AVAX ${{ avaxPriceText }}</p>
         <network-menu v-if="isAvalanche" class="net_menu"></network-menu>
         <evm-network-menu v-else-if="isEvm" class="net_menu"></evm-network-menu>
     </div>
@@ -316,6 +259,7 @@ import ConfirmLogout from '@/components/modals/ConfirmLogout.vue'
 import AboutModal from '@/components/modals/AboutModal.vue'
 import NetworkMenu from '@/components/NetworkSettings/NetworkMenu.vue'
 import EvmNetworkMenu from '@/components/NetworkSettings/EvmNetworkMenu.vue'
+import AvxtoMenu from '@/components/AvxtoMenu.vue'
 
 export default defineComponent({
     name: 'NavbarMenu',
@@ -325,6 +269,7 @@ export default defineComponent({
         AboutModal,
         NetworkMenu,
         EvmNetworkMenu,
+        AvxtoMenu,
     },
     setup() {
         const mainStore = useMainStore()
@@ -399,7 +344,6 @@ export default defineComponent({
 <style scoped lang="scss">
 @use '../main';
 @use '../light_theme';
-
 
 .wallet_link {
     font-size: 14px !important;
@@ -484,6 +428,4 @@ export default defineComponent({
     text-transform: none !important;
     font-weight: normal;
 }
-
-
 </style>

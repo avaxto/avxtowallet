@@ -4,9 +4,12 @@
             <b-row>
                 <b-col>
                     <div class="home_wrapper">
+                        <div class="home_topbar">
+                            <AvxtoMenu></AvxtoMenu>
+                        </div>
 
                         <h1 class="homeh1">{{ $t('home.desc') }}</h1>
-                        
+
                         <div class="login_wrapper">
                             <div class="login_option">
                                 <header>
@@ -15,7 +18,6 @@
                                     </div>
                                     <h2>{{ $t('home.access.title') }}</h2>
                                     <p>{{ $t('home.access.desc') }}</p>
-                                    
                                 </header>
                                 <div>
                                     <router-link
@@ -59,13 +61,14 @@
 import { defineComponent, computed } from 'vue'
 import ToS from '@/components/misc/ToS.vue'
 import CookieConsent from '@/components/misc/CookieConsent.vue'
+import AvxtoMenu from '@/components/AvxtoMenu.vue'
 import { useActivePlatformStore } from '@/platforms'
 import diamondAvalanche from '@/assets/diamond-secondary-avalanche.svg'
 import diamondEvm from '@/assets/diamond-secondary-evm.svg'
 
 export default defineComponent({
     name: 'Home',
-    components: { ToS, CookieConsent },
+    components: { ToS, CookieConsent, AvxtoMenu },
     setup() {
         const platformStore = useActivePlatformStore()
 
@@ -124,6 +127,12 @@ export default defineComponent({
         flex-direction: column;
         align-content: center;
         justify-content: center;
+
+        .home_topbar {
+            display: flex;
+            justify-content: flex-end;
+            margin-bottom: 10px;
+        }
 
         .login_wrapper {
             margin-top: 60px;
