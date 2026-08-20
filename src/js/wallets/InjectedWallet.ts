@@ -796,7 +796,12 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
         amount: BN, // in wei
         gasPrice: BN,
         gasLimit: number,
-        nonce?: number
+        nonce?: number,
+        // Hex-encoded memo bytes for the transaction's `data` field — see
+        // evm/memo.ts. Omitted (not sent as `data: '0x'`) when absent, so an
+        // ordinary send's request shape is unchanged from before this param
+        // existed.
+        data?: string
     ): Promise<string> {
         const fromAddr = ('0x' + this.ethAddress) as `0x${string}`
         const toAddr = to as `0x${string}`
@@ -815,6 +820,7 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
             // "nonce already used" errors. Passing an explicit nonce when
             // the caller is sequencing a batch avoids that race.
             ...(nonce !== undefined ? { nonce } : {}),
+            ...(data ? { data: data as `0x${string}` } : {}),
             chain: null, // let the provider determine the chain
         } as any)
 

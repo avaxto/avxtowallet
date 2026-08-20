@@ -1,8 +1,5 @@
 import { ava, cChain, pChain } from '@/AVA'
-import {
-    UTXOSet as PlatformUTXOSet,
-    UTXO as PlatformUTXO,
-} from '@/avalanche/apis/platformvm/utxos'
+import { UTXOSet as PlatformUTXOSet, UTXO as PlatformUTXO } from '@/avalanche/apis/platformvm/utxos'
 import { UTXO as AVMUTXO } from '@/avalanche/apis/avm/utxos'
 import { AvaWalletCore } from '@/js/wallets/types'
 import { InjectedWallet } from '@/js/wallets/InjectedWallet'
@@ -124,16 +121,36 @@ class WalletHelper {
         amount: BN, // in wei
         gasPrice: BN,
         gasLimit: number,
-        nonce?: number
+        nonce?: number,
+        // Hex-encoded memo bytes for the transaction's `data` field — see
+        // evm/memo.ts. Only meaningful on this native-asset path; there is no
+        // equivalent parameter on sendErc20/sendErc721 because their `data`
+        // is already the call itself.
+        data?: string
     ) {
         // Injected wallets handle sending directly via the provider
         if (wallet.type === 'injected') {
-            return await (wallet as InjectedWallet).sendEth(to, amount, gasPrice, gasLimit, nonce)
+            return await (wallet as InjectedWallet).sendEth(
+                to,
+                amount,
+                gasPrice,
+                gasLimit,
+                nonce,
+                data
+            )
         }
 
         const fromAddr = '0x' + wallet.getEvmAddress()
 
-        const tx = await buildEvmTransferNativeTx(fromAddr, to, amount, gasPrice, gasLimit, nonce)
+        const tx = await buildEvmTransferNativeTx(
+            fromAddr,
+            to,
+            amount,
+            gasPrice,
+            gasLimit,
+            nonce,
+            data
+        )
 
         const signedTx = await wallet.signEvm(tx)
 
@@ -199,7 +216,10 @@ class WalletHelper {
             const encodedFrom = fromAddr.replace('0x', '').padStart(64, '0')
             const encodedTo = toAddr.replace('0x', '').padStart(64, '0')
             const encodedTokenId = BigInt(tokenId).toString(16).padStart(64, '0')
-            const data = (transferFnSelector + encodedFrom + encodedTo + encodedTokenId) as `0x${string}`
+            const data = (transferFnSelector +
+                encodedFrom +
+                encodedTo +
+                encodedTokenId) as `0x${string}`
 
             const { createWalletClient, custom, publicActions } = await import('viem')
             const provider = (injectedWallet as any).provider

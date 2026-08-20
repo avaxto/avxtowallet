@@ -143,9 +143,12 @@ export class EvmWallet implements PlatformWallet {
      * extension already knows how to price and confirm a transaction
      * correctly for whichever chain it is connected to. Setting them here
      * would mean re-implementing per-chain gas rules (see `evm/gas.ts`) for a
-     * value the wallet's own confirmation UI shows the user anyway.
+     * value the wallet's own confirmation UI shows the user anyway. Leaving
+     * `data` unset works the same way when a memo is present: the extension's
+     * own `eth_estimateGas` naturally accounts for the extra calldata, so
+     * there is nothing to compute here either.
      */
-    async sendNative(to: string, amountWei: string): Promise<string> {
+    async sendNative(to: string, amountWei: string, data?: string): Promise<string> {
         if (!/^0x[0-9a-fA-F]{40}$/.test(to)) {
             throw new Error('Enter a valid 0x address.')
         }
@@ -157,6 +160,7 @@ export class EvmWallet implements PlatformWallet {
                     from: this.address,
                     to,
                     value: '0x' + BigInt(amountWei).toString(16),
+                    ...(data ? { data } : {}),
                 },
             ],
         })

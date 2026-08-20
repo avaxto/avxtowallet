@@ -9,166 +9,198 @@
         </div>
         <BatchFormC v-if="batchMode"></BatchFormC>
         <template v-else>
-        <div class="form">
-            <div class="table_title">
-                <p>{{ $t('transfer.tx_list.amount') }}</p>
-                <p>{{ $t('transfer.tx_list.token') }}</p>
-            </div>
-            <div class="list_item">
-                <EVMInputDropdown
-                    @amountChange="onAmountChange"
-                    @tokenChange="onTokenChange"
-                    @collectibleChange="onCollectibleChange"
-                    :disabled="isConfirm"
-                    ref="token_in"
-                    :gas-price="gasPrice"
-                    :gas-limit="gasLimit"
-                ></EVMInputDropdown>
-            </div>
-            <div v-if="selectedTokenAddress" class="contract_row">
-                <span class="contract_label">Verify that {{ selectedTokenSymbol }} CA - Contract Address Is Correct!</span>
-                <div class="contract_addr">
-                    <a
-                        :href="selectedTokenExplorerUrl"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        class="mono"
-                        title="View contract on explorer"
-                    >{{ selectedTokenAddress }}</a>
-                    <CopyText :value="selectedTokenAddress" class="copy_btn"></CopyText>
+            <div class="form">
+                <div class="table_title">
+                    <p>{{ $t('transfer.tx_list.amount') }}</p>
+                    <p>{{ $t('transfer.tx_list.token') }}</p>
+                </div>
+                <div class="list_item">
+                    <EVMInputDropdown
+                        @amountChange="onAmountChange"
+                        @tokenChange="onTokenChange"
+                        @collectibleChange="onCollectibleChange"
+                        :disabled="isConfirm"
+                        ref="token_in"
+                        :gas-price="gasPrice"
+                        :gas-limit="gasLimit"
+                    ></EVMInputDropdown>
+                </div>
+                <div v-if="selectedTokenAddress" class="contract_row">
+                    <span class="contract_label">
+                        Verify that {{ selectedTokenSymbol }} CA - Contract Address Is Correct!
+                    </span>
+                    <div class="contract_addr">
+                        <a
+                            :href="selectedTokenExplorerUrl"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            class="mono"
+                            title="View contract on explorer"
+                        >
+                            {{ selectedTokenAddress }}
+                        </a>
+                        <CopyText :value="selectedTokenAddress" class="copy_btn"></CopyText>
+                    </div>
                 </div>
             </div>
-        </div>
-        <div class="right_col">
-            <div class="to_address">
-                <h4>{{ $t('transfer.to') }}</h4>
-                <qr-input
-                    v-model="addressIn"
-                    class="qrIn"
-                    placeholder="xxx"
-                    :disabled="isConfirm"
-                ></qr-input>
-            </div>
-            <div class="gas_cont">
-                <div>
-                    <h4>
-                        {{ $t('transfer.c_chain.gasPrice') }}
-                        <br />
-                        <small>Adjusted automatically according to network load.</small>
-                    </h4>
-                    <p></p>
-                    <input
-                        type="number"
-                        v-model="gasPriceNumber"
-                        min="0"
-                        inputmode="numeric"
-                        disabled
-                    />
+            <div class="right_col">
+                <div class="to_address">
+                    <h4>{{ $t('transfer.to') }}</h4>
+                    <qr-input
+                        v-model="addressIn"
+                        class="qrIn"
+                        placeholder="xxx"
+                        :disabled="isConfirm"
+                    ></qr-input>
                 </div>
-                <div>
-                    <h4>{{ $t('transfer.c_chain.gasLimit') }}</h4>
-                    <template>
-                        <p v-if="!isConfirm" style="font-size: 13px">
-                            Gas Limit will be automatically calculated after you click Confirm.
+
+                <!--
+                Native-asset only: an ERC20/NFT send's `data` field is already
+                the call itself (transfer(...) / transferFrom(...)), so a memo
+                has nowhere to go without corrupting it. See evm/memo.ts.
+            -->
+                <div v-if="formToken === 'native' && !isCollectible" class="memo_section">
+                    <label class="memo_toggle">
+                        <input type="checkbox" v-model="showMemo" :disabled="isConfirm" />
+                        Add an optional memo
+                    </label>
+                    <div v-if="showMemo" class="memo_dropdown">
+                        <h4>Memo (optional)</h4>
+                        <textarea
+                            class="memo_input"
+                            v-model="memoText"
+                            maxlength="256"
+                            placeholder="Add a note to this transaction"
+                            autocomplete="off"
+                            :disabled="isConfirm"
+                        ></textarea>
+                        <p class="memo_hint">
+                            Stored on-chain in the transaction's data field (base64-encoded) —
+                            public and permanent once sent. Don't include sensitive information.
                         </p>
-                        <p v-else class="confirm_data">{{ gasLimit }}</p>
-                    </template>
+                    </div>
                 </div>
-            </div>
 
-            <div class="fees" v-if="isConfirm">
-                <p>
-                    {{ $t('transfer.fee_tx') }}
-                    <span>{{ maxFeeText }} {{ feeSymbol }}</span>
-                </p>
-                <p v-if="!isGeneralEvm">
-                    <span>${{ maxFeeUSD.toLocaleString(2) }} USD</span>
-                </p>
-            </div>
-            <SignedTxExport
-                v-if="offline.hasRecords"
-                :records="offline.records"
-                @done="startAgain"
-            ></SignedTxExport>
+                <div class="gas_cont">
+                    <div>
+                        <h4>
+                            {{ $t('transfer.c_chain.gasPrice') }}
+                            <br />
+                            <small>Adjusted automatically according to network load.</small>
+                        </h4>
+                        <p></p>
+                        <input
+                            type="number"
+                            v-model="gasPriceNumber"
+                            min="0"
+                            inputmode="numeric"
+                            disabled
+                        />
+                    </div>
+                    <div>
+                        <h4>{{ $t('transfer.c_chain.gasLimit') }}</h4>
+                        <template>
+                            <p v-if="!isConfirm" style="font-size: 13px">
+                                Gas Limit will be automatically calculated after you click Confirm.
+                            </p>
+                            <p v-else class="confirm_data">{{ gasLimit }}</p>
+                        </template>
+                    </div>
+                </div>
 
-            <template v-else-if="!isSuccess">
-                <p class="err">{{ err }}</p>
-                <SignOnlyToggle :disabled="isLoading"></SignOnlyToggle>
-                <v-btn
-                    v-if="err"
-                    class="button_primary checkout"
-                    depressed
-                    block
-                    @click="startAgain"
-                >
-                    {{ $t('transfer.c_chain.reset') }}
-                </v-btn>
-                <v-btn
-                    v-else-if="isInjectedWallet"
-                    class="button_primary checkout"
-                    depressed
-                    block
-                    @click="sendOneClick"
-                    :disabled="!canConfirm || isLoading"
-                    :loading="isLoading"
-                >
-                    {{ $t('transfer.send') }}
-                </v-btn>
-                <v-btn
-                    class="button_primary checkout"
-                    depressed
-                    block
-                    @click="confirm"
-                    :disabled="!canConfirm"
-                    v-else-if="!isConfirm"
-                >
-                    {{ $t('transfer.c_chain.confirm') }}
-                </v-btn>
-                <template v-else>
+                <div class="fees" v-if="isConfirm">
+                    <p>
+                        {{ $t('transfer.fee_tx') }}
+                        <span>{{ maxFeeText }} {{ feeSymbol }}</span>
+                    </p>
+                    <p v-if="!isGeneralEvm">
+                        <span>${{ maxFeeUSD.toLocaleString(2) }} USD</span>
+                    </p>
+                </div>
+                <SignedTxExport
+                    v-if="offline.hasRecords"
+                    :records="offline.records"
+                    @done="startAgain"
+                ></SignedTxExport>
+
+                <template v-else-if="!isSuccess">
+                    <p class="err">{{ err }}</p>
+                    <SignOnlyToggle :disabled="isLoading"></SignOnlyToggle>
                     <v-btn
+                        v-if="err"
                         class="button_primary checkout"
                         depressed
                         block
-                        @click="submit"
+                        @click="startAgain"
+                    >
+                        {{ $t('transfer.c_chain.reset') }}
+                    </v-btn>
+                    <v-btn
+                        v-else-if="isInjectedWallet"
+                        class="button_primary checkout"
+                        depressed
+                        block
+                        @click="sendOneClick"
+                        :disabled="!canConfirm || isLoading"
                         :loading="isLoading"
                     >
                         {{ $t('transfer.send') }}
                     </v-btn>
                     <v-btn
-                        class="checkout"
-                        style="color: var(--primary-color)"
-                        text
+                        class="button_primary checkout"
+                        depressed
                         block
-                        @click="cancel"
-                        small
+                        @click="confirm"
+                        :disabled="!canConfirm"
+                        v-else-if="!isConfirm"
                     >
-                        {{ $t('transfer.c_chain.cancel') }}
+                        {{ $t('transfer.c_chain.confirm') }}
+                    </v-btn>
+                    <template v-else>
+                        <v-btn
+                            class="button_primary checkout"
+                            depressed
+                            block
+                            @click="submit"
+                            :loading="isLoading"
+                        >
+                            {{ $t('transfer.send') }}
+                        </v-btn>
+                        <v-btn
+                            class="checkout"
+                            style="color: var(--primary-color)"
+                            text
+                            block
+                            @click="cancel"
+                            small
+                        >
+                            {{ $t('transfer.c_chain.cancel') }}
+                        </v-btn>
+                    </template>
+                </template>
+                <template v-else-if="isSuccess">
+                    <p style="color: var(--success)">
+                        <fa icon="check-circle"></fa>
+                        {{ $t('transfer.c_chain.success.desc') }}
+                    </p>
+                    <div>
+                        <label>{{ $t('transfer.c_chain.success.label1') }}</label>
+                        <p class="confirm_data" style="word-break: break-all">
+                            {{ txHash }}
+                        </p>
+                    </div>
+                    <v-btn
+                        style="margin: 14px 0"
+                        :disabled="!canSendAgain"
+                        class="button_primary"
+                        small
+                        block
+                        @click="startAgain"
+                    >
+                        {{ $t('transfer.c_chain.reset') }}
                     </v-btn>
                 </template>
-            </template>
-            <template v-else-if="isSuccess">
-                <p style="color: var(--success)">
-                    <fa icon="check-circle"></fa>
-                    {{ $t('transfer.c_chain.success.desc') }}
-                </p>
-                <div>
-                    <label>{{ $t('transfer.c_chain.success.label1') }}</label>
-                    <p class="confirm_data" style="word-break: break-all">
-                        {{ txHash }}
-                    </p>
-                </div>
-                <v-btn
-                    style="margin: 14px 0"
-                    :disabled="!canSendAgain"
-                    class="button_primary"
-                    small
-                    block
-                    @click="startAgain"
-                >
-                    {{ $t('transfer.c_chain.reset') }}
-                </v-btn>
-            </template>
-        </div>
+            </div>
         </template>
     </div>
 </template>
@@ -178,13 +210,7 @@ import { useMainStore, useAssetsStore, useTransferPrefillStore } from '@/stores'
 import { useI18n } from 'vue-i18n'
 import AvaxInput from '@/components/misc/AvaxInput.vue'
 import { priceDict } from '@/types'
-import {
-    GasHelper,
-    TxHelper,
-    bnToBigAvaxX,
-    bnToBigAvaxC,
-    bnToAvaxC,
-} from '@/avalanche-wallet-sdk'
+import { GasHelper, TxHelper, bnToBigAvaxX, bnToBigAvaxC, bnToAvaxC } from '@/avalanche-wallet-sdk'
 
 import { QrInput } from '@/vue_components'
 import Big from 'big.js'
@@ -192,6 +218,7 @@ import { BN } from '@/avalanche'
 import { bnToBig, errorToString } from '@/helpers/helper'
 import { web3 } from '@/evm'
 import { gasFor } from '@/evm/gas'
+import { encodeMemoToTxData, intrinsicGasForData } from '@/evm/memo'
 import { useActivePlatformStore } from '@/platforms'
 import { useEvmStore } from '@/platforms/evm/store'
 import type { EvmPortfolioToken } from '@/stores/evmPortfolio'
@@ -232,7 +259,9 @@ export default defineComponent({
         // store and sends through the injected provider rather than this app's
         // signing path, so both the native and ERC-20 sends branch separately
         // below. NFTs are still Avalanche-only.
-        const isGeneralEvm = computed((): boolean => platformStore.activePlatform?.descriptor.id === 'evm')
+        const isGeneralEvm = computed(
+            (): boolean => platformStore.activePlatform?.descriptor.id === 'evm'
+        )
 
         const isConfirm = ref(false)
         const isSuccess = ref(false)
@@ -253,6 +282,11 @@ export default defineComponent({
 
         const isCollectible = ref(false)
         const formCollectible = ref<iErc721SelectInput | null>(null)
+
+        // Optional memo, native-asset sends only — see the template guard and
+        // evm/memo.ts.
+        const showMemo = ref(false)
+        const memoText = ref('')
 
         const txHash = ref('')
 
@@ -399,9 +433,11 @@ export default defineComponent({
             },
         })
 
-        const maxFee = computed((): BN => {
-            return gasPrice.value.mul(new BN(gasLimit.value))
-        })
+        const maxFee = computed(
+            (): BN => {
+                return gasPrice.value.mul(new BN(gasLimit.value))
+            }
+        )
 
         const maxFeeText = computed((): string => {
             return bnToAvaxC(maxFee.value)
@@ -412,24 +448,40 @@ export default defineComponent({
             isGeneralEvm.value ? evmStore.network.native.symbol : 'AVAX'
         )
 
-        const maxFeeUSD = computed((): Big => {
-            // No multi-chain price feed wired up yet — see usd_val in
-            // EVMInputDropdown for the same call. Avalanche's AVAX price would
-            // misprice any other chain's fee, so this stays honestly blank.
-            if (isGeneralEvm.value) return Big(0)
-            const prices = (mainStore as any).prices
-            const usd = prices?.usd
-            if (typeof usd !== 'number' || isNaN(usd)) return Big(0)
-            return bnToBigAvaxC(maxFee.value).times(usd)
-        })
+        const maxFeeUSD = computed(
+            (): Big => {
+                // No multi-chain price feed wired up yet — see usd_val in
+                // EVMInputDropdown for the same call. Avalanche's AVAX price would
+                // misprice any other chain's fee, so this stays honestly blank.
+                if (isGeneralEvm.value) return Big(0)
+                const prices = (mainStore as any).prices
+                const usd = prices?.usd
+                if (typeof usd !== 'number' || isNaN(usd)) return Big(0)
+                return bnToBigAvaxC(maxFee.value).times(usd)
+            }
+        )
 
         const canConfirm = computed((): boolean => {
             if (!addressIn.value) return false
             if (isCollectible.value) {
                 return !!formCollectible.value
             }
-            
+
             return amountIn.value.gt(new BN(0))
+        })
+
+        /**
+         * The memo, encoded for the tx `data` field — undefined whenever
+         * there is nothing to send (memo blank, or a non-native asset
+         * selected, whose `data` field is already spoken for). Single source
+         * of truth for both the gas calculation in confirm() and the actual
+         * send in submit(), so the two cannot compute for a different memo
+         * than the one that ends up on-chain.
+         */
+        const memoTxData = computed((): string | undefined => {
+            if (formToken.value !== 'native') return undefined
+            const trimmed = memoText.value.trim()
+            return trimmed ? encodeMemoToTxData(trimmed) : undefined
         })
 
         // ---- Event handlers ----
@@ -463,7 +515,18 @@ export default defineComponent({
                         formToken.value
                     )
                 } else {
-                    gasLimit.value = 21000
+                    // A memo adds to the intrinsic gas a plain value transfer
+                    // needs — computed exactly (not padded) per
+                    // evm/memo.ts's intrinsicGasForData doc. Left at the plain
+                    // 21000 base on the isGeneralEvm path too even though that
+                    // branch's actual send (EvmWallet.sendNative) ignores this
+                    // value and lets the extension estimate its own: this
+                    // number still drives the confirm screen's displayed fee,
+                    // and showing a number too low to actually cover the memo
+                    // would be misleading even if harmless to the send itself.
+                    gasLimit.value = memoTxData.value
+                        ? 21000 + intrinsicGasForData(memoTxData.value)
+                        : 21000
                 }
             } catch (e: any) {
                 gasLimit.value = 21000
@@ -521,7 +584,8 @@ export default defineComponent({
                             if (formToken.value === 'native') {
                                 return await evmWallet.sendNative(
                                     formAddress.value,
-                                    formAmount.value.toString()
+                                    formAmount.value.toString(),
+                                    memoTxData.value
                                 )
                             }
                             const evmToken = formToken.value as EvmPortfolioToken
@@ -548,7 +612,9 @@ export default defineComponent({
                                 formAddress.value,
                                 formAmount.value,
                                 gasPrice.value,
-                                gasLimit.value
+                                gasLimit.value,
+                                undefined, // nonce
+                                memoTxData.value
                             )
                         }
                     }
@@ -602,6 +668,8 @@ export default defineComponent({
             txHash.value = ''
             canSendAgain.value = false
             err.value = ''
+            showMemo.value = false
+            memoText.value = ''
             token_in.value?.clear?.()
         }
 
@@ -623,6 +691,8 @@ export default defineComponent({
             canSendAgain,
             isCollectible,
             formCollectible,
+            showMemo,
+            memoText,
             txHash,
             token_in,
             updateGasPrice,
@@ -644,7 +714,7 @@ export default defineComponent({
             sendOneClick,
             startAgain,
         }
-    }
+    },
 })
 </script>
 <style scoped lang="scss">
@@ -784,6 +854,47 @@ label {
 .to_address {
 }
 
+.memo_section {
+    margin-top: 14px;
+}
+
+.memo_toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: var(--primary-color-light);
+    cursor: pointer;
+    margin: 0 !important;
+    font-weight: normal;
+
+    input {
+        cursor: pointer;
+    }
+}
+
+.memo_dropdown {
+    margin-top: 10px;
+}
+
+.memo_input {
+    width: 100%;
+    min-height: 60px;
+    resize: vertical;
+    font-family: inherit;
+    background-color: var(--bg-light);
+    padding: 6px 12px;
+    color: var(--primary-color);
+    font-size: 14px;
+}
+
+.memo_hint {
+    margin-top: 4px !important;
+    font-size: 11px;
+    color: var(--primary-color-light);
+    font-weight: normal;
+}
+
 .checkout {
     margin-top: 14px;
 }
@@ -791,8 +902,6 @@ label {
 .right_col {
     padding-bottom: 30px;
 }
-
-
 
 @include main.mobile-device {
     .cols {

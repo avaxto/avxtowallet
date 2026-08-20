@@ -203,11 +203,9 @@ export async function buildMultiRecipientTransaction(
     // The AAD destination is irrelevant here — its destination outputs are
     // discarded — so point it at the change address. It is used purely for
     // input selection and change calculation.
-    const aad: AssetAmountDestination = new AssetAmountDestination(
-        [changeAddr],
-        fromAddrs,
-        [changeAddr]
-    )
+    const aad: AssetAmountDestination = new AssetAmountDestination([changeAddr], fromAddrs, [
+        changeAddr,
+    ])
     let isFeeAdded = false
     for (const key of Object.keys(totals)) {
         const assetId = Buffer.from(key, 'hex')
@@ -318,7 +316,11 @@ export async function buildEvmTransferNativeTx(
     amount: BN, // in wei
     gasPrice: BN,
     gasLimit: number,
-    nonce?: number
+    nonce?: number,
+    // Hex-encoded memo bytes — see evm/memo.ts. A native transfer's `data`
+    // otherwise carries nothing, unlike an ERC20/NFT send where it IS the
+    // call itself, which is why this exists only here.
+    data: string = '0x'
 ) {
     // 'pending' (not the default 'latest') includes this account's own
     // not-yet-mined transactions, and an explicit nonce lets callers
@@ -340,7 +342,7 @@ export async function buildEvmTransferNativeTx(
             gasLimit: gasLimit,
             to: to,
             value: amount,
-            data: '0x',
+            data: data,
         },
         chainParams
     )
