@@ -45,7 +45,13 @@ import { KeyChain } from '@/avalanche/apis/evm'
 import Erc20Token from '@/js/Erc20Token'
 import { WalletHelper } from '@/helpers/wallet_helper'
 import { Transaction } from '@ethereumjs/tx'
-import { ExportChainsC, ExportChainsP, TxHelper, UtxoHelper, chainIdFromAlias } from '@/avalanche-wallet-sdk'
+import {
+    ExportChainsC,
+    ExportChainsP,
+    TxHelper,
+    UtxoHelper,
+    chainIdFromAlias,
+} from '@/avalanche-wallet-sdk'
 import { sortUTxoSetP } from '@/helpers/sortUTXOs'
 import { markRaw } from 'vue'
 // Node-style Buffer, as hdkey and bip39 expect. Same import the SDK's Ledger
@@ -55,18 +61,13 @@ import { SessionVault } from '@/js/security/SessionVault'
 import { AuthHandle, AuthScope, requireAuth } from '@/js/security/session'
 import { secretFromString, secretToString, wipe } from '@/js/security/memory'
 import { privateKeyToXPAccount } from '@avalanche-sdk/client/accounts'
-import {
-    AVA_ACCOUNT_PATH,
-    ETH_ACCOUNT_PATH,
-    LEDGER_ETH_ACCOUNT_PATH,
-} from '@/js/wallets/constants'
+import { AVA_ACCOUNT_PATH, ETH_ACCOUNT_PATH, LEDGER_ETH_ACCOUNT_PATH } from '@/js/wallets/constants'
 
 export { AVA_ACCOUNT_PATH, ETH_ACCOUNT_PATH, LEDGER_ETH_ACCOUNT_PATH }
 
 // HD WALLET
 // Accounts are not used and the account index is fixed to 0
 // m / purpose' / coin_type' / account' / change / address_index
-
 
 export default class MnemonicWallet extends AbstractHdWallet implements IAvaHdWallet {
     isLoading: boolean
@@ -127,7 +128,9 @@ export default class MnemonicWallet extends AbstractHdWallet implements IAvaHdWa
      *
      * Derives, reads the addresses, and wipes — nothing is retained.
      */
-    static deriveReceiveAddresses(mnemonic: string): {
+    static deriveReceiveAddresses(
+        mnemonic: string
+    ): {
         xAddress: string
         pAddress: string
         cAddress: string
@@ -150,8 +153,7 @@ export default class MnemonicWallet extends AbstractHdWallet implements IAvaHdWa
                     xAddress: bintools.addressToString(hrp, chainId, addrBuf),
                     pAddress: bintools.addressToString(hrp, 'P', addrBuf),
                     cAddress:
-                        '0x' +
-                        publicToAddress(importPublic(ethNode.publicKey)).toString('hex'),
+                        '0x' + publicToAddress(importPublic(ethNode.publicKey)).toString('hex'),
                 }
             } finally {
                 wipeNode(firstX)
@@ -305,13 +307,8 @@ export default class MnemonicWallet extends AbstractHdWallet implements IAvaHdWa
             const account = master.derive(AVA_ACCOUNT_PATH)
             const node = account.derive(`m/${change}/${index}`)
             try {
-                const keychain = new AVMKeyChain(
-                    getPreferredHRP(ava.getNetworkID()),
-                    this.chainId
-                )
-                const key = keychain.importKey(
-                    BufferAvalanche.from(node.privateKey)
-                ) as AVMKeyPair
+                const keychain = new AVMKeyChain(getPreferredHRP(ava.getNetworkID()), this.chainId)
+                const key = keychain.importKey(BufferAvalanche.from(node.privateKey)) as AVMKeyPair
                 return key.getPrivateKeyString()
             } finally {
                 wipeNode(node)
@@ -352,7 +349,9 @@ export default class MnemonicWallet extends AbstractHdWallet implements IAvaHdWa
      * the helpers know about. An EVM source address on an X/P transaction also
      * falls back, preserving pre-existing behaviour rather than failing.
      */
-    private resolveIndices(required: RequiredKeyIndices | null): {
+    private resolveIndices(
+        required: RequiredKeyIndices | null
+    ): {
         external: number[]
         internal: number[]
     } {
@@ -388,6 +387,46 @@ export default class MnemonicWallet extends AbstractHdWallet implements IAvaHdWa
         } finally {
             for (const node of nodes) wipeNode(node)
         }
+    }
+
+    /**
+     * Signs one 32-byte hash with the key for a single X-chain address.
+     *
+     * Exists for multisig co-signing (see js/multisig/psat.ts), which needs
+     * to fill exactly one signature slot and leave the rest alone. `signX`
+     * cannot do that: it hands a keychain to `BaseTx.sign`, which signs
+     * every slot on every input and throws a bare TypeError the moment a key
+     * is missing — the normal case when only one of several owners is
+     * signing.
+     *
+     * Derives only the one key the address needs and wipes the node
+     * afterwards, so this is no more exposed than `signX` is.
+     */
+    async signHashForXAddress(address: string, hash: BufferAvalanche): Promise<BufferAvalanche> {
+        // Throws when the address is not this wallet's — callers check
+        // ownership first, so reaching here with a foreign address is a bug.
+        const path = this.getPathFromAddress(address)
+        const [changeStr, indexStr] = path.split('/')
+        const change = Number(changeStr) as 0 | 1
+        const index = Number(indexStr)
+
+        return this.withMasterKey((master) => {
+            const account = master.derive(AVA_ACCOUNT_PATH)
+            try {
+                return this.withDerivedKeys(account, (keyFor) => {
+                    const keychain = new AVMKeyChain(
+                        getPreferredHRP(ava.getNetworkID()),
+                        this.chainId
+                    )
+                    const pair = keychain.importKey(
+                        BufferAvalanche.from(keyFor(change, index))
+                    ) as AVMKeyPair
+                    return pair.sign(hash)
+                })
+            } finally {
+                wipeNode(account)
+            }
+        })
     }
 
     async signX(unsignedTx: AVMUnsignedTx): Promise<AVMTx> {
@@ -502,7 +541,11 @@ export default class MnemonicWallet extends AbstractHdWallet implements IAvaHdWa
      * every used HD index, so any UTXO owner the SDK would normally pull in is
      * already signable here.
      */
-    async exportFromPChain(amt: BN, destinationChain: ExportChainsP, importFee?: BN): Promise<string> {
+    async exportFromPChain(
+        amt: BN,
+        destinationChain: ExportChainsP,
+        importFee?: BN
+    ): Promise<string> {
         if (destinationChain === 'C' && !importFee) {
             throw new Error('Exports to C chain must specify an import fee.')
         }
@@ -655,7 +698,11 @@ export default class MnemonicWallet extends AbstractHdWallet implements IAvaHdWa
      *     knows the balance is gone, and proceed with the signable subset
      *     instead of letting the whole import fail.
      */
-    async importToCChain(sourceChain: ExportChainsC, fee: BN, utxoSet?: EVMUTXOSet): Promise<string> {
+    async importToCChain(
+        sourceChain: ExportChainsC,
+        fee: BN,
+        utxoSet?: EVMUTXOSet
+    ): Promise<string> {
         if (!utxoSet) {
             utxoSet = await this.evmGetAtomicUTXOs(sourceChain)
         }
@@ -720,13 +767,8 @@ export default class MnemonicWallet extends AbstractHdWallet implements IAvaHdWa
             const account = master.derive(AVA_ACCOUNT_PATH)
             const node = account.derive(`m/0/${index}`)
             try {
-                const keychain = new AVMKeyChain(
-                    getPreferredHRP(ava.getNetworkID()),
-                    this.chainId
-                )
-                const key = keychain.importKey(
-                    BufferAvalanche.from(node.privateKey)
-                ) as AVMKeyPair
+                const keychain = new AVMKeyChain(getPreferredHRP(ava.getNetworkID()), this.chainId)
+                const key = keychain.importKey(BufferAvalanche.from(node.privateKey)) as AVMKeyPair
                 return bintools.cb58Encode(key.sign(hash))
             } finally {
                 wipeNode(node)

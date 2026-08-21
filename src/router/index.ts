@@ -1,4 +1,10 @@
-import { createRouter, createWebHistory, RouteLocationNormalized, NavigationGuardNext, RouteRecordRaw } from 'vue-router'
+import {
+    createRouter,
+    createWebHistory,
+    RouteLocationNormalized,
+    NavigationGuardNext,
+    RouteRecordRaw,
+} from 'vue-router'
 import Home from '../views/Home.vue'
 import Transfer from '@/views/wallet/Transfer.vue'
 import ManageKeys from '@/views/wallet/ManageKeys.vue'
@@ -22,6 +28,7 @@ import Swap from '@/views/wallet/Swap.vue'
 import Iceberg from '@/views/wallet/Iceberg.vue'
 import Avxto from '@/views/wallet/Avxto.vue'
 import Bridge from '@/views/wallet/Bridge.vue'
+import Psat from '@/views/wallet/Psat.vue'
 import Log from '@/views/wallet/Log.vue'
 import Account from '@/views/access/Account.vue'
 import { useMainStore } from '@/stores'
@@ -62,7 +69,11 @@ const isAuthenticated = async (): Promise<boolean> => {
     return platformStore.activePlatform?.getActiveWallet() != null
 }
 
-const ifNotAuthenticated = async (to: RouteLocationNormalized, from: RouteLocationNormalized, next: NavigationGuardNext) => {
+const ifNotAuthenticated = async (
+    to: RouteLocationNormalized,
+    from: RouteLocationNormalized,
+    next: NavigationGuardNext
+) => {
     if (!(await isAuthenticated())) {
         next()
         return
@@ -70,7 +81,11 @@ const ifNotAuthenticated = async (to: RouteLocationNormalized, from: RouteLocati
     next('/wallet')
 }
 
-const ifAuthenticated = async (to: RouteLocationNormalized, from: RouteLocationNormalized, next: NavigationGuardNext) => {
+const ifAuthenticated = async (
+    to: RouteLocationNormalized,
+    from: RouteLocationNormalized,
+    next: NavigationGuardNext
+) => {
     if (await isAuthenticated()) {
         next()
         return
@@ -153,7 +168,11 @@ const routes: RouteRecordRaw[] = [
             {
                 path: 'cross_chain',
                 component: Export,
-                beforeEnter: (_to: RouteLocationNormalized, _from: RouteLocationNormalized, next: NavigationGuardNext) => {
+                beforeEnter: (
+                    _to: RouteLocationNormalized,
+                    _from: RouteLocationNormalized,
+                    next: NavigationGuardNext
+                ) => {
                     const mainStore = useMainStore()
                     if (mainStore.activeWallet?.type === 'singleton') {
                         next('/wallet')
@@ -233,6 +252,10 @@ const routes: RouteRecordRaw[] = [
             {
                 path: 'bridge',
                 component: Bridge,
+            },
+            {
+                path: 'psat',
+                component: Psat,
             },
             {
                 path: 'log',

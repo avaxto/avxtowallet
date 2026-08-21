@@ -464,3 +464,130 @@ export enum ParseableEvmTxEnum {
     'Import' = EVMConstants.IMPORTTX,
     'Export' = EVMConstants.EXPORTTX,
 }
+
+/**
+ * A destination output owned jointly by several addresses.
+ *
+ * `threshold` of `owners` must sign to spend it. Both are validated at the
+ * call site rather than trusted: `OutputOwners` accepts any threshold without
+ * checking it against the address count (the SDK's own guard lives only in
+ * `buildBaseTx`, which this path does not use), so an unchecked value here
+ * would build a permanently unspendable UTXO that the node still accepts.
+ */
+export interface IMultisigDestination {
+    owners: string[]
+    threshold: number
+    asset: { id: string }
+    amount: BN
+}
+
+/** What a multisig send needs to travel to its co-signers. */
+export interface MultisigBuildResult {
+    unsignedTx: AVMUnsignedTx
+    /** The UTXOs this transaction spends, for the PSAT envelope. */
+    sourceUtxos: AVMUTXO[]
+}
+
+/**
+ * Builds an X-chain transaction paying into one multi-owner output.
+ *
+ * Deliberately parallel to `buildMultiRecipientTransaction` above, and for
+ * the same reason: the AssetAmountDestination is used purely for input
+ * selection and change, its own destination outputs are discarded, and the
+ * real output is substituted. Value balances because the substituted output
+ * carries exactly the amount the AAD was asked to spend.
+ *
+ * Note what this transaction is and is not. It SPENDS the sender's ordinary
+ * single-signature UTXOs — so the sender alone can sign it and it is complete
+ * the moment they do. The multisig applies to the output it creates: it is
+ * the *next* transaction, the one spending that output, that will need M
+ * signatures and travel between owners as a genuine PSAT.
+ */
+export async function buildMultisigTransaction(
+    destination: IMultisigDestination,
+    derivedAddresses: string[],
+    utxoset: AVMUTXOSet,
+    changeAddress?: string,
+    memo?: Buffer
+): Promise<MultisigBuildResult> {
+    if (!changeAddress) {
+        throw new Error('Unable to issue transaction. Ran out of change index.')
+    }
+    const ownerBufs = destination.owners.map((addr) => bintools.parseAddress(addr, 'X'))
+    if (ownerBufs.some((b) => !b)) {
+        throw new Error('One of the owner addresses is not a valid X-chain address.')
+    }
+    // Duplicates would let one key satisfy several slots, quietly making an
+    // "M-of-N" spendable by fewer than M distinct people.
+    const unique = new Set(destination.owners.map((a) => a.trim()))
+    if (unique.size !== destination.owners.length) {
+        throw new Error('Owner addresses must all be different.')
+    }
+    if (
+        !Number.isInteger(destination.threshold) ||
+        destination.threshold < 1 ||
+        destination.threshold > ownerBufs.length
+    ) {
+        throw new Error(`Threshold must be a whole number between 1 and ${ownerBufs.length}.`)
+    }
+    if (destination.amount.lte(new BN(0))) {
+        throw new Error('Amount must be greater than zero.')
+    }
+
+    const fromAddrs: Buffer[] = derivedAddresses.map((val) => bintools.parseAddress(val, 'X'))
+    const changeAddr: Buffer = bintools.stringToAddress(changeAddress)
+
+    const AVAX_ID_BUF = await avm.getAVAXAssetID()
+    const AVAX_ID_STR = AVAX_ID_BUF.toString('hex')
+    const ZERO = new BN(0)
+    const fee = avm.getTxFee()
+
+    const assetKey = bintools.cb58Decode(destination.asset.id).toString('hex')
+
+    const aad: AssetAmountDestination = new AssetAmountDestination([changeAddr], fromAddrs, [
+        changeAddr,
+    ])
+    if (assetKey === AVAX_ID_STR) {
+        aad.addAssetAmount(AVAX_ID_BUF, destination.amount, fee)
+    } else {
+        aad.addAssetAmount(bintools.cb58Decode(destination.asset.id), destination.amount, ZERO)
+        if (fee.gt(ZERO)) aad.addAssetAmount(AVAX_ID_BUF, ZERO, fee)
+    }
+
+    const success: Error = utxoset.getMinimumSpendable(aad)
+    if (typeof success !== 'undefined') {
+        throw success
+    }
+
+    const ins: TransferableInput[] = aad.getInputs()
+    const changeOuts: TransferableOutput[] = aad.getChangeOutputs()
+
+    // The multi-owner destination. `OutputOwners` sorts addresses into
+    // canonical byte order internally, so the on-wire owner order is not the
+    // order they were typed in — anything mapping an owner to a signature
+    // slot must go through `getAddressIdx`, never the form's ordering.
+    const multisigOut = new SECPTransferOutput(
+        destination.amount,
+        ownerBufs as Buffer[],
+        ZERO,
+        destination.threshold
+    )
+    const outs: TransferableOutput[] = [
+        new TransferableOutput(bintools.cb58Decode(destination.asset.id), multisigOut),
+        ...changeOuts,
+    ]
+
+    // Every input's source UTXO, so the shared transaction can show its
+    // co-signers what is being spent and by whom — a TransferableInput does
+    // not carry its output's owner list.
+    const sourceUtxos: AVMUTXO[] = []
+    for (const input of ins) {
+        const utxo = utxoset.getUTXO(input.getUTXOID())
+        if (utxo) sourceUtxos.push(utxo as AVMUTXO)
+    }
+
+    const networkId: number = ava.getNetworkID()
+    const chainId: Buffer = bintools.cb58Decode(avm.getBlockchainID())
+    const baseTx: BaseTx = new BaseTx(networkId, chainId, outs, ins, memo)
+    return { unsignedTx: new AVMUnsignedTx(baseTx), sourceUtxos }
+}

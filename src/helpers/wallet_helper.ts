@@ -12,8 +12,11 @@ import {
     buildEvmTransferNativeTx,
     buildMintNftTx,
     buildMultiRecipientTransaction,
+    buildMultisigTransaction,
     IBatchRecipient,
+    IMultisigDestination,
 } from '@/js/TxHelper'
+import type { Tx as AVMTx } from '@/avalanche/apis/avm'
 import { PayloadBase } from '@/avalanche/utils'
 import { ITransaction } from '@/components/wallet/transfer/types'
 
@@ -113,6 +116,40 @@ class WalletHelper {
         )
         const tx = await wallet.signX(unsignedTx)
         return await issueX(tx)
+    }
+
+    /**
+     * Builds and signs a transaction paying into a multi-owner output.
+     *
+     * Returns the signed transaction rather than broadcasting it: the point
+     * of the flow is that the creator hands it to the other owners to check
+     * before it goes on chain. It IS complete though — its inputs are the
+     * creator's own single-signature UTXOs, so nobody else's signature is
+     * required to broadcast it. What needs several signatures is the next
+     * transaction, the one spending the output this creates.
+     *
+     * The source UTXOs come back alongside it because a TransferableInput
+     * does not carry its output's owner list, and the PSAT envelope needs
+     * them to show co-signers what is being spent. See js/multisig/psat.ts.
+     */
+    static async buildMultisigSend(
+        wallet: AvaWalletCore,
+        destination: IMultisigDestination,
+        memo?: Buffer
+    ): Promise<{ tx: AVMTx; sourceUtxos: AVMUTXO[] }> {
+        const changeAddress = wallet.getChangeAddressAvm()
+        const derivedAddresses = wallet.getDerivedAddresses()
+        const utxoset = wallet.getUTXOSet()
+
+        const { unsignedTx, sourceUtxos } = await buildMultisigTransaction(
+            destination,
+            derivedAddresses,
+            utxoset,
+            changeAddress,
+            memo
+        )
+        const tx = await wallet.signX(unsignedTx)
+        return { tx, sourceUtxos }
     }
 
     static async sendEth(

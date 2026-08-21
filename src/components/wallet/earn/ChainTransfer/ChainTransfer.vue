@@ -17,6 +17,7 @@
                     @done="startAgain"
                 ></SignedTxExport>
                 <div v-else-if="!isSuccess && !isLoading">
+                    <UtxoPreview :preview="utxoPreview"></UtxoPreview>
                     <div v-if="!isImportErr" class="fees">
                         <h4>{{ $t('earn.transfer.fee') }}</h4>
                         <p>
@@ -163,6 +164,10 @@ import { authorizeCrossChain, SessionAuthCancelled } from '@/js/security/authori
 import { useOfflineSigningStore, isOfflineTxId } from '@/stores'
 import SignOnlyToggle from '@/components/misc/SignOnlyToggle.vue'
 import SignedTxExport from '@/components/misc/SignedTxExport.vue'
+import UtxoPreview from '@/components/wallet/transfer/UtxoPreview.vue'
+import { previewFromTx } from '@/js/utxoPreview'
+import type { UtxoPreview as UtxoPreviewData } from '@/js/utxoPreview'
+import { TxHelper } from '@/avalanche-wallet-sdk'
 
 const IMPORT_DELAY = 5000 // in ms
 const BALANCE_DELAY = 2000 // in ms
@@ -178,6 +183,7 @@ export default defineComponent({
         ChainCard,
         ChainSwapForm,
         TxStateCard,
+        UtxoPreview,
     },
     setup() {
         const mainStore = useMainStore()
@@ -194,6 +200,87 @@ export default defineComponent({
         const err = ref('')
 
         const isImportErr = ref(false)
+
+        /**
+         * Which UTXOs the export leg will consume.
+         *
+         * Only X and P have any: the C chain is account-based, so an export
+         * from it spends a balance rather than coins and there is nothing to
+         * preview. Runs the same builders the export itself uses
+         * (`buildAvmExportTransaction` / `buildPlatformExportTransaction`) and
+         * reads their inputs back, rather than reimplementing selection — see
+         * js/utxoPreview.ts.
+         */
+        const utxoPreview = ref<UtxoPreviewData | null>(null)
+        let previewToken = 0
+
+        const refreshUtxoPreview = async () => {
+            const token = ++previewToken
+            const w = mainStore.activeWallet as Wallet | null
+            const source = sourceChain.value
+
+            if (!w || amt.value.lte(new BN(0)) || (source !== 'X' && source !== 'P')) {
+                utxoPreview.value = null
+                return
+            }
+
+            try {
+                // The export carries the destination chain's import fee on top
+                // of the amount, so selection is against that total — mirroring
+                // what exportFromXChain/exportFromPChain do before building.
+                const amtFee = amt.value.add(importFeeBN.value)
+                const destinationAddr =
+                    targetChain.value === 'C' ? w.getEvmAddressBech() : w.getIndexZeroAddressAvm()
+
+                let unsignedTx: any
+                let utxoSet: { getUTXO(id: string): any }
+
+                if (source === 'X') {
+                    utxoSet = w.getUTXOSet()
+                    unsignedTx = await TxHelper.buildAvmExportTransaction(
+                        targetChain.value as any,
+                        w.getUTXOSet(),
+                        w.getAllAddressesX(),
+                        destinationAddr,
+                        amtFee,
+                        w.getChangeAddressAvm()
+                    )
+                } else {
+                    const sortedSet = sortUTxoSetP(w.getPlatformUTXOSet(), false)
+                    utxoSet = sortedSet
+                    unsignedTx = await TxHelper.buildPlatformExportTransaction(
+                        sortedSet,
+                        w.getAllAddressesP(),
+                        destinationAddr,
+                        amtFee,
+                        w.getCurrentAddressPlatform(),
+                        targetChain.value as any
+                    )
+                }
+
+                if (token !== previewToken) return
+
+                const avaxId = assetsStore.AVA_ASSET_ID as string
+                const sending = avaxId ? { [avaxId]: amtFee } : {}
+
+                utxoPreview.value = previewFromTx(
+                    unsignedTx.getTransaction(),
+                    (utxoId) => utxoSet.getUTXO(utxoId),
+                    sending
+                )
+            } catch (e) {
+                // Insufficient funds and friends are reported properly by the
+                // submit path; a preview has nothing to add, so it shows
+                // nothing rather than raising a second error.
+                if (token === previewToken) utxoPreview.value = null
+            }
+        }
+
+        let previewTimer: ReturnType<typeof setTimeout> | undefined
+        watch([amt, sourceChain, targetChain], () => {
+            clearTimeout(previewTimer)
+            previewTimer = setTimeout(refreshUtxoPreview, 250)
+        })
 
         // A cross-chain transfer is two transactions, and the import spends the
         // atomic UTXO the export creates — so it cannot even be built until the
@@ -243,46 +330,60 @@ export default defineComponent({
             return assetsStore.walletPlatformBalance
         })
 
-        const platformUnlocked = computed((): BN => {
-            return platformBalance.value.available
-        })
-
-        const avmUnlocked = computed((): BN => {
-            if (!ava_asset.value) return new BN(0)
-            return ava_asset.value.amount
-        })
-
-        const evmUnlocked = computed((): BN => {
-            let balRaw = wallet.value.ethBalance
-            return avaxCtoX(balRaw)
-        })
-
-        const balanceBN = computed((): BN => {
-            if (sourceChain.value === 'P') {
-                return platformUnlocked.value
-            } else if (sourceChain.value === 'C') {
-                return evmUnlocked.value
-            } else {
-                return avmUnlocked.value
+        const platformUnlocked = computed(
+            (): BN => {
+                return platformBalance.value.available
             }
-        })
+        )
+
+        const avmUnlocked = computed(
+            (): BN => {
+                if (!ava_asset.value) return new BN(0)
+                return ava_asset.value.amount
+            }
+        )
+
+        const evmUnlocked = computed(
+            (): BN => {
+                let balRaw = wallet.value.ethBalance
+                return avaxCtoX(balRaw)
+            }
+        )
+
+        const balanceBN = computed(
+            (): BN => {
+                if (sourceChain.value === 'P') {
+                    return platformUnlocked.value
+                } else if (sourceChain.value === 'C') {
+                    return evmUnlocked.value
+                } else {
+                    return avmUnlocked.value
+                }
+            }
+        )
 
         // Add the remaining computed properties and methods here...
-        const balanceBig = computed((): Big => {
-            return bnToBig(balanceBN.value, 9)
-        })
+        const balanceBig = computed(
+            (): Big => {
+                return bnToBig(balanceBN.value, 9)
+            }
+        )
 
         const formAmtText = computed(() => {
             return bnToAvaxX(formAmt.value)
         })
 
-        const fee = computed((): Big => {
-            return exportFee.value.add(importFee.value)
-        })
+        const fee = computed(
+            (): Big => {
+                return exportFee.value.add(importFee.value)
+            }
+        )
 
-        const feeBN = computed((): BN => {
-            return importFeeBN.value.add(exportFeeBN.value)
-        })
+        const feeBN = computed(
+            (): BN => {
+                return importFeeBN.value.add(exportFeeBN.value)
+            }
+        )
 
         const getFee = (chain: ChainIdType, isExport: boolean): Big => {
             if (chain === 'X') {
@@ -304,37 +405,47 @@ export default defineComponent({
             }
         }
 
-        const importFee = computed((): Big => {
-            return getFee(targetChain.value, false)
-        })
+        const importFee = computed(
+            (): Big => {
+                return getFee(targetChain.value, false)
+            }
+        )
 
         /**
          * Returns the import fee in nAVAX
          */
-        const importFeeBN = computed((): BN => {
-            return bigToBN(importFee.value, 9)
-        })
+        const importFeeBN = computed(
+            (): BN => {
+                return bigToBN(importFee.value, 9)
+            }
+        )
 
-        const exportFee = computed((): Big => {
-            return getFee(sourceChain.value, true)
-        })
+        const exportFee = computed(
+            (): Big => {
+                return getFee(sourceChain.value, true)
+            }
+        )
 
-        const exportFeeBN = computed((): BN => {
-            return bigToBN(exportFee.value, 9)
-        })
+        const exportFeeBN = computed(
+            (): BN => {
+                return bigToBN(exportFee.value, 9)
+            }
+        )
 
         /**
          * User's spendable balance minus total fees
          */
-        const maxAmt = computed((): BN => {
-            let max = balanceBN.value.sub(feeBN.value)
+        const maxAmt = computed(
+            (): BN => {
+                let max = balanceBN.value.sub(feeBN.value)
 
-            if (max.isNeg() || max.isZero()) {
-                return new BN(0)
-            } else {
-                return max
+                if (max.isNeg() || max.isZero()) {
+                    return new BN(0)
+                } else {
+                    return max
+                }
             }
-        })
+        )
 
         /**
          * Maximum amount that fits into a valid transaction (excluding export fee)
@@ -459,11 +570,23 @@ export default defineComponent({
             let exportTxId: string
             try {
                 if (src === 'X') {
-                    exportTxId = await w.exportFromXChain(amt, dst as ExportChainsX, dst === 'C' ? importFeeSnapshot : undefined)
+                    exportTxId = await w.exportFromXChain(
+                        amt,
+                        dst as ExportChainsX,
+                        dst === 'C' ? importFeeSnapshot : undefined
+                    )
                 } else if (src === 'P') {
-                    exportTxId = await w.exportFromPChain(amt, dst as ExportChainsP, dst === 'C' ? importFeeSnapshot : undefined)
+                    exportTxId = await w.exportFromPChain(
+                        amt,
+                        dst as ExportChainsP,
+                        dst === 'C' ? importFeeSnapshot : undefined
+                    )
                 } else {
-                    exportTxId = await w.exportFromCChain(amt, dst as ExportChainsC, exportFeeBN.value)
+                    exportTxId = await w.exportFromCChain(
+                        amt,
+                        dst as ExportChainsC,
+                        exportFeeBN.value
+                    )
                 }
                 exportId.value = exportTxId
                 exportState.value = TxState.success
@@ -492,10 +615,7 @@ export default defineComponent({
 
             // Refresh X/P UTXOs and C-chain balance so the import sees the
             // post-export state rather than stale pre-export data.
-            await Promise.allSettled([
-                assetsStore.updateUTXOs(),
-                w.getEthBalance(),
-            ])
+            await Promise.allSettled([assetsStore.updateUTXOs(), w.getEthBalance()])
 
             // --- Import phase ---
             importState.value = TxState.started
@@ -572,6 +692,7 @@ export default defineComponent({
             amt,
             err,
             isImportErr,
+            utxoPreview,
             isConfirm,
             isSuccess,
             formAmt,
@@ -604,9 +725,9 @@ export default defineComponent({
             cancelConfirm,
             submit,
             startAgain,
-            updateBaseFee
+            updateBaseFee,
         }
-    }
+    },
 })
 </script>
 <style scoped lang="scss">

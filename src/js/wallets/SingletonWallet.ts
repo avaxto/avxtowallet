@@ -23,10 +23,7 @@ import { buildUnsignedTransaction } from '../TxHelper'
 import { AvaWalletCore } from './types'
 import { privateToAddress, importPublic, publicToAddress } from 'ethereumjs-util'
 import { Tx as AVMTx, UnsignedTx as AVMUnsignedTx } from '@/avalanche/apis/avm/tx'
-import {
-    Tx as PlatformTx,
-    UnsignedTx as PlatformUnsignedTx,
-} from '@/avalanche/apis/platformvm/tx'
+import { Tx as PlatformTx, UnsignedTx as PlatformUnsignedTx } from '@/avalanche/apis/platformvm/tx'
 import { Tx as EvmTx, UnsignedTx as EVMUnsignedTx } from '@/avalanche/apis/evm/tx'
 import Erc20Token from '@/js/Erc20Token'
 import { AbstractWallet } from '@/js/wallets/AbstractWallet'
@@ -101,9 +98,7 @@ class SingletonWallet extends AbstractWallet implements AvaWalletCore {
         this.publicKey = tmpPair.getPublicKey()
         destroyKeyPair(tmpPair)
 
-        this.ethAddress = publicToAddress(
-            importPublic(Buffer.from(this.publicKey))
-        ).toString('hex')
+        this.ethAddress = publicToAddress(importPublic(Buffer.from(this.publicKey))).toString('hex')
 
         this.xAddress = ''
         this.pAddress = ''
@@ -260,6 +255,28 @@ class SingletonWallet extends AbstractWallet implements AvaWalletCore {
         this.ethBalance = new BN(0)
 
         this.getUTXOs()
+    }
+
+    /**
+     * Signs one 32-byte hash with this wallet's single key.
+     *
+     * See MnemonicWallet.signHashForXAddress for why multisig co-signing
+     * needs a per-address hash signer rather than `signX`. A singleton wallet
+     * holds exactly one address, so the only valid `address` is its own.
+     */
+    async signHashForXAddress(address: string, hash: BufferAvalanche): Promise<BufferAvalanche> {
+        if (address !== this.getCurrentAddressAvm()) {
+            throw new Error('This wallet does not hold the key for that address.')
+        }
+        return this.withPrivateKey((pkStr) => {
+            const keychain = new AVMKeyChain(ava.getHRP(), this.chainId)
+            const pair = keychain.importKey(pkStr)
+            try {
+                return pair.sign(hash)
+            } finally {
+                destroyKeyPair(pair)
+            }
+        })
     }
 
     async signX(unsignedTx: AVMUnsignedTx): Promise<AVMTx> {

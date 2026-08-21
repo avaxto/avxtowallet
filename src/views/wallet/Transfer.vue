@@ -1,6 +1,5 @@
 <template>
     <div class="transfer_card">
-        
         <div v-if="networkStatus !== 'connected'" class="disconnected">
             <p>{{ $t('transfer.disconnected') }}</p>
         </div>
@@ -12,158 +11,181 @@
                 <div class="batch_toggle_row">
                     <ChainInput
                         v-model="formType"
-                        :disabled="isConfirm || batchMode"
+                        :disabled="isConfirm || batchMode || multisigMode"
                     ></ChainInput>
                     <label class="batch_switch">
-                        <input type="checkbox" v-model="batchMode" :disabled="isConfirm" />
+                        <input
+                            type="checkbox"
+                            v-model="batchMode"
+                            :disabled="isConfirm"
+                            @change="onBatchToggle"
+                        />
                         Batch send (multiple recipients)
                     </label>
+                    <label class="batch_switch">
+                        <input
+                            type="checkbox"
+                            v-model="multisigMode"
+                            :disabled="isConfirm"
+                            @change="onMultisigToggle"
+                        />
+                        Multisig output (several owners)
+                    </label>
                 </div>
-                <BatchFormX v-if="batchMode"></BatchFormX>
+                <MultisigFormX v-if="multisigMode"></MultisigFormX>
+                <BatchFormX v-else-if="batchMode"></BatchFormX>
                 <template v-else>
-                <div class="lists">
-                    <div>
-                        <tx-list
-                            class="tx_list"
-                            ref="txList"
-                            @change="updateTxList"
-                            :disabled="isConfirm"
-                        ></tx-list>
-                        <template v-if="hasNFT">
-                            <NftList
-                                @change="updateNftList"
-                                ref="nftList"
+                    <div class="lists">
+                        <div>
+                            <tx-list
+                                class="tx_list"
+                                ref="txList"
+                                @change="updateTxList"
                                 :disabled="isConfirm"
-                            ></NftList>
-                        </template>
-                    </div>
-                </div>
-                <div>
-                    <div class="to_address">
-                        <h4>{{ $t('transfer.to') }}</h4>
-                        <qr-input
-                            v-model="addressIn"
-                            class="qrIn hover_border"
-                            placeholder="xxx"
-                            :disabled="isConfirm"
-                        ></qr-input>
+                            ></tx-list>
+                            <template v-if="hasNFT">
+                                <NftList
+                                    @change="updateNftList"
+                                    ref="nftList"
+                                    :disabled="isConfirm"
+                                ></NftList>
+                            </template>
+                        </div>
                     </div>
                     <div>
-                        <h4 v-if="memo || !isConfirm">{{ $t('transfer.memo') }}</h4>
-                        <textarea
-                            class="memo"
-                            maxlength="256"
-                            placeholder="Memo"
-                            autocomplete="off"
-                            v-model="memo"
-                            v-if="memo || !isConfirm"
-                            :disabled="isConfirm"
-                        ></textarea>
-                    </div>
-                    <div class="fees">
-                        <p>
-                            {{ $t('transfer.fee_tx') }}
-                            <span>{{ txFee.toLocaleString(9) }} AVAX</span>
-                        </p>
-                        <p>
-                            {{ $t('transfer.total_avax') }}
-                            <span>{{ totalUSD.toLocaleString(2) }} USD</span>
-                        </p>
-                    </div>
-                    <div class="checkout">
-                        <ul class="err_list" v-if="formErrors.length > 0">
-                            <li v-for="err in formErrors" :key="err">
-                                {{ err }}
-                            </li>
-                        </ul>
-                        <template v-if="isInjectedWallet && !isSuccess && !offline.hasRecords">
-                            <p class="err">{{ err }}</p>
-                            <SignOnlyToggle :disabled="isAjax"></SignOnlyToggle>
-                            <v-btn
-                                depressed
-                                class="button_primary"
-                                :loading="isAjax"
-                                :ripple="false"
-                                @click="sendOneClick"
-                                :disabled="!canSend || isAjax"
-                                block
-                            >
-                                {{ $t('transfer.send') }}
-                            </v-btn>
-                        </template>
-                        <template v-else-if="!isConfirm">
-                            <v-btn
-                                depressed
-                                class="button_primary"
-                                :ripple="false"
-                                @click="confirm"
-                                :disabled="!canSend"
-                                block
-                            >
-                                Confirm
-                            </v-btn>
-                        </template>
-                        <template v-else-if="isConfirm && !isSuccess">
-                            <p class="err">{{ err }}</p>
-                            <SignOnlyToggle :disabled="isAjax"></SignOnlyToggle>
-                            <v-btn
-                                depressed
-                                class="button_primary"
-                                :loading="isAjax"
-                                :ripple="false"
-                                @click="submit"
-                                :disabled="!canSend"
-                                block
-                            >
-                                {{ $t('transfer.send') }}
-                            </v-btn>
-                            <v-btn
-                                text
-                                block
-                                small
-                                style="margin-top: 20px !important; color: var(--primary-color)"
-                                @click="cancelConfirm"
-                            >
-                                Cancel
-                            </v-btn>
-                        </template>
-                        <template v-else-if="offline.hasRecords">
-                            <SignedTxExport
-                                :records="offline.records"
-                                @done="startAgain"
-                            ></SignedTxExport>
-                        </template>
-                        <template v-else-if="isSuccess">
-                            <p style="color: var(--success)">
-                                <fa icon="check-circle"></fa>
-                                Transaction Sent
+                        <div class="to_address">
+                            <h4>{{ $t('transfer.to') }}</h4>
+                            <qr-input
+                                v-model="addressIn"
+                                class="qrIn hover_border"
+                                placeholder="xxx"
+                                :disabled="isConfirm"
+                            ></qr-input>
+                        </div>
+                        <div>
+                            <h4 v-if="memo || !isConfirm">{{ $t('transfer.memo') }}</h4>
+                            <textarea
+                                class="memo"
+                                maxlength="256"
+                                placeholder="Memo"
+                                autocomplete="off"
+                                v-model="memo"
+                                v-if="memo || !isConfirm"
+                                :disabled="isConfirm"
+                            ></textarea>
+                        </div>
+                        <UtxoPreview :preview="utxoPreview"></UtxoPreview>
+                        <div class="fees">
+                            <p>
+                                {{ $t('transfer.fee_tx') }}
+                                <span>{{ txFee.toLocaleString(9) }} AVAX</span>
                             </p>
-                            <label style="word-break: break-all">
-                                <b>ID:</b>
-                                {{ txId }}
-                            </label>
-                            <v-btn
-                                depressed
-                                style="margin-top: 14px"
-                                class="button_primary"
-                                :ripple="false"
-                                @click="startAgain"
-                                block
-                                :disabled="!canSendAgain"
-                            >
-                                Start Again
-                            </v-btn>
-                        </template>
+                            <p>
+                                {{ $t('transfer.total_avax') }}
+                                <span>{{ totalUSD.toLocaleString(2) }} USD</span>
+                            </p>
+                        </div>
+                        <div class="checkout">
+                            <ul class="err_list" v-if="formErrors.length > 0">
+                                <li v-for="err in formErrors" :key="err">
+                                    {{ err }}
+                                </li>
+                            </ul>
+                            <template v-if="isInjectedWallet && !isSuccess && !offline.hasRecords">
+                                <p class="err">{{ err }}</p>
+                                <SignOnlyToggle :disabled="isAjax"></SignOnlyToggle>
+                                <v-btn
+                                    depressed
+                                    class="button_primary"
+                                    :loading="isAjax"
+                                    :ripple="false"
+                                    @click="sendOneClick"
+                                    :disabled="!canSend || isAjax"
+                                    block
+                                >
+                                    {{ $t('transfer.send') }}
+                                </v-btn>
+                            </template>
+                            <template v-else-if="!isConfirm">
+                                <v-btn
+                                    depressed
+                                    class="button_primary"
+                                    :ripple="false"
+                                    @click="confirm"
+                                    :disabled="!canSend"
+                                    block
+                                >
+                                    Confirm
+                                </v-btn>
+                            </template>
+                            <template v-else-if="isConfirm && !isSuccess">
+                                <p class="err">{{ err }}</p>
+                                <SignOnlyToggle :disabled="isAjax"></SignOnlyToggle>
+                                <v-btn
+                                    depressed
+                                    class="button_primary"
+                                    :loading="isAjax"
+                                    :ripple="false"
+                                    @click="submit"
+                                    :disabled="!canSend"
+                                    block
+                                >
+                                    {{ $t('transfer.send') }}
+                                </v-btn>
+                                <v-btn
+                                    text
+                                    block
+                                    small
+                                    style="margin-top: 20px !important; color: var(--primary-color)"
+                                    @click="cancelConfirm"
+                                >
+                                    Cancel
+                                </v-btn>
+                            </template>
+                            <template v-else-if="offline.hasRecords">
+                                <SignedTxExport
+                                    :records="offline.records"
+                                    @done="startAgain"
+                                ></SignedTxExport>
+                            </template>
+                            <template v-else-if="isSuccess">
+                                <p style="color: var(--success)">
+                                    <fa icon="check-circle"></fa>
+                                    Transaction Sent
+                                </p>
+                                <label style="word-break: break-all">
+                                    <b>ID:</b>
+                                    {{ txId }}
+                                </label>
+                                <v-btn
+                                    depressed
+                                    style="margin-top: 14px"
+                                    class="button_primary"
+                                    :ripple="false"
+                                    @click="startAgain"
+                                    block
+                                    :disabled="!canSendAgain"
+                                >
+                                    Start Again
+                                </v-btn>
+                            </template>
+                        </div>
                     </div>
-                </div>
                 </template>
             </div>
         </div>
     </div>
 </template>
 <script lang="ts">
-import { defineComponent, ref, computed, onActivated, onDeactivated, toRaw } from 'vue'
-import { useAssetsStore, useHistoryStore, useMainStore, useNetworkStore, useNotificationsStore, useTransferPrefillStore } from '@/stores'
+import { defineComponent, ref, computed, watch, onActivated, onDeactivated, toRaw } from 'vue'
+import {
+    useAssetsStore,
+    useHistoryStore,
+    useMainStore,
+    useNetworkStore,
+    useNotificationsStore,
+    useTransferPrefillStore,
+} from '@/stores'
 import { useI18n } from 'vue-i18n'
 
 import TxList from '@/components/wallet/transfer/TxList.vue'
@@ -190,6 +212,10 @@ import { ChainIdType } from '@/constants'
 
 import ChainInput from '@/components/wallet/transfer/ChainInput.vue'
 import BatchFormX from '@/components/wallet/transfer/BatchFormX.vue'
+import MultisigFormX from '@/components/wallet/transfer/MultisigFormX.vue'
+import UtxoPreview from '@/components/wallet/transfer/UtxoPreview.vue'
+import { previewFromTx } from '@/js/utxoPreview'
+import type { UtxoPreview as UtxoPreviewData } from '@/js/utxoPreview'
 import AvaAsset from '../../js/AvaAsset'
 import { TxState } from '@/components/wallet/earn/ChainTransfer/types'
 import { authorizeSingle, SessionAuthCancelled } from '@/js/security/authorize'
@@ -211,6 +237,8 @@ export default defineComponent({
         FormC,
         ChainInput,
         BatchFormX,
+        MultisigFormX,
+        UtxoPreview,
     },
     setup() {
         const mainStore = useMainStore()
@@ -234,6 +262,18 @@ export default defineComponent({
 
         const formType = ref<ChainIdType>(hasXChain.value ? 'X' : 'C')
         const batchMode = ref(false)
+        // Multisig replaces the whole X-chain form rather than layering on
+        // the batch one — a batch of multisig outputs is a different feature,
+        // so the two are mutually exclusive instead of silently combining.
+        const multisigMode = ref(false)
+
+        const onBatchToggle = () => {
+            if (batchMode.value) multisigMode.value = false
+        }
+
+        const onMultisigToggle = () => {
+            if (multisigMode.value) batchMode.value = false
+        }
         const showAdvanced = ref(false)
         const isAjax = ref(false)
         const addressIn = ref('')
@@ -254,6 +294,77 @@ export default defineComponent({
 
         const canSendAgain = ref(false)
         const txState = ref<TxState | null>(null)
+
+        /**
+         * Which UTXOs the pending send will consume.
+         *
+         * Built by running the REAL builder against the current orders and
+         * reading its inputs back, so the preview cannot drift from what
+         * actually gets signed. `buildUnsignedTransaction` only selects
+         * against the wallet's UTXO set and returns an unsigned transaction —
+         * it signs nothing, broadcasts nothing and mutates neither the set
+         * nor the wallet — so running it per keystroke is safe.
+         */
+        const utxoPreview = ref<UtxoPreviewData | null>(null)
+        let previewToken = 0
+
+        const refreshUtxoPreview = async () => {
+            const token = ++previewToken
+            // Reads the store directly rather than the `wallet` computed,
+            // which is declared further down this setup body.
+            const w = mainStore.activeWallet as Wallet | null
+            const activeOrders = [...orders.value, ...nftOrders.value]
+            if (!w || activeOrders.length === 0) {
+                utxoPreview.value = null
+                return
+            }
+
+            try {
+                // Coin selection depends on the amounts, assets and fee — not
+                // on where the funds are going — so the wallet's own address
+                // stands in while the recipient field is still empty or
+                // half-typed. Using it avoids a preview that flickers in only
+                // once a valid address happens to be present.
+                const destination = addressIn.value.trim() || w.getCurrentAddressAvm()
+                const unsignedTx = await w.buildUnsignedTransaction(activeOrders, destination)
+
+                // A slow build for an older set of orders must not overwrite a
+                // newer one's result.
+                if (token !== previewToken) return
+
+                const sending: Record<string, BN> = {}
+                for (const order of orders.value) {
+                    const assetId = (order as ITransaction).asset?.id
+                    if (!assetId) continue
+                    sending[assetId] = (sending[assetId] ?? new BN(0)).add(
+                        (order as ITransaction).amount
+                    )
+                }
+
+                const utxoSet = w.getUTXOSet()
+                utxoPreview.value = previewFromTx(
+                    unsignedTx.getTransaction() as any,
+                    (utxoId) => utxoSet.getUTXO(utxoId),
+                    sending
+                )
+            } catch (e) {
+                // Not enough funds, an unsupported combination, a transient
+                // asset-id lookup — all of which the submit path reports
+                // properly. A preview has nothing useful to add, so it simply
+                // shows nothing rather than surfacing a second error.
+                if (token === previewToken) utxoPreview.value = null
+            }
+        }
+
+        let previewTimer: ReturnType<typeof setTimeout> | undefined
+        watch(
+            [orders, nftOrders, addressIn],
+            () => {
+                clearTimeout(previewTimer)
+                previewTimer = setTimeout(refreshUtxoPreview, 250)
+            },
+            { deep: true }
+        )
 
         const txList = ref<InstanceType<typeof TxList>>()
         const nftList = ref<InstanceType<typeof NftList>>()
@@ -295,9 +406,8 @@ export default defineComponent({
 
         const updateTxList = (data: ITransaction[]) => {
             if (!data || data instanceof Event) return
-            
+
             orders.value = [...data]
-            
         }
 
         const updateNftList = (val: UTXO[]) => {
@@ -527,37 +637,47 @@ export default defineComponent({
             return res
         })
 
-        const avaxAsset = computed((): AvaAsset => {
-            return assetsStore.AssetAVA
-        })
-
-        const wallet = computed((): Wallet => {
-            return mainStore.activeWallet as Wallet
-        })
-
-        const txFee = computed((): Big => {
-            let fee = avm.getTxFee()
-            return bnToBig(fee, 9)
-        })
-
-        const totalUSD = computed((): Big => {
-            let totalAsset = avaxTxSize.value.add(avm.getTxFee())
-            let bigAmt = bnToBig(totalAsset, 9)
-            let usdPrice = priceDict.value.usd
-            if (typeof usdPrice !== 'number' || isNaN(usdPrice)) {
-                return Big(0)
+        const avaxAsset = computed(
+            (): AvaAsset => {
+                return assetsStore.AssetAVA
             }
-            let usdBig = bigAmt.times(usdPrice)
-            return usdBig
-        })
+        )
+
+        const wallet = computed(
+            (): Wallet => {
+                return mainStore.activeWallet as Wallet
+            }
+        )
+
+        const txFee = computed(
+            (): Big => {
+                let fee = avm.getTxFee()
+                return bnToBig(fee, 9)
+            }
+        )
+
+        const totalUSD = computed(
+            (): Big => {
+                let totalAsset = avaxTxSize.value.add(avm.getTxFee())
+                let bigAmt = bnToBig(totalAsset, 9)
+                let usdPrice = priceDict.value.usd
+                if (typeof usdPrice !== 'number' || isNaN(usdPrice)) {
+                    return Big(0)
+                }
+                let usdBig = bigAmt.times(usdPrice)
+                return usdBig
+            }
+        )
 
         const addresses = computed(() => {
             return mainStore.addresses
         })
 
-        const priceDict = computed((): priceDict => {
-            return mainStore.prices
-        })
+        const priceDict = computed(
+            (): priceDict => {
+                return mainStore.prices
+            }
+        )
 
         const nftUTXOs = computed((): UTXO[] => {
             return assetsStore.nftUTXOs
@@ -592,10 +712,13 @@ export default defineComponent({
         })
 
         return {
-
             offline,
             formType,
             batchMode,
+            utxoPreview,
+            multisigMode,
+            onBatchToggle,
+            onMultisigToggle,
             showAdvanced,
             isAjax,
             addressIn,
@@ -644,9 +767,8 @@ export default defineComponent({
             priceDict,
             nftUTXOs,
         }
-    }
+    },
 })
-
 </script>
 
 <style lang="scss">
@@ -855,8 +977,6 @@ label {
 //        word-break: break-word;
 //    }
 //}
-
-
 
 @include main.mobile-device {
     .transfer_card {

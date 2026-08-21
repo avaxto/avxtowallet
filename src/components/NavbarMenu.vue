@@ -67,6 +67,11 @@
                         <router-link to="/wallet/quickdelegate">Quick Delegate</router-link>
                     </v-list-item-title>
                 </v-list-item>
+                <v-list-item v-if="isAvalanche">
+                    <v-list-item-title>
+                        <router-link to="/wallet/psat">Multisig / PSAT</router-link>
+                    </v-list-item-title>
+                </v-list-item>
                 <v-list-item>
                     <v-list-item-title>
                         <router-link to="/wallet/launcher">Token Launcher</router-link>
