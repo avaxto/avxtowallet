@@ -8,10 +8,10 @@
         <h1>Token Launcher</h1>
         <p class="desc">
             Deploy your own ERC20 token to
-            <strong>{{ targetNetwork ? targetNetwork.name : 'the connected network' }}</strong>.
-            Choose a name, symbol, supply and decimals — the launcher compiles the standard
-            OpenZeppelin ERC20 template, signs the deployment with your active wallet and
-            broadcasts it via RPC. You receive the contract address and an explorer link.
+            <strong>{{ targetNetwork ? targetNetwork.name : 'the connected network' }}</strong>
+            . Choose a name, symbol, supply and decimals — the launcher compiles the standard
+            OpenZeppelin ERC20 template, signs the deployment with your active wallet and broadcasts
+            it via RPC. You receive the contract address and an explorer link.
         </p>
 
         <div v-if="!signer" class="card notice">
@@ -149,7 +149,7 @@
 
 <script lang="ts">
 import { defineComponent, ref, reactive, computed } from 'vue'
-import { useNotificationsStore } from '@/stores'
+import { useAssetsStore, useCChainSdkAssetsStore, useNotificationsStore } from '@/stores'
 import {
     deployToken,
     tokenExplorerUrl,
@@ -157,13 +157,18 @@ import {
     TokenLaunchResult,
 } from '@/js/TokenLauncher'
 import { activeEvmSigner } from '@/platforms/evmSigner'
+import { useActivePlatformStore } from '@/platforms'
+import { useEvmPortfolioStore } from '@/stores/evmPortfolio'
 import { explorerName } from '@/evm/networkRegistry'
+import type { EvmNetwork } from '@/evm/networkRegistry'
 import { authorizeSingle, SessionAuthCancelled } from '@/js/security/authorize'
 
 export default defineComponent({
     name: 'Launcher',
     setup() {
         const notifications = useNotificationsStore()
+        const assetsStore = useAssetsStore()
+        const platformStore = useActivePlatformStore()
 
         const form = reactive({
             name: '',
@@ -238,11 +243,51 @@ export default defineComponent({
             resultNetwork.value ? explorerName(resultNetwork.value) : 'the explorer'
         )
 
+        /**
+         * Refreshes whichever platform's portfolio actually holds the token
+         * that was just deployed and self-minted.
+         *
+         * `viaEvmPlatform` is captured alongside the signer at the top of
+         * deploy(), not re-read here — the signer's chain id alone can't tell
+         * platforms apart (the EVM platform's injected wallet can just as
+         * well be pointed at Avalanche C-Chain as at any other registry
+         * network), and re-reading `platformStore` at this point risks
+         * reading a platform the user switched to after the deploy started.
+         *
+         * Best-effort, same as every other post-send refresh in this app (see
+         * FormC.vue's identical comment): an explorer/indexer can lag a few
+         * seconds behind the RPC that just mined the deploy, so the very
+         * first refresh may still need a manual retry to show the new token.
+         */
+        const reloadPortfolio = (
+            viaEvmPlatform: boolean,
+            network: EvmNetwork,
+            authSubject: unknown
+        ): void => {
+            if (viaEvmPlatform) {
+                useEvmPortfolioStore()
+                    .refresh(network.isTestnet)
+                    .catch((e) =>
+                        console.warn('[Launcher] post-deploy portfolio refresh failed:', e)
+                    )
+                return
+            }
+            const wallet = authSubject as any
+            Promise.all([
+                wallet?.getEthBalance?.(),
+                assetsStore.updateERC20Balances(),
+                useCChainSdkAssetsStore().refresh(),
+            ]).catch((e) => console.warn('[Launcher] post-deploy portfolio refresh failed:', e))
+        }
+
         const deploy = async () => {
             // Resolved once, here, and used for the whole flow — re-reading it
             // mid-deploy could hand back a signer for a different chain than
             // the one the gas was estimated against.
             const activeSigner = signer.value
+            // Captured alongside the signer, for the same "resolve once"
+            // reason — see reloadPortfolio's doc.
+            const deployedViaEvmPlatform = platformStore.activePlatform?.descriptor.id === 'evm'
             if (!activeSigner || !canDeploy.value) return
             isDeploying.value = true
             result.value = null
@@ -268,12 +313,27 @@ export default defineComponent({
                     title: 'Token Deployed',
                     message: `${params.symbol} is live at ${res.contractAddress}`,
                 })
+
+                // An empty contractAddress is TokenLauncher's own signal that
+                // offline signing captured the transaction instead of
+                // broadcasting it (see deployToken) — nothing actually landed
+                // on-chain yet, so there is nothing for a portfolio refresh
+                // to pick up.
+                if (res.contractAddress) {
+                    reloadPortfolio(
+                        deployedViaEvmPlatform,
+                        activeSigner.network,
+                        activeSigner.authSubject
+                    )
+                }
             } catch (e: any) {
                 console.error('Token deployment failed', e)
                 notifications.add({
                     type: 'error',
                     title: 'Deployment Failed',
-                    message: e?.message || 'Could not deploy the token. Check your balance and try again.',
+                    message:
+                        e?.message ||
+                        'Could not deploy the token. Check your balance and try again.',
                 })
             } finally {
                 isDeploying.value = false
@@ -282,7 +342,11 @@ export default defineComponent({
 
         const copy = (text: string) => {
             navigator.clipboard?.writeText(text)
-            notifications.add({ type: 'info', title: 'Copied', message: 'Contract address copied.' })
+            notifications.add({
+                type: 'info',
+                title: 'Copied',
+                message: 'Contract address copied.',
+            })
         }
 
         return {
