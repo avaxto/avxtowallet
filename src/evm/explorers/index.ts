@@ -28,5 +28,5 @@ export function explorerAdapterFor(network: EvmNetwork): ExplorerAdapter | undef
 }
 
 export { MissingApiKeyError, ExplorerThrottledError } from './types'
-export type { DiscoveredToken, ExplorerAdapter } from './types'
+export type { ActivityPage, DiscoveredToken, EvmActivityTx, ExplorerAdapter } from './types'
 export { getEtherscanApiKey, setEtherscanApiKey, hasEtherscanApiKey } from './apiKey'

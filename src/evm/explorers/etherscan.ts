@@ -20,7 +20,8 @@
 import type { EvmNetwork } from '../networkRegistry'
 import { getEtherscanApiKey } from './apiKey'
 import { fetchExplorerJson } from './http'
-import { MissingApiKeyError, type DiscoveredToken, type ExplorerAdapter } from './types'
+import { MissingApiKeyError } from './types'
+import type { ActivityPage, DiscoveredToken, EvmActivityTx, ExplorerAdapter } from './types'
 
 interface EtherscanTokenTx {
     contractAddress: string
@@ -33,6 +34,60 @@ interface EtherscanResponse {
     status?: string
     message?: string
     result?: EtherscanTokenTx[] | string
+}
+
+/** Classic `txlist` response shape (unchanged by the V2 endpoint migration). */
+interface EtherscanTx {
+    hash: string
+    blockNumber: string
+    timeStamp: string
+    from: string
+    to: string
+    value: string
+    txreceipt_status: string
+    isError: string
+    contractAddress: string
+    /** e.g. "transfer(address,uint256)", or empty when un-decoded/a plain transfer. */
+    functionName: string
+}
+
+interface EtherscanTxListResponse {
+    status?: string
+    message?: string
+    result?: EtherscanTx[] | string
+}
+
+/** Requests beyond this are almost certainly a bug walking pages forever. */
+const TX_PAGE_SIZE = 25
+const MAX_PAGE = 1000
+
+function toActivityTx(tx: EtherscanTx): EvmActivityTx {
+    // functionName is the full signature ("transfer(address,uint256)");
+    // only the name reads as a label.
+    const method = tx.functionName ? tx.functionName.split('(')[0].trim() : null
+    return {
+        hash: tx.hash,
+        blockNumber: parseInt(tx.blockNumber, 10) || 0,
+        timestampMs: (parseInt(tx.timeStamp, 10) || 0) * 1000,
+        from: (tx.from ?? '').toLowerCase(),
+        to: tx.to ? tx.to.toLowerCase() : null,
+        valueWei: tx.value ?? '0',
+        isContractCreation: !tx.to && !!tx.contractAddress,
+        methodLabel: method || null,
+        status:
+            // txreceipt_status is only populated post-Byzantium; isError is
+            // the older, always-present signal — checked second so a chain
+            // that sets both is read from the more specific field.
+            tx.txreceipt_status === '1'
+                ? 'ok'
+                : tx.txreceipt_status === '0'
+                ? 'failed'
+                : tx.isError === '1'
+                ? 'failed'
+                : tx.isError === '0'
+                ? 'ok'
+                : 'unknown',
+    }
 }
 
 export const etherscanAdapter: ExplorerAdapter = {
@@ -78,5 +133,48 @@ export const etherscanAdapter: ExplorerAdapter = {
             })
         }
         return [...seen.values()]
+    },
+
+    async listTransactions(
+        address: string,
+        network: EvmNetwork,
+        cursor?: unknown
+    ): Promise<ActivityPage> {
+        const apiKey = getEtherscanApiKey()
+        if (!apiKey) throw new MissingApiKeyError(network.name)
+
+        // Classic txlist pages by number rather than a cursor, so the
+        // "cursor" here is just next page's index. Clamped rather than
+        // trusted blindly: this only ever comes back from this function's own
+        // previous nextCursor, but an unbounded page number is still a cheap
+        // guard against looping forever if that assumption is ever wrong.
+        const page = Math.min(typeof cursor === 'number' && cursor > 0 ? cursor : 1, MAX_PAGE)
+
+        const url =
+            `${network.explorerApi.url}?chainid=${network.evmChainId}` +
+            `&module=account&action=txlist&address=${address}` +
+            `&startblock=0&endblock=99999999&page=${page}&offset=${TX_PAGE_SIZE}` +
+            `&sort=desc&apikey=${apiKey}`
+
+        const raw = await fetchExplorerJson<EtherscanTxListResponse>(url)
+
+        // See discoverTokens above for why status/result-shape is checked
+        // ahead of message text.
+        if (raw?.status === '0' && !Array.isArray(raw.result)) {
+            const message = typeof raw.result === 'string' ? raw.result : raw.message
+            if (/no transactions found/i.test(message ?? '')) {
+                return { transactions: [], nextCursor: null }
+            }
+            throw new Error(`Etherscan: ${message ?? 'request failed'}`)
+        }
+
+        const rows = Array.isArray(raw?.result) ? raw.result : []
+        return {
+            transactions: rows.map(toActivityTx),
+            // A full page means there is likely another; an under-full page
+            // (including empty) is the last one — txlist has no other signal
+            // for "more remain".
+            nextCursor: rows.length === TX_PAGE_SIZE && page < MAX_PAGE ? page + 1 : null,
+        }
     },
 }

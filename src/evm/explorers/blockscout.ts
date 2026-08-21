@@ -19,7 +19,7 @@
  */
 import type { EvmNetwork } from '../networkRegistry'
 import { fetchExplorerJson } from './http'
-import type { DiscoveredToken, ExplorerAdapter } from './types'
+import type { ActivityPage, DiscoveredToken, EvmActivityTx, ExplorerAdapter } from './types'
 
 interface BlockscoutV2TokenBalance {
     token?: {
@@ -77,8 +77,7 @@ async function viaV2(address: string, network: EvmNetwork): Promise<DiscoveredTo
 
 async function viaTokenTx(address: string, network: EvmNetwork): Promise<DiscoveredToken[]> {
     const url =
-        `${network.explorerApi.url}?module=account&action=tokentx` +
-        `&address=${address}&sort=desc`
+        `${network.explorerApi.url}?module=account&action=tokentx` + `&address=${address}&sort=desc`
     const raw = await fetchExplorerJson<BlockscoutTokenTxResponse>(url)
 
     // This endpoint reports failure with HTTP 200 and status '0' — verified
@@ -117,6 +116,66 @@ async function viaTokenTx(address: string, network: EvmNetwork): Promise<Discove
     return [...seen.values()]
 }
 
+/**
+ * v2 transaction-list response shape.
+ *
+ * Confirmed directly against `eth.blockscout.com` — `method` comes back as
+ * either a decoded function name ("transfer") or, for a call the instance
+ * hasn't decoded, the raw 4-byte selector as a hex string; `toActivityTx`
+ * below is what tells those two apart before treating it as a label.
+ */
+interface BlockscoutV2Address {
+    hash?: string
+}
+
+interface BlockscoutV2Tx {
+    hash: string
+    block_number: number
+    /** ISO 8601, e.g. "2026-08-20T20:03:59.000000Z". */
+    timestamp: string
+    from?: BlockscoutV2Address
+    to?: BlockscoutV2Address | null
+    value?: string
+    status?: string
+    method?: string | null
+    created_contract?: BlockscoutV2Address | null
+}
+
+interface BlockscoutV2TxList {
+    items?: BlockscoutV2Tx[]
+    /** Echo verbatim as query params to fetch the next page; null on the last one. */
+    next_page_params?: Record<string, string | number> | null
+}
+
+function toActivityTx(tx: BlockscoutV2Tx): EvmActivityTx {
+    // A decoded name is a plain identifier; an un-decoded selector is "0x"
+    // followed by hex. Showing the latter as if it were a label would read as
+    // more informative than it actually is — see the interface doc.
+    const method = tx.method && !/^0x[0-9a-f]*$/i.test(tx.method) ? tx.method : null
+    return {
+        hash: tx.hash,
+        blockNumber: tx.block_number,
+        timestampMs: Date.parse(tx.timestamp) || 0,
+        from: (tx.from?.hash ?? '').toLowerCase(),
+        to: tx.to?.hash ? tx.to.hash.toLowerCase() : null,
+        valueWei: tx.value ?? '0',
+        isContractCreation: !!tx.created_contract,
+        methodLabel: method,
+        status: tx.status === 'ok' ? 'ok' : tx.status === 'error' ? 'failed' : 'unknown',
+    }
+}
+
+/** Builds the next-page query string from a `next_page_params` object, verbatim. */
+function cursorQueryString(cursor: unknown): string {
+    if (!cursor || typeof cursor !== 'object') return ''
+    const params = new URLSearchParams()
+    for (const [key, value] of Object.entries(cursor as Record<string, unknown>)) {
+        if (value !== undefined && value !== null) params.set(key, String(value))
+    }
+    const qs = params.toString()
+    return qs ? `?${qs}` : ''
+}
+
 export const blockscoutAdapter: ExplorerAdapter = {
     family: 'blockscout',
 
@@ -132,6 +191,22 @@ export const blockscoutAdapter: ExplorerAdapter = {
                 e
             )
             return await viaTokenTx(address, network)
+        }
+    },
+
+    async listTransactions(
+        address: string,
+        network: EvmNetwork,
+        cursor?: unknown
+    ): Promise<ActivityPage> {
+        const url =
+            `${network.explorerApi.url}/v2/addresses/${address}/transactions` +
+            cursorQueryString(cursor)
+        const raw = await fetchExplorerJson<BlockscoutV2TxList>(url)
+        const items = Array.isArray(raw?.items) ? raw.items : []
+        return {
+            transactions: items.map(toActivityTx),
+            nextCursor: raw?.next_page_params ?? null,
         }
     },
 }

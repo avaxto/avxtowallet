@@ -1,87 +1,95 @@
 <template>
     <div class="activity_page">
-        <ExportGlacierHistoryModal ref="glacier_csv_modal"></ExportGlacierHistoryModal>
-        <div class="explorer_warning" v-if="!hasExplorer">
-            <div class="warning_body">
-                <h1>{{ $t('activity.no_explorer.title') }}</h1>
-                <p>{{ $t('activity.no_explorer.desc') }}</p>
+        <!--
+            The EVM platform has its own transaction source entirely (see
+            EvmActivityList.vue's own doc) — everything below this belongs to
+            Avalanche's Glacier-backed history and is untouched by that branch.
+        -->
+        <EvmActivityList v-if="isGeneralEvm"></EvmActivityList>
+        <template v-else>
+            <ExportGlacierHistoryModal ref="glacier_csv_modal"></ExportGlacierHistoryModal>
+            <div class="explorer_warning" v-if="!hasExplorer">
+                <div class="warning_body">
+                    <h1>{{ $t('activity.no_explorer.title') }}</h1>
+                    <p>{{ $t('activity.no_explorer.desc') }}</p>
+                </div>
             </div>
-        </div>
-        <div class="settings">
-            <div class="filter_col">
-                <div class="filter_cont">
-                    <label>
-                        Export CSV File (BETA)
-                        <span style="font-size: 0.8em; opacity: 0.8" v-if="isCsvDisabled">
-                            Not Supported For This Network
-                        </span>
-                    </label>
-                    <div class="csv_buttons">
-                        <v-btn
-                            x-small
-                            depressed
-                            class="button_secondary"
-                            @click="openGlacierCsvModal"
-                            :disabled="isCsvDisabled"
-                        >
-                            Export History
+            <div class="settings">
+                <div class="filter_col">
+                    <div class="filter_cont">
+                        <label>
+                            Export CSV File (BETA)
+                            <span style="font-size: 0.8em; opacity: 0.8" v-if="isCsvDisabled">
+                                Not Supported For This Network
+                            </span>
+                        </label>
+                        <div class="csv_buttons">
+                            <v-btn
+                                x-small
+                                depressed
+                                class="button_secondary"
+                                @click="openGlacierCsvModal"
+                                :disabled="isCsvDisabled"
+                            >
+                                Export History
+                            </v-btn>
+                        </div>
+                    </div>
+                    <div class="filter_cont">
+                        <label>{{ $t('activity.label1') }}</label>
+                        <RadioButtons :labels="modes" :keys="modeKey" v-model="mode"></RadioButtons>
+                    </div>
+                </div>
+                <div v-if="showList">
+                    <div class="pagination">
+                        <p class="date_display">{{ monthNowName }} {{ yearNow }}</p>
+                        <div>
+                            <button @click="prevPage" :disabled="!isPrevPage">
+                                <fa icon="angle-left"></fa>
+                            </button>
+                            <button @click="nextPage" :disabled="!isNextPage">
+                                <fa icon="angle-right"></fa>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="pagination_info">
+                        <p>{{ $t('activity.found', [txs.length]) }}</p>
+                        <button @click="updateHistory">
+                            <fa icon="sync"></fa>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="tx_table" ref="list">
+                <div class="tx_list" v-show="showList">
+                    <virtual-list
+                        v-show="txs.length > 0"
+                        :style="{ height: `${listH}px`, overflowY: 'auto' }"
+                        :data-key="'txHash'"
+                        :data-sources="txsProcessed"
+                        :data-component="RowComponent"
+                        :keeps="20"
+                        ref="vlist"
+                        :estimate-size="txsProcessed.length"
+                    ></virtual-list>
+                    <div v-if="txs.length === 0" class="empty">
+                        <p>{{ $t('activity.empty') }}</p>
+                    </div>
+                </div>
+                <div v-if="!showList" class="loading">
+                    <template v-if="!isError">
+                        <Spinner class="spinner"></Spinner>
+                        <p>{{ $t('activity.loading') }}</p>
+                    </template>
+                    <template v-else>
+                        <p>Error Loading Activity History</p>
+                        <v-btn @click="updateHistory" class="button_secondary" small depressed>
+                            Try Again
                         </v-btn>
-                    </div>
-                </div>
-                <div class="filter_cont">
-                    <label>{{ $t('activity.label1') }}</label>
-                    <RadioButtons :labels="modes" :keys="modeKey" v-model="mode"></RadioButtons>
+                    </template>
                 </div>
             </div>
-            <div v-if="showList">
-                <div class="pagination">
-                    <p class="date_display">{{ monthNowName }} {{ yearNow }}</p>
-                    <div>
-                        <button @click="prevPage" :disabled="!isPrevPage">
-                            <fa icon="angle-left"></fa>
-                        </button>
-                        <button @click="nextPage" :disabled="!isNextPage">
-                            <fa icon="angle-right"></fa>
-                        </button>
-                    </div>
-                </div>
-                <div class="pagination_info">
-                    <p>{{ $t('activity.found', [txs.length]) }}</p>
-                    <button @click="updateHistory">
-                        <fa icon="sync"></fa>
-                    </button>
-                </div>
-            </div>
-        </div>
-        <div class="tx_table" ref="list">
-            <div class="tx_list" v-show="showList">
-                <virtual-list
-                    v-show="txs.length > 0"
-                    :style="{ height: `${listH}px`, overflowY: 'auto' }"
-                    :data-key="'txHash'"
-                    :data-sources="txsProcessed"
-                    :data-component="RowComponent"
-                    :keeps="20"
-                    ref="vlist"
-                    :estimate-size="txsProcessed.length"
-                ></virtual-list>
-                <div v-if="txs.length === 0" class="empty">
-                    <p>{{ $t('activity.empty') }}</p>
-                </div>
-            </div>
-            <div v-if="!showList" class="loading">
-                <template v-if="!isError">
-                    <Spinner class="spinner"></Spinner>
-                    <p>{{ $t('activity.loading') }}</p>
-                </template>
-                <template v-else>
-                    <p>Error Loading Activity History</p>
-                    <v-btn @click="updateHistory" class="button_secondary" small depressed>
-                        Try Again
-                    </v-btn>
-                </template>
-            </div>
-        </div>
+        </template>
     </div>
 </template>
 <script lang="ts">
@@ -97,6 +105,7 @@ import {
 // TransactionTypeName still used in txsTransfer/txsSwap/txsStake filters
 
 import TxRow from '@/components/wallet/activity/TxRow.vue'
+import EvmActivityList from '@/components/wallet/activity/EvmActivityList.vue'
 import RadioButtons from '@/components/misc/RadioButtons.vue'
 import Spinner from '@/components/misc/Spinner.vue'
 //@ts-ignore
@@ -108,6 +117,7 @@ import { BlockchainId } from '@avalabs/glacier-sdk'
 import ExportGlacierHistoryModal from '@/components/modals/ExportGlacierHistoryModal.vue'
 import { isMainnetNetworkID } from '@/utils/network-utils'
 import { isTestnetNetworkID } from '@/utils/network-utils'
+import { useActivePlatformStore } from '@/platforms'
 
 type FilterModeType = 'all' | 'transfer' | 'export_import' | 'stake'
 type ModeKeyType = 'all' | 'transfer' | 'swap' | 'stake'
@@ -126,11 +136,20 @@ export default defineComponent({
         TxRow,
         RadioButtons,
         VirtualList,
+        EvmActivityList,
     },
     setup() {
         const networkStore = useNetworkStore()
         const historyStore = useHistoryStore()
+        const platformStore = useActivePlatformStore()
         const { t } = useI18n()
+
+        // Gates the whole page between Avalanche's Glacier-backed history
+        // (below, untouched) and EvmActivityList's own explorer-backed one —
+        // see the template comment at the top of this file.
+        const isGeneralEvm = computed(
+            (): boolean => platformStore.activePlatform?.descriptor.id === 'evm'
+        )
 
         const mode = ref<ModeKeyType>('all')
         const modes = [
@@ -391,6 +410,7 @@ export default defineComponent({
         })
 
         return {
+            isGeneralEvm,
             mode,
             modes,
             modeKey,
@@ -434,7 +454,7 @@ export default defineComponent({
             scrollToTop,
             setScrollHeight,
         }
-    }
+    },
 })
 </script>
 <style scoped lang="scss">

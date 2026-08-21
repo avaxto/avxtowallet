@@ -28,40 +28,48 @@
             </v-list>
         </v-menu>
 
-        <v-menu offset-y v-if="isAvalanche">
+        <v-menu offset-y v-if="isAvalanche || isEvm">
             <template v-slot:activator="{ props }">
                 <v-btn text v-bind="props" class="menu-btn">Toolbox</v-btn>
             </template>
             <v-list>
                 <!--
                     Addresses / Address Derivation / Unify Chains / Quick
-                    Delegate only — these are all X/P-chain and staking
-                    concepts, so there is nothing for them to do on a
-                    single-EVM-chain platform, which is also why the whole
-                    menu is gated on `isAvalanche` above rather than each item
-                    individually. Wallet Generator/Wizard, Token Launcher and
-                    Broadcast TX used to live here too; dropped from this menu
-                    (not deleted — their routes/pages are untouched) at the
-                    user's request to narrow it to these four.
+                    Delegate are X/P-chain and staking concepts, so they are
+                    gated per-item on `isAvalanche` now that the menu itself
+                    is shown on the EVM platform too — there is nothing for
+                    them to do on a single-EVM-chain platform. Token Launcher
+                    is the opposite: it deploys a plain ERC-20, which is
+                    equally meaningful on either platform (see
+                    js/TokenLauncher.ts — chain-neutral via EvmSigner), so it
+                    carries no gate of its own. It used to live here
+                    unconditionally, was dropped at an earlier request to
+                    narrow this menu to the four Avalanche-only items, and is
+                    back now that the menu covers EVM as well.
                 -->
-                <v-list-item>
+                <v-list-item v-if="isAvalanche">
                     <v-list-item-title>
                         <router-link to="/wallet/addresses">Addresses</router-link>
                     </v-list-item-title>
                 </v-list-item>
-                <v-list-item>
+                <v-list-item v-if="isAvalanche">
                     <v-list-item-title>
                         <router-link to="/wallet/addresses/derive">Address Derivation</router-link>
                     </v-list-item-title>
                 </v-list-item>
-                <v-list-item>
+                <v-list-item v-if="isAvalanche">
                     <v-list-item-title>
                         <router-link to="/wallet/unifychains">Unify Chains</router-link>
                     </v-list-item-title>
                 </v-list-item>
-                <v-list-item>
+                <v-list-item v-if="isAvalanche">
                     <v-list-item-title>
                         <router-link to="/wallet/quickdelegate">Quick Delegate</router-link>
+                    </v-list-item-title>
+                </v-list-item>
+                <v-list-item>
+                    <v-list-item-title>
+                        <router-link to="/wallet/launcher">Token Launcher</router-link>
                     </v-list-item-title>
                 </v-list-item>
             </v-list>

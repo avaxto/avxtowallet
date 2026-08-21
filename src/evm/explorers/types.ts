@@ -37,6 +37,40 @@ export interface DiscoveredToken {
     logoUri?: string
 }
 
+/** One transaction involving an address, as reported by an explorer. */
+export interface EvmActivityTx {
+    hash: string
+    blockNumber: number
+    timestampMs: number
+    from: string
+    /** Null for a contract-creation transaction — there is no recipient. */
+    to: string | null
+    /** Native-asset amount moved, in wei. */
+    valueWei: string
+    isContractCreation: boolean
+    /**
+     * A human-readable label for what the call did — a decoded function name
+     * when the explorer has one, or null for a plain value transfer or an
+     * unrecognised selector. Never a raw `0x…` selector: showing one of those
+     * as if it were a label reads as more informative than it actually is.
+     */
+    methodLabel: string | null
+    status: 'ok' | 'failed' | 'unknown'
+}
+
+/** One page of `EvmActivityTx`, with whatever the adapter needs to fetch the next one. */
+export interface ActivityPage {
+    transactions: EvmActivityTx[]
+    /**
+     * Opaque — pass back as-is (as `cursor`) to fetch the next page. Its
+     * shape is a private detail of whichever adapter produced it (Blockscout
+     * hands back a param object to echo verbatim; Etherscan's classic API
+     * just wants a page number) — callers must not construct or inspect one.
+     * Null when there is not a next page.
+     */
+    nextCursor: unknown | null
+}
+
 export interface ExplorerAdapter {
     /** Which `explorerApi.family` value this adapter serves. */
     readonly family: string
@@ -47,6 +81,18 @@ export interface ExplorerAdapter {
      * throw degrades one network rather than the whole portfolio.
      */
     discoverTokens(address: string, network: EvmNetwork): Promise<DiscoveredToken[]>
+    /**
+     * Recent transactions where `address` is sender, recipient, or (for a
+     * contract creation) the deployer — newest first. Omit `cursor` for the
+     * first page.
+     *
+     * Optional: Avalanche's `glacierAdapter` deliberately does not implement
+     * this — the wallet's existing Glacier-backed activity page already
+     * covers Avalanche in full, with far richer detail (staking, X/P atomic
+     * transfers, decoded ERC-20 transfers) than a generic explorer API can
+     * offer. This exists only for the networks that path can't reach.
+     */
+    listTransactions?(address: string, network: EvmNetwork, cursor?: unknown): Promise<ActivityPage>
 }
 
 /** Thrown when a network's explorer needs an API key that has not been set. */
