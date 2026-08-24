@@ -54,6 +54,23 @@
                     {{ statusTitle }}
                 </h2>
                 <p>{{ statusDetail }}</p>
+                <p v-if="createdMultisigOutputs.length" class="creates_multisig_note">
+                    <fa icon="info-circle"></fa>
+                    <span>
+                        "Fully signed" means every signature THIS transaction itself needs is
+                        present — that is just your own, since it spends your ordinary funds. It
+                        also
+                        <strong>creates</strong>
+                        {{ createdMultisigOutputs.length === 1 ? 'an output' : 'outputs' }}
+                        that will need
+                        <span v-for="(o, i) in createdMultisigOutputs" :key="i">
+                            <strong>{{ o.threshold }}-of-{{ o.owners.length }}</strong>
+                            <template v-if="i < createdMultisigOutputs.length - 1">,</template>
+                        </span>
+                        signatures to spend later — that requirement has not been touched by anyone
+                        signing this transaction, and can't be until a future transaction spends it.
+                    </span>
+                </p>
                 <p v-if="summary.hasUnresolvedOwners" class="unresolved_note">
                     Some inputs' owner lists could not be resolved — this transaction was shared
                     without them and they are not part of an Avalanche transaction's own bytes.
@@ -310,6 +327,24 @@ export default defineComponent({
             )
         })
 
+        /**
+         * Multisig outputs this transaction CREATES, as opposed to spends.
+         *
+         * The reason for the separate note in the template: a transaction
+         * funding an M-of-N output is complete the moment its own (ordinary,
+         * single-signer) inputs are signed — that M-of-N requirement belongs
+         * to whichever FUTURE transaction spends the output, not to this one.
+         * Without calling that out, "Fully signed" on a freshly created
+         * multisig-funding transaction reads as "the M-of-N has been
+         * satisfied", which is backwards — nobody has signed anything on the
+         * output side yet, because there is nothing to sign until it exists
+         * on chain and someone builds a transaction spending it.
+         */
+        const createdMultisigOutputs = computed(() => {
+            if (!summary.value) return []
+            return summary.value.outputs.filter((o) => o.isMultisig)
+        })
+
         const statusState = computed((): string => {
             if (!summary.value) return 'none'
             if (summary.value.complete) return 'complete'
@@ -490,6 +525,7 @@ export default defineComponent({
             outputBase64,
             broadcastId,
             mySlotCount,
+            createdMultisigOutputs,
             statusState,
             statusIcon,
             statusTitle,
@@ -596,6 +632,24 @@ export default defineComponent({
     border-left: 3px solid var(--warning);
     border-radius: 4px;
     font-size: 12px;
+}
+
+.creates_multisig_note {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+    padding: 10px;
+    background: var(--bg);
+    border-left: 3px solid var(--secondary-color);
+    border-radius: 4px;
+    font-size: 12px;
+    line-height: 1.55;
+
+    > svg {
+        color: var(--secondary-color);
+        flex-shrink: 0;
+        margin-top: 2px;
+    }
 }
 
 .entry {
