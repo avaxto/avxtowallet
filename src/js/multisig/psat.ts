@@ -544,3 +544,15 @@ export async function signPsat(
 export function sourceUtxoList(decoded: DecodedPsat): AVMUTXO[] {
     return [...decoded.sourceUtxos.values()]
 }
+
+/**
+ * Encodes a freshly-built, not-yet-signed transaction as a PSAT.
+ *
+ * A transaction built in-app (see `js/multisig/spend.ts`) hands off straight
+ * into `Psat.vue`'s own review/sign/share/broadcast flow via this — the page
+ * treats it exactly like a pasted one (see `decodePsat`'s credential-less
+ * branch), so there is no second signing implementation to keep in sync.
+ */
+export function encodeUnsignedPsat(unsignedTx: AVMUnsignedTx, sourceUtxos: AVMUTXO[]): string {
+    return encodePsat(new AVMTx(unsignedTx, []), sourceUtxos)
+}

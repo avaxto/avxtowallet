@@ -11,7 +11,7 @@
                 <div class="batch_toggle_row">
                     <ChainInput
                         v-model="formType"
-                        :disabled="isConfirm || batchMode || multisigMode"
+                        :disabled="isConfirm || batchMode || multisigMode || spendMultisigMode"
                     ></ChainInput>
                     <label class="batch_switch">
                         <input
@@ -31,8 +31,18 @@
                         />
                         Multisig output (several owners)
                     </label>
+                    <label class="batch_switch">
+                        <input
+                            type="checkbox"
+                            v-model="spendMultisigMode"
+                            :disabled="isConfirm"
+                            @change="onSpendMultisigToggle"
+                        />
+                        Spend a multisig balance
+                    </label>
                 </div>
-                <MultisigFormX v-if="multisigMode"></MultisigFormX>
+                <MultisigSpendFormX v-if="spendMultisigMode"></MultisigSpendFormX>
+                <MultisigFormX v-else-if="multisigMode"></MultisigFormX>
                 <BatchFormX v-else-if="batchMode"></BatchFormX>
                 <template v-else>
                     <div class="lists">
@@ -213,6 +223,7 @@ import { ChainIdType } from '@/constants'
 import ChainInput from '@/components/wallet/transfer/ChainInput.vue'
 import BatchFormX from '@/components/wallet/transfer/BatchFormX.vue'
 import MultisigFormX from '@/components/wallet/transfer/MultisigFormX.vue'
+import MultisigSpendFormX from '@/components/wallet/transfer/MultisigSpendFormX.vue'
 import UtxoPreview from '@/components/wallet/transfer/UtxoPreview.vue'
 import { previewFromTx } from '@/js/utxoPreview'
 import type { UtxoPreview as UtxoPreviewData } from '@/js/utxoPreview'
@@ -238,6 +249,7 @@ export default defineComponent({
         ChainInput,
         BatchFormX,
         MultisigFormX,
+        MultisigSpendFormX,
         UtxoPreview,
     },
     setup() {
@@ -266,13 +278,30 @@ export default defineComponent({
         // the batch one — a batch of multisig outputs is a different feature,
         // so the two are mutually exclusive instead of silently combining.
         const multisigMode = ref(false)
+        // Spending FROM an existing multisig UTXO is a different transaction
+        // shape again (see js/multisig/spend.ts) — same exclusivity as the
+        // other two.
+        const spendMultisigMode = ref(false)
 
         const onBatchToggle = () => {
-            if (batchMode.value) multisigMode.value = false
+            if (batchMode.value) {
+                multisigMode.value = false
+                spendMultisigMode.value = false
+            }
         }
 
         const onMultisigToggle = () => {
-            if (multisigMode.value) batchMode.value = false
+            if (multisigMode.value) {
+                batchMode.value = false
+                spendMultisigMode.value = false
+            }
+        }
+
+        const onSpendMultisigToggle = () => {
+            if (spendMultisigMode.value) {
+                batchMode.value = false
+                multisigMode.value = false
+            }
         }
         const showAdvanced = ref(false)
         const isAjax = ref(false)
@@ -715,6 +744,8 @@ export default defineComponent({
             offline,
             formType,
             batchMode,
+            spendMultisigMode,
+            onSpendMultisigToggle,
             utxoPreview,
             multisigMode,
             onBatchToggle,

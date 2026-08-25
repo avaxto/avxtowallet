@@ -220,7 +220,8 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, computed } from 'vue'
+import { defineComponent, ref, computed, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import Big from 'big.js'
 
 import { BN } from '@/avalanche'
@@ -249,6 +250,7 @@ export default defineComponent({
         const mainStore = useMainStore()
         const assetsStore = useAssetsStore()
         const notifications = useNotificationsStore()
+        const route = useRoute()
 
         const input = ref('')
         const decoded = ref<DecodedPsat | null>(null)
@@ -318,6 +320,24 @@ export default defineComponent({
             outputBase64.value = ''
             broadcastId.value = ''
         }
+
+        // A transaction built elsewhere in the wallet (currently just the
+        // multisig-spend builder) can hand off straight into this page's own
+        // review/sign/share/broadcast flow instead of duplicating it —
+        // arrives as ?tx=<base64 psat>. A watcher rather than onMounted:
+        // this route stays alive under Wallet.vue's <keep-alive>, so a
+        // second hand-off (build another spend, land here again) would
+        // never re-fire a mount-only hook.
+        watch(
+            () => route.query.tx,
+            (tx) => {
+                if (typeof tx === 'string' && tx.trim()) {
+                    input.value = tx
+                    load()
+                }
+            },
+            { immediate: true }
+        )
 
         const mySlotCount = computed((): number => {
             if (!summary.value) return 0
