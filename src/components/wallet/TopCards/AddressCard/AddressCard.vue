@@ -159,10 +159,12 @@ export default defineComponent({
         const savedIndexX = ref<number>(0)
         const savedIndexP = ref<number>(0)
         const newAddrLoading = ref(false)
+        // Injected wallets are EVM-native (MetaMask/Core speak eth_* first), so
+        // C is the right landing tab for them. Every other wallet type —
+        // private-key included, since it derives X/P from the same key — lands
+        // on X like the rest of the Avalanche platform.
         const chainNow = ref<ChainIdType>(
-            (['injected', 'singleton'] as string[]).includes(
-                mainStore.activeWallet?.type ?? ''
-            ) ? 'C' : 'X'
+            mainStore.activeWallet?.type === 'injected' ? 'C' : 'X'
         )
         const showBech = ref(false)
         
@@ -451,9 +453,9 @@ export default defineComponent({
             addrIndex.value = startIndex
         })
 
-        // Force C-chain view for injected and singleton (private key) wallets
+        // Land injected wallets on C — see the chainNow initializer above.
         watch(activeWallet, (wallet) => {
-            if (wallet?.type === 'injected' || wallet?.type === 'singleton') {
+            if (wallet?.type === 'injected') {
                 chainNow.value = 'C'
             }
         }, { immediate: true })

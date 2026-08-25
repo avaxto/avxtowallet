@@ -14,7 +14,7 @@
                     {{ $t('wallet.sidebar.send') }}
                 </router-link>
                 <router-link
-                    v-if="!isSingleton && canCrossChain"
+                    v-if="canCrossChain"
                     to="/wallet/cross_chain"
                     data-cy="wallet_export"
                     class="wallet_export wallet_link"
@@ -105,7 +105,6 @@
 </template>
 <script>
 import { defineComponent, computed } from 'vue'
-import { useMainStore } from '@/stores'
 import { useActivePlatformStore } from '@/platforms'
 import LanguageSelect from '@/components/misc/LanguageSelect/LanguageSelect.vue'
 import AccountMenu from '@/components/wallet/sidebar/AccountMenu.vue'
@@ -119,10 +118,8 @@ export default defineComponent({
         PlatformLogo,
     },
     setup() {
-        const mainStore = useMainStore()
         const platformStore = useActivePlatformStore()
 
-        const isSingleton = computed(() => mainStore.activeWallet?.type === 'singleton')
 
         // Nav entries are gated on what the active platform declares, not on
         // which platform it is. A single-EVM-chain platform (Robinhood,
@@ -135,7 +132,6 @@ export default defineComponent({
         const canOfflineSigning = computed(() => platformStore.can('offlineSigning'))
 
         return {
-            isSingleton,
             isMultiChain,
             canCrossChain,
             canStake,

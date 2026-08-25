@@ -32,10 +32,13 @@ export default defineComponent({
             return !!wallet.ethAddress
         })
 
+        // Presence of the address is the whole test — a private-key
+        // (singleton) wallet derives X and P from the same public key as its
+        // C address (see SingletonWallet.refreshAddresses), so it belongs
+        // here just as much as an HD wallet does.
         const isXSupported = computed(() => {
             const wallet: Wallet | null = mainStore.activeWallet as Wallet | null
             if (!wallet) return false
-            if (wallet.type === 'singleton') return false
 
             const xAddress = wallet.getCurrentAddressAvm()
             return !!xAddress
@@ -44,7 +47,6 @@ export default defineComponent({
         const isPSupported = computed(() => {
             const wallet: Wallet | null = mainStore.activeWallet as Wallet | null
             if (!wallet) return false
-            if (wallet.type === 'singleton') return false
             const pAddress = wallet.getCurrentAddressPlatform()
             return !!pAddress
         })

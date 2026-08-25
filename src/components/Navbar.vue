@@ -54,7 +54,7 @@
                 <template v-if="isAuth">
                     <router-link to="/wallet">{{ $t('wallet.sidebar.portfolio') }}</router-link>
                     <router-link to="/wallet/transfer">{{ $t('wallet.sidebar.send') }}</router-link>
-                    <router-link v-if="!isSingleton && canCrossChain" to="/wallet/cross_chain">
+                    <router-link v-if="canCrossChain" to="/wallet/cross_chain">
                         {{ $t('wallet.sidebar.export') }}
                     </router-link>
                     <router-link v-if="canStake" to="/wallet/earn">
@@ -131,7 +131,6 @@ export default defineComponent({
             return platformStore.activeWallet !== null
         })
 
-        const isSingleton = computed(() => mainStore.activeWallet?.type === 'singleton')
 
         const avaxPriceText = computed((): string | null => {
             // The price feed only tracks AVAX, so this must not render while a
@@ -180,7 +179,6 @@ export default defineComponent({
             isDrawer,
             popupOpen,
             isAuth,
-            isSingleton,
             avaxPriceText,
             isConnecting,
             isMultiChain,

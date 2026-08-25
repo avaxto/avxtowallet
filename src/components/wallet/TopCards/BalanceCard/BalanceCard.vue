@@ -18,7 +18,7 @@
                 <button
                     @click="showUTXOsModal"
                     class="breakdown_toggle"
-                    v-if="!isSingleton && (hasXChain || hasPChain)"
+                    v-if="hasXChain || hasPChain"
                 >
                     Show UTXOs
                 </button>
@@ -60,18 +60,18 @@
                             <label>Multisig</label>
                             <p>{{ balanceTextMultisig }} AVAX</p>
                         </div>
-                        <div v-if="!isSingleton && canStake">
+                        <div v-if="canStake">
                             <label>{{ $t('top.balance.stake') }}</label>
                             <p>{{ stakingText }} AVAX</p>
                         </div>
                     </div>
                     <div class="alt_breakdown" v-else>
                         <div>
-                            <div class="balance-item" v-if="!isSingleton && hasXChain">
+                            <div class="balance-item" v-if="hasXChain">
                                 <label>{{ $t('top.balance.available') }} (X)</label>
                                 <p>{{ cleanAvaxBN(avmUnlocked) }} AVAX</p>
                             </div>
-                            <div class="balance-item" v-if="!isSingleton && hasPChain">
+                            <div class="balance-item" v-if="hasPChain">
                                 <label>{{ $t('top.balance.available') }} (P)</label>
                                 <p>{{ cleanAvaxBN(platformUnlocked) }} AVAX</p>
                             </div>
@@ -104,7 +104,7 @@
                                 <p>{{ cleanAvaxBN(platformMultisig) }} AVAX</p>
                             </div>
                         </div>
-                        <div v-if="!isSingleton && canStake">
+                        <div v-if="canStake">
                             <div class="balance-item">
                                 <label>{{ $t('top.balance.stake') }}</label>
                                 <p>{{ stakingText }} AVAX</p>
@@ -266,7 +266,6 @@ export default defineComponent({
 
         const totalBalance = computed((): BN => {
             if (!ava_asset.value) return new BN(0)
-            if (isSingleton.value) return evmUnlocked.value
 
             let tot = ava_asset.value.getTotalAmount()
             // add EVM balance
@@ -393,10 +392,6 @@ export default defineComponent({
             if (ava_asset.value && ava_asset.value.denomination !== undefined) {
                 let denom = ava_asset.value.denomination
 
-                if (isSingleton.value) {
-                    return bnToBig(evmUnlocked.value, denom).toLocaleString(denom)
-                }
-
                 let xUnlocked = ava_asset.value.amount
                 let pUnlocked = platformUnlocked.value
 
@@ -466,11 +461,6 @@ export default defineComponent({
             return typeMap[wallet.value?.type ?? ''] ?? ''
         })
 
-        const isSingleton = computed((): boolean => {
-            if (!wallet.value) return false
-            return wallet.value.type === 'singleton'
-        })
-
         const isUpdatingBalance = computed((): boolean => {
             if (!isAvalanche.value) return isFetchingPlatformBalance.value
             if (!wallet.value) return true
@@ -482,7 +472,6 @@ export default defineComponent({
         })
 
         const hasLocked = computed((): boolean => {
-            if (isSingleton.value) return false
             if (!hasXChain.value && !hasPChain.value) return false
             return (
                 !avmLocked.value.isZero() ||
@@ -492,7 +481,6 @@ export default defineComponent({
         })
 
         const hasMultisig = computed((): boolean => {
-            if (isSingleton.value) return false
             if (!hasXChain.value && !hasPChain.value) return false
             return !avmMultisig.value.isZero() || !platformMultisig.value.isZero()
         })
@@ -535,7 +523,6 @@ export default defineComponent({
             stakingText,
             wallet,
             isInjected,
-            isSingleton,
             walletTypeLabel,
             isUpdatingBalance,
             priceDict,
