@@ -29,6 +29,7 @@
             </p>
             <network-menu v-if="isAvalanche"></network-menu>
             <evm-network-menu v-else-if="isEvm"></evm-network-menu>
+            <solana-network-menu v-else-if="isSolana"></solana-network-menu>
 
         </div>
 
@@ -83,6 +84,7 @@ import LanguageSelect from './misc/LanguageSelect/LanguageSelect.vue'
 
 import NetworkMenu from './NetworkSettings/NetworkMenu.vue'
 import EvmNetworkMenu from './NetworkSettings/EvmNetworkMenu.vue'
+import SolanaNetworkMenu from './NetworkSettings/SolanaNetworkMenu.vue'
 
 import AccountMenu from '@/components/wallet/sidebar/AccountMenu.vue'
 import PlatformLogo from '@/components/misc/PlatformLogo.vue'
@@ -94,6 +96,7 @@ export default defineComponent({
         AccountMenu,
         NetworkMenu,
         EvmNetworkMenu,
+        SolanaNetworkMenu,
         LanguageSelect,
         PlatformLogo
     },
@@ -122,6 +125,7 @@ export default defineComponent({
             () => platformStore.hasChainKind('utxo') || platformStore.hasChainKind('staking')
         )
         const isEvm = computed(() => platformStore.activePlatformId === 'evm')
+        const isSolana = computed(() => platformStore.activePlatformId === 'solana')
 
         // `mainStore.isAuth` only ever reflects Avalanche access — each
         // platform keeps its own session store (see
@@ -191,6 +195,7 @@ export default defineComponent({
             canStake,
             isAvalanche,
             isEvm,
+            isSolana,
             togglePopup,
             connectWallet,
         }

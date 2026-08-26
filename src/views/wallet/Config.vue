@@ -88,8 +88,12 @@
                 </v-btn>
             </div>
 
-            <!-- ── Network Endpoints ─────────────────────────────────── -->
-            <div class="grid_box">
+            <!--
+              Avalanche-only: these fields write to Avalanche's own network
+              store (stores/network.ts). Gated on chain shape rather than a
+              platform id, matching how the rest of the app hides X/P surfaces.
+            -->
+            <div class="grid_box" v-if="isAvalanche">
                 <h3>Network Endpoints</h3>
                 <p class="description">
                     Active network:
@@ -150,6 +154,50 @@
                     Apply
                 </v-btn>
             </div>
+
+            <!-- ── Solana RPC ─────────────────────────────────────────── -->
+            <div class="grid_box" v-if="isSolana">
+                <h3>Solana RPC</h3>
+                <p class="description">
+                    Cluster: <strong>{{ solClusterName }}</strong>. The public
+                    <span class="mono">api.*.solana.com</span> endpoints are heavily rate-limited
+                    and often refuse browser requests outright — point this at your own RPC
+                    provider for reliable balances and sends.
+                </p>
+
+                <div class="form_row">
+                    <label>RPC Endpoint URL</label>
+                    <input
+                        type="text"
+                        v-model="solRpc"
+                        :placeholder="solDefaultRpc"
+                        class="field"
+                        autocomplete="off"
+                        name="config-sol-rpc"
+                        data-1p-ignore
+                        data-lpignore="true"
+                    />
+                </div>
+
+                <p class="hint" v-if="!solIsOverridden">
+                    Currently using the default public endpoint.
+                </p>
+                <p class="form_error" v-if="solErr">{{ solErr }}</p>
+
+                <div class="sol_buttons">
+                    <v-btn class="button_primary save_btn" size="small" @click="applySolRpc">
+                        Apply
+                    </v-btn>
+                    <v-btn
+                        class="button_secondary save_btn"
+                        size="small"
+                        v-if="solIsOverridden"
+                        @click="resetSolRpc"
+                    >
+                        Reset to default
+                    </v-btn>
+                </div>
+            </div>
         </div>
     </div>
 </template>
@@ -159,6 +207,9 @@ import { defineComponent, ref, computed, watch } from 'vue'
 import { globalRateLimiter } from '@/providers/rate_limiter'
 import { useNetworkStore } from '@/stores/network'
 import { useStatusBarStore, useOfflineSigningStore } from '@/stores'
+import { useActivePlatformStore } from '@/platforms'
+import { getSolanaNetworkById, setSolanaRpcOverride } from '@/solana/networks'
+import { resetConnections } from '@/solana/rpc'
 
 export default defineComponent({
     name: 'Config',
@@ -166,6 +217,12 @@ export default defineComponent({
         const networkStore = useNetworkStore()
         const statusBar = useStatusBarStore()
         const offline = useOfflineSigningStore()
+        const platformStore = useActivePlatformStore()
+
+        const isAvalanche = computed(
+            () => platformStore.hasChainKind('utxo') || platformStore.hasChainKind('staking')
+        )
+        const isSolana = computed(() => platformStore.hasChainKind('solana'))
 
         const onOfflineToggle = (e: Event) => {
             offline.setEnabled((e.target as HTMLInputElement).checked)
@@ -249,8 +306,63 @@ export default defineComponent({
             }
         }
 
+        // ── Solana RPC override ──────────────────────────────────────────────
+        // The Solana store is only constructed when that platform is active, so
+        // the cluster is read through the platform's own network accessor
+        // rather than by importing the store unconditionally.
+        const solNetwork = computed(() =>
+            isSolana.value
+                ? getSolanaNetworkById(
+                      platformStore.activePlatform?.getActiveNetwork?.()?.id ?? ''
+                  ) ?? null
+                : null
+        )
+        const solClusterName = computed(() => solNetwork.value?.name ?? '')
+        const solDefaultRpc = computed(() => solNetwork.value?.defaultRpcUrl ?? '')
+        const solIsOverridden = computed(
+            () => !!solNetwork.value && solNetwork.value.rpcUrl !== solNetwork.value.defaultRpcUrl
+        )
+
+        const solRpc = ref<string>('')
+        const solErr = ref<string>('')
+
+        watch(
+            solNetwork,
+            (n) => {
+                // Show the override if there is one, and leave the field empty
+                // otherwise so the placeholder can show the default.
+                solRpc.value = n && n.rpcUrl !== n.defaultRpcUrl ? n.rpcUrl : ''
+            },
+            { immediate: true }
+        )
+
+        const applySolRpc = (): void => {
+            const n = solNetwork.value
+            if (!n) return
+            solErr.value = ''
+            const value = solRpc.value.trim()
+            try {
+                setSolanaRpcOverride(n.id, value === '' ? null : value)
+                // Cached Connections are keyed by URL, so drop them or reads
+                // would keep going to the old endpoint for this session.
+                resetConnections()
+                statusBar.success(
+                    value === '' ? 'Solana RPC reset to default.' : 'Solana RPC updated.'
+                )
+            } catch (e: any) {
+                solErr.value = e?.message ?? String(e)
+            }
+        }
+
+        const resetSolRpc = (): void => {
+            solRpc.value = ''
+            applySolRpc()
+        }
+
         return {
             offline,
+            isAvalanche,
+            isSolana,
             onOfflineToggle,
             // Rate limiting
             rlMaxRequests,
@@ -268,6 +380,15 @@ export default defineComponent({
             netErr,
             netLoading,
             applyNetwork,
+
+            // Solana RPC
+            solClusterName,
+            solDefaultRpc,
+            solIsOverridden,
+            solRpc,
+            solErr,
+            applySolRpc,
+            resetSolRpc,
         }
     },
 })
@@ -384,5 +505,15 @@ h1 {
     .grids {
         grid-template-columns: none;
     }
+}
+
+.sol_buttons {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.mono {
+    font-family: monospace;
 }
 </style>

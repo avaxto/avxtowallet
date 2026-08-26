@@ -17,36 +17,54 @@ platforms/
   store.ts             useActivePlatformStore — which platform is active
   theme.ts             applies a platform's interface tint
   plannedPlatform.ts   helper for not-yet-implemented entries
+  tokenRegistryHelpers.ts  shared anti-spoofing matching for token registries
   index.ts             registers every platform (imported once from main.ts)
   avalanche/           multi-chain (X/P/C), wraps the existing implementation
-  robinhood/           Robinhood Chain — single EVM L2, self-contained
-  ethereum/            \
-  solana/               |  descriptor-only stubs, status: 'planned'
-  bitcoin/             /   listed in the UI but not loggable
+  evm/                 every EVM chain — differentiates by network, not platform
+  solana/              SOL + SPL, injected and local-key custody
+  bitcoin/             descriptor-only stub, status: 'planned'
 ```
+
+Chain-level support code lives outside this folder, one directory per chain
+family: `src/evm/` (network registry, providers, explorers) and `src/solana/`
+(clusters, SLIP-0010 derivation, RPC, SPL reads). `platforms/<id>/` holds the
+wallet, the session store and the `Platform` object; `src/<family>/` holds the
+primitives those are built from.
 
 ## Current state
 
-**Avalanche and Robinhood Chain are implemented.** Avalanche is the default
+**Avalanche, EVM and Solana are implemented.** Avalanche is the default
 (`DEFAULT_PLATFORM_ID` in `registry.ts`), so with no saved preference the app
 behaves exactly as it always has.
 
-The other three are **descriptor-only stubs**: `status: 'planned'`, no access
-methods, all capabilities `false`, no chains or networks. The registry reports
-them unavailable and the picker renders them disabled — there is no code path
-that logs into one.
+Bitcoin is a **descriptor-only stub**: `status: 'planned'`, no access methods,
+all capabilities `false`, no chains or networks. The registry reports it
+unavailable and the picker renders it disabled — there is no code path that
+logs into it.
 
 ### Chain shape — how X/P features hide themselves
 
 A platform declares its sub-chains via `chains: PlatformChain[]`, each tagged
-`kind: 'evm' | 'utxo' | 'staking'`. Avalanche declares three (X = utxo,
-P = staking, C = evm); Robinhood declares one evm chain.
+`kind: 'evm' | 'utxo' | 'staking' | 'solana'`. Avalanche declares three
+(X = utxo, P = staking, C = evm); EVM declares one evm chain; Solana declares
+one `solana` chain.
+
+`solana` is deliberately its own kind rather than being folded into `evm`.
+Nothing gates *on* `solana` — the point is that it matches none of the other
+kinds, so every X/P, staking, cross-chain and EVM-only surface hides itself
+without any view naming Solana.
 
 Views gate on that shape — `platformStore.isMultiChain`,
 `platformStore.hasChainKind('staking')`, `platformStore.can('crossChain')` —
-**never on a platform id**. That is what makes Robinhood render as a plain
-Ethereum-style wallet (no cross-chain, earn, addresses, wizard or advanced nav)
-without any view naming it.
+**never on a platform id**. That is what makes EVM and Solana render as plain
+single-chain wallets (no cross-chain, earn, addresses, wizard or advanced nav)
+without any view naming them.
+
+Two views still branch on `activePlatformId` (`Portfolio.vue`, `Transfer.vue`)
+because each platform needs a genuinely different asset list and send form —
+Avalanche's X/P assets, EVM's multi-network ERC-20 scan, Solana's SPL token
+accounts. Those are component *choices*, not capability gates; everything that
+can be expressed as a capability still is.
 
 ### Switching platforms starts from zero
 

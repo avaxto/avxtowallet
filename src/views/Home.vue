@@ -65,6 +65,7 @@ import AvxtoMenu from '@/components/AvxtoMenu.vue'
 import { useActivePlatformStore } from '@/platforms'
 import diamondAvalanche from '@/assets/diamond-secondary-avalanche.svg'
 import diamondEvm from '@/assets/diamond-secondary-evm.svg'
+import diamondSolana from '@/assets/diamond-secondary-solana.svg'
 
 export default defineComponent({
     name: 'Home',
@@ -80,10 +81,15 @@ export default defineComponent({
          * PlatformLogo.vue can be. Swapping the whole asset per platform is
          * what makes it follow the active platform's colour at all: yellow to
          * match the EVM platform's accent, red instead of the old pink for
-         * Avalanche.
+         * Avalanche, purple for Solana.
          */
+        const DIAMOND_BY_PLATFORM: Record<string, string> = {
+            evm: diamondEvm,
+            solana: diamondSolana,
+        }
+
         const createWalletIconSrc = computed((): string => {
-            return platformStore.activePlatformId === 'evm' ? diamondEvm : diamondAvalanche
+            return DIAMOND_BY_PLATFORM[platformStore.activePlatformId] ?? diamondAvalanche
         })
 
         return { createWalletIconSrc }

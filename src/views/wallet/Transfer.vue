@@ -4,7 +4,13 @@
             <p>{{ $t('transfer.disconnected') }}</p>
         </div>
         <div class="card_body" v-else>
-            <FormC v-show="formType === 'C'">
+            <!--
+              Solana gets its own form: FormC is built on EVM mechanics (gas,
+              nonce, the web3 singleton) that have no Solana equivalent. See
+              components/wallet/transfer/SolanaSendForm.vue.
+            -->
+            <SolanaSendForm v-if="isSolana"></SolanaSendForm>
+            <FormC v-else v-show="formType === 'C'">
                 <ChainInput v-if="hasXChain" v-model="formType" :disabled="isConfirm"></ChainInput>
             </FormC>
             <div class="new_order_Form" v-if="hasXChain" v-show="formType === 'X'">
@@ -218,6 +224,7 @@ import { Wallet } from '@/js/wallets/AbstractWallet'
 import { bnToBig } from '@/helpers/helper'
 import * as bip39 from 'bip39'
 import FormC from '@/components/wallet/transfer/FormC.vue'
+import SolanaSendForm from '@/components/wallet/transfer/SolanaSendForm.vue'
 import { ChainIdType } from '@/constants'
 
 import ChainInput from '@/components/wallet/transfer/ChainInput.vue'
@@ -246,6 +253,7 @@ export default defineComponent({
         NftList,
         TxSummary,
         FormC,
+        SolanaSendForm,
         ChainInput,
         BatchFormX,
         MultisigFormX,
@@ -271,6 +279,11 @@ export default defineComponent({
         const hasXChain = computed(
             () => platformStore.hasChainKind('utxo') || platformStore.hasChainKind('staking')
         )
+
+        // Solana replaces the whole form rather than adding a chain option:
+        // none of the C-chain form's fields apply. Keyed off the declared
+        // chain kind rather than the platform id, matching how hasXChain works.
+        const isSolana = computed(() => platformStore.hasChainKind('solana'))
 
         const formType = ref<ChainIdType>(hasXChain.value ? 'X' : 'C')
         const batchMode = ref(false)
@@ -785,6 +798,7 @@ export default defineComponent({
             waitTxConfirm,
             networkStatus,
             hasXChain,
+            isSolana,
             hasNFT,
             faucetLink,
             canSend,

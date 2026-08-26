@@ -19,8 +19,25 @@
  */
 import type { PlatformTokenRegistry, PlatformTokenRegistryEntry } from './types'
 
-function normalizeAddress(address: string): string {
-    return address.trim().toLowerCase()
+/**
+ * How a platform's contract addresses compare.
+ *
+ * `hex` (the default) case-folds, which is right for EVM/Avalanche: `0xAbC…`
+ * and `0xabc…` are the same address, and EIP-55 checksum casing means the same
+ * token is legitimately written both ways.
+ *
+ * `base58` does NOT case-fold, because for base58 (Solana) case is significant
+ * — upper and lower forms of a character decode to different bytes, so two
+ * strings differing only in case are two *different* addresses. Folding them
+ * would make `isSpoofedToken` accept a case-variant of a registered mint as
+ * the real one, which is precisely the check's job to reject.
+ */
+export type AddressEncoding = 'hex' | 'base58'
+
+function makeNormalizeAddress(encoding: AddressEncoding): (address: string) => string {
+    return encoding === 'base58'
+        ? (address: string) => address.trim()
+        : (address: string) => address.trim().toLowerCase()
 }
 
 /**
@@ -123,7 +140,12 @@ export function normalizeSymbol(s: string): string {
  * module doc comment for why the matching logic lives here once instead of
  * per-platform.
  */
-export function createTokenRegistry(entries: PlatformTokenRegistryEntry[]): PlatformTokenRegistry {
+export function createTokenRegistry(
+    entries: PlatformTokenRegistryEntry[],
+    /** Address comparison rule. Defaults to `hex` so existing callers are unchanged. */
+    addressEncoding: AddressEncoding = 'hex'
+): PlatformTokenRegistry {
+    const normalizeAddress = makeNormalizeAddress(addressEncoding)
     const getAll = (): PlatformTokenRegistryEntry[] => entries
 
     const getNativeEntry = (): PlatformTokenRegistryEntry => {

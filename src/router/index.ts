@@ -35,6 +35,11 @@ import { useMainStore } from '@/stores'
 import Export from '@/views/wallet/CrossChain.vue'
 import Xpub from '@/views/access/Xpub.vue'
 import Injected from '@/views/access/Injected.vue'
+// Solana's own access views. Separate from the ones above because those build
+// Avalanche wallets — see the note in views/access/solana/Mnemonic.vue.
+import SolanaMnemonic from '@/views/access/solana/Mnemonic.vue'
+import SolanaPrivateKey from '@/views/access/solana/PrivateKey.vue'
+import SolanaWatch from '@/views/access/solana/Watch.vue'
 import Addresses from '@/views/wallet/Addresses.vue'
 import AddressesDerive from '@/views/wallet/AddressesDerive.vue'
 import Broadcast from '@/views/wallet/Broadcast.vue'
@@ -132,6 +137,20 @@ const routes: RouteRecordRaw[] = [
             {
                 path: 'ext',
                 component: Injected,
+            },
+            // Namespaced under solana/ because the unprefixed routes above are
+            // Avalanche's. Referenced from the Solana platform's accessMethods.
+            {
+                path: 'solana/mnemonic',
+                component: SolanaMnemonic,
+            },
+            {
+                path: 'solana/privatekey',
+                component: SolanaPrivateKey,
+            },
+            {
+                path: 'solana/watch',
+                component: SolanaWatch,
             },
         ],
         component: Access,

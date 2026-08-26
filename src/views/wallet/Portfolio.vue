@@ -11,7 +11,7 @@
                     {{ $t('portfolio.assets1') }}
                 </button>
                 <button
-                    v-if="!isEvm"
+                    v-if="hasCollectibles"
                     @click="tab = 'collectibles'"
                     :active="tab === `collectibles`"
                     data-cy="wallet_nft"
@@ -33,6 +33,12 @@
                     key="evm_fungibles"
                     :search="search"
                 ></evm-fungibles>
+                <solana-fungibles
+                    v-else-if="isSolana"
+                    v-show="tab === `fungibles`"
+                    key="solana_fungibles"
+                    :search="search"
+                ></solana-fungibles>
                 <fungibles
                     v-else
                     v-show="tab === `fungibles`"
@@ -40,7 +46,7 @@
                     :search="search"
                 ></fungibles>
                 <collectibles
-                    v-if="!isEvm"
+                    v-if="hasCollectibles"
                     v-show="tab === `collectibles`"
                     key="collectibles"
                     :search="search"
@@ -53,6 +59,7 @@
 import { defineComponent, ref, computed, watch } from 'vue'
 import Fungibles from '@/components/wallet/portfolio/Fungibles.vue'
 import EvmFungibles from '@/components/wallet/portfolio/EvmFungibles.vue'
+import SolanaFungibles from '@/components/wallet/portfolio/SolanaFungibles.vue'
 import Collectibles from '@/components/wallet/portfolio/Collectibles.vue'
 import { useActivePlatformStore } from '@/platforms'
 
@@ -61,6 +68,7 @@ export default defineComponent({
     components: {
         Fungibles,
         EvmFungibles,
+        SolanaFungibles,
         Collectibles,
     },
     setup() {
@@ -68,21 +76,36 @@ export default defineComponent({
         const search = ref<string>('')
         const tab = ref<string>('fungibles')
 
-        // Fungibles.vue reads Avalanche's X/P assets and resolves ERC-20
-        // balances through the Avalanche web3 singleton, so it cannot render
-        // the multi-network list. Collectibles is Avalanche-only too (there is
-        // no generic NFT indexer wired up yet), so it is hidden rather than
-        // shown empty.
+        // Each platform's asset model is different enough to need its own
+        // list: Fungibles.vue reads Avalanche's X/P assets through the
+        // Avalanche web3 singleton, EvmFungibles scans every registry network,
+        // and SolanaFungibles reads SPL token accounts for one cluster.
         const isEvm = computed(() => platformStore.activePlatformId === 'evm')
+        const isSolana = computed(() => platformStore.activePlatformId === 'solana')
+
+        // Collectibles is Avalanche-only — there is no generic NFT indexer
+        // wired up yet. Gated on the declared capability rather than on a
+        // platform id so a platform that gains NFT support turns this on by
+        // flipping its own flag, with no edit here.
+        const hasCollectibles = computed(() => platformStore.can('collectibles'))
 
         watch(tab, () => {
             search.value = ''
         })
 
+        // A platform without a collectibles tab must never be left sitting on
+        // it — switching platforms would otherwise render an empty pane with
+        // no tab highlighted.
+        watch(hasCollectibles, (has) => {
+            if (!has && tab.value === 'collectibles') tab.value = 'fungibles'
+        }, { immediate: true })
+
         return {
             search,
             tab,
             isEvm,
+            isSolana,
+            hasCollectibles,
         }
     }
 })

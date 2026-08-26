@@ -260,6 +260,7 @@
         <p v-if="avaxPriceText" class="avax_price">AVAX ${{ avaxPriceText }}</p>
         <network-menu v-if="isAvalanche" class="net_menu"></network-menu>
         <evm-network-menu v-else-if="isEvm" class="net_menu"></evm-network-menu>
+        <solana-network-menu v-else-if="isSolana" class="net_menu"></solana-network-menu>
     </div>
 </template>
 
@@ -272,6 +273,7 @@ import ConfirmLogout from '@/components/modals/ConfirmLogout.vue'
 import AboutModal from '@/components/modals/AboutModal.vue'
 import NetworkMenu from '@/components/NetworkSettings/NetworkMenu.vue'
 import EvmNetworkMenu from '@/components/NetworkSettings/EvmNetworkMenu.vue'
+import SolanaNetworkMenu from '@/components/NetworkSettings/SolanaNetworkMenu.vue'
 import AvxtoMenu from '@/components/AvxtoMenu.vue'
 
 export default defineComponent({
@@ -282,6 +284,7 @@ export default defineComponent({
         AboutModal,
         NetworkMenu,
         EvmNetworkMenu,
+        SolanaNetworkMenu,
         AvxtoMenu,
     },
     setup() {
@@ -309,6 +312,7 @@ export default defineComponent({
             () => platformStore.hasChainKind('utxo') || platformStore.hasChainKind('staking')
         )
         const isEvm = computed(() => platformStore.activePlatformId === 'evm')
+        const isSolana = computed(() => platformStore.activePlatformId === 'solana')
 
         const avaxPriceText = computed((): string | null => {
             const usd = mainStore.prices.usd
@@ -342,6 +346,7 @@ export default defineComponent({
             isInjected,
             isAvalanche,
             isEvm,
+            isSolana,
             avaxPriceText,
             saveModal,
             logoutRef,

@@ -107,8 +107,15 @@ export interface PlatformCapabilities {
  *                 Robinhood Chain)
  *  - `utxo`     — UTXO model with atomic imports/exports (Avalanche X, Bitcoin)
  *  - `staking`  — a validator/delegation chain (Avalanche P)
+ *  - `solana`   — account model, but ed25519/base58 keys and SPL token
+ *                 accounts rather than contract balances. Distinct from `evm`
+ *                 on purpose: `evm` is what EVM-only surfaces (the ERC-20
+ *                 dropdown, `getEvmSigner`) gate on, and Solana can serve none
+ *                 of them. Nothing currently gates *on* `solana` — it exists so
+ *                 that a Solana chain matches none of the other kinds and the
+ *                 platform renders as a plain single-chain account wallet.
  */
-export type PlatformChainKind = 'evm' | 'utxo' | 'staking'
+export type PlatformChainKind = 'evm' | 'utxo' | 'staking' | 'solana'
 
 /**
  * One sub-chain exposed by a platform.
