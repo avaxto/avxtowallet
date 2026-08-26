@@ -34,6 +34,7 @@ import {
     addressFromPublicKey,
     bip32,
     deriveAccountNode,
+    deriveCoreCompatNode,
     destroyNode,
     parseAccountXpub,
     parseWif,
@@ -207,9 +208,14 @@ export const useBitcoinStore = defineStore('bitcoin', () => {
     /**
      * Imports a BIP-39 recovery phrase.
      *
-     * Probes all four address types before opening the wallet so a phrase set
-     * up in a legacy or taproot wallet does not present as empty — the same
-     * problem, and the same fix, as the Solana derivation-path scan.
+     * Probes all four standard address types PLUS the Core-compatible
+     * candidate before opening the wallet, so a phrase set up in a legacy or
+     * taproot wallet doesn't present as empty (the same problem, and the same
+     * fix, as the Solana derivation-path scan) — and so a phrase whose
+     * Bitcoin funds live at the address Core Extension / Core App show opens
+     * on that address rather than on an independent, differently-keyed one.
+     * See keys.ts#CORE_WALLET_PATH for why Core's derivation is not just
+     * "another address type."
      */
     const accessWithMnemonic = async (
         mnemonic: string,
@@ -228,17 +234,38 @@ export const useBitcoinStore = defineStore('bitcoin', () => {
         try {
             const net = network.value
 
+            // Derived unconditionally (probing needs the address regardless of
+            // which candidate wins), so the private-key-holding intermediate
+            // is wiped immediately, same discipline as the standard branch
+            // below — not just when 'core' turns out to be the winner.
+            const coreSigning = deriveCoreCompatNode(seed, net)
+            const coreNode = coreSigning.neutered()
+            destroyNode(coreSigning)
+            const coreAddress = addressFromPublicKey(coreNode.publicKey, 'p2wpkh', net)
+
             const probes = await probeAddressTypes(
                 (type) => deriveAccountNode(seed, type, net).neutered(),
+                coreAddress,
                 net
             )
-            const chosenType = pickAddressType(probes, DEFAULT_ADDRESS_TYPE)
+            const chosen = pickAddressType(probes, DEFAULT_ADDRESS_TYPE)
 
-            // Public node only — the wallet scans with this and never needs a
-            // private key except inside an authorized signing scope.
-            const signing = deriveAccountNode(seed, chosenType, net)
-            const accountNode = signing.neutered()
-            destroyNode(signing)
+            let accountNode
+            let addressType: BtcAddressType
+            let singleAddress: boolean
+            if (chosen === 'core') {
+                accountNode = coreNode
+                addressType = 'p2wpkh'
+                singleAddress = true
+            } else {
+                // Public node only — the wallet scans with this and never
+                // needs a private key except inside an authorized signing scope.
+                const signing = deriveAccountNode(seed, chosen, net)
+                accountNode = signing.neutered()
+                destroyNode(signing)
+                addressType = chosen
+                singleAddress = false
+            }
 
             // vaultWith consumes and wipes `seed`.
             const vault = await vaultWith('seed', seed, sessionPassword)
@@ -246,9 +273,10 @@ export const useBitcoinStore = defineStore('bitcoin', () => {
             setWallet(
                 new HdBitcoinWallet({
                     network: net,
-                    addressType: chosenType,
+                    addressType,
                     accountNode,
                     vault,
+                    singleAddress,
                 })
             )
             void refreshFeeRates()

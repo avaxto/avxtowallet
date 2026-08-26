@@ -34,6 +34,7 @@ import { requireAuth } from '@/js/security/session'
 import { wipe } from '@/js/security/memory'
 import {
     ADDRESS_TYPE_INFO,
+    CORE_CANDIDATE_INFO,
     SATS_PER_BTC,
     BTC_DECIMALS,
     type BitcoinNetwork,
@@ -47,6 +48,7 @@ import {
     destroyNode,
     isValidBitcoinAddress,
     detectAddressType,
+    CORE_WALLET_PATH,
 } from '@/bitcoin/keys'
 import {
     collectUtxos,
@@ -243,17 +245,37 @@ export abstract class BitcoinWallet implements PlatformWallet {
 
 /** Shared HD scanning for anything with an account-level extended key. */
 abstract class HdScanningWallet extends BitcoinWallet {
-    /** Account-level extended PUBLIC key node. Never holds a private key. */
+    /**
+     * Either an account-level extended PUBLIC key node (standard BIP-44/49/
+     * 84/86 wallets — `.derive(chain).derive(index)` reaches individual
+     * addresses beneath it), or, when `singleAddress` is true, the address
+     * key itself with nothing further to derive. Never holds a private key.
+     */
     protected readonly accountNode: BIP32Interface
+
+    /**
+     * True for the Core-compatible candidate: `accountNode` IS the address
+     * key (Core's `m/44'/60'/0'/0/0` — see keys.ts#CORE_WALLET_PATH), not an
+     * account to derive further addresses from. There is exactly one address
+     * and no separate change chain, the same shape as `WifBitcoinWallet` but
+     * sourced from the mnemonic instead of a pasted key. See the note on
+     * `BtcCandidateId` in networks.ts for why this exists at all: Core
+     * derives Bitcoin differently from every standard wallet, and this is
+     * what lets the address shown here match what Core shows for the same
+     * phrase.
+     */
+    protected readonly singleAddress: boolean
 
     protected constructor(
         network: BitcoinNetwork,
         addressType: BtcAddressType,
         accountNode: BIP32Interface,
-        protected readonly account: number
+        protected readonly account: number,
+        singleAddress = false
     ) {
         super(network, addressType)
         this.accountNode = accountNode
+        this.singleAddress = singleAddress
     }
 
     getPrimaryAddress(): string {
@@ -261,6 +283,9 @@ abstract class HdScanningWallet extends BitcoinWallet {
     }
 
     getReceiveAddress(): string {
+        if (this.singleAddress) {
+            return addressFromPublicKey(this.accountNode.publicKey, this.addressType, this.network)
+        }
         if (this.scan) return this.scan.nextReceiveAddress
         // Before the first scan, index 0 is the right answer for a fresh
         // wallet and a safe one for any wallet — it is always ours.
@@ -270,6 +295,12 @@ abstract class HdScanningWallet extends BitcoinWallet {
 
     /** The next unused CHANGE address — where a send's remainder goes. */
     protected getChangeAddress(): string {
+        if (this.singleAddress) {
+            // One address, no separate change chain — same as an imported
+            // WIF key, and for the same reason: there is nowhere else for the
+            // remainder to go.
+            return this.getReceiveAddress()
+        }
         const used = new Set(
             (this.scan?.addresses ?? [])
                 .filter((a) => a.chain === 'change' && a.used)
@@ -282,6 +313,10 @@ abstract class HdScanningWallet extends BitcoinWallet {
     }
 
     async refresh(): Promise<void> {
+        if (this.singleAddress) {
+            await this.refreshSingleAddress()
+            return
+        }
         this.scan = await scanAccount(
             this.accountNode,
             this.addressType,
@@ -291,9 +326,69 @@ abstract class HdScanningWallet extends BitcoinWallet {
         this.utxos = await collectUtxos(this.scan, this.network)
     }
 
+    /**
+     * Balance/UTXO fetch for the single-address (Core-compatible) case —
+     * one address, no gap-limit scan needed. Mirrors
+     * `WifBitcoinWallet.refresh()`; the `path` recorded on the scanned
+     * address and its UTXOs is `CORE_WALLET_PATH` itself, which is what lets
+     * `HdBitcoinWallet.send()` re-derive the right key with no special-casing
+     * — `root.derivePath(utxo.path)` already does the right thing when `path`
+     * IS the exact path to re-derive.
+     */
+    private async refreshSingleAddress(): Promise<void> {
+        const address = this.getReceiveAddress()
+        const [stats, utxos] = await Promise.all([
+            getAddressStats(address, this.network),
+            getAddressUtxos(address, this.network),
+        ])
+
+        const funded = stats.chain_stats.funded_txo_sum + stats.mempool_stats.funded_txo_sum
+        const spent = stats.chain_stats.spent_txo_sum + stats.mempool_stats.spent_txo_sum
+        const used = stats.chain_stats.tx_count + stats.mempool_stats.tx_count > 0
+
+        this.scan = {
+            type: this.addressType,
+            addresses: [
+                {
+                    address,
+                    path: CORE_WALLET_PATH,
+                    chain: 'receive',
+                    index: 0,
+                    type: this.addressType,
+                    balanceSats: funded - spent,
+                    used,
+                },
+            ],
+            balanceSats: funded - spent,
+            nextReceiveAddress: address,
+            hasHistory: used,
+        }
+
+        this.utxos = utxos.map((u) => ({
+            txid: u.txid,
+            vout: u.vout,
+            value: u.value,
+            address,
+            addressType: this.addressType,
+            path: CORE_WALLET_PATH,
+            confirmed: u.status.confirmed,
+        }))
+    }
+
     /** Every address this wallet controls, for a detail view. */
     getScannedAddresses() {
         return this.scan?.addresses ?? []
+    }
+
+    /**
+     * "Core Wallet" for the single-address candidate rather than "Native
+     * SegWit" — both are true (it IS P2WPKH on the wire), but only one of
+     * them tells the user why this address matches what Core Extension /
+     * Core App show for the same phrase, which is the whole reason this
+     * candidate exists. See CORE_CANDIDATE_INFO in networks.ts.
+     */
+    get addressTypeLabel(): string {
+        return this.singleAddress ? CORE_CANDIDATE_INFO.label : super.addressTypeLabel
     }
 }
 
@@ -317,8 +412,16 @@ export class HdBitcoinWallet extends HdScanningWallet {
         accountNode: BIP32Interface
         vault: SessionVault
         account?: number
+        /** True for the Core-compatible candidate — see HdScanningWallet. */
+        singleAddress?: boolean
     }) {
-        super(opts.network, opts.addressType, opts.accountNode, opts.account ?? 0)
+        super(
+            opts.network,
+            opts.addressType,
+            opts.accountNode,
+            opts.account ?? 0,
+            opts.singleAddress ?? false
+        )
         this.vault = opts.vault
     }
 

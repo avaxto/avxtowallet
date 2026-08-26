@@ -27,7 +27,12 @@ import type { BIP32Interface } from 'bip32'
 
 import { addressFromPublicKey, addressPath } from './keys'
 import { getAddressStats, getAddressUtxos, type EsploraUtxo } from './esplora'
-import { ADDRESS_TYPES, type BitcoinNetwork, type BtcAddressType } from './networks'
+import {
+    ADDRESS_TYPES,
+    type BitcoinNetwork,
+    type BtcAddressType,
+    type BtcCandidateId,
+} from './networks'
 import type { BtcChain } from './keys'
 import type { SelectableUtxo } from './coinSelect'
 
@@ -200,67 +205,91 @@ export async function scanAccount(
 }
 
 export interface TypeProbe {
-    type: BtcAddressType
+    type: BtcCandidateId
     hasHistory: boolean
     balanceSats: number
 }
 
 /**
- * Checks the first few addresses of every address type to find which one a
- * phrase is actually using.
+ * Checks the first few addresses of every address type — plus the single
+ * Core-compatible address — to find which one a phrase is actually using.
  *
- * Deliberately shallow — `TYPE_PROBE_DEPTH` addresses per type rather than a
- * full gap-limit scan of each — because this runs at import time while the
- * user waits, and four full scans would be ~160 indexer requests. Any wallet
- * that has ever received funds used its address 0 first, so a shallow probe
- * finds it; the full scan then happens once, on the type that won.
+ * The Core candidate is checked as one address, not `TYPE_PROBE_DEPTH` of
+ * them: Core derives exactly one Bitcoin address per phrase (see
+ * `keys.ts#CORE_WALLET_PATH`), so there is nothing to scan ahead of it.
+ *
+ * Otherwise deliberately shallow — `TYPE_PROBE_DEPTH` addresses per BIP-44
+ * type rather than a full gap-limit scan of each — because this runs at
+ * import time while the user waits, and four full scans would be ~160
+ * indexer requests. Any wallet that has ever received funds used its address
+ * 0 first, so a shallow probe finds it; the full scan then happens once, on
+ * whichever candidate won.
  *
  * Never throws for indexer failure: a phrase must remain importable with the
- * network down. On failure every type reports no history and the caller falls
- * back to the default type.
+ * network down. On failure every candidate reports no history and the caller
+ * falls back to the default type.
  */
 export async function probeAddressTypes(
     accountNodeFor: (type: BtcAddressType) => BIP32Interface,
+    coreAddress: string,
     network: BitcoinNetwork,
     account = 0
 ): Promise<TypeProbe[]> {
     try {
-        return await mapLimited(ADDRESS_TYPES, 2, async (type) => {
-            const node = accountNodeFor(type)
-            const derived = Array.from({ length: TYPE_PROBE_DEPTH }, (_, i) =>
-                deriveAt(node, type, network, 'receive', i, account)
-            )
-            const stats = await mapLimited(derived, CONCURRENCY, (d) =>
-                getAddressStats(d.address, network)
-            )
+        const [standard, core] = await Promise.all([
+            mapLimited(ADDRESS_TYPES, 2, async (type) => {
+                const node = accountNodeFor(type)
+                const derived = Array.from({ length: TYPE_PROBE_DEPTH }, (_, i) =>
+                    deriveAt(node, type, network, 'receive', i, account)
+                )
+                const stats = await mapLimited(derived, CONCURRENCY, (d) =>
+                    getAddressStats(d.address, network)
+                )
 
-            let balanceSats = 0
-            let hasHistory = false
-            for (const s of stats) {
+                let balanceSats = 0
+                let hasHistory = false
+                for (const s of stats) {
+                    const funded = s.chain_stats.funded_txo_sum + s.mempool_stats.funded_txo_sum
+                    const spent = s.chain_stats.spent_txo_sum + s.mempool_stats.spent_txo_sum
+                    balanceSats += funded - spent
+                    if (s.chain_stats.tx_count + s.mempool_stats.tx_count > 0) hasHistory = true
+                }
+                return { type: type as BtcCandidateId, hasHistory, balanceSats }
+            }),
+            (async (): Promise<TypeProbe> => {
+                const s = await getAddressStats(coreAddress, network)
                 const funded = s.chain_stats.funded_txo_sum + s.mempool_stats.funded_txo_sum
                 const spent = s.chain_stats.spent_txo_sum + s.mempool_stats.spent_txo_sum
-                balanceSats += funded - spent
-                if (s.chain_stats.tx_count + s.mempool_stats.tx_count > 0) hasHistory = true
-            }
-            return { type, hasHistory, balanceSats }
-        })
+                return {
+                    type: 'core',
+                    hasHistory: s.chain_stats.tx_count + s.mempool_stats.tx_count > 0,
+                    balanceSats: funded - spent,
+                }
+            })(),
+        ])
+        return [...standard, core]
     } catch (e) {
         console.warn('[bitcoin/discovery] type probe failed, using the default type:', e)
-        return ADDRESS_TYPES.map((type) => ({ type, hasHistory: false, balanceSats: 0 }))
+        return [
+            ...ADDRESS_TYPES.map((type) => ({ type: type as BtcCandidateId, hasHistory: false, balanceSats: 0 })),
+            { type: 'core' as BtcCandidateId, hasHistory: false, balanceSats: 0 },
+        ]
     }
 }
 
 /**
- * Which address type to open a freshly-imported phrase on.
+ * Which candidate to open a freshly-imported phrase on.
  *
- * Prefers the type holding the most value; falls back to any type with history
- * (a wallet that has been fully swept still tells us which type it was), and
- * finally to the caller's default for a phrase with no history at all.
+ * Prefers whichever holds the most value; falls back to any with history (a
+ * wallet that has been fully swept still tells us which it was), and finally
+ * to the caller's default for a phrase with no history anywhere. Deliberately
+ * does NOT prefer 'core' by default over an equally-funded standard type —
+ * "the most money" is the one signal that isn't a judgment call.
  */
 export function pickAddressType(
     probes: TypeProbe[],
     fallback: BtcAddressType
-): BtcAddressType {
+): BtcCandidateId {
     const funded = probes.filter((p) => p.balanceSats > 0)
     if (funded.length > 0) {
         return funded.reduce((best, p) => (p.balanceSats > best.balanceSats ? p : best)).type

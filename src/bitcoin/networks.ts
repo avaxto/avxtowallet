@@ -68,6 +68,27 @@ export const ADDRESS_TYPE_INFO: Record<
 /** The default for a brand-new wallet with no history to discover. */
 export const DEFAULT_ADDRESS_TYPE: BtcAddressType = 'p2wpkh'
 
+/**
+ * A candidate the mnemonic-import discovery scan considers, widening
+ * `BtcAddressType` with the one entry that isn't a real encoding choice —
+ * `'core'` means "the address Core Extension / Core App show for this
+ * phrase", not a fifth script type. It IS encoded as `p2wpkh` on the wire
+ * (see keys.ts's `CORE_WALLET_PATH`); what's different is which key produces
+ * it, not how that key's address looks. Kept distinct from `BtcAddressType`
+ * so every place that switches on a real encoding (PSBT input shape, fee
+ * sizing, script detection) stays exhaustive over exactly four cases and
+ * cannot silently do the wrong thing for a candidate that was never a script
+ * type to begin with.
+ */
+export type BtcCandidateId = BtcAddressType | 'core'
+
+export const CORE_CANDIDATE_INFO = {
+    id: 'core' as const,
+    label: 'Core Wallet',
+    shortLabel: 'Core',
+    example: 'bc1q… (same address as Core)',
+}
+
 /** BTC is always 8 decimals — 1 BTC = 100,000,000 satoshis. */
 export const SATS_PER_BTC = 100_000_000
 export const BTC_DECIMALS = 8

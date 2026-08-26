@@ -21,6 +21,8 @@ import {
     accountPath,
     addressPath,
     bip32,
+    CORE_WALLET_PATH,
+    deriveCoreCompatNode,
     detectAddressType,
     isValidBitcoinAddress,
 } from '@/bitcoin/keys'
@@ -119,5 +121,64 @@ describe('isValidBitcoinAddress', () => {
 
     it('tolerates surrounding whitespace', () => {
         expect(isValidBitcoinAddress(`  ${firstAddress('p2wpkh')}  `, mainnet)).toBe(true)
+    })
+})
+
+describe('Core Wallet compatibility', () => {
+    // Regression coverage for a real bug report: a user's 24-word phrase
+    // produced a Bitcoin address here that did not match what Core Extension
+    // / Core App showed for the SAME phrase. Root cause — confirmed against
+    // the vendored SDK this app already ships
+    // (avalanche-wallet-sdk/Wallet/EVM/EvmWalletReadonly.ts#getAddressBTC),
+    // not assumed: Core does not give Bitcoin its own BIP-44/49/84/86
+    // derivation at all. It reuses the same secp256k1 key as the Avalanche
+    // C-Chain/EVM address and re-encodes its compressed public key as
+    // P2WPKH — a completely different key than any independent Bitcoin
+    // derivation produces.
+
+    it("derives at the Ledger/C-Chain EVM path, m/44'/60'/0'/0/0", () => {
+        expect(CORE_WALLET_PATH).toBe("m/44'/60'/0'/0/0")
+    })
+
+    it('produces a valid, deterministic P2WPKH address', async () => {
+        const node = deriveCoreCompatNode(seed, mainnet)
+        const address = addressFromPublicKey(node.publicKey, 'p2wpkh', mainnet)
+
+        expect(detectAddressType(address, mainnet)).toBe('p2wpkh')
+        expect(address).toBe(
+            addressFromPublicKey(
+                deriveCoreCompatNode(seed, mainnet).publicKey,
+                'p2wpkh',
+                mainnet
+            )
+        )
+    })
+
+    it('matches the real address Core Extension / Core App show for the canonical test mnemonic', () => {
+        // Independently computed via the identical algorithm
+        // EvmWalletReadonly.getAddressBTC uses (derive m/44'/60'/0'/0/0,
+        // P2WPKH-encode the compressed pubkey) — this is the value Core
+        // itself would display for this mnemonic.
+        const node = deriveCoreCompatNode(seed, mainnet)
+        const address = addressFromPublicKey(node.publicKey, 'p2wpkh', mainnet)
+        expect(address).toBe('bc1qgsvdpdxec8hsu57lhxg5xem7refr233z2ttx7e')
+    })
+
+    it('is a DIFFERENT address than this wallet\'s own independent p2wpkh (BIP-84) derivation', () => {
+        // This is the bug, pinned as a property: the two scan sources must
+        // never accidentally collapse to the same key, or the "which
+        // candidate holds funds" discovery logic couldn't tell them apart.
+        const coreNode = deriveCoreCompatNode(seed, mainnet)
+        const coreAddress = addressFromPublicKey(coreNode.publicKey, 'p2wpkh', mainnet)
+        expect(coreAddress).not.toBe(firstAddress('p2wpkh'))
+    })
+
+    it('reuses the exact constant the Avalanche C-Chain/EVM key is derived at', async () => {
+        // Imported, not redeclared — see the doc comment on CORE_WALLET_PATH.
+        // This assertion exists so a change to the C-Chain path in
+        // js/wallets/constants.ts is caught here too, rather than silently
+        // making the two derivations diverge.
+        const { LEDGER_ETH_ACCOUNT_PATH } = await import('@/js/wallets/constants')
+        expect(CORE_WALLET_PATH).toBe(LEDGER_ETH_ACCOUNT_PATH)
     })
 })

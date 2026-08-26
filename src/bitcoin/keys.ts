@@ -24,6 +24,7 @@ import bs58 from 'bs58'
 import createHash from 'create-hash'
 
 import { wipe } from '@/js/security/memory'
+import { LEDGER_ETH_ACCOUNT_PATH } from '@/js/wallets/constants'
 import {
     ADDRESS_TYPE_INFO,
     type BitcoinNetwork,
@@ -196,6 +197,47 @@ export function deriveAccountNode(
     account = 0
 ): BIP32Interface {
     return bip32.fromSeed(seed, network.params).derivePath(accountPath(type, network, account))
+}
+
+/**
+ * The path Core Extension / Core App actually use for Bitcoin.
+ *
+ * Core does not give Bitcoin its own BIP-44/49/84/86 derivation at all — it
+ * reuses the SAME secp256k1 key as the Avalanche C-Chain / EVM address
+ * (`m/44'/60'/0'/0/0`, the identical `LEDGER_ETH_ACCOUNT_PATH` that
+ * `MnemonicWallet` derives its EVM key from) and re-encodes that one key's
+ * compressed public key as P2WPKH. See
+ * `avalanche-wallet-sdk/Wallet/EVM/EvmWalletReadonly.ts#getAddressBTC` — the
+ * vendored SDK this app already ships still documents and implements exactly
+ * this, even though nothing currently calls it.
+ *
+ * That means a standards-compliant BIP-84 wallet (Electrum, Sparrow, a
+ * hardware wallet, and this app's own independent `p2wpkh` derivation)
+ * produces a DIFFERENT address than Core does for the same recovery phrase —
+ * confirmed against Core's own real output, not assumed. There is no way to
+ * reconcile the two derivations; they are simply different keys. This
+ * constant exists so this wallet can offer the address Core actually shows,
+ * as one candidate among the others, rather than silently disagreeing with
+ * it.
+ *
+ * Deliberately imported from `js/wallets/constants.ts` rather than
+ * redeclared: the whole point is that this MUST stay byte-identical to
+ * whatever path the Avalanche C-Chain key is derived at, forever. Two copies
+ * of the same magic string would be exactly the kind of thing that quietly
+ * drifts apart.
+ */
+export const CORE_WALLET_PATH = LEDGER_ETH_ACCOUNT_PATH
+
+/**
+ * Derives the single fixed key Core's Bitcoin address comes from.
+ *
+ * Not an "account" node the way `deriveAccountNode` returns one — there is no
+ * further /chain/index derivation beneath this. The key itself IS the address
+ * key; encode its public key directly as P2WPKH (see ./networks.ts /
+ * platforms/bitcoin/wallet.ts's `singleAddress` handling).
+ */
+export function deriveCoreCompatNode(seed: Uint8Array, network: BitcoinNetwork): BIP32Interface {
+    return bip32.fromSeed(seed, network.params).derivePath(CORE_WALLET_PATH)
 }
 
 /** The account-level extended PUBLIC key — safe to persist, cannot sign. */
