@@ -28,7 +28,17 @@
             </v-list>
         </v-menu>
 
-        <v-menu offset-y v-if="isAvalanche || isEvm">
+        <!--
+            Unconditional, not gated on the active platform: every item below
+            is EITHER platform-gated individually (the Avalanche X/P/staking
+            tools) OR meaningful on any platform at all (Token Launcher, Solana
+            Address Shape) — so there is no platform for which this menu would
+            be genuinely empty, and no reason to hide the whole menu while
+            deciding that per item. This also means a future platform this
+            file has never heard of still gets the ungated tools for free,
+            with no edit needed here.
+        -->
+        <v-menu offset-y>
             <template v-slot:activator="{ props }">
                 <v-btn text v-bind="props" class="menu-btn">Toolbox</v-btn>
             </template>
@@ -36,16 +46,15 @@
                 <!--
                     Addresses / Address Derivation / Unify Chains / Quick
                     Delegate are X/P-chain and staking concepts, so they are
-                    gated per-item on `isAvalanche` now that the menu itself
-                    is shown on the EVM platform too — there is nothing for
-                    them to do on a single-EVM-chain platform. Token Launcher
-                    is the opposite: it deploys a plain ERC-20, which is
-                    equally meaningful on either platform (see
+                    gated per-item on `isAvalanche` — there is nothing for them
+                    to do on a single-chain platform. Token Launcher is the
+                    opposite: it deploys a plain ERC-20, which is equally
+                    meaningful on either EVM-capable platform (see
                     js/TokenLauncher.ts — chain-neutral via EvmSigner), so it
-                    carries no gate of its own. It used to live here
-                    unconditionally, was dropped at an earlier request to
-                    narrow this menu to the four Avalanche-only items, and is
-                    back now that the menu covers EVM as well.
+                    carries no gate of its own. Decode Solana Address is the
+                    same story again: a plain base58 decode of a pasted
+                    address, meaningful regardless of which platform is
+                    active, so it is likewise ungated.
                 -->
                 <v-list-item v-if="isAvalanche">
                     <v-list-item-title>
@@ -75,6 +84,11 @@
                 <v-list-item>
                     <v-list-item-title>
                         <router-link to="/wallet/launcher">Token Launcher</router-link>
+                    </v-list-item-title>
+                </v-list-item>
+                <v-list-item>
+                    <v-list-item-title>
+                        <router-link to="/wallet/soladdr">Decode Solana Address</router-link>
                     </v-list-item-title>
                 </v-list-item>
             </v-list>

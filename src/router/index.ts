@@ -30,6 +30,7 @@ import Avxto from '@/views/wallet/Avxto.vue'
 import Bridge from '@/views/wallet/Bridge.vue'
 import Psat from '@/views/wallet/Psat.vue'
 import Log from '@/views/wallet/Log.vue'
+import SolAddr from '@/views/wallet/SolAddr.vue'
 import Account from '@/views/access/Account.vue'
 import { useMainStore } from '@/stores'
 import Export from '@/views/wallet/CrossChain.vue'
@@ -267,6 +268,10 @@ const routes: RouteRecordRaw[] = [
             {
                 path: 'log',
                 component: Log,
+            },
+            {
+                path: 'soladdr',
+                component: SolAddr,
             },
         ],
         component: Wallet,
