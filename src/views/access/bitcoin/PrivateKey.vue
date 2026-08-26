@@ -23,17 +23,13 @@
             </p>
 
             <form @submit.prevent="access" autocomplete="off">
-                <textarea
+                <MaskedSecretTextarea
+                    ref="wif_in"
                     v-model="wif"
-                    class="key_in"
-                    rows="2"
+                    :rows="2"
                     placeholder="WIF private key"
-                    autocomplete="off"
-                    autocorrect="off"
-                    autocapitalize="none"
-                    spellcheck="false"
                     :disabled="isLoading"
-                ></textarea>
+                ></MaskedSecretTextarea>
 
                 <label class="field_label">Address type</label>
                 <div class="type_grid">
@@ -101,14 +97,16 @@ import {
 } from '@/bitcoin/networks'
 import { addressFromPublicKey, parseWif } from '@/bitcoin/keys'
 import { wipe } from '@/js/security/memory'
+import MaskedSecretTextarea from '@/components/misc/MaskedSecretTextarea.vue'
 
 export default defineComponent({
     name: 'BitcoinPrivateKeyAccess',
-    components: { SessionPasswordFields },
+    components: { SessionPasswordFields, MaskedSecretTextarea },
     setup() {
         const bitcoinStore = useBitcoinStore()
 
         const wif = ref('')
+        const wif_in = ref<InstanceType<typeof MaskedSecretTextarea> | null>(null)
         const addressType = ref<BtcAddressType>(DEFAULT_ADDRESS_TYPE)
         const sessionPassword = ref('')
         const isSessionPwValid = ref(false)
@@ -178,6 +176,7 @@ export default defineComponent({
                     addressType.value
                 )
                 wif.value = ''
+                wif_in.value?.clear()
                 sessionPassword.value = ''
             } catch (e: any) {
                 error.value = e?.message ?? String(e)
@@ -188,11 +187,13 @@ export default defineComponent({
 
         onBeforeUnmount(() => {
             wif.value = ''
+            wif_in.value?.clear()
             sessionPassword.value = ''
         })
 
         return {
             wif,
+            wif_in,
             addressType,
             addressTypes,
             previewAddress,
@@ -246,24 +247,6 @@ h1 {
 .mono {
     font-family: monospace;
     word-break: break-all;
-}
-
-.key_in {
-    width: 100%;
-    background-color: var(--bg);
-    border: 1px solid transparent;
-    border-radius: 4px;
-    padding: 12px;
-    font-family: monospace;
-    font-size: 13px;
-    color: var(--primary-color);
-    resize: vertical;
-    outline: none;
-    word-break: break-all;
-
-    &:focus {
-        border-color: var(--secondary-color);
-    }
 }
 
 .field_label {

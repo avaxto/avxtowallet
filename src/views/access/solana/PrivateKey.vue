@@ -22,17 +22,13 @@
             </p>
 
             <form @submit.prevent="access" autocomplete="off">
-                <textarea
+                <MaskedSecretTextarea
+                    ref="key_in"
                     v-model="privateKey"
-                    class="key_in"
-                    rows="3"
+                    :rows="3"
                     placeholder="base58 key, or [12,34,56,…]"
-                    autocomplete="off"
-                    autocorrect="off"
-                    autocapitalize="none"
-                    spellcheck="false"
                     :disabled="isLoading"
-                ></textarea>
+                ></MaskedSecretTextarea>
 
                 <SessionPasswordFields
                     v-model="sessionPassword"
@@ -61,15 +57,17 @@
 <script lang="ts">
 import { defineComponent, ref, computed, onBeforeUnmount } from 'vue'
 import SessionPasswordFields from '@/components/misc/SessionPasswordFields.vue'
+import MaskedSecretTextarea from '@/components/misc/MaskedSecretTextarea.vue'
 import { useSolanaStore } from '@/platforms/solana/store'
 
 export default defineComponent({
     name: 'SolanaPrivateKeyAccess',
-    components: { SessionPasswordFields },
+    components: { SessionPasswordFields, MaskedSecretTextarea },
     setup() {
         const solanaStore = useSolanaStore()
 
         const privateKey = ref('')
+        const key_in = ref<InstanceType<typeof MaskedSecretTextarea> | null>(null)
         const sessionPassword = ref('')
         const isSessionPwValid = ref(false)
         const pwTouched = ref(false)
@@ -88,6 +86,7 @@ export default defineComponent({
             try {
                 await solanaStore.accessWithPrivateKey(privateKey.value, sessionPassword.value)
                 privateKey.value = ''
+                key_in.value?.clear()
                 sessionPassword.value = ''
             } catch (e: any) {
                 // keys.ts throws a specific message per malformed shape
@@ -101,11 +100,13 @@ export default defineComponent({
 
         onBeforeUnmount(() => {
             privateKey.value = ''
+            key_in.value?.clear()
             sessionPassword.value = ''
         })
 
         return {
             privateKey,
+            key_in,
             sessionPassword,
             isSessionPwValid,
             pwTouched,
@@ -153,25 +154,6 @@ h1 {
 
 .mono {
     font-family: monospace;
-}
-
-.key_in {
-    width: 100%;
-    background-color: var(--bg);
-    border: 1px solid transparent;
-    border-radius: 4px;
-    padding: 12px;
-    font-family: monospace;
-    font-size: 13px;
-    color: var(--primary-color);
-    resize: vertical;
-    outline: none;
-    margin-bottom: 16px;
-    word-break: break-all;
-
-    &:focus {
-        border-color: var(--secondary-color);
-    }
 }
 
 .ava_button {

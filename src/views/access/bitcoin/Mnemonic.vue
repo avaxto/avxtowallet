@@ -21,17 +21,13 @@
             </p>
 
             <form @submit.prevent="access" autocomplete="off">
-                <textarea
+                <MaskedSecretTextarea
+                    ref="phrase_in"
                     v-model="phrase"
-                    class="phrase_in"
-                    rows="3"
+                    :rows="3"
                     placeholder="word1 word2 word3 …"
-                    autocomplete="off"
-                    autocorrect="off"
-                    autocapitalize="none"
-                    spellcheck="false"
                     :disabled="isLoading"
-                ></textarea>
+                ></MaskedSecretTextarea>
                 <p class="word_count" :class="{ ok: isPlausibleLength }">
                     {{ wordCount }} {{ wordCount === 1 ? 'word' : 'words' }}
                 </p>
@@ -67,15 +63,17 @@
 <script lang="ts">
 import { defineComponent, ref, computed, onBeforeUnmount } from 'vue'
 import SessionPasswordFields from '@/components/misc/SessionPasswordFields.vue'
+import MaskedSecretTextarea from '@/components/misc/MaskedSecretTextarea.vue'
 import { useBitcoinStore } from '@/platforms/bitcoin/store'
 
 export default defineComponent({
     name: 'BitcoinMnemonicAccess',
-    components: { SessionPasswordFields },
+    components: { SessionPasswordFields, MaskedSecretTextarea },
     setup() {
         const bitcoinStore = useBitcoinStore()
 
         const phrase = ref('')
+        const phrase_in = ref<InstanceType<typeof MaskedSecretTextarea> | null>(null)
         const sessionPassword = ref('')
         const isSessionPwValid = ref(false)
         const pwTouched = ref(false)
@@ -103,6 +101,7 @@ export default defineComponent({
             try {
                 await bitcoinStore.accessWithMnemonic(phrase.value, sessionPassword.value)
                 phrase.value = ''
+                phrase_in.value?.clear()
                 sessionPassword.value = ''
             } catch (e: any) {
                 error.value = e?.message ?? String(e)
@@ -111,15 +110,18 @@ export default defineComponent({
             }
         }
 
-        // The phrase is the wallet — don't leave it in a component ref after
+        // The phrase is the wallet — don't leave it in a component ref (or the
+        // textarea's own DOM node — see MaskedSecretTextarea.clear()) after
         // navigating away.
         onBeforeUnmount(() => {
             phrase.value = ''
+            phrase_in.value?.clear()
             sessionPassword.value = ''
         })
 
         return {
             phrase,
+            phrase_in,
             wordCount,
             isPlausibleLength,
             sessionPassword,
@@ -166,23 +168,6 @@ h1 {
     color: var(--primary-color-light);
     line-height: 1.5;
     margin-bottom: 24px;
-}
-
-.phrase_in {
-    width: 100%;
-    background-color: var(--bg);
-    border: 1px solid transparent;
-    border-radius: 4px;
-    padding: 12px;
-    font-family: monospace;
-    font-size: 14px;
-    color: var(--primary-color);
-    resize: vertical;
-    outline: none;
-
-    &:focus {
-        border-color: var(--secondary-color);
-    }
 }
 
 .word_count {
