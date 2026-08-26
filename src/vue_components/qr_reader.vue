@@ -19,6 +19,7 @@ import { defineComponent, ref, onMounted } from 'vue'
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
 import { faSpinner, faTimes } from '@fortawesome/free-solid-svg-icons'
 import { BrowserQRCodeReader } from '@zxing/library'
+import { useNotificationsStore } from '@/stores'
 
 const QrReader = defineComponent({
     name: 'QrReader',
@@ -33,6 +34,7 @@ const QrReader = defineComponent({
     },
     emits: ['change'],
     setup(props, { emit }) {
+        const notificationsStore = useNotificationsStore()
         const scanner = ref<BrowserQRCodeReader | null>(null)
         const camera = ref<MediaDeviceInfo | null>(null)
         const isActive = ref(false)
@@ -42,9 +44,13 @@ const QrReader = defineComponent({
 
         const start = () => {
             if (props.disabled) return
-            
+
             if (!camera.value) {
-                alert("No Cameras Found")
+                notificationsStore.add({
+                    type: 'error',
+                    title: 'QR Scanner',
+                    message: 'No Cameras Found',
+                })
                 return
             }
 

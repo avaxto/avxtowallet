@@ -186,7 +186,16 @@
 
                 <p v-if="broadcastId" class="broadcast_ok">
                     Broadcast — transaction id
-                    <span class="mono">{{ broadcastId }}</span>
+                    <a
+                        v-if="broadcastUrl"
+                        :href="broadcastUrl"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="mono"
+                    >
+                        {{ broadcastId }}
+                    </a>
+                    <span v-else class="mono">{{ broadcastId }}</span>
                 </p>
 
                 <template v-if="outputBase64">
@@ -225,11 +234,13 @@ import { useRoute } from 'vue-router'
 import Big from 'big.js'
 
 import { BN } from '@/avalanche'
-import { bintools } from '@/AVA'
+import { ava, bintools } from '@/AVA'
 import { bnToBig } from '@/helpers/helper'
 import { useAssetsStore, useMainStore, useNotificationsStore } from '@/stores'
 import { authorizeSingle, SessionAuthCancelled } from '@/js/security/authorize'
 import { issueX } from '@/helpers/issueTx'
+import { getTxURL } from '@/js/Glacier/getTxURL'
+import { isMainnetNetworkID } from '@/utils/network-utils'
 import {
     assertSameNetwork,
     decodePsat,
@@ -522,6 +533,14 @@ export default defineComponent({
             return `${origin}/wallet/psat`
         })
 
+        // PSAT signing/broadcasting is X-chain only (see summarizePsat / signPsat),
+        // so the explorer link is always built for chain 'X'.
+        const broadcastUrl = computed((): string | null => {
+            if (!broadcastId.value) return null
+            const isMainnet = isMainnetNetworkID(ava.getNetworkID())
+            return getTxURL(broadcastId.value, 'X', isMainnet)
+        })
+
         const shareMessage = computed(
             () =>
                 'You are receiving a serialized PSAT partially signed avalanche ' +
@@ -544,6 +563,7 @@ export default defineComponent({
             isBroadcasting,
             outputBase64,
             broadcastId,
+            broadcastUrl,
             mySlotCount,
             createdMultisigOutputs,
             statusState,
@@ -798,6 +818,15 @@ export default defineComponent({
     font-size: 12px;
     color: var(--success);
     word-break: break-all;
+
+    a {
+        color: inherit;
+        text-decoration: underline;
+
+        &:hover {
+            opacity: 0.8;
+        }
+    }
 }
 
 .err {

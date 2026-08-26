@@ -49,12 +49,14 @@
  */
 import { defineComponent, computed } from 'vue'
 import { useEvmStore } from '@/platforms/evm/store'
+import { useNotificationsStore } from '@/stores'
 import type { EvmNetwork } from '@/evm/networkRegistry'
 
 export default defineComponent({
     name: 'EvmNetworkMenu',
     setup() {
         const evmStore = useEvmStore()
+        const notificationsStore = useNotificationsStore()
 
         const activeNetwork = computed((): EvmNetwork => evmStore.network)
         const networks = computed((): EvmNetwork[] => evmStore.networks)
@@ -64,7 +66,11 @@ export default defineComponent({
                 await evmStore.setNetwork(id)
             } catch (e: any) {
                 console.error('[EvmNetworkMenu] Could not switch network:', e)
-                alert(e?.message || 'Could not switch network.')
+                notificationsStore.add({
+                    type: 'error',
+                    title: 'Switch Network',
+                    message: e?.message || 'Could not switch network.',
+                })
             }
         }
 

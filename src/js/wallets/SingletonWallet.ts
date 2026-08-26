@@ -74,7 +74,7 @@ class SingletonWallet extends AbstractWallet implements AvaWalletCore {
         const pkBuf = bintools.cb58Decode(pk.split('-')[1])
 
         try {
-            const wallet = new SingletonWallet(pkBuf)
+            const wallet = new SingletonWallet(pkBuf, vault)
             await vault.put(auth, 'pk', new Uint8Array(pkBuf))
             return wallet
         } finally {
@@ -83,7 +83,7 @@ class SingletonWallet extends AbstractWallet implements AvaWalletCore {
     }
 
     /** Private: use SingletonWallet.create(). */
-    private constructor(pkBuf: BufferAvalanche, vault?: SessionVault) {
+    private constructor(pkBuf: BufferAvalanche, vault: SessionVault) {
         super()
 
         this.chainId = avm.getBlockchainAlias() || avm.getBlockchainID()
@@ -108,8 +108,7 @@ class SingletonWallet extends AbstractWallet implements AvaWalletCore {
         this.stakeAmount = new BN(0)
         this.type = 'singleton'
         this.isInit = true
-        // Assigned by create(); only undefined transiently inside it.
-        this.vault = vault as SessionVault
+        this.vault = vault
     }
 
     /** Recomputes bech32 addresses from the public key for the active HRP. */

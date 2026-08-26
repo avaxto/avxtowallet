@@ -78,7 +78,7 @@
 <script lang="ts">
 import { defineComponent, ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { useMainStore } from '@/stores'
+import { useMainStore, useNotificationsStore } from '@/stores'
 import LanguageSelect from './misc/LanguageSelect/LanguageSelect.vue'
 
 import NetworkMenu from './NetworkSettings/NetworkMenu.vue'
@@ -99,6 +99,7 @@ export default defineComponent({
     },
     setup() {
         const mainStore = useMainStore()
+        const notificationsStore = useNotificationsStore()
         const platformStore = useActivePlatformStore()
         const router = useRouter()
 
@@ -169,7 +170,11 @@ export default defineComponent({
                 await method.run()
             } catch (e: any) {
                 console.error('Wallet connection failed:', e)
-                alert(e?.message || 'Failed to connect wallet.')
+                notificationsStore.add({
+                    type: 'error',
+                    title: 'Connect Wallet',
+                    message: e?.message || 'Failed to connect wallet.',
+                })
             } finally {
                 isConnecting.value = false
             }
