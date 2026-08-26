@@ -10,6 +10,11 @@
               components/wallet/transfer/SolanaSendForm.vue.
             -->
             <SolanaSendForm v-if="isSolana"></SolanaSendForm>
+            <!--
+              Bitcoin likewise replaces the whole form: a per-vbyte fee market,
+              UTXO selection and change outputs have no counterpart in FormC.
+            -->
+            <BitcoinSendForm v-else-if="isBitcoin"></BitcoinSendForm>
             <FormC v-else v-show="formType === 'C'">
                 <ChainInput v-if="hasXChain" v-model="formType" :disabled="isConfirm"></ChainInput>
             </FormC>
@@ -225,6 +230,7 @@ import { bnToBig } from '@/helpers/helper'
 import * as bip39 from 'bip39'
 import FormC from '@/components/wallet/transfer/FormC.vue'
 import SolanaSendForm from '@/components/wallet/transfer/SolanaSendForm.vue'
+import BitcoinSendForm from '@/components/wallet/transfer/BitcoinSendForm.vue'
 import { ChainIdType } from '@/constants'
 
 import ChainInput from '@/components/wallet/transfer/ChainInput.vue'
@@ -254,6 +260,7 @@ export default defineComponent({
         TxSummary,
         FormC,
         SolanaSendForm,
+        BitcoinSendForm,
         ChainInput,
         BatchFormX,
         MultisigFormX,
@@ -284,6 +291,7 @@ export default defineComponent({
         // none of the C-chain form's fields apply. Keyed off the declared
         // chain kind rather than the platform id, matching how hasXChain works.
         const isSolana = computed(() => platformStore.hasChainKind('solana'))
+        const isBitcoin = computed(() => platformStore.hasChainKind('bitcoin'))
 
         const formType = ref<ChainIdType>(hasXChain.value ? 'X' : 'C')
         const batchMode = ref(false)
@@ -799,6 +807,7 @@ export default defineComponent({
             networkStatus,
             hasXChain,
             isSolana,
+            isBitcoin,
             hasNFT,
             faucetLink,
             canSend,

@@ -22,37 +22,49 @@ platforms/
   avalanche/           multi-chain (X/P/C), wraps the existing implementation
   evm/                 every EVM chain — differentiates by network, not platform
   solana/              SOL + SPL, injected and local-key custody
-  bitcoin/             descriptor-only stub, status: 'planned'
+  bitcoin/             BTC, HD UTXO wallet, local-key and watch-only custody
 ```
 
 Chain-level support code lives outside this folder, one directory per chain
-family: `src/evm/` (network registry, providers, explorers) and `src/solana/`
-(clusters, SLIP-0010 derivation, RPC, SPL reads). `platforms/<id>/` holds the
+family: `src/evm/` (network registry, providers, explorers), `src/solana/`
+(clusters, SLIP-0010 derivation, RPC, SPL reads) and `src/bitcoin/`
+(networks, BIP32 derivation for four address types, Esplora, coin selection,
+PSBT signing). `platforms/<id>/` holds the
 wallet, the session store and the `Platform` object; `src/<family>/` holds the
 primitives those are built from.
 
 ## Current state
 
-**Avalanche, EVM and Solana are implemented.** Avalanche is the default
+**All four platforms are implemented.** Avalanche is the default
 (`DEFAULT_PLATFORM_ID` in `registry.ts`), so with no saved preference the app
 behaves exactly as it always has.
 
-Bitcoin is a **descriptor-only stub**: `status: 'planned'`, no access methods,
-all capabilities `false`, no chains or networks. The registry reports it
-unavailable and the picker renders it disabled — there is no code path that
-logs into it.
+`plannedPlatform.ts` remains for future entries: `status: 'planned'`, no access
+methods, all capabilities `false`. The registry reports such a platform
+unavailable and the picker renders it disabled.
 
 ### Chain shape — how X/P features hide themselves
 
 A platform declares its sub-chains via `chains: PlatformChain[]`, each tagged
-`kind: 'evm' | 'utxo' | 'staking' | 'solana'`. Avalanche declares three
-(X = utxo, P = staking, C = evm); EVM declares one evm chain; Solana declares
-one `solana` chain.
+`kind: 'evm' | 'utxo' | 'staking' | 'solana' | 'bitcoin'`. Avalanche declares
+three (X = utxo, P = staking, C = evm); EVM declares one evm chain; Solana and
+Bitcoin each declare one chain of their own kind.
 
-`solana` is deliberately its own kind rather than being folded into `evm`.
-Nothing gates *on* `solana` — the point is that it matches none of the other
+**`utxo` means "Avalanche X-Chain", not "any UTXO chain".** This is the one
+genuinely sharp edge in the model. Bitcoin *is* a UTXO chain, so `kind: 'utxo'`
+looks right for it — but every consumer tests
+`hasChainKind('utxo') || hasChainKind('staking')` and names the result
+`isAvalanche`: App.vue boots the Avalanche network store behind it,
+Transfer.vue renders the X-Chain send form, BalanceCard renders X/P rows from
+Avalanche's store. A second platform claiming `utxo` turns all of that on and
+produces a broken wallet, so Bitcoin declares `bitcoin` instead.
+
+`solana` and `bitcoin` are therefore both deliberately their own kinds.
+Nothing gates *on* either — the point is that they match none of the other
 kinds, so every X/P, staking, cross-chain and EVM-only surface hides itself
-without any view naming Solana.
+without any view naming them. Re-pointing those eight checks at something
+explicitly Avalanche-specific would be the cleaner fix if this pattern
+recurs.
 
 Views gate on that shape — `platformStore.isMultiChain`,
 `platformStore.hasChainKind('staking')`, `platformStore.can('crossChain')` —

@@ -198,6 +198,50 @@
                     </v-btn>
                 </div>
             </div>
+
+            <!-- ── Bitcoin indexer ────────────────────────────────────── -->
+            <div class="grid_box" v-if="isBitcoin">
+                <h3>Bitcoin Indexer</h3>
+                <p class="description">
+                    Network: <strong>{{ btcNetworkName }}</strong>. Bitcoin has no public
+                    JSON-RPC, so balances, fees and broadcasts go through an
+                    <span class="mono">Esplora</span> REST endpoint. The public ones are
+                    rate-limited — point this at your own for reliable scanning.
+                </p>
+
+                <div class="form_row">
+                    <label>Esplora Endpoint URL</label>
+                    <input
+                        type="text"
+                        v-model="btcEsplora"
+                        :placeholder="btcDefaultEsplora"
+                        class="field"
+                        autocomplete="off"
+                        name="config-btc-esplora"
+                        data-1p-ignore
+                        data-lpignore="true"
+                    />
+                </div>
+
+                <p class="hint" v-if="!btcIsOverridden">
+                    Currently using the default public endpoint.
+                </p>
+                <p class="form_error" v-if="btcErr">{{ btcErr }}</p>
+
+                <div class="sol_buttons">
+                    <v-btn class="button_primary save_btn" size="small" @click="applyBtcEsplora">
+                        Apply
+                    </v-btn>
+                    <v-btn
+                        class="button_secondary save_btn"
+                        size="small"
+                        v-if="btcIsOverridden"
+                        @click="resetBtcEsplora"
+                    >
+                        Reset to default
+                    </v-btn>
+                </div>
+            </div>
         </div>
     </div>
 </template>
@@ -210,6 +254,7 @@ import { useStatusBarStore, useOfflineSigningStore } from '@/stores'
 import { useActivePlatformStore } from '@/platforms'
 import { getSolanaNetworkById, setSolanaRpcOverride } from '@/solana/networks'
 import { resetConnections } from '@/solana/rpc'
+import { getBitcoinNetworkById, setEsploraOverride } from '@/bitcoin/networks'
 
 export default defineComponent({
     name: 'Config',
@@ -223,6 +268,7 @@ export default defineComponent({
             () => platformStore.hasChainKind('utxo') || platformStore.hasChainKind('staking')
         )
         const isSolana = computed(() => platformStore.hasChainKind('solana'))
+        const isBitcoin = computed(() => platformStore.hasChainKind('bitcoin'))
 
         const onOfflineToggle = (e: Event) => {
             offline.setEnabled((e.target as HTMLInputElement).checked)
@@ -359,8 +405,57 @@ export default defineComponent({
             applySolRpc()
         }
 
+        // ── Bitcoin Esplora override ─────────────────────────────────────────
+        const btcNetwork = computed(() =>
+            isBitcoin.value
+                ? getBitcoinNetworkById(
+                      platformStore.activePlatform?.getActiveNetwork?.()?.id ?? ''
+                  ) ?? null
+                : null
+        )
+        const btcNetworkName = computed(() => btcNetwork.value?.name ?? '')
+        const btcDefaultEsplora = computed(() => btcNetwork.value?.defaultEsploraUrl ?? '')
+        const btcIsOverridden = computed(
+            () =>
+                !!btcNetwork.value &&
+                btcNetwork.value.esploraUrl !== btcNetwork.value.defaultEsploraUrl
+        )
+
+        const btcEsplora = ref<string>('')
+        const btcErr = ref<string>('')
+
+        watch(
+            btcNetwork,
+            (n) => {
+                btcEsplora.value =
+                    n && n.esploraUrl !== n.defaultEsploraUrl ? n.esploraUrl : ''
+            },
+            { immediate: true }
+        )
+
+        const applyBtcEsplora = (): void => {
+            const n = btcNetwork.value
+            if (!n) return
+            btcErr.value = ''
+            const value = btcEsplora.value.trim()
+            try {
+                setEsploraOverride(n.id, value === '' ? null : value)
+                statusBar.success(
+                    value === '' ? 'Bitcoin indexer reset to default.' : 'Bitcoin indexer updated.'
+                )
+            } catch (e: any) {
+                btcErr.value = e?.message ?? String(e)
+            }
+        }
+
+        const resetBtcEsplora = (): void => {
+            btcEsplora.value = ''
+            applyBtcEsplora()
+        }
+
         return {
             offline,
+            isBitcoin,
             isAvalanche,
             isSolana,
             onOfflineToggle,
@@ -389,6 +484,15 @@ export default defineComponent({
             solErr,
             applySolRpc,
             resetSolRpc,
+
+            // Bitcoin indexer
+            btcNetworkName,
+            btcDefaultEsplora,
+            btcIsOverridden,
+            btcEsplora,
+            btcErr,
+            applyBtcEsplora,
+            resetBtcEsplora,
         }
     },
 })

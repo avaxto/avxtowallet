@@ -275,6 +275,7 @@
         <network-menu v-if="isAvalanche" class="net_menu"></network-menu>
         <evm-network-menu v-else-if="isEvm" class="net_menu"></evm-network-menu>
         <solana-network-menu v-else-if="isSolana" class="net_menu"></solana-network-menu>
+        <bitcoin-network-menu v-else-if="isBitcoin" class="net_menu"></bitcoin-network-menu>
     </div>
 </template>
 
@@ -288,6 +289,7 @@ import AboutModal from '@/components/modals/AboutModal.vue'
 import NetworkMenu from '@/components/NetworkSettings/NetworkMenu.vue'
 import EvmNetworkMenu from '@/components/NetworkSettings/EvmNetworkMenu.vue'
 import SolanaNetworkMenu from '@/components/NetworkSettings/SolanaNetworkMenu.vue'
+import BitcoinNetworkMenu from '@/components/NetworkSettings/BitcoinNetworkMenu.vue'
 import AvxtoMenu from '@/components/AvxtoMenu.vue'
 
 export default defineComponent({
@@ -299,6 +301,7 @@ export default defineComponent({
         NetworkMenu,
         EvmNetworkMenu,
         SolanaNetworkMenu,
+        BitcoinNetworkMenu,
         AvxtoMenu,
     },
     setup() {
@@ -327,6 +330,7 @@ export default defineComponent({
         )
         const isEvm = computed(() => platformStore.activePlatformId === 'evm')
         const isSolana = computed(() => platformStore.activePlatformId === 'solana')
+        const isBitcoin = computed(() => platformStore.activePlatformId === 'bitcoin')
 
         const avaxPriceText = computed((): string | null => {
             const usd = mainStore.prices.usd
@@ -361,6 +365,7 @@ export default defineComponent({
             isAvalanche,
             isEvm,
             isSolana,
+            isBitcoin,
             avaxPriceText,
             saveModal,
             logoutRef,

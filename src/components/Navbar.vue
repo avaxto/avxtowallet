@@ -30,6 +30,7 @@
             <network-menu v-if="isAvalanche"></network-menu>
             <evm-network-menu v-else-if="isEvm"></evm-network-menu>
             <solana-network-menu v-else-if="isSolana"></solana-network-menu>
+            <bitcoin-network-menu v-else-if="isBitcoin"></bitcoin-network-menu>
 
         </div>
 
@@ -85,6 +86,7 @@ import LanguageSelect from './misc/LanguageSelect/LanguageSelect.vue'
 import NetworkMenu from './NetworkSettings/NetworkMenu.vue'
 import EvmNetworkMenu from './NetworkSettings/EvmNetworkMenu.vue'
 import SolanaNetworkMenu from './NetworkSettings/SolanaNetworkMenu.vue'
+import BitcoinNetworkMenu from './NetworkSettings/BitcoinNetworkMenu.vue'
 
 import AccountMenu from '@/components/wallet/sidebar/AccountMenu.vue'
 import PlatformLogo from '@/components/misc/PlatformLogo.vue'
@@ -97,6 +99,7 @@ export default defineComponent({
         NetworkMenu,
         EvmNetworkMenu,
         SolanaNetworkMenu,
+        BitcoinNetworkMenu,
         LanguageSelect,
         PlatformLogo
     },
@@ -126,6 +129,7 @@ export default defineComponent({
         )
         const isEvm = computed(() => platformStore.activePlatformId === 'evm')
         const isSolana = computed(() => platformStore.activePlatformId === 'solana')
+        const isBitcoin = computed(() => platformStore.activePlatformId === 'bitcoin')
 
         // `mainStore.isAuth` only ever reflects Avalanche access — each
         // platform keeps its own session store (see
@@ -196,6 +200,7 @@ export default defineComponent({
             isAvalanche,
             isEvm,
             isSolana,
+            isBitcoin,
             togglePopup,
             connectWallet,
         }

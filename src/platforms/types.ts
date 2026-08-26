@@ -114,8 +114,24 @@ export interface PlatformCapabilities {
  *                 of them. Nothing currently gates *on* `solana` — it exists so
  *                 that a Solana chain matches none of the other kinds and the
  *                 platform renders as a plain single-chain account wallet.
+ *  - `bitcoin`  — a UTXO chain, but NOT `utxo`. See the warning below.
+ *
+ * ## `utxo` means "Avalanche X-Chain", not "any UTXO chain"
+ *
+ * Bitcoin is a UTXO chain, so `kind: 'utxo'` looks like the honest label for
+ * it. It is not, because of how this kind is actually consumed: every call
+ * site tests `hasChainKind('utxo') || hasChainKind('staking')` and names the
+ * result `isAvalanche` — App.vue boots the Avalanche network store behind it,
+ * Transfer.vue renders the X-Chain send form, BalanceCard renders X/P balance
+ * rows from Avalanche's store. A second platform claiming `utxo` turns all of
+ * those on and breaks it entirely.
+ *
+ * Re-pointing those checks at something Avalanche-specific would be the
+ * cleaner fix, but it means editing eight Avalanche-critical views for the
+ * benefit of a label. `bitcoin` matches none of them, so Bitcoin renders as
+ * the plain single-chain wallet it should — same reasoning as `solana`.
  */
-export type PlatformChainKind = 'evm' | 'utxo' | 'staking' | 'solana'
+export type PlatformChainKind = 'evm' | 'utxo' | 'staking' | 'solana' | 'bitcoin'
 
 /**
  * One sub-chain exposed by a platform.

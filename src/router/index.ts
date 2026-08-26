@@ -41,6 +41,10 @@ import Injected from '@/views/access/Injected.vue'
 import SolanaMnemonic from '@/views/access/solana/Mnemonic.vue'
 import SolanaPrivateKey from '@/views/access/solana/PrivateKey.vue'
 import SolanaWatch from '@/views/access/solana/Watch.vue'
+// Bitcoin's own access views, separate for the same reason.
+import BitcoinMnemonic from '@/views/access/bitcoin/Mnemonic.vue'
+import BitcoinPrivateKey from '@/views/access/bitcoin/PrivateKey.vue'
+import BitcoinWatch from '@/views/access/bitcoin/Watch.vue'
 import Addresses from '@/views/wallet/Addresses.vue'
 import AddressesDerive from '@/views/wallet/AddressesDerive.vue'
 import Broadcast from '@/views/wallet/Broadcast.vue'
@@ -152,6 +156,18 @@ const routes: RouteRecordRaw[] = [
             {
                 path: 'solana/watch',
                 component: SolanaWatch,
+            },
+            {
+                path: 'bitcoin/mnemonic',
+                component: BitcoinMnemonic,
+            },
+            {
+                path: 'bitcoin/privatekey',
+                component: BitcoinPrivateKey,
+            },
+            {
+                path: 'bitcoin/watch',
+                component: BitcoinWatch,
             },
         ],
         component: Access,

@@ -39,6 +39,12 @@
                     key="solana_fungibles"
                     :search="search"
                 ></solana-fungibles>
+                <bitcoin-fungibles
+                    v-else-if="isBitcoin"
+                    v-show="tab === `fungibles`"
+                    key="bitcoin_fungibles"
+                    :search="search"
+                ></bitcoin-fungibles>
                 <fungibles
                     v-else
                     v-show="tab === `fungibles`"
@@ -60,6 +66,7 @@ import { defineComponent, ref, computed, watch } from 'vue'
 import Fungibles from '@/components/wallet/portfolio/Fungibles.vue'
 import EvmFungibles from '@/components/wallet/portfolio/EvmFungibles.vue'
 import SolanaFungibles from '@/components/wallet/portfolio/SolanaFungibles.vue'
+import BitcoinFungibles from '@/components/wallet/portfolio/BitcoinFungibles.vue'
 import Collectibles from '@/components/wallet/portfolio/Collectibles.vue'
 import { useActivePlatformStore } from '@/platforms'
 
@@ -69,6 +76,7 @@ export default defineComponent({
         Fungibles,
         EvmFungibles,
         SolanaFungibles,
+        BitcoinFungibles,
         Collectibles,
     },
     setup() {
@@ -82,6 +90,7 @@ export default defineComponent({
         // and SolanaFungibles reads SPL token accounts for one cluster.
         const isEvm = computed(() => platformStore.activePlatformId === 'evm')
         const isSolana = computed(() => platformStore.activePlatformId === 'solana')
+        const isBitcoin = computed(() => platformStore.activePlatformId === 'bitcoin')
 
         // Collectibles is Avalanche-only — there is no generic NFT indexer
         // wired up yet. Gated on the declared capability rather than on a
@@ -105,6 +114,7 @@ export default defineComponent({
             tab,
             isEvm,
             isSolana,
+            isBitcoin,
             hasCollectibles,
         }
     }
