@@ -239,6 +239,10 @@ import {
 import { activeEvmSigner } from '@/platforms/evmSigner'
 import { explorerName } from '@/evm/networkRegistry'
 import { authorizeWalletOp, AuthScope, SessionAuthCancelled } from '@/js/security/authorize'
+import {
+    AVXTO_CONTRACT_ADDRESS,
+    TESTNET_AVXTO_CONTRACT_ADDRESS,
+} from '@/avxto/AVXTOConf'
 
 export default defineComponent({
     name: 'Swap',
@@ -312,6 +316,30 @@ export default defineComponent({
         const isResolving = ref(false)
         const targetError = ref('')
         let resolveTimer: ReturnType<typeof setTimeout> | undefined
+        let quoteTimer: ReturnType<typeof setTimeout> | undefined
+
+        /**
+         * AVXTO's own contract address on whichever network the signer is
+         * currently bound to — this app's own token, so it is the sensible
+         * "You receive" default. Network-specific rather than a single
+         * hardcoded address: AVXTO only exists on Avalanche C-Chain (mainnet
+         * and Fuji use different contracts, per @/avxto/AVXTOConf), and this
+         * page swaps on whichever EVM chain the active wallet/platform is
+         * actually pointed at, not just Avalanche. Null on any other chain —
+         * pre-filling an Avalanche-only address there would resolve to
+         * nothing (or, worse, to an unrelated contract that happens to sit at
+         * the same address on a different chain).
+         */
+        const defaultAvxtoAddress = computed((): string | null => {
+            switch (signer.value?.network.evmChainId) {
+                case 43114:
+                    return AVXTO_CONTRACT_ADDRESS
+                case 43113:
+                    return TESTNET_AVXTO_CONTRACT_ADDRESS
+                default:
+                    return null
+            }
+        })
 
         const tokenIn = computed(
             () => heldTokens.value.find((t) => t.address === tokenInAddr.value) || null
@@ -372,8 +400,17 @@ export default defineComponent({
         const fmtUsd = (v: number) => (v || 0).toFixed(2)
 
         const onAmountChange = () => {
-            // A fresh amount invalidates the previous quote.
+            // A fresh amount invalidates the previous quote…
             quote.value = null
+            if (quoteTimer) clearTimeout(quoteTimer)
+            // …and fetches a new one, debounced the same way the destination
+            // token's free-text resolution is (see onTargetChange below) — so
+            // "You receive" updates as the user types rather than staying
+            // blank until they click "Get Quote" again. `fetchQuote` itself
+            // silently no-ops via `canQuote` when the amount isn't a valid
+            // positive number yet, so a half-typed value just does nothing
+            // rather than erroring.
+            quoteTimer = setTimeout(fetchQuote, 400)
         }
 
         // Resolve the free-text target (address OR symbol) into token metadata,
@@ -436,6 +473,7 @@ export default defineComponent({
             resultTx.value = ''
             statusMsg.value = ''
             if (resolveTimer) clearTimeout(resolveTimer)
+            if (quoteTimer) clearTimeout(quoteTimer)
         }
 
         const onTargetChange = () => {
@@ -580,6 +618,24 @@ export default defineComponent({
             // Default the source to the first held token.
             if (!tokenInAddr.value && heldTokens.value.length) {
                 tokenInAddr.value = heldTokens.value[0].address
+            }
+            // Default the destination to AVXTO — this app's own token —
+            // when the active chain actually has one. `activeEvmSigner()` is
+            // synchronous (reads already-established store state), so unlike
+            // `heldTokens` above there is no async gap to race here.
+            //
+            // Skipped when the source default (just set above) is ALSO
+            // AVXTO — the only held asset being AVXTO itself is the one case
+            // where this "default" would immediately fail resolveTarget's
+            // own same-token check, which is correct (you cannot swap AVXTO
+            // for AVXTO) but not a helpful thing to greet the page with.
+            if (
+                !tokenOutAddr.value &&
+                defaultAvxtoAddress.value &&
+                defaultAvxtoAddress.value.toLowerCase() !== tokenInAddr.value.toLowerCase()
+            ) {
+                tokenOutAddr.value = defaultAvxtoAddress.value
+                void resolveTarget()
             }
             document.addEventListener('mousedown', onDocumentClick)
         })
