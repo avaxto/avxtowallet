@@ -18,9 +18,10 @@
             <LedgerUpgrade></LedgerUpgrade>
             <LedgerWalletLoading></LedgerWalletLoading>
             <NetworkLoadingBlock></NetworkLoadingBlock>
-            <notifications></notifications>        
+            <notifications></notifications>
             <TestNetBanner></TestNetBanner>
             <StatusBar></StatusBar>
+            <ExperimentalBanner></ExperimentalBanner>
             <BaseAssetThrModal></BaseAssetThrModal>
             <NetworkBlockedModal></NetworkBlockedModal>
         </template>
@@ -50,6 +51,7 @@ import NetworkLoadingBlock from '@/components/misc/NetworkLoadingBlock.vue'
 import UpgradeToAccountModal from '@/components/modals/SaveAccount/UpgradeToAccountModal.vue'
 import LedgerWalletLoading from '@/components/modals/LedgerWalletLoading.vue'
 import StatusBar from '@/components/StatusBar.vue'
+import ExperimentalBanner from '@/components/ExperimentalBanner.vue'
 import BaseAssetThrModal from '@/components/modals/BaseAssetThrModal.vue'
 import NetworkBlockedModal from '@/components/modals/NetworkBlockedModal.vue'
 import SessionPasswordModal from '@/components/modals/SessionPasswordModal.vue'
@@ -70,6 +72,7 @@ export default {
         Notifications,
         TestNetBanner,
         StatusBar,
+        ExperimentalBanner,
         BaseAssetThrModal,
         NetworkBlockedModal,
         SessionPasswordModal,
@@ -223,10 +226,10 @@ export default {
         #router_view {
             overflow: auto;
             padding: 0;
-            // Reserve space for the always-present fixed status bar at the
-            // bottom of the viewport so it doesn't cover the last bit of
-            // scrolled content.
-            padding-bottom: 26px;
+            // Reserve space for the always-present fixed status bar AND the
+            // ExperimentalBanner stacked below it (26px apiece) so neither
+            // covers the last bit of scrolled content.
+            padding-bottom: 52px;
         }
     }
 
@@ -234,7 +237,9 @@ export default {
         min-height: calc(100vh - 80px);
         position: relative;
         padding: main.$container_padding_m;
-        padding-bottom: calc(#{main.$container_padding_m} + 26px);
+        // 52px: the status bar and the ExperimentalBanner stacked below it,
+        // 26px apiece.
+        padding-bottom: calc(#{main.$container_padding_m} + 52px);
 
         // Remove horizontal padding for the home page to allow proper
         // centering. router-view's v-slot form doesn't render its own DOM
@@ -253,7 +258,9 @@ export default {
     min-height: calc(100vh - 80px);
     position: relative;
     padding: main.$container_padding_m;
-    padding-bottom: calc(#{main.$container_padding_m} + 26px);
+    // 52px: the status bar and the ExperimentalBanner stacked below it, 26px
+    // apiece.
+    padding-bottom: calc(#{main.$container_padding_m} + 52px);
     overflow: auto;
 
     // Remove horizontal padding for home page to allow proper centering

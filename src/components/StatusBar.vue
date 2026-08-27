@@ -106,7 +106,10 @@ export default defineComponent({
 <style scoped lang="scss">
 .status-bar {
     position: fixed;
-    bottom: 0;
+    // Stacked directly above the always-on ExperimentalBanner, which takes
+    // the true bottom edge (bottom: 0) below this — its own min-height is
+    // the same 26px, so the two read as one continuous two-line strip.
+    bottom: 26px;
     left: 0;
     right: 0;
     z-index: 9999;
