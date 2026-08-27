@@ -45,16 +45,16 @@ import {
     ECPair,
     addressFromPublicKey,
     accountPath,
-    addressPath,
     bip32,
     destroyNode,
     isValidBitcoinAddress,
     detectAddressType,
     CORE_WALLET_PATH,
 } from '@/bitcoin/keys'
-import { electrumPath, bitcoinCoreLegacyPath } from '@/bitcoin/altSchemes'
+import { knownCandidates } from '@/bitcoin/candidates'
 import {
     collectUtxos,
+    mapLimited,
     scanAccount,
     type AccountScan,
 } from '@/bitcoin/discovery'
@@ -71,6 +71,33 @@ export const BITCOIN_CHAIN = 'BTC'
 
 /** A pseudo-path for wallets with no derivation behind them (a single WIF key). */
 const SINGLE_KEY_PATH = 'imported'
+
+/** Bounded concurrency for checking the "extra candidate" addresses' balances. */
+const EXTRA_CANDIDATE_CONCURRENCY = 4
+
+/**
+ * One additional address an `HdBitcoinWallet` tracks alongside its own
+ * primary HD account — every entry from `bitcoin/candidates.ts#knownCandidates`
+ * except whichever ONE became the primary scheme at import time. See the
+ * module doc comment and `HdScanningWallet.mergeExtraCandidates` for why this
+ * exists: a phrase that also has funds at, say, its Electrum-style address
+ * should have that balance counted and spendable here too, not silently
+ * invisible because this wallet happened to pick a different scheme.
+ *
+ * `node` is a NEUTERED (public-key-only) leaf — already derived all the way
+ * to the exact address in question, unlike `accountNode` which for a
+ * standard scheme still needs `.derive(chain).derive(index)`. It is
+ * precomputed once, from the raw seed, at import time (see
+ * `accessWithMnemonic` in ./store.ts) specifically so that checking these
+ * balances later needs no further vault access — the same property
+ * `accountNode` already has, extended to cover every other scheme too.
+ */
+export interface ExtraCandidate {
+    scheme: string
+    path: string
+    addressType: BtcAddressType
+    node: BIP32Interface
+}
 
 export interface SendRequest {
     to: string
@@ -284,16 +311,22 @@ abstract class HdScanningWallet extends BitcoinWallet {
      */
     protected readonly singleAddress: boolean
 
+    /** See `ExtraCandidate` above. Empty for a wallet with no seed to derive
+     *  them from (watch-only). */
+    protected readonly extraCandidates: ExtraCandidate[]
+
     protected constructor(
         network: BitcoinNetwork,
         addressType: BtcAddressType,
         accountNode: BIP32Interface,
         protected readonly account: number,
-        singleAddress = false
+        singleAddress = false,
+        extraCandidates: ExtraCandidate[] = []
     ) {
         super(network, addressType)
         this.accountNode = accountNode
         this.singleAddress = singleAddress
+        this.extraCandidates = extraCandidates
     }
 
     getPrimaryAddress(): string {
@@ -333,15 +366,82 @@ abstract class HdScanningWallet extends BitcoinWallet {
     async refresh(): Promise<void> {
         if (this.singleAddress) {
             await this.refreshSingleAddress()
-            return
+        } else {
+            this.scan = await scanAccount(
+                this.accountNode,
+                this.addressType,
+                this.network,
+                this.account
+            )
+            this.utxos = await collectUtxos(this.scan, this.network)
         }
-        this.scan = await scanAccount(
-            this.accountNode,
-            this.addressType,
-            this.network,
-            this.account
+
+        if (this.extraCandidates.length > 0) {
+            await this.mergeExtraCandidates()
+        }
+    }
+
+    /**
+     * Folds in balance/UTXOs from every OTHER known derivation scheme this
+     * same phrase could produce (see `ExtraCandidate` above) — so the total
+     * shown really is "every address on the Bitcoin Derived Addresses page",
+     * not just whichever one scheme this wallet happened to open on.
+     *
+     * Purely additive: appends to whatever the primary scan (above) already
+     * produced, and never touches `nextReceiveAddress` — "where to receive"
+     * still means the primary account, only the totals and the spendable set
+     * grow. Each candidate needs no vault access (`node` is already a
+     * neutered public key, precomputed at import time), so a plain balance
+     * refresh still never prompts for the session password.
+     */
+    private async mergeExtraCandidates(): Promise<void> {
+        const results = await mapLimited(
+            this.extraCandidates,
+            EXTRA_CANDIDATE_CONCURRENCY,
+            async (c) => {
+                const address = addressFromPublicKey(c.node.publicKey, c.addressType, this.network)
+                const [stats, utxos] = await Promise.all([
+                    getAddressStats(address, this.network),
+                    getAddressUtxos(address, this.network),
+                ])
+                return { candidate: c, address, stats, utxos }
+            }
         )
-        this.utxos = await collectUtxos(this.scan, this.network)
+
+        const scan = this.scan
+        if (!scan) return // the primary scan above always sets this first
+
+        for (const { candidate, address, stats, utxos } of results) {
+            const funded = stats.chain_stats.funded_txo_sum + stats.mempool_stats.funded_txo_sum
+            const spent = stats.chain_stats.spent_txo_sum + stats.mempool_stats.spent_txo_sum
+            const balanceSats = funded - spent
+            const used = stats.chain_stats.tx_count + stats.mempool_stats.tx_count > 0
+
+            scan.addresses.push({
+                address,
+                path: candidate.path,
+                chain: 'receive',
+                index: 0,
+                type: candidate.addressType,
+                balanceSats,
+                used,
+                scheme: candidate.scheme,
+            })
+            scan.balanceSats += balanceSats
+            if (used) scan.hasHistory = true
+
+            for (const u of utxos) {
+                this.utxos.push({
+                    txid: u.txid,
+                    vout: u.vout,
+                    value: u.value,
+                    address,
+                    addressType: candidate.addressType,
+                    path: candidate.path,
+                    confirmed: u.status.confirmed,
+                })
+            }
+        }
     }
 
     /**
@@ -432,13 +532,16 @@ export class HdBitcoinWallet extends HdScanningWallet {
         account?: number
         /** True for the Core-compatible candidate — see HdScanningWallet. */
         singleAddress?: boolean
+        /** Every other known scheme's address, for balance + spending — see `ExtraCandidate`. */
+        extraCandidates?: ExtraCandidate[]
     }) {
         super(
             opts.network,
             opts.addressType,
             opts.accountNode,
             opts.account ?? 0,
-            opts.singleAddress ?? false
+            opts.singleAddress ?? false,
+            opts.extraCandidates ?? []
         )
         this.vault = opts.vault
     }
@@ -483,34 +586,13 @@ export class HdBitcoinWallet extends HdScanningWallet {
             }
 
             try {
-                for (const type of ADDRESS_TYPES) {
-                    const purpose = ADDRESS_TYPE_INFO[type].purpose
-                    addRow(
-                        `Standard (BIP-${purpose})`,
-                        addressPath(type, this.network, 0, 'receive', 0),
-                        type
-                    )
+                // The same list `extraCandidates` (below) was built from at
+                // import time — one definition, so the derive page and the
+                // wallet's own balance scanning can never silently disagree
+                // about what "every known address" means.
+                for (const spec of knownCandidates(this.network)) {
+                    addRow(spec.scheme, spec.path, spec.addressType)
                 }
-
-                addRow('Core Wallet (same as Avalanche C-Chain key)', CORE_WALLET_PATH, 'p2wpkh')
-
-                // Same path, different encodings — see altSchemes.ts.
-                const electrumReceive = electrumPath('receive')
-                addRow('Electrum — Legacy', electrumReceive, 'p2pkh')
-                addRow('Electrum — Native SegWit', electrumReceive, 'p2wpkh')
-
-                const coreLegacyReceive = bitcoinCoreLegacyPath('receive')
-                addRow('Bitcoin Core (legacy wallet) — Legacy', coreLegacyReceive, 'p2pkh')
-                addRow(
-                    'Bitcoin Core (legacy wallet) — Nested SegWit',
-                    coreLegacyReceive,
-                    'p2sh-p2wpkh'
-                )
-                addRow(
-                    'Bitcoin Core (legacy wallet) — Native SegWit',
-                    coreLegacyReceive,
-                    'p2wpkh'
-                )
 
                 const trimmedCustom = customPath?.trim()
                 if (trimmedCustom) {

@@ -41,12 +41,14 @@ import {
 } from '@/bitcoin/keys'
 import { pickAddressType, probeAddressTypes } from '@/bitcoin/discovery'
 import { getFeeEstimates } from '@/bitcoin/esplora'
+import { knownCandidates } from '@/bitcoin/candidates'
 import {
     BitcoinWallet,
     HdBitcoinWallet,
     WatchAddressBitcoinWallet,
     WatchBitcoinWallet,
     WifBitcoinWallet,
+    type ExtraCandidate,
 } from './wallet'
 
 const NETWORK_STORAGE_KEY = 'bitcoin_active_network'
@@ -267,6 +269,34 @@ export const useBitcoinStore = defineStore('bitcoin', () => {
                 singleAddress = false
             }
 
+            // Every OTHER known scheme's address — everything
+            // `knownCandidates` lists except whichever one `chosen` already
+            // is — precomputed as neutered leaf nodes now, while the seed is
+            // still in hand. Most of these are separate hardened branches
+            // (Electrum, Bitcoin Core legacy, the non-chosen standard types)
+            // that cannot be reached later from `accountNode`'s own xpub, so
+            // doing it here, once, is what lets a later balance refresh check
+            // all of them without ever touching the vault again. See
+            // `ExtraCandidate` in ./wallet.ts.
+            const extraRoot = bip32.fromSeed(seed, net.params)
+            const extraCandidates: ExtraCandidate[] = []
+            try {
+                for (const spec of knownCandidates(net)) {
+                    if (spec.id === chosen) continue // already the primary account above
+                    const signing = extraRoot.derivePath(spec.path)
+                    const node = signing.neutered()
+                    destroyNode(signing)
+                    extraCandidates.push({
+                        scheme: spec.scheme,
+                        path: spec.path,
+                        addressType: spec.addressType,
+                        node,
+                    })
+                }
+            } finally {
+                destroyNode(extraRoot)
+            }
+
             // vaultWith consumes and wipes `seed`.
             const vault = await vaultWith('seed', seed, sessionPassword)
 
@@ -277,6 +307,7 @@ export const useBitcoinStore = defineStore('bitcoin', () => {
                     accountNode,
                     vault,
                     singleAddress,
+                    extraCandidates,
                 })
             )
             void refreshFeeRates()

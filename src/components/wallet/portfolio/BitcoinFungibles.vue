@@ -73,14 +73,24 @@
                 <span class="chain_tag" :class="a.chain">{{
                     a.chain === 'change' ? 'change' : 'receive'
                 }}</span>
-                <a
-                    :href="addressUrl(a.address)"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    class="mono small"
-                >
-                    {{ a.address }}
-                </a>
+                <div class="addr_col">
+                    <a
+                        :href="addressUrl(a.address)"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="mono small"
+                    >
+                        {{ a.address }}
+                    </a>
+                    <!--
+                      Only set for a balance tracked via a non-primary scheme
+                      (Electrum, Core Wallet, Bitcoin Core legacy, …) — see
+                      ScannedAddress.scheme. A caption under the address
+                      rather than squeezed into the narrow tag column, since
+                      these labels run much longer than "receive"/"change".
+                    -->
+                    <span v-if="a.scheme" class="scheme_note">{{ a.scheme }}</span>
+                </div>
                 <span class="mono small amt">{{ formatSats(a.balanceSats) }}</span>
             </div>
         </div>
@@ -346,6 +356,19 @@ label {
         text-align: right;
         color: var(--primary-color);
     }
+}
+
+.addr_col {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.scheme_note {
+    font-size: 10px;
+    color: var(--primary-color-light);
+    opacity: 0.8;
 }
 
 .chain_tag {

@@ -63,6 +63,14 @@ export interface ScannedAddress {
     balanceSats: number
     /** True if this address has ever been involved in a transaction. */
     used: boolean
+    /**
+     * Set only for an address tracked via a non-primary derivation scheme
+     * (see platforms/bitcoin/wallet.ts's `extraCandidates`) — e.g. "Electrum
+     * — Legacy" or "Core Wallet". Absent for an address from the wallet's own
+     * primary HD account, where `chain`/`index` already say everything
+     * needed.
+     */
+    scheme?: string
 }
 
 export interface AccountScan {
@@ -75,7 +83,13 @@ export interface AccountScan {
 }
 
 /** Runs `fn` over `items` with a bounded number in flight at once. */
-async function mapLimited<T, R>(
+/**
+ * Exported (not just used internally): `platforms/bitcoin/wallet.ts` reuses
+ * this to check balances for the "extra candidate" addresses (Electrum, Core
+ * Wallet, Bitcoin Core legacy, …) with the same bounded concurrency as every
+ * other multi-address scan here, rather than firing them all at once.
+ */
+export async function mapLimited<T, R>(
     items: T[],
     limit: number,
     fn: (item: T) => Promise<R>
