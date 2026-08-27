@@ -25,6 +25,8 @@ import {
     deriveCoreCompatNode,
     detectAddressType,
     isValidBitcoinAddress,
+    ECPair,
+    parsePrivateKeyInput,
 } from '@/bitcoin/keys'
 import { getBitcoinNetworkById, type BtcAddressType } from '@/bitcoin/networks'
 
@@ -180,5 +182,45 @@ describe('Core Wallet compatibility', () => {
         // making the two derivations diverge.
         const { LEDGER_ETH_ACCOUNT_PATH } = await import('@/js/wallets/constants')
         expect(CORE_WALLET_PATH).toBe(LEDGER_ETH_ACCOUNT_PATH)
+    })
+})
+
+describe('parsePrivateKeyInput', () => {
+    // The Core Wallet node above IS a raw EVM-style key (see CORE_WALLET_PATH
+    // description) — reusing it here ties this straight to a real scenario:
+    // pasting that same C-Chain key as 0x hex into the Bitcoin private-key
+    // importer must open the identical address Core itself shows for it.
+    const coreNode = deriveCoreCompatNode(seed, mainnet)
+    const CORE_ADDRESS = 'bc1qgsvdpdxec8hsu57lhxg5xem7refr233z2ttx7e'
+
+    it('accepts a 0x-prefixed raw private key, defaulting to a compressed pubkey', () => {
+        const hex = '0x' + Buffer.from(coreNode.privateKey!).toString('hex')
+        const pair = parsePrivateKeyInput(hex, mainnet)
+        expect(pair.compressed).toBe(true)
+        expect(addressFromPublicKey(pair.publicKey, 'p2wpkh', mainnet)).toBe(CORE_ADDRESS)
+    })
+
+    it('is case-insensitive on the 0x prefix and hex digits', () => {
+        const hex = '0X' + Buffer.from(coreNode.privateKey!).toString('hex').toUpperCase()
+        const pair = parsePrivateKeyInput(hex, mainnet)
+        expect(addressFromPublicKey(pair.publicKey, 'p2wpkh', mainnet)).toBe(CORE_ADDRESS)
+    })
+
+    it('still accepts a WIF key for the same private key material', () => {
+        const wif = ECPair.fromPrivateKey(Buffer.from(coreNode.privateKey!), {
+            network: mainnet.params,
+            compressed: true,
+        }).toWIF()
+        const pair = parsePrivateKeyInput(wif, mainnet)
+        expect(addressFromPublicKey(pair.publicKey, 'p2wpkh', mainnet)).toBe(CORE_ADDRESS)
+    })
+
+    it('rejects a 0x key that is not exactly 32 bytes', () => {
+        expect(() => parsePrivateKeyInput('0x1234', mainnet)).toThrow()
+    })
+
+    it('rejects garbage input', () => {
+        expect(() => parsePrivateKeyInput('not a key', mainnet)).toThrow()
+        expect(() => parsePrivateKeyInput('', mainnet)).toThrow()
     })
 })

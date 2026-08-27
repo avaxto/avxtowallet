@@ -37,7 +37,7 @@ import {
     deriveCoreCompatNode,
     destroyNode,
     parseAccountXpub,
-    parseWif,
+    parsePrivateKeyInput,
 } from '@/bitcoin/keys'
 import { pickAddressType, probeAddressTypes } from '@/bitcoin/discovery'
 import { getFeeEstimates } from '@/bitcoin/esplora'
@@ -320,16 +320,16 @@ export const useBitcoinStore = defineStore('bitcoin', () => {
         }
     }
 
-    /** Imports a single WIF private key. */
+    /** Imports a single private key — WIF or `0x`-prefixed raw hex. */
     const accessWithPrivateKey = async (
-        wif: string,
+        privateKeyInput: string,
         sessionPassword: string,
         addressType: BtcAddressType = DEFAULT_ADDRESS_TYPE
     ): Promise<void> => {
         isConnecting.value = true
         try {
             const net = network.value
-            const pair = parseWif(wif, net)
+            const pair = parsePrivateKeyInput(privateKeyInput, net)
             const address = addressFromPublicKey(pair.publicKey, addressType, net)
 
             // Copy out before wiping the pair's own buffer.

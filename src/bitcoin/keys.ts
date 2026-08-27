@@ -408,6 +408,44 @@ export function parseWif(wif: string, network: BitcoinNetwork) {
 }
 
 /**
+ * Parses a raw 32-byte private key given as `0x`-prefixed hex — the format
+ * EVM wallets use, and the one a key reused from the C-Chain (see the "Core
+ * Wallet" candidate elsewhere in this module) is actually in, rather than
+ * WIF.
+ *
+ * Unlike WIF, raw hex carries no network byte or compression flag, so both
+ * are assumed rather than read: the network is whichever is selected, and
+ * the key is treated as compressed — three of the four address types
+ * (P2WPKH, P2SH-P2WPKH, P2TR) require a compressed pubkey outright, and it's
+ * what Core Wallet's own EVM-key-reuse path assumes too.
+ */
+function parseHexPrivateKey(hex: string, network: BitcoinNetwork) {
+    const body = hex.slice(2)
+    if (!/^[0-9a-fA-F]{64}$/.test(body)) {
+        throw new Error('A 0x-prefixed private key must be 32 bytes (64 hex characters).')
+    }
+    const bytes = Uint8Array.from(Buffer.from(body, 'hex'))
+    try {
+        return ECPair.fromPrivateKey(bytes, { network: network.params, compressed: true })
+    } catch {
+        throw new Error('That is not a valid private key.')
+    }
+}
+
+/**
+ * Parses whatever the user pasted into a private-key field — either WIF
+ * (`parseWif`) or `0x`-prefixed raw hex (`parseHexPrivateKey`). The two
+ * formats are visually unambiguous (hex always starts `0x`; WIF never does),
+ * so which one applies is decided from the prefix alone.
+ */
+export function parsePrivateKeyInput(input: string, network: BitcoinNetwork) {
+    const trimmed = input.trim()
+    if (!trimmed) throw new Error('Enter a private key.')
+    if (/^0x/i.test(trimmed)) return parseHexPrivateKey(trimmed, network)
+    return parseWif(trimmed, network)
+}
+
+/**
  * Best-effort erasure of a BIP32 node's private material.
  *
  * Same tradeoff as `destroyKeyPair` in js/security/memory.ts and

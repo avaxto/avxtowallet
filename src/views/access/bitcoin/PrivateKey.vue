@@ -19,7 +19,9 @@
             <p class="sub">
                 Paste a WIF private key — it starts with
                 <span class="mono">K</span>, <span class="mono">L</span> or
-                <span class="mono">5</span> on mainnet.
+                <span class="mono">5</span> on mainnet — or a raw
+                <span class="mono">0x</span>-prefixed private key, such as one
+                reused from an EVM wallet.
             </p>
 
             <form @submit.prevent="access" autocomplete="off">
@@ -27,7 +29,7 @@
                     ref="wif_in"
                     v-model="wif"
                     :rows="2"
-                    placeholder="WIF private key"
+                    placeholder="WIF or 0x private key"
                     :disabled="isLoading"
                 ></MaskedSecretTextarea>
 
@@ -95,7 +97,7 @@ import {
     DEFAULT_ADDRESS_TYPE,
     type BtcAddressType,
 } from '@/bitcoin/networks'
-import { addressFromPublicKey, parseWif } from '@/bitcoin/keys'
+import { addressFromPublicKey, parsePrivateKeyInput } from '@/bitcoin/keys'
 import { wipe } from '@/js/security/memory'
 import MaskedSecretTextarea from '@/components/misc/MaskedSecretTextarea.vue'
 
@@ -134,9 +136,9 @@ export default defineComponent({
         const preview = computed((): { address: string; error: string } => {
             const raw = wif.value.trim()
             if (!raw) return { address: '', error: '' }
-            let pair: ReturnType<typeof parseWif> | null = null
+            let pair: ReturnType<typeof parsePrivateKeyInput> | null = null
             try {
-                pair = parseWif(raw, bitcoinStore.network)
+                pair = parsePrivateKeyInput(raw, bitcoinStore.network)
                 return {
                     address: addressFromPublicKey(
                         pair.publicKey,

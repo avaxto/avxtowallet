@@ -4,38 +4,38 @@
   Licensed under the BSD 3 Clause License. See LICENSE file in the project root for details.
 -->
 <!--
-  Shows every well-known address this wallet's recovery phrase can produce —
-  this app's own four standard types plus the Core-compatible one already
-  used for fund discovery, and, for comparison against other software,
-  Electrum's and Bitcoin Core's own non-standard conventions and an arbitrary
-  custom BIP32 path.
+  For an HD (recovery-phrase) wallet: shows every well-known address this
+  wallet's phrase can produce — this app's own four standard types plus the
+  Core-compatible one already used for fund discovery, and, for comparison
+  against other software, Electrum's and Bitcoin Core's own non-standard
+  conventions and an arbitrary custom BIP32 path.
+
+  For a wallet imported from a single private key: there is no seed to derive
+  other PATHS from, so instead this shows the one key re-encoded under each
+  of the four address types — see WifBitcoinWallet.deriveAddressVariants.
 
   Purely a comparison/verification tool. Nothing shown here changes which
   address THIS wallet actually holds funds at — see platforms/bitcoin/store.ts
-  (accessWithMnemonic) and bitcoin/discovery.ts for that. See
-  bitcoin/altSchemes.ts for exactly how the Electrum and Bitcoin Core
-  conventions were verified.
+  (accessWithMnemonic / accessWithPrivateKey) and bitcoin/discovery.ts for
+  that. See bitcoin/altSchemes.ts for exactly how the Electrum and Bitcoin
+  Core conventions were verified.
 -->
 <template>
     <div class="derive_page">
         <div class="head">
             <h1>Bitcoin Derived Addresses</h1>
-            <p class="desc">
-                Every address your recovery phrase produces, across this wallet's own standard
-                types and the conventions other Bitcoin software uses — so you can check what's
-                shown here against Electrum, Bitcoin Core, or anywhere else.
-            </p>
+            <p class="desc">{{ headerDesc }}</p>
         </div>
 
         <div v-if="!isSupported" class="unsupported">
             <p>
-                This tool needs a Bitcoin wallet imported from a recovery phrase — a private-key
-                or watch-only wallet has no seed to derive alternate schemes from.
+                This tool needs a Bitcoin wallet with signing material — a watch-only wallet has
+                no key to derive or re-encode addresses from.
             </p>
         </div>
 
         <template v-else>
-            <div class="custom_row">
+            <div v-if="isHdWallet" class="custom_row">
                 <label for="custom_path">Custom BIP32 path (optional)</label>
                 <input
                     id="custom_path"
@@ -46,6 +46,11 @@
                     autocomplete="off"
                 />
             </div>
+            <p v-else class="desc single_key_note">
+                This wallet was imported from a single private key, not a recovery phrase, so
+                there's no seed to derive other paths from — only this custom path input is
+                skipped, everything below still works.
+            </p>
 
             <v-btn
                 depressed
@@ -96,7 +101,7 @@
 <script lang="ts">
 import { defineComponent, computed, ref, onMounted } from 'vue'
 import { useBitcoinStore } from '@/platforms/bitcoin/store'
-import { HdBitcoinWallet, type DerivedAddressRow } from '@/platforms/bitcoin/wallet'
+import { HdBitcoinWallet, WifBitcoinWallet, type DerivedAddressRow } from '@/platforms/bitcoin/wallet'
 import { ADDRESS_TYPE_INFO, getBitcoinAddressUrl } from '@/bitcoin/networks'
 import { authorizeSingle, SessionAuthCancelled } from '@/js/security/authorize'
 import CopyText from '@/components/misc/CopyText.vue'
@@ -121,7 +126,16 @@ export default defineComponent({
         const hasDerived = ref(false)
 
         const wallet = computed(() => btc.wallet)
-        const isSupported = computed(() => wallet.value instanceof HdBitcoinWallet)
+        const isHdWallet = computed(() => wallet.value instanceof HdBitcoinWallet)
+        const isSupported = computed(
+            () => wallet.value instanceof HdBitcoinWallet || wallet.value instanceof WifBitcoinWallet
+        )
+
+        const headerDesc = computed(() =>
+            isHdWallet.value
+                ? "Every address your recovery phrase produces, across this wallet's own standard types and the conventions other Bitcoin software uses — so you can check what's shown here against Electrum, Bitcoin Core, or anywhere else."
+                : 'The address this private key produces under each of the four standard Bitcoin address types — useful for checking it against what another wallet shows for the same key.'
+        )
 
         const groupedRows = computed((): SchemeGroup[] => {
             const groups: SchemeGroup[] = []
@@ -144,17 +158,24 @@ export default defineComponent({
 
         const derive = async () => {
             const w = wallet.value
-            if (!(w instanceof HdBitcoinWallet)) return
+            if (!(w instanceof HdBitcoinWallet) && !(w instanceof WifBitcoinWallet)) return
 
             err.value = ''
             customPathError.value = null
             isDeriving.value = true
             try {
-                const result = await authorizeSingle(
-                    w,
-                    'Show every known Bitcoin address for this phrase',
-                    () => w.deriveKnownSchemes(customPath.value)
-                )
+                const result =
+                    w instanceof HdBitcoinWallet
+                        ? await authorizeSingle(
+                              w,
+                              'Show every known Bitcoin address for this phrase',
+                              () => w.deriveKnownSchemes(customPath.value)
+                          )
+                        : await authorizeSingle(
+                              w,
+                              'Show this private key under every address type',
+                              () => w.deriveAddressVariants()
+                          )
                 rows.value = result.rows
                 customPathError.value = result.customPathError
                 hasDerived.value = true
@@ -180,6 +201,8 @@ export default defineComponent({
 
         return {
             isSupported,
+            isHdWallet,
+            headerDesc,
             customPath,
             isDeriving,
             err,
@@ -222,6 +245,10 @@ h1 {
     color: var(--primary-color-light);
     padding: 20px 0;
     text-align: center;
+}
+
+.single_key_note {
+    margin-bottom: 16px;
 }
 
 .custom_row {

@@ -676,6 +676,36 @@ export class WifBitcoinWallet extends BitcoinWallet {
         return this.address
     }
 
+    /**
+     * Shows this SAME imported key re-encoded under each of the four address
+     * types — there is no seed here to derive alternate PATHS from (unlike
+     * `HdBitcoinWallet.deriveKnownSchemes`), but the one key still looks like
+     * a different address under each encoding, and confirming that mapping
+     * is exactly what a user reaching for the derive page wants. Returns the
+     * same `DeriveKnownSchemesResult` shape so the derive page can render
+     * both wallet kinds with one template.
+     */
+    async deriveAddressVariants(): Promise<DeriveKnownSchemesResult> {
+        const auth = requireAuth(this.vault)
+
+        return this.vault.withSecret(auth, 'pk', async (priv) => {
+            const pair = ECPair.fromPrivateKey(Buffer.from(priv), { network: this.network.params })
+            try {
+                const rows: DerivedAddressRow[] = ADDRESS_TYPES.map((type) => ({
+                    scheme: 'This private key',
+                    path: SINGLE_KEY_PATH,
+                    addressType: type,
+                    address: addressFromPublicKey(pair.publicKey, type, this.network),
+                }))
+                return { rows, customPathError: null }
+            } finally {
+                // ECPair copies the key; zero the copy we can reach.
+                const pk = (pair as { privateKey?: Uint8Array }).privateKey
+                if (pk) wipe(pk)
+            }
+        })
+    }
+
     async refresh(): Promise<void> {
         const [stats, utxos] = await Promise.all([
             getAddressStats(this.address, this.network),
