@@ -67,6 +67,22 @@
                         @click="verifyLedgerAddress"
                         class="ledger_but"
                     ></button>
+                    <router-link
+                        v-if="isAvalanche"
+                        to="/wallet/addresses"
+                        tooltip="View every derived X/P-Chain address"
+                        class="derive_but"
+                    >
+                        <fa icon="list-ul"></fa>
+                    </router-link>
+                    <router-link
+                        v-if="isBitcoin"
+                        to="/wallet/btcderive"
+                        tooltip="View every derived address (Electrum, Bitcoin Core, Core Wallet, …)"
+                        class="derive_but"
+                    >
+                        <fa icon="list-ul"></fa>
+                    </router-link>
                     <CopyText
                         :tooltip="$t('top.hover3')"
                         :value="activeAddress"
@@ -129,6 +145,10 @@ export default defineComponent({
         const isAvalanche = computed((): boolean => {
             return platformStore.hasChainKind('utxo') || platformStore.hasChainKind('staking')
         })
+
+        /** Gates the "view all derived addresses" link — that page only means
+         *  anything for the Bitcoin platform's own derivation schemes. */
+        const isBitcoin = computed((): boolean => platformStore.activePlatformId === 'bitcoin')
 
         const platformAddress = computed((): string => {
             return platformStore.activeWallet?.getPrimaryAddress() || '-'
@@ -471,6 +491,7 @@ export default defineComponent({
 
         return {
             isAvalanche,
+            isBitcoin,
             qrModalRef,
             printModalRef,
             qrRef,
@@ -543,6 +564,16 @@ export default defineComponent({
 }
 .ledger_but {
     background-image: url('/img/ledger_icon.png');
+}
+.derive_but {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--primary-color-light);
+
+    &:hover {
+        color: var(--primary-color);
+    }
 }
 .copy_but {
     color: var(--primary-color);
