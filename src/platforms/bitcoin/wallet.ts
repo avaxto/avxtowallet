@@ -34,6 +34,7 @@ import { requireAuth } from '@/js/security/session'
 import { wipe } from '@/js/security/memory'
 import {
     ADDRESS_TYPE_INFO,
+    ADDRESS_TYPES,
     CORE_CANDIDATE_INFO,
     SATS_PER_BTC,
     BTC_DECIMALS,
@@ -44,12 +45,14 @@ import {
     ECPair,
     addressFromPublicKey,
     accountPath,
+    addressPath,
     bip32,
     destroyNode,
     isValidBitcoinAddress,
     detectAddressType,
     CORE_WALLET_PATH,
 } from '@/bitcoin/keys'
+import { electrumPath, bitcoinCoreLegacyPath } from '@/bitcoin/altSchemes'
 import {
     collectUtxos,
     scanAccount,
@@ -86,6 +89,21 @@ export interface SendPreview {
     vbytes: number
     /** Effective rate the built transaction will actually pay. */
     effectiveFeeRate: number
+}
+
+/** One row of `HdBitcoinWallet.deriveKnownSchemes` — see there for what this is for. */
+export interface DerivedAddressRow {
+    /** Human label, e.g. "Standard (BIP-84)" or "Electrum — Native SegWit". */
+    scheme: string
+    path: string
+    addressType: BtcAddressType
+    address: string
+}
+
+export interface DeriveKnownSchemesResult {
+    rows: DerivedAddressRow[]
+    /** Set only when a supplied custom path failed to derive at all. */
+    customPathError: string | null
 }
 
 export abstract class BitcoinWallet implements PlatformWallet {
@@ -423,6 +441,93 @@ export class HdBitcoinWallet extends HdScanningWallet {
             opts.singleAddress ?? false
         )
         this.vault = opts.vault
+    }
+
+    /**
+     * Derives the address this same seed produces under every well-known
+     * convention this app knows about — the four standard BIP-44/49/84/86
+     * types, the Core-compatible candidate, Electrum's "Non-standard" path,
+     * and Bitcoin Core's pre-descriptor legacy path — plus, optionally, one
+     * arbitrary user-supplied BIP32 path.
+     *
+     * Purely a comparison tool: nothing returned here changes which address
+     * THIS wallet actually holds funds at (see discovery.ts for that). It
+     * exists so a user can check "does this match what Electrum / Bitcoin
+     * Core / some other tool shows me for the same phrase" — see
+     * altSchemes.ts for exactly how each convention was verified.
+     *
+     * One authorization covers the whole batch: every row is derived from the
+     * same already-decrypted seed inside one `withSecret` call, not one prompt
+     * per row.
+     */
+    async deriveKnownSchemes(customPath?: string): Promise<DeriveKnownSchemesResult> {
+        const auth = requireAuth(this.vault)
+
+        return this.vault.withSecret(auth, 'seed', async (seed) => {
+            const root = bip32.fromSeed(seed, this.network.params)
+            const rows: DerivedAddressRow[] = []
+            let customPathError: string | null = null
+
+            const addRow = (scheme: string, path: string, type: BtcAddressType): void => {
+                const node = root.derivePath(path)
+                try {
+                    rows.push({
+                        scheme,
+                        path,
+                        addressType: type,
+                        address: addressFromPublicKey(node.publicKey, type, this.network),
+                    })
+                } finally {
+                    destroyNode(node)
+                }
+            }
+
+            try {
+                for (const type of ADDRESS_TYPES) {
+                    const purpose = ADDRESS_TYPE_INFO[type].purpose
+                    addRow(
+                        `Standard (BIP-${purpose})`,
+                        addressPath(type, this.network, 0, 'receive', 0),
+                        type
+                    )
+                }
+
+                addRow('Core Wallet (same as Avalanche C-Chain key)', CORE_WALLET_PATH, 'p2wpkh')
+
+                // Same path, different encodings — see altSchemes.ts.
+                const electrumReceive = electrumPath('receive')
+                addRow('Electrum — Legacy', electrumReceive, 'p2pkh')
+                addRow('Electrum — Native SegWit', electrumReceive, 'p2wpkh')
+
+                const coreLegacyReceive = bitcoinCoreLegacyPath('receive')
+                addRow('Bitcoin Core (legacy wallet) — Legacy', coreLegacyReceive, 'p2pkh')
+                addRow(
+                    'Bitcoin Core (legacy wallet) — Nested SegWit',
+                    coreLegacyReceive,
+                    'p2sh-p2wpkh'
+                )
+                addRow(
+                    'Bitcoin Core (legacy wallet) — Native SegWit',
+                    coreLegacyReceive,
+                    'p2wpkh'
+                )
+
+                const trimmedCustom = customPath?.trim()
+                if (trimmedCustom) {
+                    try {
+                        for (const type of ADDRESS_TYPES) {
+                            addRow(`Custom path — ${ADDRESS_TYPE_INFO[type].label}`, trimmedCustom, type)
+                        }
+                    } catch (e: any) {
+                        customPathError = e?.message ?? String(e)
+                    }
+                }
+
+                return { rows, customPathError }
+            } finally {
+                destroyNode(root)
+            }
+        })
     }
 
     /**

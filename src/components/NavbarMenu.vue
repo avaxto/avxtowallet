@@ -54,7 +54,11 @@
                     carries no gate of its own. Decode Solana Address is the
                     same story again: a plain base58 decode of a pasted
                     address, meaningful regardless of which platform is
-                    active, so it is likewise ungated.
+                    active, so it is likewise ungated. Bitcoin Derived
+                    Addresses goes back to the Avalanche-item pattern instead
+                    — it only means anything for a Bitcoin mnemonic wallet's
+                    own seed, so it is gated on `isBitcoin` the same way those
+                    are gated on `isAvalanche`.
                 -->
                 <v-list-item v-if="isAvalanche">
                     <v-list-item-title>
@@ -89,6 +93,11 @@
                 <v-list-item>
                     <v-list-item-title>
                         <router-link to="/wallet/soladdr">Decode Solana Address</router-link>
+                    </v-list-item-title>
+                </v-list-item>
+                <v-list-item v-if="isBitcoin">
+                    <v-list-item-title>
+                        <router-link to="/wallet/btcderive">Bitcoin Derived Addresses</router-link>
                     </v-list-item-title>
                 </v-list-item>
             </v-list>
