@@ -21,13 +21,12 @@ export const DEFAULT_PLATFORM_ID: PlatformId = 'avalanche'
 export function registerPlatform(platform: Platform): void {
     const id = platform.descriptor.id
     if (registry.has(id)) {
-        // `import.meta.hot` only exists under Vite's dev server, never in a
-        // production build. There, a duplicate id is a genuine authoring
-        // mistake (two platform folders declaring the same id within one
-        // execution of ./index.ts) and must fail loudly — a duplicate would
-        // make `getPlatform` ambiguous and silently shadow one implementation.
+        // In a production build a duplicate id is a genuine authoring mistake
+        // (two platform folders declaring the same id within one execution of
+        // ./index.ts) and must fail loudly — a duplicate would make
+        // `getPlatform` ambiguous and silently shadow one implementation.
         //
-        // In dev it can ALSO mean something harmless: `./index.ts` has
+        // Outside one it can ALSO mean something harmless: `./index.ts` has
         // top-level side effects (these `registerPlatform` calls), and this
         // module — the one actually holding `registry`, the singleton these
         // calls mutate — is not itself what changed, so it is not always part
@@ -37,7 +36,16 @@ export function registerPlatform(platform: Platform): void {
         // still-populated `registry`. Re-registering the identical platform
         // object there is not a mistake, just Vite catching up — overwrite
         // instead of throwing.
-        if (import.meta.hot) {
+        //
+        // Tested against `process.env.NODE_ENV` rather than `import.meta.hot`,
+        // which is what this used to read. Both are statically replaced by
+        // Vite and both leave production throwing, but `import.meta` is a
+        // syntax error once compiled to CommonJS — so its mere presence made
+        // this module, and therefore every module reaching the platform
+        // registry (all of platforms/store.ts included), impossible to load
+        // under Jest. The widened condition only ever loosens a
+        // developer-build assertion.
+        if (process.env.NODE_ENV !== 'production') {
             registry.set(id, platform)
             return
         }

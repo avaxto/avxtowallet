@@ -29,6 +29,25 @@
                 </span>
             </button>
         </div>
+        <!--
+          Some platforms cannot share a page with another live session (see
+          `supportsConcurrentSession`), so selecting one has to end every
+          session that is already open. That is a real loss — an in-memory
+          vault means re-entering the phrase and password — so it is confirmed
+          rather than done silently on the first click.
+        -->
+        <div v-if="pending" class="platform_confirm">
+            <p class="confirm_text">
+                Opening <b>{{ pending.name }}</b> closes your other open
+                {{ pending.openCount === 1 ? 'session' : 'sessions' }}. You'll need to unlock
+                {{ pending.openCount === 1 ? 'it' : 'them' }} again.
+            </p>
+            <div class="confirm_buts">
+                <button type="button" class="confirm_but" @click="confirmPending">Continue</button>
+                <button type="button" class="cancel_but" @click="pending = null">Cancel</button>
+            </div>
+        </div>
+
         <p v-if="error" class="platform_error">{{ error }}</p>
     </div>
 </template>
@@ -47,7 +66,10 @@ export default defineComponent({
         const platforms = computed(() => platformStore.platforms)
         const activePlatformId = computed(() => platformStore.activePlatformId)
 
-        const select = async (id: PlatformId) => {
+        /** Set while a session-ending switch is waiting to be confirmed. */
+        const pending = ref<{ id: PlatformId; name: string; openCount: number } | null>(null)
+
+        const switchTo = async (id: PlatformId) => {
             error.value = ''
             try {
                 await platformStore.setActivePlatform(id)
@@ -56,7 +78,30 @@ export default defineComponent({
             }
         }
 
-        return { platforms, activePlatformId, error, select }
+        const select = async (id: PlatformId) => {
+            error.value = ''
+            pending.value = null
+
+            if (platformStore.isDestructiveSwitch(id)) {
+                pending.value = {
+                    id,
+                    name: platforms.value.find((p) => p.descriptor.id === id)?.descriptor.name ?? id,
+                    openCount: platformStore.connectedPlatforms.length,
+                }
+                return
+            }
+
+            await switchTo(id)
+        }
+
+        const confirmPending = async () => {
+            const target = pending.value
+            if (!target) return
+            pending.value = null
+            await switchTo(target.id)
+        }
+
+        return { platforms, activePlatformId, error, pending, select, confirmPending }
     },
 })
 </script>
@@ -143,5 +188,50 @@ export default defineComponent({
     margin-top: 8px !important;
     font-size: 13px;
     color: var(--error);
+}
+
+.platform_confirm {
+    margin-top: 10px;
+    padding: 10px 12px;
+    border: 1px solid var(--secondary-color);
+    border-radius: 6px;
+    background-color: var(--bg-light);
+}
+
+.confirm_text {
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--primary-color);
+}
+
+.confirm_buts {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.confirm_but,
+.cancel_but {
+    padding: 5px 12px;
+    border-radius: 4px;
+    border: 1px solid transparent;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.confirm_but {
+    background-color: var(--secondary-color);
+    color: var(--bg);
+    font-weight: 600;
+}
+
+.cancel_but {
+    background-color: transparent;
+    border-color: var(--bg);
+    color: var(--primary-color-light);
+
+    &:hover {
+        color: var(--primary-color);
+    }
 }
 </style>

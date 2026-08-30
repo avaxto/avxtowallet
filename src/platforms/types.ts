@@ -355,6 +355,29 @@ export interface Platform {
     /** Point the platform at one of its `networks`. */
     setActiveNetwork?(id: string): Promise<void>
 
+    /**
+     * True when this platform's entire session lives in its own store, so it
+     * can stay connected alongside other platforms without a page reload.
+     *
+     * This is what makes the tabbed multi-platform session possible: switching
+     * between two platforms that both declare it only moves
+     * `activePlatformId`, leaving both wallets live. See `setActivePlatform`
+     * in ./store.ts.
+     *
+     * Avalanche deliberately does NOT declare it. Its wallet lives in the
+     * legacy global `@/stores/main` rather than a per-platform store, and it
+     * additionally drives `networkStore`, the pollers, `assetsStore` and the
+     * vendored SDK's module-level singletons — all written assuming one
+     * platform for the lifetime of the page. Until that state is moved behind
+     * a per-platform store, any switch involving Avalanche has to take the
+     * logout-and-reload path.
+     *
+     * A platform declaring this must also keep `logout()` free of
+     * `window.location` navigation, or disconnecting it would tear down every
+     * *other* live session with it — their vaults are in memory only.
+     */
+    readonly supportsConcurrentSession?: boolean
+
     /** Called when this platform becomes the active one. */
     activate?(): Promise<void>
     /** Called when the user switches away from this platform. */

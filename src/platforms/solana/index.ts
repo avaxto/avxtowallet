@@ -149,6 +149,11 @@ export const solanaPlatform: Platform = {
     capabilities,
     accessMethods,
 
+    // The whole session is this platform's own Pinia store — see ./store.ts.
+    // Nothing here touches the legacy global stores, so it can stay connected
+    // alongside other platforms. See `supportsConcurrentSession` in ../types.ts.
+    supportsConcurrentSession: true,
+
     /**
      * Exactly one chain, of its own kind.
      *

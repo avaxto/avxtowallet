@@ -1,5 +1,16 @@
 <template>
     <div class="access_card">
+        <!--
+          Reached from the platform tabs' "+" with ?add=1, meaning existing
+          sessions are still open behind this screen. Say so, and offer the way
+          back — without this the user has no route to the wallet they are
+          still logged into.
+        -->
+        <div v-if="isAddingSession" class="add_banner">
+            <span>Connecting an additional platform — your open sessions stay signed in.</span>
+            <router-link to="/wallet" class="link">Back to wallet</router-link>
+        </div>
+
         <h1>{{ $t('access.title') }}</h1>
         <router-link to="/create" class="link">{{ $t('access.create') }}</router-link>
         <div class="menus">
@@ -67,6 +78,7 @@
 
 <script lang="ts">
 import { defineComponent, computed, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import LedgerButton from '@/components/Ledger/LedgerButton.vue'
 import AccountsFound from '@/components/Access/AccountsFound.vue'
@@ -87,9 +99,13 @@ export default defineComponent({
     },
     setup() {
         const platformStore = useActivePlatformStore()
+        const route = useRoute()
         const { t, te } = useI18n()
         const isConnecting = ref(false)
         const connectError = ref('')
+
+        /** Set by the platform tabs' "+" — see the banner in the template. */
+        const isAddingSession = computed(() => route.query.add !== undefined)
 
         const accessMethods = computed(
             (): AccessMethodDescriptor[] => platformStore.activePlatform?.accessMethods ?? []
@@ -125,6 +141,7 @@ export default defineComponent({
 
         return {
             accessMethods,
+            isAddingSession,
             hasLocalKeyAccess,
             methodLabel,
             isConnecting,
@@ -194,6 +211,23 @@ hr {
     width: 440px;
     max-width: 100%;
     margin-top: 1em;
+}
+
+.add_banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    width: 440px;
+    max-width: 100%;
+    margin-bottom: 18px;
+    padding: 10px 14px;
+    border-radius: 6px;
+    background-color: var(--bg-light);
+    color: var(--primary-color-light);
+    font-size: 12px;
+    line-height: 1.5;
 }
 
 @include main.mobile-device {

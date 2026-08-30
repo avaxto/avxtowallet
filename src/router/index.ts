@@ -77,15 +77,27 @@ const isAuthenticated = async (): Promise<boolean> => {
     if (mainStore.isAuth) return true
     const { useActivePlatformStore } = await import('@/platforms')
     const platformStore = useActivePlatformStore()
-    return platformStore.activePlatform?.getActiveWallet() != null
+    // ANY live session counts, not just the active platform's. Several
+    // platforms can be connected at once now (see `connectedPlatforms` in
+    // platforms/store.ts), and during the add-another flow the active platform
+    // is deliberately one that isn't connected yet — testing only that one
+    // would report "logged out" while real sessions are open.
+    return platformStore.connectedPlatforms.length > 0
 }
 
+/**
+ * Guards the login screens. Normally bounces an already-logged-in user to the
+ * wallet — except when they arrived deliberately to add a SECOND platform
+ * session, which the `?add=1` query marks. Without that exemption there would
+ * be no way to reach the access screen once any platform was connected, and so
+ * no way to open a second tab.
+ */
 const ifNotAuthenticated = async (
     to: RouteLocationNormalized,
     from: RouteLocationNormalized,
     next: NavigationGuardNext
 ) => {
-    if (!(await isAuthenticated())) {
+    if (to.query.add !== undefined || !(await isAuthenticated())) {
         next()
         return
     }
@@ -97,11 +109,18 @@ const ifAuthenticated = async (
     from: RouteLocationNormalized,
     next: NavigationGuardNext
 ) => {
-    if (await isAuthenticated()) {
-        next()
+    if (!(await isAuthenticated())) {
+        next('/')
         return
     }
-    next('/')
+
+    // The active platform may be an unconnected one the user selected in the
+    // add flow and then abandoned; snap back to a live session so the wallet
+    // never renders for a platform with nothing behind it.
+    const { useActivePlatformStore } = await import('@/platforms')
+    await useActivePlatformStore().ensureActiveIsConnected()
+
+    next()
 }
 
 const routes: RouteRecordRaw[] = [

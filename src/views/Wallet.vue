@@ -7,18 +7,27 @@
         <div class="wallet_main">
             <div>
                 <NavbarMenu></NavbarMenu>
+                <PlatformTabs></PlatformTabs>
             </div>
             <div class="wallet_content">
-                <top-info class="wallet_top"></top-info>            
+                <top-info class="wallet_top"></top-info>
                 <router-view id="wallet_router" v-slot="{ Component }">
                     <transition name="page_fade" mode="out-in">
                         <keep-alive
                             exclude="cross_chain,activity,advanced,earn,manage,studio,iceberg,avxto">
-                            <component :is="Component" :key="$route.path" />
+                            <!--
+                              Keyed by platform as well as path: several
+                              platforms can be connected at once, and a cached
+                              view instance is only valid for the one it was
+                              built for. Without the platform in the key,
+                              switching tabs would re-show the previous
+                              platform's cached component.
+                            -->
+                            <component :is="Component" :key="`${$route.path}|${activePlatformId}`" />
                         </keep-alive>
                     </transition>
                 </router-view>
-            </div>            
+            </div>
         </div>        
     </div>
 </template>
@@ -31,6 +40,8 @@ import TopInfo from '@/components/wallet/TopInfo.vue'
 import Sidebar from '@/components/wallet/Sidebar.vue'
 import UpdateKeystoreModal from '@/components/modals/UpdateKeystore/UpdateKeystoreModal.vue'
 import NavbarMenu from '@/components/NavbarMenu.vue'
+import PlatformTabs from '@/components/wallet/PlatformTabs.vue'
+import { useActivePlatformStore } from '@/platforms'
 import { isScopeActive, onScopeClosed } from '@/js/security/session'
 
 const TIMEOUT_DURATION = 60 * 7 // in seconds
@@ -40,14 +51,17 @@ const IDLE_CHECK_MS = 15 * 1000
 export default defineComponent({
     name: 'Wallet',
     components: {
-        Sidebar,        
+        Sidebar,
         TopInfo,
         UpdateKeystoreModal,
-        NavbarMenu
+        NavbarMenu,
+        PlatformTabs
     },
     setup() {
         const store = useMainStore()
         const router = useRouter()
+        const platformStore = useActivePlatformStore()
+        const activePlatformId = computed(() => platformStore.activePlatformId)
         
         const wallet_view = ref<HTMLDivElement>()
         const intervalId = ref<ReturnType<typeof setTimeout> | null>(null)
@@ -154,8 +168,9 @@ export default defineComponent({
             wallet_view,
             isManageWarning,
             hasVolatileWallets,
+            activePlatformId,
             resetTimer,
-            
+
             unload
         }
     }

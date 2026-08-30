@@ -234,10 +234,11 @@ export const useEvmStore = defineStore('evm', () => {
 
     const disconnect = (): void => {
         setWallet(null)
-        // Matches Avalanche's logout: hard-navigate home so the router's auth
-        // guard takes over, rather than leaving the user on /wallet with no
-        // wallet attached.
-        window.location.href = '/'
+        // Hands off to the platform store rather than hard-navigating here: a
+        // reload would end every OTHER live platform session too (their vaults
+        // are in memory only). It falls back to the same full reset when this
+        // was the last session. See `finishDisconnect` in ../store.ts.
+        void useActivePlatformStore().finishDisconnect()
     }
 
     return {

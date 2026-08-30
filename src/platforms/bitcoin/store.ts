@@ -402,7 +402,11 @@ export const useBitcoinStore = defineStore('bitcoin', () => {
         }
         setWallet(null)
         balanceBtc.value = Big(0)
-        window.location.href = '/'
+        // Hands off to the platform store rather than hard-navigating here: a
+        // reload would end every OTHER live platform session too (their vaults
+        // are in memory only). It falls back to the same full reset when this
+        // was the last session. See `finishDisconnect` in ../store.ts.
+        void useActivePlatformStore().finishDisconnect()
     }
 
     return {
