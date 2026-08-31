@@ -136,8 +136,12 @@ export default defineComponent({
         /**
          * Everything below (X/P chain tabs, bech32, HD address index, Ledger
          * verify, paper wallet) is Avalanche-specific — it reads
-         * `mainStore.activeWallet`, which is null for any other platform since
-         * each keeps its own session store (see platforms/evm/store.ts).
+         * `mainStore.activeWallet`, which is null whenever Avalanche is not the
+         * active platform. That is guaranteed at the accessor rather than
+         * assumed here: Avalanche can be connected while another tab is in
+         * front, so the gate is what keeps this card from drawing X/P addresses
+         * over a Bitcoin session. See the comment on `activeWallet` in
+         * @/stores/main.
          * On a platform with no `utxo`/`staking` chain, this card falls back to
          * the platform's own single address instead of Avalanche's X/P/C
          * branching — see `activeAddress`, `addressLabel`, `addressMsg` below.

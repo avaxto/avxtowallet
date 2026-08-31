@@ -294,6 +294,32 @@ export const avalanchePlatform: Platform = {
     networks,
     tokenRegistry: avalancheTokenRegistry,
 
+    /**
+     * Avalanche can hold a session alongside the other platforms.
+     *
+     * This was the last platform to be able to say so, and it says it for a
+     * different reason than the others. Bitcoin, Solana and EVM qualify because
+     * their whole session lives in a store of their own. Avalanche's still does
+     * not — it is spread across `@/stores/main`, assets, history, earn, erc721
+     * and the pollers, and moving it would be a rename across some seventy
+     * files for no behavioural gain.
+     *
+     * What actually made those stores unsafe to share the page with was not
+     * where they live but two specific things, and both are fixed:
+     *
+     *  - `mainStore.activeWallet` now returns null unless Avalanche is the
+     *    active platform, so none of those seventy readers can render this
+     *    wallet onto another platform's tab. See the comment on it.
+     *  - `logout()` tears the session down in place instead of reloading the
+     *    page. The reload was what made this platform destructive to be near:
+     *    it took every other platform's in-memory vault with it.
+     *
+     * See `resetSession` in @/stores/main for what teardown has to cover, and
+     * tests/avalancheConcurrency.test.ts for the platform-layer half of this
+     * contract — including what that file states it cannot yet reach.
+     */
+    supportsConcurrentSession: true,
+
     getActiveNetwork(): PlatformNetwork | null {
         // Derived from the Avalanche network store rather than tracked here, so
         // there is exactly one source of truth for the connected network.
@@ -305,8 +331,21 @@ export const avalanchePlatform: Platform = {
         )
     },
 
+    /**
+     * `avalancheWallet`, NOT `activeWallet` — the one place that distinction is
+     * load-bearing rather than defensive.
+     *
+     * `mainStore.activeWallet` is deliberately null whenever Avalanche is not
+     * the active platform, which is what stops seventy Avalanche-specific call
+     * sites from rendering onto another platform's tab. This function is the
+     * exception that proves it: the platform layer calls it to ask "is
+     * Avalanche connected?", and it asks precisely when some *other* platform
+     * is active — that is how `connectedPlatforms` decides which tabs to draw.
+     * Reading the gated accessor here would make the Avalanche tab disappear
+     * the moment the user clicked away from it.
+     */
     getActiveWallet(): PlatformWallet | null {
-        const wallet = useMainStore().activeWallet
+        const wallet = useMainStore().avalancheWallet
         return wallet ? new AvalancheWallet(wallet as Wallet) : null
     },
 
@@ -316,6 +355,7 @@ export const avalanchePlatform: Platform = {
      * truth as `getActiveNetwork` above.
      */
     getEvmSigner(): EvmSigner | null {
+        // Gated: a signer is for acting as the wallet the user is currently on.
         const wallet = useMainStore().activeWallet
         if (!wallet) return null
 
@@ -327,13 +367,49 @@ export const avalanchePlatform: Platform = {
         )
     },
 
-    // No `unlockWithMnemonic`, and deliberately so — a recovery phrase is a
-    // perfectly good Avalanche credential (`/access/mnemonic` uses one). What
-    // is missing is the isolation: this platform's wallet lives in the legacy
-    // global stores, so it cannot hold a session alongside the others, and
-    // joining the one-phrase unlock would hand the user a set of tabs that log
-    // each other out. Same prerequisite, and the same fix, as
-    // `supportsConcurrentSession`. See ../types.ts.
+    /**
+     * Brings Avalanche's shared machinery up, and refreshes it on re-entry.
+     *
+     * Two callers, two reasons. At boot this runs for the restored platform,
+     * where it does what App.vue used to do unconditionally. After boot it runs
+     * whenever the user switches to the Avalanche tab — which is new: the
+     * network store could not previously exist without Avalanche being the
+     * platform for the whole life of the page.
+     *
+     * The refresh matters because Avalanche's pollers read
+     * `mainStore.activeWallet`, which is null while another tab is active, so
+     * they no-op there rather than keeping this session warm. That is the right
+     * trade — no background RPC traffic for a chain the user is not looking at
+     * — but it means the data is as old as the last visit, so it is refetched
+     * on the way back in.
+     */
+    async activate(): Promise<void> {
+        const networkStore = useNetworkStore()
+        // Idempotent: the boot path may already have run it, and `init()`
+        // itself is not safe to call twice. See stores/network.ts.
+        await networkStore.ensureInitialized()
+
+        const mainStore = useMainStore()
+        if (!mainStore.avalancheWallet) return
+
+        mainStore.updateAvaxPrice()
+        useAssetsStore().updateUTXOs()
+    },
+
+    /**
+     * Opens an Avalanche session from a recovery phrase, without navigating.
+     *
+     * The network has to be up first. On the single-platform path App.vue had
+     * already booted it before the access screen rendered, but this can run
+     * while a different platform is active — from the one-phrase unlock — and
+     * then nothing has configured the SDK's endpoints yet. Deriving a wallet
+     * against an unconfigured connection would produce an account that cannot
+     * read a balance.
+     */
+    async unlockWithMnemonic(mnemonic: string, sessionPassword: string): Promise<void> {
+        await useNetworkStore().ensureInitialized()
+        await useMainStore().accessWallet(mnemonic, sessionPassword, { navigate: false })
+    },
 
     async logout(): Promise<void> {
         await useMainStore().logout()

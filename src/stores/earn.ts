@@ -24,8 +24,14 @@ export const useEarnStore = defineStore('earn', () => {
         stakingTxs.value = await listStakingForAddresses(addrs)
     }
 
+    /** Drops the connected wallet's staking history. See the Avalanche teardown. */
+    const resetSession = () => {
+        stakingTxs.value = []
+    }
+
     return {
         stakingTxs,
         refreshRewards,
+        resetSession,
     }
 })

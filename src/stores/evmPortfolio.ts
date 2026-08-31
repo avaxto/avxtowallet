@@ -334,5 +334,31 @@ export const useEvmPortfolioStore = defineStore('evmPortfolio', () => {
         await inFlight
     }
 
-    return { results, tokens, failedNetworks, loading, fetch, refresh, ensureLoaded }
+    /**
+     * Forgets the scan and everything remembered about who it was for.
+     *
+     * `lastAddress`/`lastIsTestnet` matter as much as `results` here: leaving
+     * them set would let `ensureLoaded` decide it already had the answer for
+     * the next wallet that happened to reconnect at the same address, and
+     * `inFlight` would let a scan started for the old session write its results
+     * into the new one.
+     */
+    const resetSession = () => {
+        results.value = []
+        loading.value = false
+        lastAddress = null
+        lastIsTestnet = null
+        inFlight = null
+    }
+
+    return {
+        results,
+        tokens,
+        failedNetworks,
+        loading,
+        fetch,
+        refresh,
+        ensureLoaded,
+        resetSession,
+    }
 })

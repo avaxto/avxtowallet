@@ -198,6 +198,22 @@ export const useAssetsStore = defineStore('assets', () => {
         AVA_ASSET_ID.value = null
     }
 
+    /**
+     * Everything in this store that belongs to the connected wallet.
+     *
+     * `removeAllAssets` covers the X-chain side. The ERC-20 side needs the
+     * extra pass: the token list itself is chain configuration and must
+     * survive logout (it includes the user's own custom tokens), but each
+     * `Erc20Token` carries the current wallet's balance on it. See
+     * `resetBalance` in js/Erc20Token.ts.
+     */
+    const resetSession = () => {
+        removeAllAssets()
+        for (const token of [...erc20Tokens.value, ...erc20TokensCustom.value]) {
+            token.resetBalance()
+        }
+    }
+
     const saveCustomErc20Tokens = () => {
         const tokens: Erc20Token[] = erc20TokensCustom.value
         const tokenRawData: TokenListToken[] = tokens.map((token) => {
@@ -898,6 +914,7 @@ export const useAssetsStore = defineStore('assets', () => {
         addAsset,
         addNftFamily,
         removeAllAssets,
+        resetSession,
         saveCustomErc20Tokens,
         loadCustomErc20Tokens,
         saveCustomTokenLists,

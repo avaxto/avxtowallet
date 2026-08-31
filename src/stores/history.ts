@@ -24,6 +24,21 @@ export const useHistoryStore = defineStore('history', () => {
     const recentTransactions = ref<TransactionType[]>([])
     const allTransactions = ref<TransactionType[]>([])
 
+    /**
+     * Drops the connected wallet's transaction history.
+     *
+     * Called from the Avalanche session teardown. Everything here is derived
+     * from the wallet's own addresses, so all of it has to go — leaving it
+     * would show the previous account's transactions to the next one.
+     */
+    const resetSession = () => {
+        isUpdating.value = false
+        isUpdatingAll.value = false
+        isError.value = false
+        recentTransactions.value = []
+        allTransactions.value = []
+    }
+
     // Actions
     const updateTransactionHistory = () => {
         updateAllTransactionHistory()
@@ -155,5 +170,6 @@ export const useHistoryStore = defineStore('history', () => {
         updateAllTransactionHistory,
         setIsUpdating,
         setRecentTransactions,
+        resetSession,
     }
 })

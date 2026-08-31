@@ -51,6 +51,23 @@ export const useLedgerStore = defineStore('ledger', () => {
         isWalletLoading.value = val
     }
 
+    /**
+     * Closes down the Ledger prompt state.
+     *
+     * All transient, but all capable of outliving the session that opened it:
+     * logging out midway through a device prompt used to be impossible to do
+     * without a reload, so a modal left open simply went away with the page.
+     * It no longer does, and a Ledger dialog floating over a logged-out wallet
+     * — or worse, over a different platform's tab — is the result.
+     */
+    const resetSession = () => {
+        isBlock.value = false
+        isModalOpen.value = false
+        modalData.value = null
+        isUpgradeRequired.value = false
+        isWalletLoading.value = false
+    }
+
     return {
         // State
         isBlock,
@@ -58,6 +75,8 @@ export const useLedgerStore = defineStore('ledger', () => {
         modalData,
         isUpgradeRequired,
         isWalletLoading,
+
+        resetSession,
 
         // Getters
         title,

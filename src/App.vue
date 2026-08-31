@@ -114,8 +114,14 @@ export default {
                 // boot it while Avalanche is actually the active platform.
                 const isAvalanche = platformStore.hasChainKind('utxo') || platformStore.hasChainKind('staking')
                 if (isAvalanche) {
-                    // Initialize network
-                    const aka = await networkStore.init()
+                    // `ensureInitialized`, not `init`: the Avalanche platform's
+                    // own `activate()` hook now brings the network up too, for
+                    // the case this boot check cannot cover — the user
+                    // connecting Avalanche after the page has loaded, from a
+                    // second tab or the one-phrase unlock, while a different
+                    // platform is active. Whichever runs first wins; `init` is
+                    // not safe to run twice. See stores/network.ts.
+                    await networkStore.ensureInitialized()
                     mainStore.updateAvaxPrice()
                 }
 

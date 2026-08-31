@@ -354,6 +354,24 @@ export const useNetworkStore = defineStore('network', () => {
         }
     }
 
+    /**
+     * `init()`, but safe to call more than once.
+     *
+     * `init` pushes the built-in networks onto the list unconditionally, so
+     * calling it twice duplicates every one of them. That was fine while the
+     * only caller was App.vue's boot, which ran it at most once — but Avalanche
+     * can now be connected after boot, from a tab or the one-phrase unlock,
+     * and its `activate()` has to be able to bring the network up without
+     * knowing whether the boot already did.
+     */
+    let initPromise: Promise<boolean | undefined> | null = null
+    const ensureInitialized = async (): Promise<boolean | undefined> => {
+        // The promise, not just a boolean: two callers arriving together must
+        // await the same init rather than starting a second one.
+        if (!initPromise) initPromise = init()
+        return initPromise
+    }
+
     return {
         // State
         status,
@@ -368,6 +386,7 @@ export const useNetworkStore = defineStore('network', () => {
 
         // Actions
         init,
+        ensureInitialized,
         setNetwork,
         addNetwork,
         addCustomNetwork,

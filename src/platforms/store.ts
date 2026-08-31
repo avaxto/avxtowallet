@@ -163,6 +163,27 @@ export const useActivePlatformStore = defineStore('activePlatform', () => {
     /** True when the platform has more than one sub-chain to move funds between. */
     const isMultiChain = computed((): boolean => chains.value.length > 1)
 
+    /**
+     * True when Avalanche is the platform the user is currently on.
+     *
+     * The expression is the one described in the note on `PlatformChainKind`:
+     * `utxo` and `staking` exist as kinds precisely because no other platform
+     * has an X or a P chain, so testing for them is how the codebase asks "is
+     * this Avalanche?" without naming the platform id. Roughly ten call sites
+     * write it out inline and name the result `isAvalanche`; that note calls
+     * naming it properly "the cleaner fix".
+     *
+     * It is named here because Phase 3 gave it a job beyond hiding UI:
+     * `mainStore.activeWallet` returns null unless this is true, which is what
+     * keeps some seventy Avalanche-specific readers from rendering onto another
+     * platform's tab now that Avalanche can be connected while one is in front.
+     * A rule with that much riding on it should exist once, under a name, where
+     * it can be tested — not as an expression each caller re-derives.
+     */
+    const isAvalancheActive = computed(
+        (): boolean => hasChainKind('utxo') || hasChainKind('staking')
+    )
+
     /** Every registered platform, including ones that aren't built yet. */
     const platforms = computed((): Platform[] => listPlatforms())
     /** Only the ones that can actually be logged into. */
@@ -173,9 +194,9 @@ export const useActivePlatformStore = defineStore('activePlatform', () => {
      *
      * Derived from what each platform declares rather than listed here, so a
      * new seed-based platform joins the flow by implementing
-     * `unlockWithMnemonic` — and Avalanche joins it, with no change to this
-     * file or the view, on the day its session moves behind a per-platform
-     * store and it can declare `supportsConcurrentSession`.
+     * `unlockWithMnemonic`. Avalanche did exactly that when it became able to
+     * hold a concurrent session, with no edit to this file or the view — which
+     * is the property this was built for.
      *
      * Both flags are required. Opening a platform that cannot hold a
      * concurrent session alongside the others would produce exactly the
@@ -214,8 +235,12 @@ export const useActivePlatformStore = defineStore('activePlatform', () => {
      * once, and what lets a cold start on Avalanche open one of them without
      * throwing away a session it just opened.
      *
-     * **Logout and reload** — for anything involving a platform that does not
-     * (today, Avalanche). Platform state is then spread across many long-lived
+     * **Logout and reload** — for anything involving a platform that does not.
+     * No shipped platform is in that category any more, but the path is kept
+     * rather than deleted: it is the correct behaviour for a platform that
+     * cannot tear its session down in place, and removing it would quietly
+     * make declaring `supportsConcurrentSession` mandatory. Such a platform's
+     * state would be spread across many long-lived
      * Pinia stores (wallets, assets, network, history, pollers, the vendored
      * SDK's module-level singletons) written assuming a single platform for the
      * lifetime of the page. Clearing them piecemeal would leave whichever one
@@ -481,6 +506,7 @@ export const useActivePlatformStore = defineStore('activePlatform', () => {
         chains,
         hasChainKind,
         isMultiChain,
+        isAvalancheActive,
         platforms,
         availablePlatforms,
         connectedPlatforms,

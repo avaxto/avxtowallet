@@ -25,6 +25,22 @@ class Erc20Token {
         this.contract = tokenInst
     }
 
+    /**
+     * Forgets the balance, keeping the token itself.
+     *
+     * A token in the list is configuration — its address, symbol and decimals
+     * belong to the chain, not to whoever is logged in — but the balance on it
+     * belongs to one wallet. Session teardown therefore has to reach in here:
+     * clearing the token list instead would throw away the user's custom
+     * tokens, and clearing nothing would show the previous account's balances
+     * to the next one until each happened to be refetched.
+     */
+    resetBalance() {
+        this.balanceRaw = '0'
+        this.balanceBN = new BN('0')
+        this.balanceBig = Big(0)
+    }
+
     // Returns a new instance of the token, given only the erc20 address
     static fromAddress(address: string) {
         //@ts-ignore

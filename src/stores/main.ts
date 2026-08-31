@@ -26,6 +26,7 @@ import {
     readKeyFile,
 } from '@/js/Keystore'
 import { AllKeyFileDecryptedTypes } from '@/js/IKeystore'
+import type { SessionVault } from '@/js/security/SessionVault'
 
 // Import types
 import type {
@@ -40,6 +41,23 @@ import { useAssetsStore } from './assets'
 import { useNotificationsStore } from './notifications'
 import { useHistoryStore } from './history'
 import { useAvxtoStore } from './avxto'
+// The rest of the stores holding Avalanche session state — see `logout`.
+// Several of these import this file back; that cycle is pre-existing and safe
+// (nothing is read at module scope, only inside functions), and `assets` and
+// `avxto` above already rely on it.
+import { useEarnStore } from './earn'
+import { useErc721Store } from './erc721'
+import { useEvmPortfolioStore } from './evmPortfolio'
+import { useOfflineSigningStore } from './offlineSigning'
+import { useTransferPrefillStore } from './transferPrefill'
+import { useSessionLogStore } from './sessionlog'
+import { useLedgerStore } from './ledger'
+import { stopPollingX, stopPollingC } from '../providers'
+// Imported from the store module directly rather than the `@/platforms` barrel:
+// that barrel registers every platform, including the Avalanche adapter, which
+// imports this file back. `platforms/store` itself imports nothing from here.
+import { useActivePlatformStore } from '@/platforms/store'
+import type { AccessOptions } from '@/platforms/types'
 
 export const useMainStore = defineStore('main', () => {
     // State
@@ -58,8 +76,53 @@ export const useMainStore = defineStore('main', () => {
     // computed passes the reactive proxy straight through, so deep reactivity is
     // preserved (verified: cross-store computeds recompute on internal mutations).
     const _activeWallet = ref<Wallet | null>(null)
+
+    /**
+     * Avalanche's connected wallet, regardless of which platform tab is active.
+     *
+     * Use this ONLY for work that is about Avalanche as such and must run while
+     * the user is looking at another platform — tearing this session down, and
+     * refreshing it when its tab is re-entered. Everything that renders or acts
+     * on "the wallet the user is currently using" wants `activeWallet` below.
+     */
+    const avalancheWallet = computed<Wallet | null>(
+        () => _activeWallet.value as unknown as Wallet | null
+    )
+
+    /**
+     * The connected wallet, or null when Avalanche is not the active platform.
+     *
+     * That second clause is the whole reason this is a computed rather than the
+     * plain ref it reads. Roughly seventy call sites read `mainStore.activeWallet`
+     * — X/P chain tabs, staking, HD derivation, the keystore modals, the NFT
+     * studio — and every one of them is written on the assumption, stated
+     * explicitly in AddressCard.vue, that it "is null for any other platform
+     * since each keeps its own session store".
+     *
+     * That assumption used to hold by accident: only one platform could be
+     * connected at a time, so a non-Avalanche platform being active implied
+     * Avalanche was logged out. Concurrent sessions break exactly that
+     * implication — Avalanche can now be connected while Bitcoin is the active
+     * tab — and every one of those call sites would start rendering Avalanche's
+     * wallet onto another platform's tab. Showing one chain's balances and
+     * addresses under another chain's name is the worst failure this codebase
+     * has; a user could send to an address the UI attributed to the wrong chain.
+     *
+     * Gating here makes the assumption true by construction instead, in one
+     * place, for every reader at once — including the ones nobody thought to
+     * audit. The alternative, re-pointing seventy call sites at the platform
+     * store, is the same fix applied seventy times with seventy chances to miss
+     * one, and a permanent obligation on every future reader to know about this.
+     *
+     * `isAvalancheActive` is the established test for this, expressed in terms
+     * of chain kinds rather than the platform id — see the note on it in
+     * platforms/store.ts, and on `PlatformChainKind` in platforms/types.ts.
+     */
     const activeWallet = computed<Wallet | null>({
-        get: () => _activeWallet.value as unknown as Wallet | null,
+        get: () => {
+            if (!useActivePlatformStore().isAvalancheActive) return null
+            return _activeWallet.value as unknown as Wallet | null
+        },
         set: (w) => {
             _activeWallet.value = w
         },
@@ -101,12 +164,18 @@ export const useMainStore = defineStore('main', () => {
     })
 
     // Actions
+    // `avalancheWallet`, not `activeWallet`: this runs inside `activateWallet`,
+    // i.e. during login, and the one-phrase unlock opens several platforms
+    // before landing on one of them — so Avalanche is not necessarily the
+    // active tab at the moment its own wallet is being set up. Reading the
+    // gated accessor here would blank the address of the wallet we are in the
+    // middle of connecting.
     const updateActiveAddress = () => {
-        if (!activeWallet.value) {
+        const wallet = avalancheWallet.value
+        if (!wallet) {
             address.value = null
         } else {
-            const addrNow = activeWallet.value.getCurrentAddressAvm()
-            address.value = addrNow
+            address.value = wallet.getCurrentAddressAvm()
         }
     }
 
@@ -115,13 +184,14 @@ export const useMainStore = defineStore('main', () => {
     // stored — it must be re-entered to authorize each signing operation.
     const accessWallet = async (
         mnemonic: string,
-        sessionPassword: string
+        sessionPassword: string,
+        options: AccessOptions = {}
     ): Promise<MnemonicWallet> => {
         const wallet: MnemonicWallet = await addWalletMnemonic(mnemonic, sessionPassword)
 
         await activateWallet(wallet)
 
-        onAccess()
+        onAccess(options)
         return wallet
     }
 
@@ -242,31 +312,142 @@ export const useMainStore = defineStore('main', () => {
         }
     }
 
-    const onAccess = () => {
+    // `options.navigate === false` when several platforms are being opened at
+    // once from one recovery phrase: the first to finish would otherwise
+    // navigate away from the form still opening the rest. Everything else here
+    // — auth flag, UTXO fetch, balance polling — happens either way. Same shape
+    // as the Bitcoin and Solana stores' `accessWithMnemonic`.
+    const onAccess = (options: AccessOptions = {}) => {
         isAuth.value = true
         isSwitchingAccount.value = false
 
         // activateWallet() (always called right before this) has already run
         // updateAvaAsset()/updateBaseAsset() — don't repeat them here.
         const assetsStore = useAssetsStore()
-        router.push('/wallet')
+        if (options.navigate !== false) router.push('/wallet')
         assetsStore.updateUTXOs()
 
         // Start periodic AVXTO token balance check
         const avxtoStore = useAvxtoStore()
         avxtoStore.startPolling()
+
+        // The platform layer mirrors "is anything connected?" per platform, and
+        // Avalanche's answer is this store. Without this the new session is
+        // invisible to the tabs until something else happens to bump the epoch.
+        useActivePlatformStore().notifyWalletChanged()
     }
 
 
-    const logout = async () => {
-        // Stop AVXTO balance polling
-        const avxtoStore = useAvxtoStore()
-        avxtoStore.stopPolling()
+    /**
+     * Wipes the ciphertext held by every wallet this session opened.
+     *
+     * Dropping the references is not enough. A `SessionVault` holds encrypted
+     * secrets in ordinary memory, and until the reload that used to follow
+     * logout, nothing guaranteed that memory was ever released — a wallet still
+     * reachable from a closure, a pending promise, or a component that has not
+     * been torn down yet keeps its vault alive with the secrets still in it.
+     * `clear()` zeroes them on the spot. Ledger and injected wallets have no
+     * vault (the key never leaves the device or the extension), hence the
+     * duck-check — the same one the Bitcoin and Solana stores use.
+     */
+    const clearWalletVaults = () => {
+        for (const wallet of [..._wallets.value, ..._volatileWallets.value]) {
+            if (wallet && 'vault' in wallet) {
+                const held = wallet as unknown as { vault: SessionVault }
+                held.vault.clear()
+            }
+        }
+    }
 
+    /**
+     * Ends the Avalanche session in place, without a page reload.
+     *
+     * This function is Phase 3. Logging out used to be one line —
+     * `window.location.href = '/'` — and that line did all the work: every
+     * store, poller and SDK singleton went away with the page. It cannot stay,
+     * because a reload takes every OTHER platform's session with it; their
+     * vaults live only in memory, so disconnecting Avalanche would silently
+     * log the user out of Bitcoin and Solana too. So the reload's job has to be
+     * done explicitly here.
+     *
+     * The danger in doing it by hand is precise and worth naming: anything
+     * missed keeps the previous account's data, and the next wallet to connect
+     * inherits it — balances, addresses and transaction history belonging to
+     * someone else, presented as the current wallet's own. That is a far worse
+     * failure than a slow logout, so the order below is deliberate:
+     *
+     *  1. Stop everything that writes. Pollers and the AVXTO interval run on
+     *     timers; clearing a store while one is still in flight just lets it
+     *     repopulate behind us.
+     *  2. Wipe the vaults, while the wallets are still reachable.
+     *  3. Clear the derived stores, then this store's own state last.
+     *
+     * This function is NOT covered by a test yet, and should be. Reaching it
+     * from Jest means loading this module, which reaches `@avalanche-sdk/chainkit`
+     * — shipped as untransformed TypeScript that the repo's Jest setup cannot
+     * currently load at all. The test worth writing once that is fixed is a
+     * generic one rather than a list of assertions mirroring the list below:
+     * dirty every key of every store named here, reset, and require each to be
+     * back at its initial value unless explicitly declared session-independent.
+     * Written that way it fails by name when someone adds session state and
+     * forgets this function — which is the actual risk, and the reason the
+     * reload was safer than any hand-written list can be.
+     *
+     * Adding state here? It belongs in this function unless it describes the
+     * chain rather than the user: network endpoints, validator sets, token
+     * *definitions* and saved keystore accounts all deliberately survive.
+     * `js/Erc20Token.resetBalance` is the shape of the awkward middle case —
+     * a chain-level object carrying one wallet's balance.
+     */
+    const resetSession = () => {
+        // 1. Silence the writers.
+        stopPollingX()
+        stopPollingC()
+        useAvxtoStore().resetSession()
+
+        // 2. The secrets themselves.
+        clearWalletVaults()
+
+        // 3. Everything derived from the wallet.
+        useAssetsStore().resetSession()
+        useHistoryStore().resetSession()
+        useEarnStore().resetSession()
+        useErc721Store().clear()
+        useEvmPortfolioStore().resetSession()
+        useOfflineSigningStore().clearRecords()
+        useTransferPrefillStore().clear()
+        useSessionLogStore().reset()
+        useLedgerStore().resetSession()
+
+        // 4. This store's own.
+        wallets.value = []
+        volatileWallets.value = []
+        _activeWallet.value = null
+        address.value = null
+        isAuth.value = false
+        isSwitchingAccount.value = false
+        warnUpdateKeyfile.value = false
+
+        // The persisted volatile wallet, which would otherwise be restored on
+        // the next boot as though the user had never logged out.
         localStorage.removeItem('w')
-        // Go to the base URL with GET request not router
-        // This clears all state and resets the app
-        window.location.href = '/'
+    }
+
+    const logout = async () => {
+        resetSession()
+
+        // Tell the platform layer the wallet is gone before asking it where to
+        // go next — `finishDisconnect` picks a surviving session by looking at
+        // which platforms still report one, and Avalanche's answer is read
+        // through this store.
+        const platformStore = useActivePlatformStore()
+        platformStore.notifyWalletChanged()
+
+        // Hands off rather than hard-navigating here. This is the line the
+        // whole phase turns on: `window.location.href = '/'` would end every
+        // other live platform session too. `finishDisconnect` falls back to the
+        // same full reset when this was the last one. See platforms/store.ts.
+        await platformStore.finishDisconnect()
     }
 
     // used with logout
@@ -292,8 +473,10 @@ export const useMainStore = defineStore('main', () => {
         mnemonic: string,
         sessionPassword: string
     ): Promise<MnemonicWallet | null> => {
-        // Cannot add mnemonic wallets on ledger mode
-        if (activeWallet.value?.type === 'ledger') return null
+        // Cannot add mnemonic wallets on ledger mode. Ungated for the same
+        // reason as `updateActiveAddress` — this runs during login, when
+        // Avalanche need not be the active platform yet.
+        if (avalancheWallet.value?.type === 'ledger') return null
 
         const wallet = await MnemonicWallet.create(mnemonic, sessionPassword)
 
@@ -327,8 +510,8 @@ export const useMainStore = defineStore('main', () => {
             //
         }
 
-        // Cannot add singleton wallets on ledger mode
-        if (activeWallet.value?.type === 'ledger') return null
+        // Cannot add singleton wallets on ledger mode. Ungated — see above.
+        if (avalancheWallet.value?.type === 'ledger') return null
 
         const wallet = await SingletonWallet.create(pk, sessionPassword)
 
@@ -352,6 +535,10 @@ export const useMainStore = defineStore('main', () => {
         wallets.value = wallets.value.filter((w) => w !== wallet)
     }
 
+    // Deliberately the GATED accessor: signing must be done by the wallet the
+    // user is actually looking at. If Avalanche is connected but another
+    // platform's tab is active, this refuses rather than spending from a chain
+    // the user is not currently on.
     const issueBatchTx = async (data: IssueBatchTxInput) => {
         const wallet = activeWallet.value
         if (!wallet) return 'error'
@@ -505,6 +692,7 @@ export const useMainStore = defineStore('main', () => {
         isAuth,
         isSwitchingAccount,
         activeWallet,
+        avalancheWallet,
         address,
         wallets,
         volatileWallets,
@@ -524,6 +712,7 @@ export const useMainStore = defineStore('main', () => {
         accessWalletInjected,
         onAccess,
         logout,
+        resetSession,
         removeAllKeys,
         addWalletMnemonic,
         addWalletSingleton,

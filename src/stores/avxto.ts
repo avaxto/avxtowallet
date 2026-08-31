@@ -101,10 +101,23 @@ export const useAvxtoStore = defineStore('avxto', () => {
         }
     }
 
+    /**
+     * Stops the balance poll and forgets the balance.
+     *
+     * Stopping the interval is the part that matters: a poll surviving logout
+     * would keep hitting the RPC for an account that is no longer open, and
+     * would repopulate this balance the moment a new wallet connected.
+     */
+    const resetSession = () => {
+        stopPolling()
+        avxtoBalance.value = '0'
+    }
+
     return {
         avxtoBalance,
         fetchAvxtoBalance,
         startPolling,
         stopPolling,
+        resetSession,
     }
 })

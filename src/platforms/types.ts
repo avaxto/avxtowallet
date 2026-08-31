@@ -379,13 +379,15 @@ export interface Platform {
      * `activePlatformId`, leaving both wallets live. See `setActivePlatform`
      * in ./store.ts.
      *
-     * Avalanche deliberately does NOT declare it. Its wallet lives in the
-     * legacy global `@/stores/main` rather than a per-platform store, and it
-     * additionally drives `networkStore`, the pollers, `assetsStore` and the
-     * vendored SDK's module-level singletons — all written assuming one
-     * platform for the lifetime of the page. Until that state is moved behind
-     * a per-platform store, any switch involving Avalanche has to take the
-     * logout-and-reload path.
+     * Every shipped platform declares it. Avalanche was the last to, and is
+     * worth reading as the general case rather than the exception: its session
+     * still lives in the legacy global stores, not a per-platform one. What
+     * disqualified it was never *where* the state lived but two consequences
+     * of it — a wallet visible to platform-agnostic readers while another
+     * platform was active, and a `logout()` that reloaded the page. Both are
+     * addressed at their source (see the notes on `mainStore.activeWallet` and
+     * `resetSession`), so the flag is about observable behaviour, not file
+     * layout.
      *
      * A platform declaring this must also keep `logout()` free of
      * `window.location` navigation, or disconnecting it would tear down every
@@ -414,10 +416,10 @@ export interface Platform {
      *    non-isolated session alongside others would leave the user with tabs
      *    that log each other out.
      *
-     * Absent on Avalanche for that second reason, not the first — a phrase is a
-     * perfectly good Avalanche credential, but its wallet still lives in the
-     * legacy global stores. It joins this flow when that moves behind a
-     * per-platform store; nothing here needs to change when it does.
+     * Avalanche implements this too, and had to earn it: its session must also
+     * bring the Avalanche network up first, since the one-phrase unlock can run
+     * while a different platform is active and nothing will have configured the
+     * SDK's endpoints yet.
      */
     unlockWithMnemonic?(mnemonic: string, sessionPassword: string): Promise<void>
 
