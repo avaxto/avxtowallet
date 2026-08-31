@@ -108,6 +108,21 @@ export const useOfflineSigningStore = defineStore('offlineSigning', () => {
         oneShot.value = false
     }
 
+    /**
+     * Everything belonging to the session that is ending — see the Avalanche
+     * teardown in stores/main.ts.
+     *
+     * `oneShot` matters as much as the records here. It is armed by a page's
+     * "sign only" checkbox and disarmed when that operation completes, so an
+     * operation abandoned by logging out leaves it set — and the next wallet's
+     * first broadcast would be captured instead of sent. `isEnabled` is
+     * deliberately untouched: that one is a persisted setting the user chose.
+     */
+    const resetSession = () => {
+        clearRecords()
+        oneShot.value = false
+    }
+
     return {
         isEnabled,
         oneShot,
@@ -118,6 +133,7 @@ export const useOfflineSigningStore = defineStore('offlineSigning', () => {
         setOneShot,
         capture,
         clearRecords,
+        resetSession,
         endOperation,
     }
 })

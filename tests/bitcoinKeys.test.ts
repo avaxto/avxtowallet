@@ -190,8 +190,16 @@ describe('parsePrivateKeyInput', () => {
     // description) — reusing it here ties this straight to a real scenario:
     // pasting that same C-Chain key as 0x hex into the Bitcoin private-key
     // importer must open the identical address Core itself shows for it.
-    const coreNode = deriveCoreCompatNode(seed, mainnet)
+    //
+    // Derived in `beforeAll`, not in the describe body: a describe body runs
+    // during collection, before any `beforeAll` — so deriving it there read
+    // `seed` while it was still undefined and threw before a single test ran.
+    let coreNode: ReturnType<typeof deriveCoreCompatNode>
     const CORE_ADDRESS = 'bc1qgsvdpdxec8hsu57lhxg5xem7refr233z2ttx7e'
+
+    beforeAll(() => {
+        coreNode = deriveCoreCompatNode(seed, mainnet)
+    })
 
     it('accepts a 0x-prefixed raw private key, defaulting to a compressed pubkey', () => {
         const hex = '0x' + Buffer.from(coreNode.privateKey!).toString('hex')

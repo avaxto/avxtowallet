@@ -414,7 +414,7 @@ export const useMainStore = defineStore('main', () => {
         useEarnStore().resetSession()
         useErc721Store().clear()
         useEvmPortfolioStore().resetSession()
-        useOfflineSigningStore().clearRecords()
+        useOfflineSigningStore().resetSession()
         useTransferPrefillStore().clear()
         useSessionLogStore().reset()
         useLedgerStore().resetSession()

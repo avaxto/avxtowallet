@@ -10,6 +10,10 @@ AVXTO - AVAX Toolbox Global Configuration File
 
 import BN from "bn.js"
 import avxtoIconUrl from '@/assets/AVXTO_Icon.png'
+// Imported through the `@/` alias, not relatively: Jest swaps this module out
+// by matching the import string, so a relative path would slip past the
+// mapping. See src/avxto/buildEnv.ts.
+import { APP_VERSION } from '@/avxto/buildEnv'
 export const X_CHAIN_POLLING_INTERVAL = 10000
 export const C_CHAIN_POLLING_INTERVAL = 10000
 
@@ -19,7 +23,7 @@ export const C_CHAIN_POLLING_INTERVAL = 10000
 // lasted minutes.
 export const RATE_LIMIT_MAX_REQUESTS = 8   // max requests per window
 export const RATE_LIMIT_WINDOW_MS = 1000   // window size in milliseconds
-export const AVAX_TOOLBOX_VERSION = (import.meta.env.VITE_APP_VERSION as string) ?? 'dev'
+export const AVAX_TOOLBOX_VERSION = APP_VERSION
 export const AVXTO_CONTRACT_ADDRESS = '0xf56CeCc07d97Ac50630022CF84C19e612ae8C93D'
 export const AVXTO_THR = new BN(1000000)
 export const AVXTO_SYMBOL = 'AVXTO'

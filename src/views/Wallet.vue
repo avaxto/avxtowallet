@@ -13,16 +13,23 @@
                 <top-info class="wallet_top"></top-info>
                 <router-view id="wallet_router" v-slot="{ Component }">
                     <transition name="page_fade" mode="out-in">
+                        <!--
+                          The component below is keyed by platform as well as
+                          path: several platforms can be connected at once, and
+                          a cached view instance is only valid for the one it
+                          was built for. Without the platform in the key,
+                          switching tabs would re-show the previous platform's
+                          cached component.
+
+                          This comment sits OUTSIDE <keep-alive> on purpose.
+                          KeepAlive requires exactly one child, and a comment
+                          counts: with one inside, it warns and falls back to
+                          not caching at all. Production builds strip comments,
+                          so the damage is invisible there and shows up only in
+                          dev — and as a hard compile error under vue-jest.
+                        -->
                         <keep-alive
                             exclude="cross_chain,activity,advanced,earn,manage,studio,iceberg,avxto">
-                            <!--
-                              Keyed by platform as well as path: several
-                              platforms can be connected at once, and a cached
-                              view instance is only valid for the one it was
-                              built for. Without the platform in the key,
-                              switching tabs would re-show the previous
-                              platform's cached component.
-                            -->
                             <component :is="Component" :key="`${$route.path}|${activePlatformId}`" />
                         </keep-alive>
                     </transition>

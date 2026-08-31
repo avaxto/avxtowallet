@@ -1,0 +1,26 @@
+{
+    // TypeScript settings for Jest, used by ts-jest (see jest.config.js).
+    //
+    // Two differences from the root config, both required:
+    //
+    //  - `module: commonjs`. Jest loads CommonJS; the root config emits ESM for
+    //    Vite. This is also why `import.meta` cannot appear in anything a test
+    //    reaches — see src/avxto/buildEnv.ts.
+    //  - `types` names the packages the root config cannot resolve, minus those
+    //    that do not exist, plus `jest`. The root `types` array is why
+    //    `tsc -p tsconfig.json` checks nothing at all (see
+    //    tsconfig.typecheck.json); ts-jest hits the same wall, and without
+    //    `jest` here every `describe`/`it` is an unresolved name.
+    //
+    // `noUnusedLocals`/`noUnusedParameters` are off: a test that sets a
+    // variable purely to assert a side effect is legitimate, and the repo has
+    // ~100 pre-existing violations of these in src/ regardless.
+    "extends": "./tsconfig.json",
+    "compilerOptions": {
+        "module": "commonjs",
+        "types": ["jest", "node"],
+        "noUnusedLocals": false,
+        "noUnusedParameters": false
+    },
+    "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.vue", "tests/**/*.ts"]
+}

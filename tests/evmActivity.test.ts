@@ -13,17 +13,18 @@
  * this code is field-name/shape mistakes against a real API, which fabricated
  * fixtures cannot catch.
  */
-// `@/evm/explorers/http` resolves to a stub module for this test run (see
-// this file's jest config) rather than the real one: the real
-// fetchExplorerJson pulls in the app's rate limiter, and transitively
-// `@/avxto/AVXTOConf`, which uses `import.meta.env` — a Vite-only construct
-// this project's Jest/Babel setup has no transform for (a pre-existing gap,
-// not something introduced by these adapters; `jest.mock(...)` was tried
-// first and hits an unrelated ts-jest/TypeScript version incompatibility —
-// `ts.getMutableClone is not a function` in its hoisting transform).
-// Substituting the whole module also means this test exercises exactly what
-// is actually adapter-specific — URL construction and response parsing —
-// without depending on that shared layer's own internals.
+// The whole of `@/evm/explorers/http` is replaced, so this file exercises what
+// is genuinely adapter-specific — URL construction and response parsing —
+// without reaching through the shared request layer's own internals.
+//
+// This used to be done by pointing the module at a hand-written stub from a
+// per-file Jest config that no longer exists, which is why the mock was not a
+// mock at all and every test here failed the moment `yarn test` could run
+// again. `jest.mock` was originally avoided because ts-jest 26 could not
+// compile its hoisting transform against TypeScript 5 (`ts.getMutableClone is
+// not a function`); the toolchain is on ts-jest 29 now and handles it.
+jest.mock('@/evm/explorers/http')
+
 import { fetchExplorerJson } from '@/evm/explorers/http'
 const fetchExplorerJsonMock = fetchExplorerJson as jest.Mock
 
