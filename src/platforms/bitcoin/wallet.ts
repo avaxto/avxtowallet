@@ -57,6 +57,7 @@ import {
     mapLimited,
     scanAccount,
     type AccountScan,
+    type ScannedAddress,
 } from '@/bitcoin/discovery'
 import { getAddressStats, getAddressUtxos, broadcastTx } from '@/bitcoin/esplora'
 import {
@@ -210,6 +211,21 @@ export abstract class BitcoinWallet implements PlatformWallet {
     /** Every spendable output currently known. Empty until `refresh()`. */
     getSpendableUtxos(): SelectableUtxo[] {
         return this.utxos
+    }
+
+    /**
+     * Every address `refresh()` has scanned, for the Addresses page.
+     *
+     * Defined here rather than only on `HdScanningWallet` so every Bitcoin
+     * wallet kind answers uniformly: a single-key wallet's `refresh()` (WIF,
+     * or a watched address) still populates `scan.addresses` with its one
+     * address at `chain: 'receive', index: 0` — the exact same shape an HD
+     * wallet's single-address (Core-compatible) mode produces — so the
+     * Addresses page can render every kind through one path instead of
+     * branching on wallet class.
+     */
+    getScannedAddresses(): ScannedAddress[] {
+        return this.scan?.addresses ?? []
     }
 
     /**
@@ -491,11 +507,6 @@ abstract class HdScanningWallet extends BitcoinWallet {
             path: CORE_WALLET_PATH,
             confirmed: u.status.confirmed,
         }))
-    }
-
-    /** Every address this wallet controls, for a detail view. */
-    getScannedAddresses() {
-        return this.scan?.addresses ?? []
     }
 
     /**

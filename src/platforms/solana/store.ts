@@ -17,15 +17,14 @@
  * disagree with this one would be a correctness bug rather than untidiness.
  */
 import { defineStore } from 'pinia'
-import { computed, markRaw, ref, shallowRef } from 'vue'
+import { computed, ref, shallowRef } from 'vue'
 import Big from 'big.js'
 import * as bip39 from 'bip39'
 
 import router from '@/router'
 import type { AccessOptions, PlatformWallet } from '../types'
 import { useActivePlatformStore } from '../store'
-import { SessionVault } from '@/js/security/SessionVault'
-import { AuthHandle, AuthScope } from '@/js/security/session'
+import { vaultWith } from '../vault'
 import { wipe } from '@/js/security/memory'
 import {
     getSolanaNetworkById,
@@ -80,45 +79,6 @@ function resolveInitialNetwork(): SolanaNetwork {
         getSolanaNetworkById(DEFAULT_NETWORK_ID) ??
         getSolanaNetworks()[0]
     )
-}
-
-/**
- * Builds a vault holding one secret, encrypted under the session password.
- *
- * Mirrors `MnemonicWallet.create` / `SingletonWallet.create`: derive the key,
- * store the secret inside a one-shot authorization, then dispose it. `markRaw`
- * keeps Vue's reactivity from proxying the vault — a proxied `CryptoKey` fails
- * WebCrypto's brand check.
- *
- * `vault.put` wipes the plaintext it is given, so callers must not reuse the
- * buffer afterwards.
- */
-async function vaultWith(
-    secretName: 'seed' | 'pk',
-    plaintext: Uint8Array,
-    password: string
-): Promise<SessionVault> {
-    const vault = markRaw(new SessionVault())
-    let stored = false
-    try {
-        // deriveKey runs PBKDF2 and can reject (a hostile or unavailable
-        // WebCrypto). It happens BEFORE vault.put, whose own finally is what
-        // normally wipes the plaintext — so without the catch below a failure
-        // here would leave the seed sitting in memory unwiped.
-        const key = await vault.deriveKey(password)
-        const auth = new AuthHandle(AuthScope.SINGLE, vault, key)
-        try {
-            await vault.put(auth, secretName, plaintext)
-            stored = true
-            return vault
-        } finally {
-            auth.dispose()
-        }
-    } finally {
-        // vault.put already wiped it on the success path; wiping twice is
-        // harmless, but skipping it when put never ran is not.
-        if (!stored) wipe(plaintext)
-    }
 }
 
 export const useSolanaStore = defineStore('solana', () => {

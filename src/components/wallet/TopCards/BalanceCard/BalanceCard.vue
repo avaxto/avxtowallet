@@ -117,9 +117,10 @@
     </div>
 </template>
 <script lang="ts">
-import { defineComponent, ref, computed, watch } from 'vue'
+import { defineComponent, ref, computed } from 'vue'
 import { useAssetsStore, useHistoryStore, useMainStore } from '@/stores'
 import { useActivePlatformStore } from '@/platforms'
+import { usePlatformNativeBalance } from '@/composables/usePlatformNativeBalance'
 import AvaAsset from '@/js/AvaAsset'
 import MnemonicWallet from '@/js/wallets/MnemonicWallet'
 import Spinner from '@/components/misc/Spinner.vue'
@@ -195,36 +196,21 @@ export default defineComponent({
         // store — which is null/empty on any other platform, since each platform
         // keeps its own session store (see platforms/evm/store.ts). A
         // non-Avalanche platform's native balance instead comes from its own
-        // `PlatformWallet.getBalances()`, fetched here.
-        const platformNativeAmount = ref<Big>(Big(0))
-        const isFetchingPlatformBalance = ref(false)
-
-        const fetchPlatformBalance = async (): Promise<void> => {
-            const w = platformStore.activeWallet
-            if (!w) {
-                platformNativeAmount.value = Big(0)
-                return
-            }
-            isFetchingPlatformBalance.value = true
-            try {
-                const balances = await w.getBalances()
-                const native = balances.find((b) => b.assetId === 'native') ?? balances[0]
-                platformNativeAmount.value = native ? Big(native.amount.toString()) : Big(0)
-            } catch (e) {
-                console.warn('[BalanceCard] Could not fetch platform balance:', e)
-            } finally {
-                isFetchingPlatformBalance.value = false
-            }
-        }
-
-        watch(
-            () => platformStore.activeWallet,
-            (w) => {
-                if (!isAvalanche.value) fetchPlatformBalance()
-                else if (!w) platformNativeAmount.value = Big(0)
-            },
-            { immediate: true }
+        // `PlatformWallet.getBalances()`, fetched by the composable below.
+        //
+        // Gated to null on Avalanche rather than passing `platformStore.
+        // activeWallet` straight through: this component's own `isAvalanche`
+        // branch reads `ava_asset`/`platformBalance` etc. instead, so there is
+        // nothing for the composable's fetch to do there, and nulling it also
+        // clears any balance left over from a platform tab visited earlier.
+        const platformWalletForBalance = computed(() =>
+            isAvalanche.value ? null : platformStore.activeWallet
         )
+        const {
+            amount: platformNativeAmount,
+            loading: isFetchingPlatformBalance,
+            refresh: fetchPlatformBalance,
+        } = usePlatformNativeBalance(platformWalletForBalance)
 
         const isBreakdown = ref(true)
         const utxos_modal = ref<InstanceType<typeof UtxosBreakdownModal>>()

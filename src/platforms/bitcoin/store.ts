@@ -12,15 +12,15 @@
  * Avalanche HD key state, none of which apply here.
  */
 import { defineStore } from 'pinia'
-import { computed, markRaw, ref, shallowRef } from 'vue'
+import { computed, ref, shallowRef } from 'vue'
 import Big from 'big.js'
 import * as bip39 from 'bip39'
 
 import router from '@/router'
 import type { AccessOptions, PlatformWallet } from '../types'
 import { useActivePlatformStore } from '../store'
-import { SessionVault } from '@/js/security/SessionVault'
-import { AuthHandle, AuthScope } from '@/js/security/session'
+import { vaultWith } from '../vault'
+import type { SessionVault } from '@/js/security/SessionVault'
 import { wipe } from '@/js/security/memory'
 import {
     DEFAULT_ADDRESS_TYPE,
@@ -92,34 +92,6 @@ function resolveInitialNetwork(): BitcoinNetwork {
         getBitcoinNetworkById(DEFAULT_NETWORK_ID) ??
         getBitcoinNetworks()[0]
     )
-}
-
-/**
- * Builds a vault holding one secret. Mirrors the Solana platform's helper —
- * see the note there on why `vault.put` consuming the plaintext means the
- * caller must not reuse the buffer, and why a failure before `put` still has
- * to wipe.
- */
-async function vaultWith(
-    secretName: 'seed' | 'pk',
-    plaintext: Uint8Array,
-    password: string
-): Promise<SessionVault> {
-    const vault = markRaw(new SessionVault())
-    let stored = false
-    try {
-        const key = await vault.deriveKey(password)
-        const auth = new AuthHandle(AuthScope.SINGLE, vault, key)
-        try {
-            await vault.put(auth, secretName, plaintext)
-            stored = true
-            return vault
-        } finally {
-            auth.dispose()
-        }
-    } finally {
-        if (!stored) wipe(plaintext)
-    }
 }
 
 export const useBitcoinStore = defineStore('bitcoin', () => {

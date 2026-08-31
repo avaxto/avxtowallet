@@ -21,18 +21,28 @@
 import { defineStore } from 'pinia'
 import { computed, ref, shallowRef } from 'vue'
 import Big from 'big.js'
+import * as bip39 from 'bip39'
 
 import router from '@/router'
-import type { PlatformWallet } from '../types'
+import type { AccessOptions, PlatformWallet } from '../types'
 import { useActivePlatformStore } from '../store'
+import { vaultWith } from '../vault'
 import {
     getEvmNetworkById,
     getEvmNetworks,
     loadCustomEvmNetworks,
     type EvmNetwork,
 } from '@/evm/networkRegistry'
+import { DEFAULT_EVM_PATH, deriveEvmAddress } from '@/evm/keys'
 import { readNativeBalance } from '@/evm/tokenReader'
-import { connectInjected as connectInjectedWallet, EvmWallet, type Eip1193Provider } from './wallet'
+import { wipe } from '@/js/security/memory'
+import {
+    connectInjected as connectInjectedWallet,
+    EvmWallet,
+    InjectedEvmWallet,
+    LocalEvmWallet,
+    type Eip1193Provider,
+} from './wallet'
 
 const NETWORK_STORAGE_KEY = 'evm_active_network'
 /**
@@ -83,6 +93,9 @@ function resolveInitialNetwork(): EvmNetwork {
 }
 
 export const useEvmStore = defineStore('evm', () => {
+    // shallowRef, not ref: a local wallet holds a SessionVault and an injected
+    // one holds the extension's provider object. Deep reactivity would proxy
+    // both, and a proxied CryptoKey fails WebCrypto's brand check.
     const wallet = shallowRef<EvmWallet | null>(null)
     const network = shallowRef<EvmNetwork>(resolveInitialNetwork())
     const isConnecting = ref(false)
@@ -124,7 +137,9 @@ export const useEvmStore = defineStore('evm', () => {
         // to re-run when it changes — see `walletEpoch` in platforms/store.ts.
         useActivePlatformStore().notifyWalletChanged()
         void refreshNativeBalance()
-        if (w) attachAccountsChangedListener(w)
+        // Only an extension has an account that can change out from under us; a
+        // local wallet's address is fixed by its derivation path.
+        if (w instanceof InjectedEvmWallet) attachAccountsChangedListener(w)
     }
 
     // Which provider object the listener below is currently attached to, so
@@ -145,7 +160,7 @@ export const useEvmStore = defineStore('evm', () => {
      * `mainStore.accessWalletInjected()` has had the equivalent listener since
      * before this platform existed; this was the one place it was missing.
      */
-    const attachAccountsChangedListener = (w: EvmWallet): void => {
+    const attachAccountsChangedListener = (w: InjectedEvmWallet): void => {
         const provider = w.native
         if (!provider || provider === listenerProvider) return
 
@@ -169,7 +184,7 @@ export const useEvmStore = defineStore('evm', () => {
             // is no need to re-run ensureChain() or re-request permissions,
             // just rebuild the wallet object around the new address.
             setWallet(
-                new EvmWallet({
+                new InjectedEvmWallet({
                     address: newAddress,
                     network: current.network,
                     provider: current.native,
@@ -210,14 +225,98 @@ export const useEvmStore = defineStore('evm', () => {
         }
     }
 
+    /**
+     * Imports a BIP-39 recovery phrase.
+     *
+     * The phrase is validated, converted to a seed, and the account at the
+     * standard EVM path derived from it — see evm/keys.ts for why that path is
+     * fixed rather than probed the way Solana's is.
+     *
+     * `sessionPassword` encrypts the seed in memory and is never stored; it
+     * must be re-entered to authorize each signature.
+     *
+     * Nothing about this is network-specific: an EVM key is the same account on
+     * every chain, so this opens the wallet on whichever network is currently
+     * selected and the picker moves it freely afterwards (see `setNetwork`).
+     */
+    const accessWithMnemonic = async (
+        mnemonic: string,
+        sessionPassword: string,
+        options: AccessOptions = {}
+    ): Promise<void> => {
+        const phrase = mnemonic.trim().replace(/\s+/g, ' ').toLowerCase()
+        if (!bip39.validateMnemonic(phrase)) {
+            throw new Error(
+                'That is not a valid BIP-39 recovery phrase. Check the word list and order.'
+            )
+        }
+
+        // Uint8Array, not the Buffer bip39 returns, so `wipe` works on it.
+        const seed = new Uint8Array(await bip39.mnemonicToSeed(phrase))
+
+        let address: string
+        try {
+            address = deriveEvmAddress(seed, DEFAULT_EVM_PATH)
+        } catch (e) {
+            wipe(seed)
+            throw e
+        }
+
+        // vaultWith consumes and wipes `seed`.
+        const vault = await vaultWith('seed', seed, sessionPassword)
+
+        setWallet(
+            new LocalEvmWallet({
+                address,
+                network: network.value,
+                vault,
+                derivationPath: DEFAULT_EVM_PATH,
+            })
+        )
+        if (options.navigate !== false) router.push('/wallet')
+    }
+
+    /**
+     * Rebuilds a locally-signing wallet bound to a different network.
+     *
+     * A NEW object rather than an in-place `wallet.network = next`, which is
+     * the obvious shortcut and is wrong: the wallet lives in a `shallowRef`, so
+     * mutating a property changes nothing Vue tracks, and anything watching
+     * `platformStore.activeWallet` for identity would keep showing the previous
+     * chain's figures.
+     *
+     * Safe to rebuild because an EVM address is chain-independent — the same
+     * key is the same account on every chain — so this re-points where the
+     * wallet reads and broadcasts without touching what it can sign for. The
+     * vault carries over by reference; no secret is re-derived.
+     */
+    const rebindLocalWallet = (current: LocalEvmWallet, next: EvmNetwork): LocalEvmWallet =>
+        new LocalEvmWallet({
+            address: current.getPrimaryAddress(),
+            network: next,
+            vault: current.vault,
+            derivationPath: current.derivationPath,
+        })
+
     const setNetwork = async (id: string): Promise<void> => {
         const next = getEvmNetworkById(id)
         if (!next) throw new Error(`Unknown EVM network: ${id}`)
         if (next.evmChainId === network.value.evmChainId) return
 
+        // A locally-signing wallet has no extension to move: the chain id it
+        // signs for comes from the network it is bound to, so switching is just
+        // rebinding it. Running the injected path here would prompt for an
+        // extension the user may not even have, and fail if they do not.
+        const current = wallet.value
+        if (current instanceof LocalEvmWallet) {
+            applyNetwork(next)
+            setWallet(rebindLocalWallet(current, next))
+            return
+        }
+
         // An explicit pick from the network menu, so this one DOES move the
         // extension — unlike connect, where the extension's own chain wins.
-        if (wallet.value) {
+        if (current) {
             isConnecting.value = true
             try {
                 const w = await connectInjectedWallet(next, { force: true })
@@ -233,6 +332,13 @@ export const useEvmStore = defineStore('evm', () => {
     }
 
     const disconnect = (): void => {
+        // Discard the vault's ciphertext. The wallet becomes permanently
+        // watch-only, which is fine because it is being dropped anyway.
+        const current = wallet.value
+        if (current instanceof LocalEvmWallet) {
+            current.vault.clear()
+        }
+
         setWallet(null)
         // Hands off to the platform store rather than hard-navigating here: a
         // reload would end every OTHER live platform session too (their vaults
@@ -251,6 +357,7 @@ export const useEvmStore = defineStore('evm', () => {
         isLoadingBalance,
         refreshNativeBalance,
         connectInjected,
+        accessWithMnemonic,
         setNetwork,
         disconnect,
     }

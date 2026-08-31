@@ -20,8 +20,10 @@
  *   - `@/js/wallets/*` (`AvaWalletCore`) — mnemonic / Ledger / private key /
  *     injected. Signs locally with ethereumjs and broadcasts through
  *     `broadcastEvm`, which is also where offline signing intercepts.
- *   - `@/platforms/evm/wallet` (`EvmWallet`) — injected only, hands the
- *     transaction to the extension and lets it price and confirm.
+ *   - `@/platforms/evm/wallet` (`EvmWallet`) — injected, which hands the
+ *     transaction to the extension and lets it price and confirm, or a
+ *     phrase-opened local wallet, which prices and signs it itself from a
+ *     vaulted seed.
  *
  * Rather than force one onto the other, both implement this. A feature written
  * against `EvmSigner` runs on either, on whatever chain that wallet is pointed

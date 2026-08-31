@@ -35,10 +35,10 @@ import type {
 } from '../types'
 import { getEvmNetworks, type EvmNetwork } from '@/evm/networkRegistry'
 import type { EvmSigner } from '@/evm/signer'
-import { InjectedEvmSigner } from './signer'
+import { InjectedEvmSigner, LocalEvmSigner } from './signer'
 import { peekActiveNetwork, peekActiveWallet } from './store'
 import { activeEvmTokenRegistry } from './tokenRegistry'
-import { connectInjected, type EvmWallet } from './wallet'
+import { connectInjected, InjectedEvmWallet, LocalEvmWallet } from './wallet'
 
 /** High-luminance chartreuse — carried over from the Robinhood integration. */
 export const EVM_ACCENT = 'rgb(204, 255, 0)'
@@ -78,12 +78,26 @@ const capabilities: PlatformCapabilities = {
 }
 
 /**
- * Injected-wallet only for now.
+ * Injected-wallet only, as an entry of this platform's own.
  *
- * The mnemonic/keystore/private-key routes are deliberately absent rather than
- * pointed at the existing views: those flows construct Avalanche wallets (they
- * derive X/P addresses and write to the Avalanche stores), so listing them
- * here would hand back a wallet that cannot talk to these chains.
+ * A recovery phrase opens this platform too — see `unlockWithMnemonic` below —
+ * but it deliberately does NOT appear here, for two separate reasons:
+ *
+ *  - It is already reachable from this same screen. `views/access/Menu.vue`
+ *    renders the one-phrase multi-platform unlock above the platform picker,
+ *    for every platform, so a phrase entry here would be a second door to
+ *    `/access/multi` a few pixels below the first.
+ *  - These ids are read as capability flags elsewhere. That view treats
+ *    `mnemonic`/`privatekey`/`keystore` as "this platform can be opened by a
+ *    locally-held key" and shows the saved-accounts list accordingly — but a
+ *    saved account is an Avalanche keystore, and opening one builds an
+ *    Avalanche wallet. Claiming the id here would offer those accounts on this
+ *    platform, where they mean nothing.
+ *
+ * The keystore and private-key routes stay absent for the original reason: the
+ * existing views construct Avalanche wallets (they derive X/P addresses and
+ * write to the Avalanche stores), so listing them here would hand back a wallet
+ * that cannot talk to these chains.
  */
 const accessMethods: AccessMethodDescriptor[] = [
     {
@@ -174,10 +188,37 @@ export const evmPlatform: Platform = {
      * the picker's current selection. Connecting adopts whatever chain the
      * extension was already on (see `connectInjected`), so those two can
      * legitimately differ, and the wallet's is the one its transactions go to.
+     *
+     * Which signer depends on who holds the key, and getting it wrong is not a
+     * cosmetic error: handing a phrase-opened wallet to the injected signer
+     * would route its transactions to `eth_sendTransaction` on an extension
+     * that has never heard of this account. A watch-only wallet gets no signer
+     * at all, so EVM-only features disable themselves rather than offering a
+     * button that cannot work.
      */
     getEvmSigner(): EvmSigner | null {
         const wallet = peekActiveWallet()
-        return wallet ? new InjectedEvmSigner(wallet as EvmWallet) : null
+        if (wallet instanceof LocalEvmWallet) return new LocalEvmSigner(wallet)
+        if (wallet instanceof InjectedEvmWallet) return new InjectedEvmSigner(wallet)
+        return null
+    },
+
+    /**
+     * Opens an EVM session from a recovery phrase, without navigating.
+     *
+     * The same BIP-39 phrase that opens Bitcoin, Solana and Avalanche is a
+     * perfectly good credential on every EVM chain — this platform was simply
+     * extension-only until now, so a one-phrase unlock silently left the EVM
+     * tab out. It derives at the standard `m/44'/60'/0'/0/0`, which is also the
+     * path Avalanche derives its C-Chain key at, so both tabs opened from one
+     * phrase show the same 0x address (see evm/keys.ts).
+     *
+     * `navigate: false` leaves the single `/wallet` push to the caller, which
+     * may still be unlocking other platforms.
+     */
+    async unlockWithMnemonic(mnemonic: string, sessionPassword: string): Promise<void> {
+        const { useEvmStore } = await import('./store')
+        await useEvmStore().accessWithMnemonic(mnemonic, sessionPassword, { navigate: false })
     },
 
     async logout(): Promise<void> {

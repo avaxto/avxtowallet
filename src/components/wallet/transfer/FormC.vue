@@ -256,9 +256,11 @@ export default defineComponent({
 
         // True on the generalized EVM platform (Optimism, Polygon, BNB, …)
         // rather than Avalanche's own C-Chain. Its wallet lives in a different
-        // store and sends through the injected provider rather than this app's
-        // signing path, so both the native and ERC-20 sends branch separately
-        // below. NFTs are still Avalanche-only.
+        // store and owns its own send — through the extension when one holds
+        // the key, or signed locally from a vaulted seed when the session was
+        // opened from a recovery phrase — rather than going through this app's
+        // Avalanche signing path, so both the native and ERC-20 sends branch
+        // separately below. NFTs are still Avalanche-only.
         const isGeneralEvm = computed(
             (): boolean => platformStore.activePlatform?.descriptor.id === 'evm'
         )
@@ -572,13 +574,16 @@ export default defineComponent({
                             // and transfer the wrong asset entirely.
                             //
                             // EvmWallet has no signEvm/getEvmAddress (those are
-                            // Avalanche's AvaWalletCore surface) — it sends
-                            // directly through the injected provider instead.
+                            // Avalanche's AvaWalletCore surface) — it owns the
+                            // whole send itself, either through the injected
+                            // provider or locally from its vaulted seed.
                             const evmWallet = evmStore.wallet!
-                            // Re-verify the chain here, not earlier: the user
-                            // can switch networks inside the extension at any
-                            // moment, and eth_sendTransaction goes wherever the
-                            // extension currently points.
+                            // Re-verify the chain here, not earlier: with an
+                            // extension the user can switch networks inside it
+                            // at any moment, and eth_sendTransaction goes
+                            // wherever it currently points. A locally-signing
+                            // wallet has nothing to drift and passes straight
+                            // through — see LocalEvmWallet.assertOnChain.
                             await evmWallet.assertOnChain()
 
                             if (formToken.value === 'native') {

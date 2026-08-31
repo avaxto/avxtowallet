@@ -44,23 +44,27 @@
             </template>
             <v-list>
                 <!--
-                    Addresses / Address Derivation / Unify Chains / Quick
-                    Delegate are X/P-chain and staking concepts, so they are
-                    gated per-item on `isAvalanche` — there is nothing for them
-                    to do on a single-chain platform. Token Launcher is the
-                    opposite: it deploys a plain ERC-20, which is equally
-                    meaningful on either EVM-capable platform (see
-                    js/TokenLauncher.ts — chain-neutral via EvmSigner), so it
-                    carries no gate of its own. Decode Solana Address is the
-                    same story again: a plain base58 decode of a pasted
-                    address, meaningful regardless of which platform is
-                    active, so it is likewise ungated. Bitcoin Derived
+                    Address Derivation / Unify Chains / Quick Delegate are
+                    X/P-chain and staking concepts, so they stay gated on
+                    `isAvalanche` — there is nothing for them to do on a
+                    single-chain platform. Addresses used to be gated the same
+                    way; it no longer is, because `/wallet/addresses` now
+                    dispatches per platform (see Addresses.vue) instead of
+                    being the Avalanche X/P page alone — Bitcoin gets its own
+                    HD receive/change listing there, Solana and EVM their fixed
+                    address, so the item is meaningful everywhere now. Token
+                    Launcher is ungated for its own, older reason: it deploys a
+                    plain ERC-20, equally meaningful on either EVM-capable
+                    platform (see js/TokenLauncher.ts — chain-neutral via
+                    EvmSigner). Decode Solana Address is the same story again:
+                    a plain base58 decode of a pasted address, meaningful
+                    regardless of which platform is active. Bitcoin Derived
                     Addresses goes back to the Avalanche-item pattern instead
                     — it only means anything for a Bitcoin mnemonic wallet's
                     own seed, so it is gated on `isBitcoin` the same way those
                     are gated on `isAvalanche`.
                 -->
-                <v-list-item v-if="isAvalanche">
+                <v-list-item>
                     <v-list-item-title>
                         <router-link to="/wallet/addresses">Addresses</router-link>
                     </v-list-item-title>

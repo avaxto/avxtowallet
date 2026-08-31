@@ -108,7 +108,11 @@ function makePlatform(id: PlatformId, options: FakeOptions): Platform {
 // re-registering an id throws.
 const SEED_A = 'test-seed-a'
 const SEED_B = 'test-seed-b'
-/** Connects only through an extension: no phrase can open it. Shaped like EVM. */
+/**
+ * Connects only through an extension, so no phrase can open it. No shipped
+ * platform is in this category any more — EVM was, until it learned to open
+ * from a phrase — but the registry must keep excluding one that is.
+ */
 const EXTENSION_ONLY = 'test-extension-only'
 /**
  * A phrase opens it, but its session is not isolated — shaped like Avalanche.

@@ -20,11 +20,9 @@
 <template>
     <div class="access_card">
         <div class="content">
-            <h1>Open Every Platform</h1>
+            <h1>One Wallet, Every Platform</h1>
             <p class="sub">
-                One BIP-39 recovery phrase opens a session on each platform below, all at
-                once. Each keeps its own tab and its own address — the phrase is the only
-                thing they share.
+                One BIP-39 recovery phrase opens a session for each platform below.
             </p>
 
             <form @submit.prevent="unlock" autocomplete="off">
