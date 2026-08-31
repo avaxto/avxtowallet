@@ -17,7 +17,7 @@ import Big from 'big.js'
 import * as bip39 from 'bip39'
 
 import router from '@/router'
-import type { PlatformWallet } from '../types'
+import type { AccessOptions, PlatformWallet } from '../types'
 import { useActivePlatformStore } from '../store'
 import { SessionVault } from '@/js/security/SessionVault'
 import { AuthHandle, AuthScope } from '@/js/security/session'
@@ -221,7 +221,8 @@ export const useBitcoinStore = defineStore('bitcoin', () => {
      */
     const accessWithMnemonic = async (
         mnemonic: string,
-        sessionPassword: string
+        sessionPassword: string,
+        options: AccessOptions = {}
     ): Promise<void> => {
         const phrase = mnemonic.trim().replace(/\s+/g, ' ').toLowerCase()
         if (!bip39.validateMnemonic(phrase)) {
@@ -311,7 +312,7 @@ export const useBitcoinStore = defineStore('bitcoin', () => {
                 })
             )
             void refreshFeeRates()
-            router.push('/wallet')
+            if (options.navigate !== false) router.push('/wallet')
         } catch (e) {
             wipe(seed)
             throw e

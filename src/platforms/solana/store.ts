@@ -22,7 +22,7 @@ import Big from 'big.js'
 import * as bip39 from 'bip39'
 
 import router from '@/router'
-import type { PlatformWallet } from '../types'
+import type { AccessOptions, PlatformWallet } from '../types'
 import { useActivePlatformStore } from '../store'
 import { SessionVault } from '@/js/security/SessionVault'
 import { AuthHandle, AuthScope } from '@/js/security/session'
@@ -259,7 +259,8 @@ export const useSolanaStore = defineStore('solana', () => {
      */
     const accessWithMnemonic = async (
         mnemonic: string,
-        sessionPassword: string
+        sessionPassword: string,
+        options: AccessOptions = {}
     ): Promise<void> => {
         const phrase = mnemonic.trim().replace(/\s+/g, ' ').toLowerCase()
         if (!bip39.validateMnemonic(phrase)) {
@@ -297,7 +298,7 @@ export const useSolanaStore = defineStore('solana', () => {
                 derivationPath: chosenPath,
             })
         )
-        router.push('/wallet')
+        if (options.navigate !== false) router.push('/wallet')
     }
 
     /**

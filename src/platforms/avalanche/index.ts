@@ -327,6 +327,14 @@ export const avalanchePlatform: Platform = {
         )
     },
 
+    // No `unlockWithMnemonic`, and deliberately so — a recovery phrase is a
+    // perfectly good Avalanche credential (`/access/mnemonic` uses one). What
+    // is missing is the isolation: this platform's wallet lives in the legacy
+    // global stores, so it cannot hold a session alongside the others, and
+    // joining the one-phrase unlock would hand the user a set of tabs that log
+    // each other out. Same prerequisite, and the same fix, as
+    // `supportsConcurrentSession`. See ../types.ts.
+
     async logout(): Promise<void> {
         await useMainStore().logout()
     },

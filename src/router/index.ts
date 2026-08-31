@@ -46,6 +46,9 @@ import SolanaWatch from '@/views/access/solana/Watch.vue'
 import BitcoinMnemonic from '@/views/access/bitcoin/Mnemonic.vue'
 import BitcoinPrivateKey from '@/views/access/bitcoin/PrivateKey.vue'
 import BitcoinWatch from '@/views/access/bitcoin/Watch.vue'
+// Cross-platform, so it lives under neither namespace: one phrase, a session on
+// every platform that can be opened from one. See the view's own header.
+import MultiPlatformAccess from '@/views/access/MultiPlatform.vue'
 import Addresses from '@/views/wallet/Addresses.vue'
 import AddressesDerive from '@/views/wallet/AddressesDerive.vue'
 import Broadcast from '@/views/wallet/Broadcast.vue'
@@ -188,6 +191,12 @@ const routes: RouteRecordRaw[] = [
             {
                 path: 'bitcoin/watch',
                 component: BitcoinWatch,
+            },
+            // Unprefixed like the Avalanche routes above, but for the opposite
+            // reason: this one belongs to no single platform.
+            {
+                path: 'multi',
+                component: MultiPlatformAccess,
             },
         ],
         component: Access,

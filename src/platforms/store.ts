@@ -26,6 +26,18 @@ import { applyPlatformTheme } from './theme'
 
 const STORAGE_KEY = 'activePlatform'
 
+/** What happened to one platform in a `unlockWithMnemonic` pass. */
+export interface MnemonicUnlockResult {
+    platformId: PlatformId
+    /**
+     * `connected` — this pass opened it.
+     * `skipped` — it already had a live session, which is left untouched.
+     * `failed` — see `error`. Other platforms in the same pass are unaffected.
+     */
+    status: 'connected' | 'skipped' | 'failed'
+    error?: string
+}
+
 /**
  * Which platform the wallet is currently operating on.
  *
@@ -86,19 +98,41 @@ export const useActivePlatformStore = defineStore('activePlatform', () => {
         connectedPlatforms.value.some((p) => p.descriptor.id === id)
 
     /**
+     * Whether moving from `previous` to `next` can happen without a reload.
+     *
+     * The single source of truth for that question: `setActivePlatform` acts on
+     * it and `isDestructiveSwitch` warns from it, so the warning the user sees
+     * cannot drift from what actually happens.
+     *
+     * Two ways to qualify. The incoming platform must keep its whole session in
+     * its own store (`supportsConcurrentSession`) — there is no way to bring up
+     * a platform that needs the global stores without the reload that
+     * initialises them. Given that, the outgoing side is fine if it is
+     * *either* equally isolated, *or* simply not logged in: the reload's job is
+     * to clear the outgoing platform's state, and a platform that was never
+     * connected has none. That second case is not an edge case — the app boots
+     * on Avalanche, so it is every cold start that opens a different platform.
+     */
+    const canHandOverInPlace = (
+        previous: Platform | undefined,
+        next: Platform | undefined
+    ): boolean => {
+        if (!next?.supportsConcurrentSession) return false
+        return !!previous?.supportsConcurrentSession || previous?.getActiveWallet() == null
+    }
+
+    /**
      * True when moving to `id` would tear down live sessions.
      *
-     * Only platforms that BOTH declare `supportsConcurrentSession` can hand
-     * over in place; anything else takes the logout-and-reload path below,
-     * which ends every other session too. The UI asks this before offering
-     * such a switch, so the loss is deliberate rather than a surprise.
+     * A switch that cannot hand over in place takes the logout-and-reload path
+     * below, which ends every other session too. The UI asks this before
+     * offering such a switch, so the loss is deliberate rather than a surprise.
      */
     const isDestructiveSwitch = (id: PlatformId): boolean => {
         if (id === activePlatformId.value) return false
-        const next = getPlatform(id)
-        const canHandOver =
-            !!activePlatform.value?.supportsConcurrentSession && !!next?.supportsConcurrentSession
-        return !canHandOver && connectedPlatforms.value.length > 0
+        void walletEpoch.value
+        if (canHandOverInPlace(activePlatform.value, getPlatform(id))) return false
+        return connectedPlatforms.value.length > 0
     }
 
     /**
@@ -135,6 +169,26 @@ export const useActivePlatformStore = defineStore('activePlatform', () => {
     const availablePlatforms = computed((): Platform[] => listAvailablePlatforms())
 
     /**
+     * Platforms one recovery phrase can open in a single pass.
+     *
+     * Derived from what each platform declares rather than listed here, so a
+     * new seed-based platform joins the flow by implementing
+     * `unlockWithMnemonic` — and Avalanche joins it, with no change to this
+     * file or the view, on the day its session moves behind a per-platform
+     * store and it can declare `supportsConcurrentSession`.
+     *
+     * Both flags are required. Opening a platform that cannot hold a
+     * concurrent session alongside the others would produce exactly the
+     * outcome this feature exists to remove: a row of tabs that log each other
+     * out. See `unlockWithMnemonic` in ./types.ts.
+     */
+    const mnemonicUnlockablePlatforms = computed((): Platform[] =>
+        listAvailablePlatforms().filter(
+            (p) => typeof p.unlockWithMnemonic === 'function' && p.supportsConcurrentSession
+        )
+    )
+
+    /**
      * True while `setActivePlatform` is deliberately logging every session out
      * ahead of a reload. See its destructive path and `finishDisconnect`.
      */
@@ -152,13 +206,13 @@ export const useActivePlatformStore = defineStore('activePlatform', () => {
      * Switch platforms. Rejects unknown or not-yet-implemented ids rather than
      * leaving the app pointing at a platform with no implementation behind it.
      *
-     * Two very different paths, chosen by `supportsConcurrentSession`:
+     * Two very different paths, chosen by `canHandOverInPlace` above:
      *
-     * **In place** — when the outgoing and incoming platforms both keep their
-     * whole session in their own store. Nothing is logged out and there is no
-     * reload: the pointer moves and both wallets stay live. This is what the
-     * platform tabs switch with, and what lets a user hold Bitcoin, Solana and
-     * EVM sessions at once.
+     * **In place** — nothing is logged out and there is no reload: the pointer
+     * moves and any live wallets stay live. This is what the platform tabs
+     * switch with, what lets a user hold Bitcoin, Solana and EVM sessions at
+     * once, and what lets a cold start on Avalanche open one of them without
+     * throwing away a session it just opened.
      *
      * **Logout and reload** — for anything involving a platform that does not
      * (today, Avalanche). Platform state is then spread across many long-lived
@@ -181,7 +235,7 @@ export const useActivePlatformStore = defineStore('activePlatform', () => {
         const previous = activePlatform.value
         const next = getPlatform(id)
 
-        if (previous?.supportsConcurrentSession && next?.supportsConcurrentSession) {
+        if (canHandOverInPlace(previous, next)) {
             persistPlatformId(id)
             activePlatformId.value = id
             applyPlatformTheme(next.descriptor.theme)
@@ -252,6 +306,98 @@ export const useActivePlatformStore = defineStore('activePlatform', () => {
 
         await setActivePlatform(fallback.descriptor.id)
         return true
+    }
+
+    /**
+     * Open a session on several platforms from ONE recovery phrase and ONE
+     * session password.
+     *
+     * Targets default to every platform in `mnemonicUnlockablePlatforms`; pass
+     * `ids` to narrow that to the subset the user ticked. A platform that
+     * already has a live session is left strictly alone and reported as
+     * `skipped` — re-running the unlock over it would replace a working wallet,
+     * and if the phrase differs it would silently swap the user's session for
+     * a different one. That is what makes this safe to run from the
+     * add-another-session flow with sessions already open.
+     *
+     * Runs concurrently, and reports per platform. The platforms derive
+     * independently and each probes its own chain over the network — Bitcoin
+     * walks five address-type candidates, Solana two derivation conventions —
+     * so doing them in sequence would make the wait the sum of the slowest
+     * chains rather than the max of them. Each task captures its own failure
+     * rather than rejecting, so one platform's RPC being down cannot discard
+     * another's wallet that already opened successfully — and there is nothing
+     * to roll back *to*: the funds on the platforms that did open are
+     * reachable, so the honest outcome is a partial success the caller reports,
+     * not an exception that throws the working sessions away.
+     *
+     * The phrase is passed through to each platform rather than converted to a
+     * seed once and shared. That is deliberate and not merely tidy: `vaultWith`
+     * *consumes and wipes* the seed buffer it is handed, so a shared seed would
+     * leave whichever platform ran second deriving from zeroes.
+     *
+     * Nothing here navigates. The caller owns that, because a pass that opened
+     * two platforms and failed a third has something to say before moving on.
+     *
+     * One password unlocking several platforms is a real change in exposure and
+     * the UI says so: each platform still gets its own `SessionVault` with its
+     * own salt and AAD, so no ciphertext can be moved between them, but one
+     * remembered password now authorizes signing on all of them rather than one.
+     */
+    const unlockWithMnemonic = async (
+        mnemonic: string,
+        sessionPassword: string,
+        ids?: PlatformId[]
+    ): Promise<MnemonicUnlockResult[]> => {
+        const wanted = ids ? new Set(ids) : null
+        const targets = mnemonicUnlockablePlatforms.value.filter(
+            (p) => !wanted || wanted.has(p.descriptor.id)
+        )
+
+        if (targets.length === 0) {
+            throw new Error('No platform can be opened from a recovery phrase alone.')
+        }
+
+        const settled = await Promise.all(
+            targets.map(async (platform): Promise<MnemonicUnlockResult> => {
+                const platformId = platform.descriptor.id
+
+                if (platform.getActiveWallet() != null) {
+                    return { platformId, status: 'skipped' }
+                }
+
+                try {
+                    await platform.unlockWithMnemonic!(mnemonic, sessionPassword)
+                    return { platformId, status: 'connected' }
+                } catch (e: any) {
+                    return {
+                        platformId,
+                        status: 'failed',
+                        error: e?.message || 'Failed to open this platform.',
+                    }
+                }
+            })
+        )
+
+        // A platform store sets its wallet through its own `setWallet`, which
+        // already bumps the epoch — but only for the platforms that mirror
+        // their wallet outside Pinia. Bump once here so `connectedPlatforms`
+        // below is guaranteed current regardless of how each target stores its.
+        notifyWalletChanged()
+
+        // Land on something real. The active platform is usually Avalanche at
+        // this point (the default, and unconnected), which no longer forces a
+        // reload to leave — see `canHandOverInPlace`. Prefer a platform this
+        // pass actually opened over registry order, so the user arrives on the
+        // one they were most likely thinking about.
+        if (activePlatform.value?.getActiveWallet() == null) {
+            const landing =
+                settled.find((r) => r.status === 'connected') ??
+                settled.find((r) => r.status === 'skipped')
+            if (landing) await setActivePlatform(landing.platformId)
+        }
+
+        return settled
     }
 
     /**
@@ -340,6 +486,8 @@ export const useActivePlatformStore = defineStore('activePlatform', () => {
         connectedPlatforms,
         isPlatformConnected,
         isDestructiveSwitch,
+        mnemonicUnlockablePlatforms,
+        unlockWithMnemonic,
         setActivePlatform,
         ensureActiveIsConnected,
         finishDisconnect,

@@ -180,6 +180,18 @@ export const bitcoinPlatform: Platform = {
     // No getEvmSigner: Bitcoin has no EVM chain, which is what correctly
     // disables every EVM-only feature without those features naming Bitcoin.
 
+    // Bitcoin's own derivation runs behind this — the same probe of all four
+    // standard address types plus the Core-compatible candidate the dedicated
+    // screen performs, since opening on an empty address would be no better
+    // here than there. `navigate: false` is what makes it composable: the
+    // caller unlocking several platforms navigates once, at the end.
+    async unlockWithMnemonic(mnemonic: string, sessionPassword: string): Promise<void> {
+        const { useBitcoinStore } = await import('./store')
+        await useBitcoinStore().accessWithMnemonic(mnemonic, sessionPassword, {
+            navigate: false,
+        })
+    },
+
     async logout(): Promise<void> {
         const { useBitcoinStore } = await import('./store')
         useBitcoinStore().disconnect()

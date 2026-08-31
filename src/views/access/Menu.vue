@@ -14,6 +14,17 @@
         <h1>{{ $t('access.title') }}</h1>
         <router-link to="/create" class="link">{{ $t('access.create') }}</router-link>
         <div class="menus">
+            <!--
+              Offered above the platform picker, and only when more than one
+              platform could actually be opened by one phrase — with a single
+              candidate this is just that platform's own mnemonic screen with
+              extra steps.
+            -->
+            <router-link v-if="canUnlockMultiple" :to="multiUnlockTo" class="multi_option">
+                <span class="multi_title">Open every platform with one phrase</span>
+                <span class="multi_sub">{{ multiPlatformNames }} — one recovery phrase</span>
+            </router-link>
+
             <PlatformSelect></PlatformSelect>
             <!--
                 Saved accounts are keystore-encrypted local keys, so they only
@@ -112,6 +123,22 @@ export default defineComponent({
         )
 
         /**
+         * The one-phrase multi-platform unlock, offered only when it would open
+         * more than one platform. Which platforms qualify is the store's call —
+         * see `mnemonicUnlockablePlatforms`.
+         */
+        const unlockablePlatforms = computed(() => platformStore.mnemonicUnlockablePlatforms)
+        const canUnlockMultiple = computed((): boolean => unlockablePlatforms.value.length > 1)
+        const multiPlatformNames = computed((): string =>
+            unlockablePlatforms.value.map((p) => p.descriptor.name).join(', ')
+        )
+        // Carries the add-another-session marker through, so cancelling out of
+        // that screen returns to this one rather than bouncing to the wallet.
+        const multiUnlockTo = computed(() =>
+            isAddingSession.value ? '/access/multi?add=1' : '/access/multi'
+        )
+
+        /**
          * Whether this platform can be accessed by a locally-held key, which is
          * what a saved account stores. Platforms that only connect through an
          * extension (or a remote session) have nothing to save locally.
@@ -142,6 +169,9 @@ export default defineComponent({
         return {
             accessMethods,
             isAddingSession,
+            canUnlockMultiple,
+            multiPlatformNames,
+            multiUnlockTo,
             hasLocalKeyAccess,
             methodLabel,
             isConnecting,
@@ -205,6 +235,29 @@ hr {
     font-size: 13px;
     color: var(--error);
     margin: 6px 0 0;
+}
+
+.multi_option {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 12px 14px;
+    margin-bottom: 18px;
+    border-radius: 6px;
+    background-color: var(--bg-light);
+    border: 1px solid var(--secondary-color);
+    text-decoration: none;
+    color: var(--primary-color);
+}
+
+.multi_title {
+    font-size: 14px;
+    font-weight: bold;
+}
+
+.multi_sub {
+    font-size: 12px;
+    color: var(--primary-color-light);
 }
 
 .menus {

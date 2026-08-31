@@ -329,6 +329,21 @@ export interface PlatformWallet {
     readonly native: unknown
 }
 
+/**
+ * Per-call options for a platform store's `access*` methods.
+ *
+ * Only `navigate` today. It exists because those methods have always ended by
+ * pushing `/wallet`, which is right for the single-platform login screens that
+ * call them but wrong for the multi-platform unlock, where several run
+ * concurrently and the first to finish would navigate away from the form still
+ * opening the others. Defaulted to navigating so every existing caller keeps
+ * its current behaviour without passing anything.
+ */
+export interface AccessOptions {
+    /** Push `/wallet` on success. Default true. */
+    navigate?: boolean
+}
+
 export interface Platform {
     readonly descriptor: PlatformDescriptor
     readonly capabilities: PlatformCapabilities
@@ -377,6 +392,34 @@ export interface Platform {
      * *other* live session with it — their vaults are in memory only.
      */
     readonly supportsConcurrentSession?: boolean
+
+    /**
+     * Open a session on this platform from a BIP-39 recovery phrase, WITHOUT
+     * navigating afterwards.
+     *
+     * This is what the one-phrase multi-platform unlock drives (see
+     * `unlockWithMnemonic` in ../store.ts). It is deliberately separate from
+     * the `mnemonic` entry in `accessMethods`: that one is a route to a
+     * platform-specific screen which ends by pushing `/wallet`, which is
+     * exactly wrong when several platforms are being opened in one go — the
+     * first one to finish would navigate away from the form still unlocking
+     * the rest.
+     *
+     * Declaring this is a promise about two things beyond derivation:
+     *
+     *  - the phrase alone is enough (no extension, no device), and
+     *  - the resulting session is isolated, so it can coexist with the other
+     *    platforms unlocked in the same pass. `supportsConcurrentSession` is
+     *    therefore a prerequisite; the store filters on both, because opening a
+     *    non-isolated session alongside others would leave the user with tabs
+     *    that log each other out.
+     *
+     * Absent on Avalanche for that second reason, not the first — a phrase is a
+     * perfectly good Avalanche credential, but its wallet still lives in the
+     * legacy global stores. It joins this flow when that moves behind a
+     * per-platform store; nothing here needs to change when it does.
+     */
+    unlockWithMnemonic?(mnemonic: string, sessionPassword: string): Promise<void>
 
     /** Called when this platform becomes the active one. */
     activate?(): Promise<void>

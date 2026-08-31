@@ -204,6 +204,17 @@ export const solanaPlatform: Platform = {
     // active platform for a signer and disable themselves when there isn't
     // one, so omitting this is what correctly hides them.
 
+    // Runs the same two-convention derivation-path discovery the dedicated
+    // screen does — guessing one path would open the wrong account here just
+    // as it would there. `navigate: false` leaves the single `/wallet` push to
+    // the caller, which may still be unlocking other platforms.
+    async unlockWithMnemonic(mnemonic: string, sessionPassword: string): Promise<void> {
+        const { useSolanaStore } = await import('./store')
+        await useSolanaStore().accessWithMnemonic(mnemonic, sessionPassword, {
+            navigate: false,
+        })
+    },
+
     async logout(): Promise<void> {
         const { useSolanaStore } = await import('./store')
         useSolanaStore().disconnect()
