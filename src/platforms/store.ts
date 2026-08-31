@@ -314,6 +314,57 @@ export const useActivePlatformStore = defineStore('activePlatform', () => {
     }
 
     /**
+     * Log out of EVERY connected platform and leave the wallet entirely.
+     *
+     * This is what "Exit" in the File menu means now that several platform
+     * sessions can be live behind separate tabs (see `connectedPlatforms`
+     * above). Logging out only the active platform is not enough to exit:
+     * each platform's own `logout()` ends by calling `finishDisconnect`,
+     * which hands over to whichever other tab is still connected — from the
+     * user's seat, clicking Exit would just switch tabs and leave the wallet
+     * open. Exit has to end every session no matter which tab it was clicked
+     * from.
+     *
+     * Structured exactly like `setActivePlatform`'s destructive path, and for
+     * the same reason: `isTearingDown` suppresses the hand-over each
+     * `logout()` would otherwise trigger via `finishDisconnect`, which would
+     * race this loop to switch to a platform this loop is about to close.
+     */
+    const logoutAll = async (): Promise<void> => {
+        isTearingDown = true
+        try {
+            // `activePlatform` is usually already in `connectedPlatforms`;
+            // de-duplicated so it is not logged out twice.
+            const seen = new Set<PlatformId>()
+            for (const platform of [...connectedPlatforms.value, activePlatform.value]) {
+                if (!platform) continue
+                if (seen.has(platform.descriptor.id)) continue
+                seen.add(platform.descriptor.id)
+
+                try {
+                    await platform.logout()
+                } catch (e) {
+                    // A failed logout must not strand a live session behind —
+                    // the reload below discards its state anyway.
+                    console.warn('[platforms] logout during exit failed:', e)
+                }
+                await platform.deactivate?.()
+            }
+        } finally {
+            isTearingDown = false
+        }
+
+        // Drop any persisted Avalanche wallet and land back on the default
+        // platform, so the app comes back up fully logged out rather than on
+        // whichever tab Exit happened to be clicked from.
+        localStorage.removeItem('w')
+        persistPlatformId(DEFAULT_PLATFORM_ID)
+        activePlatformId.value = DEFAULT_PLATFORM_ID
+
+        window.location.href = '/'
+    }
+
+    /**
      * Make sure the active platform is one that actually has a wallet, and
      * report whether any live session exists at all.
      *
@@ -515,6 +566,7 @@ export const useActivePlatformStore = defineStore('activePlatform', () => {
         mnemonicUnlockablePlatforms,
         unlockWithMnemonic,
         setActivePlatform,
+        logoutAll,
         ensureActiveIsConnected,
         finishDisconnect,
         initPlatform,

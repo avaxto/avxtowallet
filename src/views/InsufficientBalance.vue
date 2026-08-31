@@ -30,7 +30,7 @@
                     <br />
                     <br />
                     <div class="alert alert-warning" role="alert">
-                        Make a deposit to your C-Chain deposit address to continue:
+                        Make a deposit to your Avalanche C-Chain deposit address to continue:
                         <br />
                         <code>{{ cChainAddress }}</code>
                     </div>

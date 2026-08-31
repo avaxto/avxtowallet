@@ -59,11 +59,14 @@ export default defineComponent({
 
         const submit = async () => {
             isLoading.value = true
-            // Logs out of whichever platform is actually active — each keeps
-            // its own session (mainStore for Avalanche, platforms/robinhood/
-            // store.ts for Robinhood, ...), so this must go through the
-            // active platform rather than always logging out of Avalanche.
-            await platformStore.activePlatform?.logout()
+            // Exit ends the whole wallet, not just the tab it was clicked
+            // from — several platform sessions can be live at once (see
+            // connectedPlatforms in platforms/store.ts), and logging out only
+            // the active one would just hand over to another connected tab
+            // instead of leaving. `logoutAll` tears every live session down
+            // and reloads, which is the only way this menu item's "Exit"
+            // label is actually true regardless of which tab is in front.
+            await platformStore.logoutAll()
             await notificationsStore.add({
                 title: 'Logout',
                 message: 'You have successfully logged out of your wallet.',
