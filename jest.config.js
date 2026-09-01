@@ -25,6 +25,13 @@
  *    `import.meta`, a syntax error once compiled to CommonJS. See that file.
  */
 module.exports = {
+    // This machine has 8 CPUs but only 8GB RAM. Jest's default worker count
+    // (numCPUs - 1 = 7) each spins up its own ts-jest TypeScript compiler
+    // instance — running that many in parallel, especially alongside a `tsc`
+    // typecheck, is enough to exhaust memory and lock the machine up. Capped
+    // low rather than left to auto-detect from CPU count, which has no idea
+    // how little RAM backs those cores.
+    maxWorkers: 2,
     moduleFileExtensions: ['js', 'mjs', 'cjs', 'ts', 'json', 'vue'],
     transform: {
         '^.+\\.vue$': '@vue/vue3-jest',
