@@ -38,7 +38,12 @@ import type { EvmSigner } from '@/evm/signer'
 import { InjectedEvmSigner, LocalEvmSigner } from './signer'
 import { peekActiveNetwork, peekActiveWallet } from './store'
 import { activeEvmTokenRegistry } from './tokenRegistry'
-import { connectInjected, InjectedEvmWallet, LocalEvmWallet } from './wallet'
+import {
+    connectInjected,
+    getEvmProvider,
+    InjectedEvmWallet,
+    LocalEvmWallet,
+} from './wallet'
 
 /** High-luminance chartreuse — carried over from the Robinhood integration. */
 export const EVM_ACCENT = 'rgb(204, 255, 0)'
@@ -219,6 +224,29 @@ export const evmPlatform: Platform = {
     async unlockWithMnemonic(mnemonic: string, sessionPassword: string): Promise<void> {
         const { useEvmStore } = await import('./store')
         await useEvmStore().accessWithMnemonic(mnemonic, sessionPassword, { navigate: false })
+    },
+
+    /**
+     * Any EIP-1193 provider will do — this platform is chain-agnostic, and
+     * every extension that injects one can sign for it on some chain.
+     *
+     * Synchronous and silent, as the contract requires: reading the handle off
+     * `window` tells us an extension is there without asking it for anything.
+     */
+    isInjectedAvailable(): boolean {
+        return getEvmProvider() != null
+    },
+
+    /**
+     * Opens an EVM session from the installed extension, without navigating.
+     *
+     * `navigate: false` leaves the single `/wallet` push to the caller, which
+     * may still be connecting other platforms from the same extension — see
+     * `connectWithInjected` in ../store.ts.
+     */
+    async connectInjected(): Promise<void> {
+        const { useEvmStore } = await import('./store')
+        await useEvmStore().connectInjected({ navigate: false })
     },
 
     async logout(): Promise<void> {

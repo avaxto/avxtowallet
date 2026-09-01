@@ -33,4 +33,4 @@ registerPlatform(bitcoinPlatform)
 export * from './types'
 export * from './registry'
 export { useActivePlatformStore } from './store'
-export type { MnemonicUnlockResult } from './store'
+export type { MnemonicUnlockResult, InjectedConnectResult } from './store'

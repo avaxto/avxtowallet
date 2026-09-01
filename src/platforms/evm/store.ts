@@ -207,7 +207,11 @@ export const useEvmStore = defineStore('evm', () => {
         }
     }
 
-    const connectInjected = async (): Promise<void> => {
+    // `options.navigate === false` when several platforms are being connected
+    // from one extension in a single pass: the first to finish would otherwise
+    // navigate away from the screen still connecting the rest. Same shape as
+    // `accessWithMnemonic` below and as the multi-platform phrase unlock.
+    const connectInjected = async (options: AccessOptions = {}): Promise<void> => {
         isConnecting.value = true
         try {
             const w = await connectInjectedWallet(network.value)
@@ -219,7 +223,7 @@ export const useEvmStore = defineStore('evm', () => {
                 applyNetwork(w.network)
             }
             setWallet(w)
-            router.push('/wallet')
+            if (options.navigate !== false) router.push('/wallet')
         } finally {
             isConnecting.value = false
         }

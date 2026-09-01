@@ -194,13 +194,16 @@ export const useSolanaStore = defineStore('solana', () => {
 
     // ---- Access methods ----
 
-    const connectInjected = async (): Promise<void> => {
+    // `options.navigate === false` when several platforms are being connected
+    // from one extension in a single pass — see `connectWithInjected` in
+    // ../store.ts. Same shape as `accessWithMnemonic` below.
+    const connectInjected = async (options: AccessOptions = {}): Promise<void> => {
         isConnecting.value = true
         try {
             const detected = requireSolanaProvider()
             const w = await connectInjectedSolana(network.value, detected)
             setWallet(w)
-            router.push('/wallet')
+            if (options.navigate !== false) router.push('/wallet')
         } finally {
             isConnecting.value = false
         }

@@ -20,7 +20,7 @@
                     <br />
                     <br />
                     Minimum required:
-                    <strong>{{ thrValue }} {{ thrSymbol }}</strong>
+                    <strong>{{ thrValueFormatted }} {{ thrSymbol }}</strong>
                 </template>
                 <br />
                 Please deposit
@@ -30,13 +30,14 @@
                     <br />
                     <br />
                     <div class="alert alert-warning" role="alert">
-                        Make a deposit to your Avalanche C-Chain deposit address to continue:
+                        <a href="#" @click.prevent="goToSwap"><b>Click here</b></a>
+                        to make a deposit to your Avalanche C-Chain deposit address to continue:
                         <br />
                         <code>{{ cChainAddress }}</code>
                     </div>
                 </template>
 
-                You can swap
+                You can also swap
                 <strong>{{ thrSymbol }}</strong>
                 at
                 <a
@@ -85,7 +86,9 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, onMounted, onUnmounted, ref } from 'vue'
+import { defineComponent, onMounted, onUnmounted, ref, computed } from 'vue'
+import router from '@/router'
+import { useActivePlatformStore } from '@/platforms'
 
 export default defineComponent({
     name: 'InsufficientBalance',
@@ -117,6 +120,14 @@ export default defineComponent({
         // entered here displayed the extension's address instead of its own.
         const cChainAddress = ref<string | null>(storedCChainAddress || null)
 
+        // Erc20Token.ts stores `baseAsset.thr` as a plain digit string
+        // (BN#toString, e.g. "1000000") — comma-group it the same way
+        // balances elsewhere use Big#toLocaleString (utils/big-extensions.ts).
+        const thrValueFormatted = computed(() => {
+            const n = Number(thrValue.value)
+            return Number.isFinite(n) ? n.toLocaleString('en-US') : thrValue.value
+        })
+
         const onAccountsChanged = (accounts: string[]) => {
             const newAccount = accounts?.[0]?.toLowerCase() ?? null
             if (newAccount === currentAccount) return
@@ -145,7 +156,30 @@ export default defineComponent({
             window.location.href = '/'
         }
 
-        return { restart, thrValue, thrSymbol, thrAddress, cChainAddress }
+        // The AVXTO balance check that lands the user here (Erc20Token.ts)
+        // is Avalanche's own C-Chain check — it runs in the background no
+        // matter which tab is currently in front (Bitcoin, Solana, another
+        // EVM chain...), since Avalanche can stay connected behind another
+        // active platform now. "Click here" must always open Avalanche's
+        // swap form specifically, so switch tabs first if a different one is
+        // active — Avalanche `supportsConcurrentSession`, and it's already
+        // connected (that's the only way this check could have fired), so
+        // this hands over in place rather than logging anyone out.
+        const goToSwap = async () => {
+            const platformStore = useActivePlatformStore()
+            await platformStore.setActivePlatform('avalanche')
+            router.push('/wallet/swap')
+        }
+
+        return {
+            restart,
+            goToSwap,
+            thrValue,
+            thrValueFormatted,
+            thrSymbol,
+            thrAddress,
+            cChainAddress,
+        }
     },
 })
 </script>

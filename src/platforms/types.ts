@@ -423,6 +423,48 @@ export interface Platform {
      */
     unlockWithMnemonic?(mnemonic: string, sessionPassword: string): Promise<void>
 
+    /**
+     * Whether an extension that can open THIS platform is installed right now.
+     *
+     * Must be synchronous and side-effect free — no `request`, no popup. It is
+     * called to decide which platforms to *offer*, on every render of the
+     * access screen, long before the user has agreed to connect anything.
+     * Probing the extension here would prompt them for permission to answer a
+     * question they have not asked yet.
+     *
+     * This is what makes the multi-platform connect honest about a given
+     * extension. Core speaks Bitcoin, EVM and Solana; Phantom speaks Solana;
+     * MetaMask speaks EVM only. Rather than keeping a table of which vendor
+     * supports what — which would be wrong the week any of them ships a new
+     * chain — each platform answers for itself by looking for its own provider,
+     * and the fan-out opens whatever answers yes.
+     */
+    isInjectedAvailable?(): boolean
+
+    /**
+     * Open a session on this platform from an injected extension, WITHOUT
+     * navigating afterwards.
+     *
+     * The injected counterpart of `unlockWithMnemonic`, and separate from the
+     * `injected` entry in `accessMethods` for the same reason: that one ends by
+     * pushing `/wallet`, which is exactly wrong when several platforms are
+     * being opened in one pass — the first to finish would navigate away from
+     * the screen still connecting the rest.
+     *
+     * Declaring this is a promise that the resulting session is isolated, so it
+     * can coexist with the other platforms opened in the same pass;
+     * `supportsConcurrentSession` is therefore a prerequisite, and the store
+     * filters on both. See `connectWithInjected` in ../store.ts.
+     *
+     * A platform with no injected path at all simply omits this and stays out
+     * of the fan-out. Bitcoin is the current example: browser wallets there
+     * (Unisat, Xverse, Leather, OKX) each expose a bespoke API rather than
+     * anything resembling EIP-1193, so it is local-key only — see the note at
+     * the top of ./bitcoin/index.ts. It joins the moment it can answer these
+     * two methods, with no edit to the store or the access screen.
+     */
+    connectInjected?(): Promise<void>
+
     /** Called when this platform becomes the active one. */
     activate?(): Promise<void>
     /** Called when the user switches away from this platform. */

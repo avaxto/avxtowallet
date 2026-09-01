@@ -38,6 +38,7 @@ import type {
 import { getSolanaNetworks, type SolanaNetwork } from '@/solana/networks'
 import { solanaTokenRegistry } from '@/solana/tokenRegistry'
 import { peekActiveNetwork, peekActiveWallet } from './store'
+import { detectSolanaProvider } from './provider'
 
 /** Solana's brand purple, used as the interface accent while active. */
 export const SOLANA_ACCENT = 'rgb(153, 69, 255)'
@@ -213,6 +214,28 @@ export const solanaPlatform: Platform = {
         await useSolanaStore().accessWithMnemonic(mnemonic, sessionPassword, {
             navigate: false,
         })
+    },
+
+    /**
+     * Whether a Phantom-shaped Solana provider is on the page.
+     *
+     * `detectSolanaProvider` decides, not a vendor list here — it duck-types on
+     * `connect`/`signAndSendTransaction` across the namespaced handles and the
+     * shared `window.solana` slot, so any wallet implementing that de-facto
+     * interface counts. A multi-chain extension is picked up by the same check
+     * as a Solana-only one; neither is special-cased.
+     */
+    isInjectedAvailable(): boolean {
+        return detectSolanaProvider() != null
+    },
+
+    /**
+     * Opens a Solana session from the installed extension, without navigating —
+     * see `connectWithInjected` in ../store.ts.
+     */
+    async connectInjected(): Promise<void> {
+        const { useSolanaStore } = await import('./store')
+        await useSolanaStore().connectInjected({ navigate: false })
     },
 
     async logout(): Promise<void> {

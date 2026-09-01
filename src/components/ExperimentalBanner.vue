@@ -15,7 +15,7 @@
 -->
 <template>
     <div class="experimental_banner">
-        AVXTO Wallet is still experimental and under heavy development — no warranty implied.
+        AVXTO Wallet is still experimental and under heavy development — use with caution. No warranties implied.
     </div>
 </template>
 
@@ -35,13 +35,13 @@ export default defineComponent({
     right: 0;
     z-index: 9998; // one below StatusBar's 9999 — it sits above this, not the reverse
     display: flex;
-    align-items: center;
-    justify-content: center;
+    align-items: left;
+    justify-content: left;
     // Matches StatusBar's own min-height: the two are meant to read as one
     // continuous two-line strip, not two mismatched bars.
     min-height: 26px;
     padding: 4px 20px;
-    text-align: center;
+    text-align: left;
     font-size: 11px;
     background-color: var(--bg-light);
     color: var(--primary-color-light);

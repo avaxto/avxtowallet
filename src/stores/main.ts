@@ -273,7 +273,11 @@ export const useMainStore = defineStore('main', () => {
         onAccess()
     }
 
-    const accessWalletInjected = async () => {
+    // `options.navigate === false` when several platforms are being connected
+    // from one extension in a single pass — the first to finish would otherwise
+    // navigate away from the screen still connecting the rest. See
+    // `connectWithInjected` in @/platforms/store.
+    const accessWalletInjected = async (options: AccessOptions = {}) => {
         let wallet: InjectedWallet | null = null
         try {
             wallet = await InjectedWallet.connect()
@@ -288,7 +292,7 @@ export const useMainStore = defineStore('main', () => {
 
         await activateWallet(wallet)
 
-        onAccess()
+        onAccess(options)
 
         // Listen for account switches in the Core App / MetaMask extension.
         // When the user picks a different account, mark for auto-reconnect and

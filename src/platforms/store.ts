@@ -39,6 +39,21 @@ export interface MnemonicUnlockResult {
 }
 
 /**
+ * What happened to one platform in a `connectWithInjected` pass.
+ *
+ * Same three outcomes as the phrase unlock, with one that carries more weight
+ * here: `failed` is the ordinary result of the user clicking Reject in the
+ * extension, not an error in the usual sense. A multi-platform connect asks
+ * for approval once per platform, and declining one of them is a choice, so
+ * the caller reports it as an outcome rather than as a failure of the pass.
+ */
+export interface InjectedConnectResult {
+    platformId: PlatformId
+    status: 'connected' | 'skipped' | 'failed'
+    error?: string
+}
+
+/**
  * Which platform the wallet is currently operating on.
  *
  * Named `useActivePlatformStore`, NOT `usePlatformStore` — the latter already
@@ -206,6 +221,34 @@ export const useActivePlatformStore = defineStore('activePlatform', () => {
     const mnemonicUnlockablePlatforms = computed((): Platform[] =>
         listAvailablePlatforms().filter(
             (p) => typeof p.unlockWithMnemonic === 'function' && p.supportsConcurrentSession
+        )
+    )
+
+    /**
+     * Platforms the extensions installed right now can open in a single pass.
+     *
+     * The injected counterpart of `mnemonicUnlockablePlatforms`, with one extra
+     * condition that changes its character: `isInjectedAvailable()`. The phrase
+     * set is fixed — a platform that can derive from a seed can always do so —
+     * but this one depends on what the visitor has installed, so it is
+     * genuinely dynamic. Core answers for Bitcoin, EVM and Solana; MetaMask
+     * answers for EVM alone; with nothing installed it is empty.
+     *
+     * That is deliberately not a table of vendors. Asking each platform to
+     * recognise its own provider means a wallet adding a chain is picked up by
+     * whichever platform already looks for that chain's interface, rather than
+     * by an edit here — and it means we never offer a tab the extension in
+     * front of us cannot actually open.
+     *
+     * Not reactive to extensions appearing after load: providers inject before
+     * the page scripts run, so a newly-installed one needs a reload regardless.
+     */
+    const injectedConnectablePlatforms = computed((): Platform[] =>
+        listAvailablePlatforms().filter(
+            (p) =>
+                typeof p.connectInjected === 'function' &&
+                p.supportsConcurrentSession &&
+                p.isInjectedAvailable?.() === true
         )
     )
 
@@ -477,6 +520,105 @@ export const useActivePlatformStore = defineStore('activePlatform', () => {
     }
 
     /**
+     * The platform `connectWithInjected` is currently waiting on, or null.
+     *
+     * Only meaningful during a pass, and only ever one at a time — the pass is
+     * sequential precisely because the extension can only ask about one thing
+     * at a time. See the note on that function.
+     */
+    const injectedConnectingId = ref<PlatformId | null>(null)
+
+    /**
+     * Open a session on every platform the installed extension(s) can speak.
+     *
+     * The injected twin of `unlockWithMnemonic`, and it exists for the same
+     * reason: one credential is already good for several platforms, so making
+     * the user connect once per tab was asking them to repeat themselves. Core
+     * holds Bitcoin, EVM and Solana keys behind a single approval prompt in its
+     * own UI; before this, connecting it opened exactly one tab and the others
+     * stayed dark until the user went back to the access screen and picked them
+     * one at a time.
+     *
+     * **Sequential, where the phrase unlock is concurrent** — the one real
+     * difference between the two, and not an oversight. Each of these calls
+     * raises an approval popup in the extension. Extensions serialise those
+     * behind a single window: firing three at once gets one prompt the user can
+     * act on and two that queue behind it, and several vendors drop rather than
+     * queue the extras. Deriving from a seed talks to nobody, so that pass wins
+     * by running in parallel; this one has to wait for a human between steps,
+     * which is also why there is no timeout here.
+     *
+     * Each step captures its own failure instead of rejecting. Declining one
+     * platform in the extension is a decision, not a fault, and it must not
+     * discard the sessions already approved in the same pass — so a partial
+     * result is returned for the caller to report.
+     *
+     * Nothing here navigates, for the same reason as the phrase unlock: a pass
+     * that opened two platforms and had a third declined has something to say
+     * before moving on.
+     */
+    const connectWithInjected = async (
+        ids?: PlatformId[]
+    ): Promise<InjectedConnectResult[]> => {
+        const wanted = ids ? new Set(ids) : null
+        const targets = injectedConnectablePlatforms.value.filter(
+            (p) => !wanted || wanted.has(p.descriptor.id)
+        )
+
+        if (targets.length === 0) {
+            throw new Error(
+                'No wallet extension found that this build can open a platform with.'
+            )
+        }
+
+        const settled: InjectedConnectResult[] = []
+
+        try {
+            for (const platform of targets) {
+                const platformId = platform.descriptor.id
+
+                if (platform.getActiveWallet() != null) {
+                    settled.push({ platformId, status: 'skipped' })
+                    continue
+                }
+
+                // Published so the UI can name the platform each approval
+                // prompt belongs to. Without it a pass over three platforms is
+                // three near-identical popups with nothing on the page saying
+                // why it is asking again, which reads like a stuck button.
+                injectedConnectingId.value = platformId
+
+                try {
+                    await platform.connectInjected!()
+                    settled.push({ platformId, status: 'connected' })
+                } catch (e: any) {
+                    settled.push({
+                        platformId,
+                        status: 'failed',
+                        error: e?.message || 'Failed to connect this platform.',
+                    })
+                }
+            }
+        } finally {
+            injectedConnectingId.value = null
+        }
+
+        // Same reason as the phrase unlock: only platforms that mirror their
+        // wallet outside Pinia bump the epoch themselves, so bump once here to
+        // guarantee `connectedPlatforms` is current before we read it below.
+        notifyWalletChanged()
+
+        if (activePlatform.value?.getActiveWallet() == null) {
+            const landing =
+                settled.find((r) => r.status === 'connected') ??
+                settled.find((r) => r.status === 'skipped')
+            if (landing) await setActivePlatform(landing.platformId)
+        }
+
+        return settled
+    }
+
+    /**
      * Called by a platform's own store once it has torn its session down.
      *
      * Replaces the `window.location.href = '/'` those stores used to end on: a
@@ -565,6 +707,9 @@ export const useActivePlatformStore = defineStore('activePlatform', () => {
         isDestructiveSwitch,
         mnemonicUnlockablePlatforms,
         unlockWithMnemonic,
+        injectedConnectablePlatforms,
+        injectedConnectingId,
+        connectWithInjected,
         setActivePlatform,
         logoutAll,
         ensureActiveIsConnected,

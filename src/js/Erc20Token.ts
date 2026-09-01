@@ -4,6 +4,7 @@ import { BN } from '@/avalanche'
 import { bnToBig } from '@/helpers/helper'
 import Big from 'big.js'
 import { pinia, useAssetsStore } from '@/stores'
+import router from '@/router'
 
 import ERC20Abi from '@openzeppelin/contracts/build/contracts/ERC20.json'
 
@@ -72,13 +73,28 @@ class Erc20Token {
             this.data.chainId === baseAsset.chainId &&
             baseAsset.thr
         ) {
-            if (this.balanceBN.lt(baseAsset.thr)) {
+            // /wallet/swap is exempt: it's the one place inside the wallet
+            // that can actually acquire more of the base asset, so bouncing
+            // the user out of it the moment their balance is checked would
+            // make the page impossible to use for its own purpose.
+            const onSwapPage = window.location.pathname.includes('/wallet/swap')
+            if (this.balanceBN.lt(baseAsset.thr) && !onSwapPage) {
                 const thrHuman = baseAsset.thr.toString()
                 sessionStorage.setItem('insufficientBalance_thr', thrHuman)
                 sessionStorage.setItem('insufficientBalance_symbol', baseAsset.symbol)
                 sessionStorage.setItem('insufficientBalance_address', baseAsset.address)
                 sessionStorage.setItem('insufficientBalance_cChainAddress', '0x' + address)
-                window.location.href = '/insufficient-balance'
+                // router.push, not window.location.href: a hard reload wipes
+                // the active wallet, which `Platform.getActiveWallet()` (see
+                // platforms/store.ts) keeps in plain module-scope state, not
+                // storage. That's fine for this page itself (it needs no
+                // wallet), but it silently logs the user out from under the
+                // "Click here to make a deposit" link on it — /wallet/swap's
+                // `ifAuthenticated` guard would then see no connected
+                // platform and bounce back to '/' instead of loading the
+                // swap page. A soft navigation keeps that in-memory wallet
+                // alive so the deposit link actually works.
+                router.push('/insufficient-balance')
             }
         }
     }

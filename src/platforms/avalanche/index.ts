@@ -411,6 +411,30 @@ export const avalanchePlatform: Platform = {
         await useMainStore().accessWallet(mnemonic, sessionPassword, { navigate: false })
     },
 
+    /**
+     * Core injects `window.avalanche`; MetaMask and the rest inject
+     * `window.ethereum`, and the C-Chain is an ordinary EVM chain they can all
+     * sign for — which is why this accepts either rather than insisting on
+     * Core. `InjectedWallet.connect()` reads the same two handles.
+     */
+    isInjectedAvailable(): boolean {
+        const w = window as any
+        return (w.avalanche ?? w.ethereum) != null
+    },
+
+    /**
+     * Opens an Avalanche session from the installed extension, without
+     * navigating — see `connectWithInjected` in ../store.ts.
+     *
+     * The network has to be up first, for the same reason `unlockWithMnemonic`
+     * above brings it up: this can run while a different platform is active, so
+     * nothing may have configured the SDK's endpoints yet.
+     */
+    async connectInjected(): Promise<void> {
+        await useNetworkStore().ensureInitialized()
+        await useMainStore().accessWalletInjected({ navigate: false })
+    },
+
     async logout(): Promise<void> {
         await useMainStore().logout()
     },
