@@ -161,8 +161,10 @@ export default defineComponent({
             // Same access method the /access page's "Connect Wallet" button
             // runs (see runAction() in views/access/Menu.vue) — read from the
             // active platform rather than always calling Avalanche's
-            // mainStore.accessWalletInjected(), so this connects whichever
-            // platform is actually selected.
+            // mainStore.accessWalletInjected(), so the single-platform
+            // fallback below connects whichever platform is actually
+            // selected. Only used to confirm an injected method exists at
+            // all; which platforms actually open is decided below.
             const method = platformStore.activePlatform?.accessMethods.find(
                 (m) => m.id === 'injected' && m.kind === 'action' && m.run
             )
@@ -175,7 +177,45 @@ export default defineComponent({
 
             isConnecting.value = true
             try {
-                await method.run()
+                // One extension is usually credentials for several platforms
+                // at once (Core: Bitcoin/EVM/Solana; MetaMask: EVM alongside
+                // Avalanche's own C-Chain) — see the multi-platform sweep in
+                // runAction() in views/access/Menu.vue. Without this, landing
+                // here on the default Avalanche tab and clicking Connect
+                // Wallet only ever opened Avalanche: `method.run()` above is
+                // that ONE platform's own single-session connect, never the
+                // sweep, no matter what else the extension could open.
+                if (platformStore.injectedConnectablePlatforms().length > 1) {
+                    const settled = await platformStore.connectWithInjected()
+                    const failed = settled.filter((r) => r.status === 'failed')
+
+                    if (failed.length === settled.length) {
+                        const messages = new Set(failed.map((r) => r.error))
+                        throw new Error(
+                            messages.size === 1
+                                ? [...messages][0] ?? 'Failed to connect wallet.'
+                                : 'Failed to connect wallet.'
+                        )
+                    }
+
+                    if (failed.length) {
+                        // Partial pass: some platforms opened, at least one was
+                        // declined. No room here for the access screen's results
+                        // box, so say it as a toast instead of just navigating
+                        // past it.
+                        notificationsStore.add({
+                            type: 'error',
+                            title: 'Connect Wallet',
+                            message: `Connected ${settled.length - failed.length} of ${
+                                settled.length
+                            }. ${failed.map((r) => r.error).join(' ')}`,
+                        })
+                    }
+
+                    router.push('/wallet')
+                } else {
+                    await method.run()
+                }
             } catch (e: any) {
                 console.error('Wallet connection failed:', e)
                 notificationsStore.add({

@@ -18,6 +18,7 @@
  * installed gets a predictable one rather than a race.
  */
 import type { Transaction } from '@solana/web3.js'
+import { detectStandardSolanaProvider } from './walletStandard'
 
 export interface SolanaProvider {
     isPhantom?: boolean
@@ -58,8 +59,17 @@ function looksLikeProvider(candidate: any): candidate is SolanaProvider {
 /**
  * The injected wallet to use, or null when none is installed.
  *
- * Ordered by specificity: a namespaced handle identifies its wallet
- * unambiguously, while the shared `window.solana` slot is a last resort.
+ * Two discovery mechanisms, tried in order. The namespaced `window.*` handles
+ * first — the de-facto interface Phantom established, still what Phantom,
+ * Solflare and Backpack claim, checked most-specific first so a user with two
+ * such extensions installed gets a predictable one rather than a race. The
+ * Wallet Standard second, for wallets that never touch those globals at all —
+ * Core is the reason this exists: it registers its Solana wallet through that
+ * protocol instead (see the note at the top of ./walletStandard.ts). Trying
+ * the legacy handles first is deliberate, not arbitrary: they're a direct
+ * property read, while the Wallet Standard path dispatches a DOM event to
+ * every listener on the page, so there's no reason to pay that cost when the
+ * cheap check already found something.
  */
 export function detectSolanaProvider(): DetectedProvider | null {
     const w = window as any
@@ -74,7 +84,8 @@ export function detectSolanaProvider(): DetectedProvider | null {
     for (const { provider, name } of candidates) {
         if (looksLikeProvider(provider)) return { provider, name }
     }
-    return null
+
+    return detectStandardSolanaProvider()
 }
 
 function nameForGeneric(provider: any): string {

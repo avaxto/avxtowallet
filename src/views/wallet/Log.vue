@@ -155,6 +155,13 @@ export default defineComponent({
     }
 
     .message_cell {
+        // Explicit, not inherited: relying on inheritance for text color is
+        // exactly what makes the h1-h6 and body rules in _main.scss need
+        // `!important` — a same-specificity, later-loaded rule elsewhere
+        // (bootstrap-vue-next's reboot, Vuetify) can win the cascade on an
+        // ancestor and hand this element a light-theme (dark) color to
+        // inherit instead. Setting it here removes the dependency entirely.
+        color: var(--primary-color);
         word-break: break-word;
     }
 }

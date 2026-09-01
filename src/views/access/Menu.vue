@@ -102,7 +102,7 @@
                     v-if="hasInjectedMethod && canConnectMultiple && !isConnecting"
                     class="injected_hint"
                 >
-                    Opens {{ injectedPlatformNames }} — one extension, one tab each.
+                    Opens {{ injectedPlatformNames }}
                 </p>
 
                 <!--
