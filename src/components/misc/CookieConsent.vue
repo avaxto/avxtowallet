@@ -35,10 +35,17 @@ export default defineComponent({
 <style scoped lang="scss">
 .cookie_consent {
     position: fixed;
-    bottom: 0;
+    // Cleared above the always-on StatusBar + ExperimentalBanner strip
+    // stacked at the true bottom edge (26px apiece, 52px total — see the
+    // "stacked bottom bars" comment on .status-bar in StatusBar.vue), so it
+    // doesn't render underneath them.
+    bottom: 52px;
     left: 0;
     right: 0;
-    z-index: 9999;
+    // Above StatusBar/ExperimentalBanner's own 9999/9998 regardless of DOM
+    // order, since CookieConsent mounts earlier (inside router-view) while
+    // those two mount later in App.vue's template.
+    z-index: 10000;
     display: flex;
     align-items: center;
     justify-content: space-between;
