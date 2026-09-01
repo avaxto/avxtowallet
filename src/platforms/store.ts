@@ -231,8 +231,14 @@ export const useActivePlatformStore = defineStore('activePlatform', () => {
      * condition that changes its character: `isInjectedAvailable()`. The phrase
      * set is fixed — a platform that can derive from a seed can always do so —
      * but this one depends on what the visitor has installed, so it is
-     * genuinely dynamic. Core answers for Bitcoin, EVM and Solana; MetaMask
-     * answers for EVM alone; with nothing installed it is empty.
+     * genuinely dynamic. Core answers for EVM (and Avalanche's own C-Chain);
+     * MetaMask answers for EVM alone; with nothing installed it is empty.
+     * Bitcoin never answers — Core has no Bitcoin provider at all. Solana does
+     * NOT currently answer either, despite Core supporting it: Core registers
+     * its Solana wallet through the Wallet Standard (an event-based discovery
+     * protocol), not the Phantom-style `window.solana`/`window.phantom.solana`
+     * globals `platforms/solana/provider.ts` looks for — picking that up would
+     * need a Wallet Standard listener, not implemented here yet.
      *
      * That is deliberately not a table of vendors. Asking each platform to
      * recognise its own provider means a wallet adding a chain is picked up by
@@ -240,17 +246,27 @@ export const useActivePlatformStore = defineStore('activePlatform', () => {
      * by an edit here — and it means we never offer a tab the extension in
      * front of us cannot actually open.
      *
-     * Not reactive to extensions appearing after load: providers inject before
-     * the page scripts run, so a newly-installed one needs a reload regardless.
+     * A PLAIN FUNCTION, not a cached `computed`. `isInjectedAvailable()` reads
+     * ordinary `window.*` globals, which carry no Vue reactivity for Pinia to
+     * track — a `computed` here would run once, find no reactive dependency,
+     * and cache that result forever. That is not a hypothetical: Core injects
+     * its provider from its service worker into the page's MAIN world
+     * (asynchronously, not synchronously ahead of every other script — see its
+     * own dapp-connections doc), so a `computed` evaluated on the access
+     * screen's first render could permanently cache the empty set from before
+     * Core had appeared, even though the provider was live moments later. This
+     * used to be a `computed`, with a comment here claiming the opposite — that
+     * assumption was wrong, and it's exactly what left `canConnectMultiple`
+     * stuck false and Connect Wallet silently falling back to opening
+     * Avalanche alone.
      */
-    const injectedConnectablePlatforms = computed((): Platform[] =>
+    const injectedConnectablePlatforms = (): Platform[] =>
         listAvailablePlatforms().filter(
             (p) =>
                 typeof p.connectInjected === 'function' &&
                 p.supportsConcurrentSession &&
                 p.isInjectedAvailable?.() === true
         )
-    )
 
     /**
      * True while `setActivePlatform` is deliberately logging every session out
@@ -561,7 +577,7 @@ export const useActivePlatformStore = defineStore('activePlatform', () => {
         ids?: PlatformId[]
     ): Promise<InjectedConnectResult[]> => {
         const wanted = ids ? new Set(ids) : null
-        const targets = injectedConnectablePlatforms.value.filter(
+        const targets = injectedConnectablePlatforms().filter(
             (p) => !wanted || wanted.has(p.descriptor.id)
         )
 

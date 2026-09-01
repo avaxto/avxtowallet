@@ -192,7 +192,7 @@ const idsOf = (results: Array<{ platformId: PlatformId }>): PlatformId[] =>
 describe('which platforms an extension is offered for', () => {
     it('lists only platforms that connect through an extension and can share the page', () => {
         const store = useActivePlatformStore()
-        const ids = store.injectedConnectablePlatforms.map((p) => p.descriptor.id)
+        const ids = store.injectedConnectablePlatforms().map((p) => p.descriptor.id)
 
         expect(ids).toEqual(expect.arrayContaining([EXT_A, EXT_B]))
         expect(ids).not.toContain(LOCAL_KEY_ONLY)
@@ -208,10 +208,34 @@ describe('which platforms an extension is offered for', () => {
         const store = useActivePlatformStore()
         state.get(EXT_B)!.providerPresent = false
 
-        const ids = store.injectedConnectablePlatforms.map((p) => p.descriptor.id)
+        const ids = store.injectedConnectablePlatforms().map((p) => p.descriptor.id)
 
         expect(ids).toContain(EXT_A)
         expect(ids).not.toContain(EXT_B)
+    })
+
+    /**
+     * The actual bug this reproduces: a provider that is not there yet on the
+     * FIRST read (the access screen's own first render, which can race a real
+     * extension's asynchronous injection — Core injects from its own service
+     * worker into the page's MAIN world, not synchronously ahead of every
+     * other script) but appears before the next read. A Vue `computed` here
+     * would cache the first, empty read forever — no reactive dependency ever
+     * marks it dirty — leaving `injectedConnectablePlatforms` permanently
+     * blind to an extension that was, in fact, live moments later. Reading it
+     * as a plain function call each time is what makes this pass.
+     */
+    it('reflects a provider that was not present on an earlier read', () => {
+        const store = useActivePlatformStore()
+        state.get(EXT_A)!.providerPresent = false
+
+        const before = store.injectedConnectablePlatforms().map((p) => p.descriptor.id)
+        expect(before).not.toContain(EXT_A)
+
+        state.get(EXT_A)!.providerPresent = true
+        const after = store.injectedConnectablePlatforms().map((p) => p.descriptor.id)
+
+        expect(after).toContain(EXT_A)
     })
 
     it('does not sweep an excluded platform in even when named explicitly', async () => {

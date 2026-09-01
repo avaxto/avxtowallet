@@ -135,7 +135,7 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, computed, ref } from 'vue'
+import { defineComponent, computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import LedgerButton from '@/components/Ledger/LedgerButton.vue'
@@ -211,17 +211,39 @@ export default defineComponent({
         const platformName = (id: PlatformId): string =>
             getPlatform(id)?.descriptor.name ?? id
 
-        /**
-         * Platforms the installed extension can open in one pass — the store's
-         * call, from what each platform detects for itself. Core answers for
-         * Bitcoin, EVM and Solana; MetaMask for EVM alone.
-         */
         /** Whether this platform offers an extension login at all. */
         const hasInjectedMethod = computed((): boolean =>
             accessMethods.value.some((m) => m.id === 'injected')
         )
 
-        const injectedPlatforms = computed(() => platformStore.injectedConnectablePlatforms)
+        /**
+         * Platforms the installed extension can open in one pass — sampled
+         * from the store's `injectedConnectablePlatforms()`, which is a plain
+         * function rather than a cached `computed` precisely because it reads
+         * live `window.*` provider state with nothing Vue-reactive to key a
+         * cache off (see the note on it in platforms/store.ts). Held in a
+         * `ref` here rather than wrapped in another `computed` for the same
+         * reason: a `computed` over a plain-function call would itself cache
+         * on no reactive dependency and go stale the same way the store's
+         * used to.
+         *
+         * Refreshed on mount, with two short retries, and again immediately
+         * before every connect decision in `runAction` — Core injects its
+         * provider asynchronously from its own service worker into the page's
+         * MAIN world, a real race against this component's first render, not
+         * a hypothetical one. The retries are bounded, not a poll: a
+         * still-empty result after ~1s means genuinely nothing is installed.
+         */
+        const injectedPlatforms = ref(platformStore.injectedConnectablePlatforms())
+        const refreshInjectedPlatforms = () => {
+            injectedPlatforms.value = platformStore.injectedConnectablePlatforms()
+        }
+        onMounted(() => {
+            refreshInjectedPlatforms()
+            setTimeout(refreshInjectedPlatforms, 200)
+            setTimeout(refreshInjectedPlatforms, 800)
+        })
+
         const canConnectMultiple = computed((): boolean => injectedPlatforms.value.length > 1)
         const injectedPlatformNames = computed((): string =>
             injectedPlatforms.value.map((p) => p.descriptor.name).join(', ')
@@ -251,6 +273,12 @@ export default defineComponent({
                 // The method's own single-platform `run()` still handles the
                 // ordinary case, so a platform whose extension speaks only for
                 // it behaves exactly as before.
+                //
+                // Re-sampled right here, not trusted from render: this is the
+                // moment that actually decides whether Bitcoin/EVM/Solana get
+                // opened, and it must not act on a snapshot taken before the
+                // extension had injected — see the note on `injectedPlatforms`.
+                if (method.id === 'injected') refreshInjectedPlatforms()
                 if (method.id === 'injected' && canConnectMultiple.value) {
                     const settled = await platformStore.connectWithInjected()
                     const failed = settled.filter((r) => r.status === 'failed')
