@@ -43,8 +43,31 @@
                           lands on swap. Logged in, it's an ordinary link —
                           no extension round trip for a session that already
                           exists.
+
+                          Gated on `!isConnecting` too, not `isAuth` alone:
+                          `connectInjected` can sweep several platforms in one
+                          pass (Core: Bitcoin/EVM/Solana), and `isAuth` goes
+                          true the moment the FIRST of them connects —
+                          Avalanche, typically, while EVM's own approval
+                          prompt is still pending. Gating on `isAuth` alone
+                          swaps this to the plain router-link right then, mid
+                          -sweep, before the `router.push('/wallet/swap')` at
+                          the end of the sweep has fired — which is exactly
+                          what a first click that "does nothing" (but flips
+                          the menu button to its logged-in label) was: the
+                          connect kept running invisibly in the background,
+                          and only the second click's ordinary router-link
+                          actually navigated anywhere. Keeping this branch
+                          shown until `isConnecting` itself goes false — which
+                          happens only after the whole sweep, navigation
+                          included, has settled — keeps the visible state
+                          honest about what is actually still in flight.
                         -->
-                        <router-link v-if="isAuth" to="/wallet/swap" class="wallet_link">
+                        <router-link
+                            v-if="isAuth && !isConnecting"
+                            to="/wallet/swap"
+                            class="wallet_link"
+                        >
                             Swap AVXTO
                         </router-link>
                         <a
