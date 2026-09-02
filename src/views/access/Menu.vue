@@ -15,7 +15,34 @@
         <router-link to="/create" class="link">{{ $t('access.create') }}</router-link>
         <div class="menus">
             <!--
-              Offered above the platform picker, and only when more than one
+              Extension takes priority over phrase: connecting is one click
+              and no typing, so whoever has an extension installed should see
+              that shortcut first. Shown regardless of which platform tab is
+              active — unlike the per-platform "Connect Wallet" button below,
+              which only sweeps the other platforms in as a side effect of
+              clicking the ACTIVE platform's own button, this is reachable
+              without first landing on one of the platforms the extension can
+              actually open.
+            -->
+            <button
+                v-if="canConnectMultiple"
+                type="button"
+                class="multi_option"
+                :disabled="isConnecting"
+                @click="connectAllInjected"
+            >
+                <span class="multi_title">
+                    {{
+                        isConnecting && connectingPlatformName
+                            ? `Connecting ${connectingPlatformName}…`
+                            : 'Connect every platform with one wallet'
+                    }}
+                </span>
+                <span class="multi_sub">{{ injectedPlatformNames }} — one extension</span>
+            </button>
+
+            <!--
+              The phrase twin of the box above, and only when more than one
               platform could actually be opened by one phrase — with a single
               candidate this is just that platform's own mnemonic screen with
               extra steps.
@@ -256,67 +283,91 @@ export default defineComponent({
             return injectedPlatforms.value.find((p) => p.descriptor.id === id)?.descriptor.name ?? ''
         })
 
-        const runAction = async (method: AccessMethodDescriptor) => {
-            if (isConnecting.value || !method.run) return
+        /**
+         * Sweeps every platform the installed extension can open in one pass
+         * — one recovery phrase's worth of shortcut, but for an injected
+         * wallet. Shared by the standalone "Connect every platform" button
+         * and by `runAction` below, which falls into the same sweep when the
+         * ACTIVE platform's own "Connect Wallet" button is clicked and more
+         * than one platform qualifies.
+         */
+        const connectAllInjected = async () => {
+            if (isConnecting.value) return
             connectError.value = ''
             partialFailures.value = []
             isConnecting.value = true
             try {
-                // "Connect Wallet" means connect the extension — and one
-                // extension is usually credentials for several platforms at
-                // once (Core holds Bitcoin, EVM and Solana keys behind a single
-                // unlock). So open every platform it can speak for, the way one
-                // recovery phrase opens every platform it derives — otherwise
-                // connecting Core lights up one tab and leaves the others dark
-                // until the user comes back here and picks them one at a time.
-                //
-                // The method's own single-platform `run()` still handles the
-                // ordinary case, so a platform whose extension speaks only for
-                // it behaves exactly as before.
-                //
                 // Re-sampled right here, not trusted from render: this is the
                 // moment that actually decides whether Bitcoin/EVM/Solana get
                 // opened, and it must not act on a snapshot taken before the
                 // extension had injected — see the note on `injectedPlatforms`.
-                if (method.id === 'injected') refreshInjectedPlatforms()
-                if (method.id === 'injected' && canConnectMultiple.value) {
-                    const settled = await platformStore.connectWithInjected()
-                    const failed = settled.filter((r) => r.status === 'failed')
+                refreshInjectedPlatforms()
+                const settled = await platformStore.connectWithInjected()
+                const failed = settled.filter((r) => r.status === 'failed')
 
-                    if (failed.length === settled.length) {
-                        // Nothing opened. One extension refusing every platform
-                        // is one fact, usually "the user clicked Reject" — say
-                        // it once rather than listing it per platform.
-                        const messages = new Set(failed.map((r) => r.error))
-                        connectError.value =
-                            messages.size === 1
-                                ? [...messages][0] ?? 'Failed to connect wallet.'
-                                : failed
-                                      .map((r) => `${platformName(r.platformId)}: ${r.error}`)
-                                      .join(' ')
-                        isConnecting.value = false
-                        return
-                    }
-
-                    // A partial pass has sessions worth keeping AND something to
-                    // say. Navigating straight to the wallet would throw the
-                    // second away — the user would land on two tabs with no
-                    // account of why the third is missing — so hold here and
-                    // let them read it, the way the one-phrase unlock does.
-                    if (failed.length) {
-                        partialFailures.value = failed.map((r) => ({
-                            name: platformName(r.platformId),
-                            error: r.error ?? 'Failed to connect.',
-                        }))
-                        openedCount.value = settled.length - failed.length
-                        isConnecting.value = false
-                        return
-                    }
-
-                    router.push('/wallet')
+                if (failed.length === settled.length) {
+                    // Nothing opened. One extension refusing every platform
+                    // is one fact, usually "the user clicked Reject" — say
+                    // it once rather than listing it per platform.
+                    const messages = new Set(failed.map((r) => r.error))
+                    connectError.value =
+                        messages.size === 1
+                            ? [...messages][0] ?? 'Failed to connect wallet.'
+                            : failed
+                                  .map((r) => `${platformName(r.platformId)}: ${r.error}`)
+                                  .join(' ')
+                    isConnecting.value = false
                     return
                 }
 
+                // A partial pass has sessions worth keeping AND something to
+                // say. Navigating straight to the wallet would throw the
+                // second away — the user would land on two tabs with no
+                // account of why the third is missing — so hold here and
+                // let them read it, the way the one-phrase unlock does.
+                if (failed.length) {
+                    partialFailures.value = failed.map((r) => ({
+                        name: platformName(r.platformId),
+                        error: r.error ?? 'Failed to connect.',
+                    }))
+                    openedCount.value = settled.length - failed.length
+                    isConnecting.value = false
+                    return
+                }
+
+                router.push('/wallet')
+            } catch (e: any) {
+                connectError.value = e?.message || 'Failed to connect wallet.'
+                isConnecting.value = false
+            }
+        }
+
+        const runAction = async (method: AccessMethodDescriptor) => {
+            if (isConnecting.value || !method.run) return
+
+            // "Connect Wallet" means connect the extension — and one
+            // extension is usually credentials for several platforms at once
+            // (Core holds Bitcoin, EVM and Solana keys behind a single
+            // unlock). So open every platform it can speak for, the way one
+            // recovery phrase opens every platform it derives — otherwise
+            // connecting Core lights up one tab and leaves the others dark
+            // until the user comes back here and picks them one at a time.
+            //
+            // The method's own single-platform `run()` still handles the
+            // ordinary case, so a platform whose extension speaks only for it
+            // behaves exactly as before.
+            if (method.id === 'injected') {
+                refreshInjectedPlatforms()
+                if (canConnectMultiple.value) {
+                    await connectAllInjected()
+                    return
+                }
+            }
+
+            connectError.value = ''
+            partialFailures.value = []
+            isConnecting.value = true
+            try {
                 await method.run()
             } catch (e: any) {
                 connectError.value = e?.message || 'Failed to connect wallet.'
@@ -342,6 +393,7 @@ export default defineComponent({
             partialFailures,
             openedCount,
             goToWallet,
+            connectAllInjected,
             runAction,
         }
     },
@@ -441,6 +493,20 @@ hr {
     border: 1px solid var(--secondary-color);
     text-decoration: none;
     color: var(--primary-color);
+    // The <router-link> use of this class needs none of this — an anchor is
+    // already full-width here (block-level, via `display: flex`) and has no
+    // browser button chrome to strip. Harmless additions for that case, but
+    // what makes the <button> use of the same class (below) render
+    // identically instead of shrink-to-fit with default button styling.
+    width: 100%;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+
+    &:disabled {
+        opacity: 0.5;
+        cursor: default;
+    }
 }
 
 .multi_title {
