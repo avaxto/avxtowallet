@@ -270,6 +270,32 @@ describe('swap sends through the signer', () => {
         expect(robinhood.tokenRegistry().isReservedNativeSymbol('ETH')).toBe(true)
     })
 
+    /**
+     * Regression for a real false positive: Avalanche has TWO separately
+     * legitimate contracts trading under essentially the same ticker — the
+     * old Avalanche-Bridge-wrapped USDT.e and the native USDt Tether issues
+     * directly on the C-Chain. `isSpoofedToken` matches by symbol, so a
+     * registry with only one of the two pinned addresses rejects the other
+     * REAL contract as an impostor of it. Both must be recognized.
+     */
+    it('does not flag a second, separately legitimate contract for the same symbol', () => {
+        const avalanche = new RecordingSigner(AVALANCHE)
+        const registry = avalanche.tokenRegistry()
+
+        const bridged = '0xde3A24028580884448a5397872046a019649b084'
+        const native = '0x9702230A8Ea53601f5cD2dc00fDBc13d4dF4A8c7'
+
+        expect(registry.isSpoofedToken('USDT', bridged, 43114)).toBe(false)
+        // The contract's own `symbol()` reads "USDt" for the native token —
+        // case-insensitive by design (see `normalizeSymbol`), so this must
+        // resolve the same as the all-caps form above.
+        expect(registry.isSpoofedToken('USDt', native, 43114)).toBe(false)
+
+        // An address that is neither of the two real ones is still rejected.
+        const impostor = '0x000000000000000000000000000000000000dead'
+        expect(registry.isSpoofedToken('USDT', impostor, 43114)).toBe(true)
+    })
+
     it('treats the zero address as native on every chain', () => {
         expect(isNativeToken('0x0000000000000000000000000000000000000000')).toBe(true)
         expect(isNativeToken(TOKEN)).toBe(false)

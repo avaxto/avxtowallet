@@ -49,9 +49,17 @@
     {
         "contractAddress": "0xde3A24028580884448a5397872046a019649b084",
         "chainId": 43114,
-        "name": "Tether USD",
-        "description": "Bridged representation of Tether's USDT stablecoin on the Avalanche C-Chain.",
+        "name": "Tether USD (Bridged)",
+        "description": "Bridged representation of Tether's USDT stablecoin on the Avalanche C-Chain, wrapped via the (legacy) Avalanche Bridge. Superseded by native USDt below, but still circulating.",
         "symbol": "USDT",
+        "websiteUrl": "https://tether.to"
+    },
+    {
+        "contractAddress": "0x9702230A8Ea53601f5cD2dc00fDBc13d4dF4A8c7",
+        "chainId": 43114,
+        "name": "Tether USD (Native)",
+        "description": "Native USDt, issued directly by Tether on the Avalanche C-Chain rather than bridged from Ethereum. Shares the USDT/USDt symbol with the bridged token above — a distinct, separately legitimate contract, not an impostor of it.",
+        "symbol": "USDt",
         "websiteUrl": "https://tether.to"
     },
     {
