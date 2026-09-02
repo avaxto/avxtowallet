@@ -30,6 +30,35 @@
             <v-list>
                 <v-list-item>
                     <v-list-item-title>
+                        <!--
+                          `/wallet/swap` sits behind the `ifAuthenticated`
+                          router guard (Swap.vue reads the active wallet's
+                          held-token balances, so it has nothing to render
+                          without a session) — a plain link to it while logged
+                          out just bounces back to Home with no explanation.
+                          So logged out, this doesn't navigate at all: it logs
+                          the wallet in the same way the Navbar's own Connect
+                          Wallet button does (one extension, every platform it
+                          can open — see useInjectedConnect), and only THEN
+                          lands on swap. Logged in, it's an ordinary link —
+                          no extension round trip for a session that already
+                          exists.
+                        -->
+                        <router-link v-if="isAuth" to="/wallet/swap" class="wallet_link">
+                            Swap AVXTO
+                        </router-link>
+                        <a
+                            v-else
+                            href="/wallet/swap"
+                            class="wallet_link"
+                            @click.prevent="connectThenSwap"
+                        >
+                            {{ isConnecting ? 'Connecting…' : 'Swap AVXTO' }}
+                        </a>
+                    </v-list-item-title>
+                </v-list-item>
+                <v-list-item>
+                    <v-list-item-title>
                         <a
                             href="https://lfj.gg/avalanche/trade/0xf56cecc07d97ac50630022cf84c19e612ae8c93d"
                             target="_blank"
@@ -40,7 +69,7 @@
                         </a>
                     </v-list-item-title>
                 </v-list-item>
-
+                
                 <v-list-item>
                     <v-list-item-title>
                         <!--
@@ -106,6 +135,7 @@
 <script lang="ts">
 import { defineComponent, computed, ref } from 'vue'
 import { useActivePlatformStore } from '@/platforms'
+import { useInjectedConnect } from '@/composables/useInjectedConnect'
 import Modal from '@/components/modals/Modal.vue'
 import arenaTradeSelectImg from '@/assets/arenatrade-select.png'
 
@@ -120,6 +150,9 @@ export default defineComponent({
         // rather than Avalanche's `mainStore.isAuth`, so this reads correctly
         // logged into the EVM platform too, not just Avalanche.
         const isAuth = computed(() => platformStore.activeWallet !== null)
+
+        const { isConnecting, connectInjected } = useInjectedConnect()
+        const connectThenSwap = () => connectInjected('/wallet/swap')
 
         const arenaTradeModalRef = ref<InstanceType<typeof Modal>>()
 
@@ -138,6 +171,8 @@ export default defineComponent({
 
         return {
             isAuth,
+            isConnecting,
+            connectThenSwap,
             arenaTradeUrl: ARENATRADE_URL,
             arenaTradeSelectImg,
             arenaTradeModalRef,
