@@ -162,7 +162,7 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, computed, onMounted, ref } from 'vue'
+import { defineComponent, computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import LedgerButton from '@/components/Ledger/LedgerButton.vue'
@@ -254,21 +254,30 @@ export default defineComponent({
          * on no reactive dependency and go stale the same way the store's
          * used to.
          *
-         * Refreshed on mount, with two short retries, and again immediately
-         * before every connect decision in `runAction` — Core injects its
-         * provider asynchronously from its own service worker into the page's
-         * MAIN world, a real race against this component's first render, not
-         * a hypothetical one. The retries are bounded, not a poll: a
-         * still-empty result after ~1s means genuinely nothing is installed.
+         * Refreshed on mount, then polled for as long as this screen stays
+         * open, and again immediately before every connect decision in
+         * `runAction`. This has to be an actual poll, not a couple of bounded
+         * retries: Core's provider injection goes through its own MV3 service
+         * worker, which idles after inactivity and only wakes — and injects —
+         * once the user actually opens the extension's popup. That can happen
+         * any amount of time after this screen has already rendered (the user
+         * lands here, sees no wallet detected, THEN clicks the toolbar icon),
+         * so a fixed "give up after ~1s" window means the button stays
+         * (wrongly) absent until the user leaves and re-enters this route.
+         * Cleared on unmount so it doesn't keep ticking once the user has
+         * navigated away.
          */
         const injectedPlatforms = ref(platformStore.injectedConnectablePlatforms())
         const refreshInjectedPlatforms = () => {
             injectedPlatforms.value = platformStore.injectedConnectablePlatforms()
         }
+        let injectedPollHandle: ReturnType<typeof setInterval> | null = null
         onMounted(() => {
             refreshInjectedPlatforms()
-            setTimeout(refreshInjectedPlatforms, 200)
-            setTimeout(refreshInjectedPlatforms, 800)
+            injectedPollHandle = setInterval(refreshInjectedPlatforms, 1000)
+        })
+        onUnmounted(() => {
+            if (injectedPollHandle) clearInterval(injectedPollHandle)
         })
 
         const canConnectMultiple = computed((): boolean => injectedPlatforms.value.length > 1)
