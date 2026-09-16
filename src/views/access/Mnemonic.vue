@@ -51,6 +51,50 @@
                     {{ $t('access.mnemonic.cancel') }}
                 </router-link>
             </div>
+
+            <!--
+              An alternative to pasting the phrase above: fetch it from a
+              self-hosted AVXTO Manager instance instead. Same downstream
+              path either way — once we have a 24-word phrase, it's validated
+              and handed to mainStore.accessWallet() exactly like the manual
+              form's own `access()` does.
+            -->
+            <div class="manager_panel">
+                <h4>Access using AVXTO Manager</h4>
+                <p class="manager_desc">
+                    Reads your mnemonic phrase from a JSON-RPC endpoint you run yourself, instead
+                    of pasting it above. The session password below is sent to that endpoint to
+                    unlock it, then reused as this wallet's own session password — exactly as if
+                    you had typed the returned phrase into the field above.
+                    <strong>The password travels in plain JSON-RPC — only point this at an
+                    endpoint you trust, and prefer an https:// URL.</strong>
+                </p>
+                <input
+                    type="text"
+                    v-model="managerUrl"
+                    placeholder="https://your-avxto-manager.example/rpc"
+                    autocomplete="off"
+                    autocapitalize="off"
+                    data-1p-ignore
+                    data-lpignore="true"
+                />
+                <input
+                    type="password"
+                    ref="manager_pw_in"
+                    v-model="managerPassword"
+                    placeholder="Session password"
+                    autocomplete="off"
+                />
+                <p class="err" v-if="managerErr">{{ managerErr }}</p>
+                <button
+                    class="ava_button button_secondary manager_proceed"
+                    @click="accessViaManager"
+                    :disabled="managerLoading"
+                >
+                    <span v-if="managerLoading">Loading...</span>
+                    <span v-else>Proceed</span>
+                </button>
+            </div>
         </div>
     </div>
 </template>
@@ -62,6 +106,7 @@ import { useI18n } from 'vue-i18n'
 
 import * as bip39 from 'bip39'
 import MnemonicPasswordInput from '@/components/misc/MnemonicPasswordInput.vue'
+import { buildReadRequest, extractMnemonic } from '@/utils/avxtoManager'
 
 const WALLET_LOADING_TIMEOUT = 500
 
@@ -84,14 +129,27 @@ export default defineComponent({
         const session_pw_in = ref<HTMLInputElement>()
         const session_pw_confirm_in = ref<HTMLInputElement>()
 
+        // AVXTO Manager: fetches the mnemonic from a user-run JSON-RPC
+        // endpoint instead of it being pasted directly. Kept entirely
+        // separate from the fields above — it has its own error/loading
+        // state and its own password, and only ever calls into the same
+        // `mainStore.accessWallet()` the manual form uses.
+        const managerUrl = ref('')
+        const managerPassword = ref('')
+        const manager_pw_in = ref<HTMLInputElement>()
+        const managerErr = ref('')
+        const managerLoading = ref(false)
+
         onBeforeUnmount(() => {
             // Clear the DOM nodes as well as the refs — an input's .value keeps
             // the secret alive independently of the reactive binding.
             if (mnemonic_in.value) mnemonic_in.value.value = ''
             if (session_pw_in.value) session_pw_in.value.value = ''
             if (session_pw_confirm_in.value) session_pw_confirm_in.value.value = ''
+            if (manager_pw_in.value) manager_pw_in.value.value = ''
             sessionPassword.value = ''
             sessionPasswordConfirm.value = ''
+            managerPassword.value = ''
         })
 
         const getMnemonic = () => {
@@ -173,6 +231,82 @@ export default defineComponent({
 
         }
 
+        /**
+         * Posts the session password to a user-run JSON-RPC endpoint per the
+         * AVXTO Manager protocol (see utils/avxtoManager.ts for the wire
+         * format and response parsing), then hands the mnemonic it returns
+         * to `mainStore.accessWallet()` — the exact same call the manual
+         * phrase form above makes. From that point on there is no difference
+         * between the two paths: same wallet, same session-password gate,
+         * same downstream state.
+         */
+        const accessViaManager = async () => {
+            managerErr.value = ''
+
+            const url = managerUrl.value.trim()
+            if (!url) {
+                managerErr.value = 'Enter the AVXTO Manager JSON-RPC URL.'
+                return
+            }
+            if (!managerPassword.value) {
+                managerErr.value = 'Enter the session password.'
+                return
+            }
+
+            managerLoading.value = true
+            try {
+                let response: Response
+                try {
+                    response = await fetch(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(buildReadRequest(managerPassword.value)),
+                    })
+                } catch {
+                    // A failed `fetch()` is indistinguishable from here
+                    // whether the server is actually unreachable or the
+                    // browser blocked reading its response over CORS — the
+                    // browser deliberately hides that distinction from JS.
+                    // The latter is by far the more common cause for a
+                    // self-hosted endpoint: it must send
+                    // `Access-Control-Allow-Origin` (matching this page's
+                    // origin, or `*`) on both the POST response and the
+                    // OPTIONS preflight, which most simple JSON-RPC servers
+                    // don't do without being told to. No setting on this end
+                    // can substitute for that — CORS is the server's grant to
+                    // make, not this page's to take.
+                    throw new Error(
+                        'Could not reach the AVXTO Manager endpoint, or it refused this page ' +
+                            "(check the browser console for a CORS error). The server must send " +
+                            "'Access-Control-Allow-Origin' for this page's origin, or '*', on " +
+                            'both the POST response and the OPTIONS preflight.'
+                    )
+                }
+
+                if (!response.ok) {
+                    throw new Error(`AVXTO Manager returned an error (HTTP ${response.status}).`)
+                }
+
+                let body: any
+                try {
+                    body = await response.json()
+                } catch {
+                    throw new Error('AVXTO Manager did not return valid JSON.')
+                }
+
+                const mnemonic = extractMnemonic(body)
+                await mainStore.accessWallet(mnemonic, managerPassword.value)
+            } catch (e: any) {
+                managerErr.value = e?.message || 'Failed to access wallet via AVXTO Manager.'
+            } finally {
+                // Drop our copy of the password regardless of outcome — same
+                // discipline as the manual form's own `access()`.
+                managerPassword.value = ''
+                if (manager_pw_in.value) manager_pw_in.value.value = ''
+                managerLoading.value = false
+            }
+        }
+
         return {
             isLoading,
             err,
@@ -185,7 +319,13 @@ export default defineComponent({
             getMnemonic,
             getWordCount,
             errCheck,
-            access
+            access,
+            managerUrl,
+            managerPassword,
+            manager_pw_in,
+            managerErr,
+            managerLoading,
+            accessViaManager,
         }
     }
 })
@@ -214,6 +354,49 @@ export default defineComponent({
         width: 100%;
         margin-bottom: 8px;
     }
+}
+
+.manager_panel {
+    margin-top: 30px;
+    padding: 16px 20px;
+    max-width: 440px;
+    width: 100%;
+    text-align: left;
+    border: 1px solid var(--secondary-color);
+    border-radius: 6px;
+    background-color: var(--bg);
+
+    h4 {
+        font-size: 13px;
+        font-weight: bold;
+        margin-bottom: 4px;
+    }
+
+    .manager_desc {
+        font-size: 12px;
+        color: var(--primary-color-light);
+        margin-bottom: 10px;
+        line-height: 1.5;
+
+        strong {
+            color: var(--primary-color);
+        }
+    }
+
+    input {
+        display: block;
+        width: 100%;
+        margin-bottom: 8px;
+    }
+
+    .err {
+        text-align: left;
+        margin: 6px 0 !important;
+    }
+}
+
+.manager_proceed {
+    width: 100%;
 }
 
 
