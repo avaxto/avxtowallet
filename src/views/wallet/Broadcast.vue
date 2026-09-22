@@ -80,8 +80,8 @@
             depressed
             block
             :loading="isSending"
-            :disabled="!canSend || isSending"
-            @click="submit"
+            :disabled="!canSend || isSending || isBlocked"
+            @click="gatedAction(submit)"
         >
             Broadcast to {{ activeMode.label }}
         </v-btn>
@@ -125,6 +125,7 @@ import CopyText from '@/components/misc/CopyText.vue'
 import { Transaction } from '@ethereumjs/tx'
 import { Buffer as NodeBuffer } from 'buffer'
 import { web3 } from '@/evm'
+import { useBaseAssetGate } from '@/composables/useBaseAssetGate'
 
 type BroadcastModeId = 'X' | 'P' | 'C-atomic' | 'C-evm'
 
@@ -148,6 +149,12 @@ export default defineComponent({
     name: 'Broadcast',
     components: { CopyText },
     setup() {
+        // The AVXTO holding requirement, asked at the moment of the
+        // action rather than at the door — see useBaseAssetGate. The
+        // page itself stays usable either way; only this one button
+        // defers to it.
+        const { isBlocked, gatedAction } = useBaseAssetGate()
+
         const notifications = useNotificationsStore()
 
         // Four modes, not three chains: a C-chain "send" produces an ethereumjs
@@ -399,6 +406,8 @@ export default defineComponent({
         }
 
         return {
+            isBlocked,
+            gatedAction,
             modes,
             mode,
             activeMode,

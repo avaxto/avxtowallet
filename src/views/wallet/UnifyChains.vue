@@ -62,8 +62,8 @@
                 <v-btn
                     class="button_primary"
                     :loading="isRunning"
-                    :disabled="isRunning || !hasMovableFunds"
-                    @click="runUnify"
+                    :disabled="isRunning || !hasMovableFunds || isBlocked"
+                    @click="gatedAction(runUnify)"
                 >
                     Unify onto {{ targetChain }}-Chain
                 </v-btn>
@@ -137,6 +137,7 @@ import { AvmImportChainType } from '@/js/wallets/types'
 import { sortUTxoSetP } from '@/helpers/sortUTXOs'
 import { selectMaxUtxoForExportP } from '@/helpers/utxoSelection/selectMaxUtxoForExportP'
 import { authorizeBatch, SessionAuthCancelled } from '@/js/security/authorize'
+import { useBaseAssetGate } from '@/composables/useBaseAssetGate'
 
 // Time for an export tx's UTXOs to land in shared/atomic memory before the
 // matching import is attempted (matches ChainTransfer.vue's IMPORT_DELAY).
@@ -159,6 +160,12 @@ interface OpRecord {
 export default defineComponent({
     name: 'UnifyChains',
     setup() {
+        // The AVXTO holding requirement, asked at the moment of the
+        // action rather than at the door — see useBaseAssetGate. The
+        // page itself stays usable either way; only this one button
+        // defers to it.
+        const { isBlocked, gatedAction } = useBaseAssetGate()
+
         const mainStore = useMainStore()
         const assetsStore = useAssetsStore()
 
@@ -424,6 +431,8 @@ export default defineComponent({
         }
 
         return {
+            isBlocked,
+            gatedAction,
             allChains,
             zero,
             targetChain,

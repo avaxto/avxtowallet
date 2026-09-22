@@ -108,8 +108,8 @@
             <button
                 type="button"
                 class="deploy_btn"
-                :disabled="!canDeploy || isDeploying"
-                @click="deploy"
+                :disabled="!canDeploy || isDeploying || isBlocked"
+                @click="gatedAction(deploy)"
             >
                 <span v-if="isDeploying">Deploying…</span>
                 <span v-else>Deploy Token</span>
@@ -162,10 +162,17 @@ import { useEvmPortfolioStore } from '@/stores/evmPortfolio'
 import { explorerName } from '@/evm/networkRegistry'
 import type { EvmNetwork } from '@/evm/networkRegistry'
 import { authorizeSingle, SessionAuthCancelled } from '@/js/security/authorize'
+import { useBaseAssetGate } from '@/composables/useBaseAssetGate'
 
 export default defineComponent({
     name: 'Launcher',
     setup() {
+        // The AVXTO holding requirement, asked at the moment of the
+        // action rather than at the door — see useBaseAssetGate. The
+        // page itself stays usable either way; only this one button
+        // defers to it.
+        const { isBlocked, gatedAction } = useBaseAssetGate()
+
         const notifications = useNotificationsStore()
         const assetsStore = useAssetsStore()
         const platformStore = useActivePlatformStore()
@@ -350,6 +357,8 @@ export default defineComponent({
         }
 
         return {
+            isBlocked,
+            gatedAction,
             form,
             isDeploying,
             result,

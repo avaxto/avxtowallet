@@ -76,6 +76,17 @@
                 </v-list-item>
                 <v-list-item v-if="isAvalanche">
                     <v-list-item-title>
+                        <router-link to="/wallet/broadcast">Broadcast Signed TX</router-link>
+                    </v-list-item-title>
+                </v-list-item>
+                <v-list-item v-if="isAvalanche">
+                    <v-list-item-title>
+                        <router-link to="/wallet/wizard">Wallet Wizard</router-link>
+                    </v-list-item-title>
+                </v-list-item>
+                
+                <v-list-item v-if="isAvalanche">
+                    <v-list-item-title>
                         <router-link to="/wallet/unifychains">Unify Chains</router-link>
                     </v-list-item-title>
                 </v-list-item>

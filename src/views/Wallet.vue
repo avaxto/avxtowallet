@@ -1,6 +1,12 @@
 <template>
     <div class="wallet_view" ref="wallet_view">
         <UpdateKeystoreModal v-if="isManageWarning"></UpdateKeystoreModal>
+        <!--
+          Mounted here, once, rather than per page: the gate's open state is
+          shared module-level (composables/useBaseAssetGate), so every gated
+          button in every wallet page raises this one instance.
+        -->
+        <BaseAssetGateModal></BaseAssetGateModal>
         <transition name="fade" mode="out-in">
             <sidebar class="panel sidenav"></sidebar>
         </transition>
@@ -48,6 +54,7 @@ import Sidebar from '@/components/wallet/Sidebar.vue'
 import UpdateKeystoreModal from '@/components/modals/UpdateKeystore/UpdateKeystoreModal.vue'
 import NavbarMenu from '@/components/NavbarMenu.vue'
 import PlatformTabs from '@/components/wallet/PlatformTabs.vue'
+import BaseAssetGateModal from '@/components/modals/BaseAssetGateModal.vue'
 import { useActivePlatformStore } from '@/platforms'
 import { isScopeActive, onScopeClosed } from '@/js/security/session'
 
@@ -62,7 +69,8 @@ export default defineComponent({
         TopInfo,
         UpdateKeystoreModal,
         NavbarMenu,
-        PlatformTabs
+        PlatformTabs,
+        BaseAssetGateModal
     },
     setup() {
         const store = useMainStore()

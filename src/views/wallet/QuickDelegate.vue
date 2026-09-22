@@ -71,7 +71,8 @@
                 depressed
                 block
                 :loading="platformStore.isFetchingValidators"
-                @click="findValidator"
+                :disabled="isBlocked"
+                @click="gatedAction(findValidator)"
             >
                 Find Validator
             </v-btn>
@@ -187,6 +188,7 @@ import ConfirmPage from '@/components/wallet/earn/Delegate/ConfirmPage.vue'
 import Spinner from '@/components/misc/Spinner.vue'
 import SignOnlyToggle from '@/components/misc/SignOnlyToggle.vue'
 import SignedTxExport from '@/components/misc/SignedTxExport.vue'
+import { useBaseAssetGate } from '@/composables/useBaseAssetGate'
 
 export default defineComponent({
     name: 'QuickDelegate',
@@ -200,6 +202,12 @@ export default defineComponent({
         SignedTxExport,
     },
     setup() {
+        // The AVXTO holding requirement, asked at the moment of the
+        // action rather than at the door — see useBaseAssetGate. The
+        // page itself stays usable either way; only this one button
+        // defers to it.
+        const { isBlocked, gatedAction } = useBaseAssetGate()
+
         const mainStore = useMainStore()
         const notificationsStore = useNotificationsStore()
         const assetsStore = useAssetsStore()
@@ -425,6 +433,8 @@ export default defineComponent({
         })
 
         return {
+            isBlocked,
+            gatedAction,
             offline,
             platformStore,
             MIN_DELEGATION_DURATION_MS,

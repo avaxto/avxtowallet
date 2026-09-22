@@ -56,7 +56,11 @@
                 </p>
 
                 <div v-if="!newMnemonic" class="empty_state">
-                    <v-btn class="button_primary" @click="generateMnemonic">
+                    <v-btn
+                        class="button_primary"
+                        :disabled="isBlocked"
+                        @click="gatedAction(generateMnemonic)"
+                    >
                         Generate New Mnemonic
                     </v-btn>
                 </div>
@@ -102,8 +106,18 @@
                     </div>
 
                     <div class="actions">
-                        <v-btn class="button_secondary" @click="generateMnemonic">Regenerate</v-btn>
-                        <v-btn class="button_primary" @click="goToStep2">
+                        <v-btn
+                            class="button_secondary"
+                            :disabled="isBlocked"
+                            @click="gatedAction(generateMnemonic)"
+                        >
+                            Regenerate
+                        </v-btn>
+                        <v-btn
+                            class="button_primary"
+                            :disabled="isBlocked"
+                            @click="gatedAction(goToStep2)"
+                        >
                             Next: Review Assets
                         </v-btn>
                     </div>
@@ -152,7 +166,11 @@
                 </div>
 
                 <div class="actions">
-                    <v-btn class="button_primary" :disabled="!canProceedExisting" @click="goToStep2">
+                    <v-btn
+                        class="button_primary"
+                        :disabled="!canProceedExisting || isBlocked"
+                        @click="gatedAction(goToStep2)"
+                    >
                         Next: Review Assets
                     </v-btn>
                 </div>
@@ -263,8 +281,8 @@
                 <v-btn class="button_secondary" @click="step = 1">Back</v-btn>
                 <v-btn
                     class="button_primary"
-                    :disabled="confirmWord !== 'EXECUTE' || discoveredAssets.length === 0"
-                    @click="goToStep3"
+                    :disabled="confirmWord !== 'EXECUTE' || discoveredAssets.length === 0 || isBlocked"
+                    @click="gatedAction(goToStep3)"
                 >
                     Execute Transfer
                 </v-btn>
@@ -305,7 +323,9 @@
             </div>
 
             <div class="actions" v-if="!isExecuting">
-                <v-btn class="button_primary" @click="goToStep4">View Report</v-btn>
+                <v-btn class="button_primary" :disabled="isBlocked" @click="gatedAction(goToStep4)">
+                    View Report
+                </v-btn>
             </div>
         </div>
 
@@ -374,6 +394,7 @@ import { ITransaction } from '@/components/wallet/transfer/types'
 import { bnToBig } from '@/helpers/helper'
 import { IssueBatchTxInput } from '@/types'
 import { authorizeBatch, SessionAuthCancelled } from '@/js/security/authorize'
+import { useBaseAssetGate } from '@/composables/useBaseAssetGate'
 
 interface AssetEntry {
     chain: 'X' | 'P' | 'C'
@@ -398,6 +419,15 @@ interface TransferRecord {
 export default defineComponent({
     name: 'WalletWizard',
     setup() {
+        // The AVXTO holding requirement — see useBaseAssetGate. The
+        // wizard has no single submit, so every button that generates a
+        // phrase or advances a step defers to it. The ones that don't:
+        // Back, and step 4's Copy/Download/Start Again, which only act on
+        // work already done (and unreachable without passing the gate
+        // earlier anyway) — gating Back in particular would strand
+        // someone mid-wizard with no way out.
+        const { isBlocked, gatedAction } = useBaseAssetGate()
+
         const mainStore = useMainStore()
         const assetsStore = useAssetsStore()
 
@@ -1084,6 +1114,8 @@ export default defineComponent({
         }
 
         return {
+            isBlocked,
+            gatedAction,
             step,
             stepLabels,
             // step 1

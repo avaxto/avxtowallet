@@ -3,8 +3,6 @@ import { web3 } from '@/evm'
 import { BN } from '@/avalanche'
 import { bnToBig } from '@/helpers/helper'
 import Big from 'big.js'
-import { pinia, useAssetsStore } from '@/stores'
-import router from '@/router'
 
 import ERC20Abi from '@openzeppelin/contracts/build/contracts/ERC20.json'
 
@@ -14,12 +12,23 @@ class Erc20Token {
     balanceRaw: string
     balanceBN: BN
     balanceBig: Big
+    /**
+     * Whether `updateBalance` has ever completed for this token.
+     *
+     * A zero balance and a not-yet-fetched balance are indistinguishable by
+     * value alone, and the base-asset gate (see composables/useBaseAssetGate)
+     * has to tell them apart: treating "not loaded yet" as "holds nothing"
+     * would lock every gated action for the first seconds of a session, for
+     * everyone, including holders.
+     */
+    balanceFetched: boolean
 
     constructor(tokenData: TokenListToken) {
         this.data = tokenData
         this.balanceRaw = '0'
         this.balanceBN = new BN('0')
         this.balanceBig = Big(0)
+        this.balanceFetched = false
 
         //@ts-ignore
         const tokenInst = new web3.eth.Contract(ERC20Abi.abi, tokenData.address)
@@ -40,6 +49,10 @@ class Erc20Token {
         this.balanceRaw = '0'
         this.balanceBN = new BN('0')
         this.balanceBig = Big(0)
+        // Back to "unknown", not "known to be zero": the next session's
+        // balance has not been read yet, and the gate must not treat the
+        // outgoing wallet's cleared figure as the incoming one's answer.
+        this.balanceFetched = false
     }
 
     // Returns a new instance of the token, given only the erc20 address
@@ -57,46 +70,7 @@ class Erc20Token {
         this.balanceRaw = bal
         this.balanceBN = new BN(bal)
         this.balanceBig = bnToBig(this.balanceBN, parseInt(this.data.decimals as string))
-
-        const assetsStore = useAssetsStore(pinia)
-        const baseAsset = assetsStore.baseAsset
-        // The chain id is part of the identity check, not just the address.
-        // This branch navigates the user out of the wallet entirely, and a
-        // contract address is only unique *within* a chain — the same address
-        // routinely exists on several EVM chains (deterministic deploys, or
-        // simply the same deployer at the same nonce). Matching on the address
-        // alone would eject someone from the wallet because an unrelated token
-        // on another network happened to share AVXTO's address.
-        if (
-            baseAsset &&
-            this.data.address.toLowerCase() === baseAsset.address.toLowerCase() &&
-            this.data.chainId === baseAsset.chainId &&
-            baseAsset.thr
-        ) {
-            // /wallet/swap is exempt: it's the one place inside the wallet
-            // that can actually acquire more of the base asset, so bouncing
-            // the user out of it the moment their balance is checked would
-            // make the page impossible to use for its own purpose.
-            const onSwapPage = window.location.pathname.includes('/wallet/swap')
-            if (this.balanceBN.lt(baseAsset.thr) && !onSwapPage) {
-                const thrHuman = baseAsset.thr.toString()
-                sessionStorage.setItem('insufficientBalance_thr', thrHuman)
-                sessionStorage.setItem('insufficientBalance_symbol', baseAsset.symbol)
-                sessionStorage.setItem('insufficientBalance_address', baseAsset.address)
-                sessionStorage.setItem('insufficientBalance_cChainAddress', '0x' + address)
-                // router.push, not window.location.href: a hard reload wipes
-                // the active wallet, which `Platform.getActiveWallet()` (see
-                // platforms/store.ts) keeps in plain module-scope state, not
-                // storage. That's fine for this page itself (it needs no
-                // wallet), but it silently logs the user out from under the
-                // "Click here to make a deposit" link on it — /wallet/swap's
-                // `ifAuthenticated` guard would then see no connected
-                // platform and bounce back to '/' instead of loading the
-                // swap page. A soft navigation keeps that in-memory wallet
-                // alive so the deposit link actually works.
-                router.push('/insufficient-balance')
-            }
-        }
+        this.balanceFetched = true
     }
 }
 

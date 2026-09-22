@@ -36,7 +36,12 @@
                 :disabled="isSigning"
             ></textarea>
             <div class="row_actions">
-                <v-btn depressed class="button_primary" :disabled="!input.trim()" @click="load">
+                <v-btn
+                    depressed
+                    class="button_primary"
+                    :disabled="!input.trim() || isBlocked"
+                    @click="gatedAction(load)"
+                >
                     Load transaction
                 </v-btn>
                 <v-btn v-if="summary" text small style="color: var(--primary-color)" @click="reset">
@@ -253,11 +258,18 @@ import type { DecodedPsat, PsatSummary } from '@/js/multisig/psat'
 import ShareLinks from '@/components/misc/ShareLinks.vue'
 import type { Wallet } from '@/js/wallets/AbstractWallet'
 import type { Tx as AVMTx, UTXO as AVMUTXO } from '@/avalanche/apis/avm'
+import { useBaseAssetGate } from '@/composables/useBaseAssetGate'
 
 export default defineComponent({
     name: 'Psat',
     components: { ShareLinks },
     setup() {
+        // The AVXTO holding requirement, asked at the moment of the
+        // action rather than at the door — see useBaseAssetGate. The
+        // page itself stays usable either way; only this one button
+        // defers to it.
+        const { isBlocked, gatedAction } = useBaseAssetGate()
+
         const mainStore = useMainStore()
         const assetsStore = useAssetsStore()
         const notifications = useNotificationsStore()
@@ -555,6 +567,8 @@ export default defineComponent({
         }
 
         return {
+            isBlocked,
+            gatedAction,
             input,
             summary,
             parseError,

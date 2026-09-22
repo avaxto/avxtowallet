@@ -175,8 +175,8 @@
                 <button
                     type="button"
                     class="action_btn"
-                    :disabled="!canSubmit"
-                    @click="startOrder"
+                    :disabled="!canSubmit || isBlocked"
+                    @click="gatedAction(startOrder)"
                 >
                     Start Iceberg Order
                 </button>
@@ -317,6 +317,7 @@ import {
 import { activeEvmSigner } from '@/platforms/evmSigner'
 import { AvaWalletCore } from '@/js/wallets/types'
 import { authorizeBatch, SessionAuthCancelled } from '@/js/security/authorize'
+import { useBaseAssetGate } from '@/composables/useBaseAssetGate'
 
 // Gas budget assumptions (units). A single aggregator swap rarely exceeds
 // ~500k gas; the approval (ERC20 inputs only) is a one-time ~80k. The reserve
@@ -356,6 +357,12 @@ export default defineComponent({
     // never cached — leaving the page fully destroys any in-flight order.
     name: 'iceberg',
     setup() {
+        // The AVXTO holding requirement, asked at the moment of the
+        // action rather than at the door — see useBaseAssetGate. The
+        // page itself stays usable either way; only this one button
+        // defers to it.
+        const { isBlocked, gatedAction } = useBaseAssetGate()
+
         const mainStore = useMainStore()
         const assetsStore = useAssetsStore()
         const notifications = useNotificationsStore()
@@ -946,6 +953,8 @@ export default defineComponent({
         })
 
         return {
+            isBlocked,
+            gatedAction,
             // config
             heldTokens,
             tokenInAddr,
