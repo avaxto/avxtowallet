@@ -60,8 +60,15 @@ export const REQUIRED_BURN_WEI = AVXTO_THR.mul(new BN(10).pow(new BN(AVXTO_DECIM
 /** Whether the gate modal is currently open. Shared by every caller. */
 const isModalOpen = ref(false)
 
-/** How the open modal was closed. See `openModal`. */
-export type GateOutcome = 'cancel' | 'burn' | 'swap'
+/**
+ * How the open modal was closed. See `openModal`.
+ *
+ *  - `cancel` — dismissed; the button behind it disables.
+ *  - `burn` / `swap` — left for moats.app or the swap page; the button stays live.
+ *  - `burned` — the modal's own one-click burn landed; the action re-checks
+ *    and, when the requirement is now met, runs.
+ */
+export type GateOutcome = 'cancel' | 'burn' | 'swap' | 'burned'
 
 /** Resolver for the promise `openModal` handed its caller. */
 let settleOutcome: ((outcome: GateOutcome) => void) | null = null
@@ -114,6 +121,9 @@ export function useBaseAssetGate() {
 
     /** The requirement, in whole AVXTO. */
     const required = computed(() => AVXTO_THR)
+
+    /** The address whose burns count, lowercased, or null. See `gateAddress`. */
+    const address = computed(() => gateAddress())
     const symbol = AVXTO_SYMBOL
 
     /** The current address's burn, in wei, or null when not read for it yet. */
@@ -213,6 +223,13 @@ export function useBaseAssetGate() {
     const gatedAction = async (action: () => unknown): Promise<boolean> => {
         if (!(await check())) {
             const outcome = await openModal()
+            // Burned from the modal itself: carry on with what the user
+            // actually clicked, once the chain agrees the burn is enough.
+            if (outcome === 'burned' && (await check())) {
+                wasDismissed.value = false
+                await action()
+                return true
+            }
             // Only a dismissal disables the button. Someone who left for
             // moats.app to burn (or for the swap page to get AVXTO to burn)
             // is acting on the message, and the control should be live when
@@ -233,6 +250,7 @@ export function useBaseAssetGate() {
         shortfall,
         burned,
         required,
+        address,
         symbol,
         isModalOpen,
         openModal,

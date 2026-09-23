@@ -109,6 +109,20 @@
                         </router-link>
                     </v-list-item-title>
                 </v-list-item>
+                <!-- Moats link for reference -->
+                
+                <v-list-item>
+                    <v-list-item-title>
+                        <a
+                            href="https://moats.app/moat/0xebe5fbacb882fd313d05684bef591c31f83b0524"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            class="wallet_link"
+                        >
+                            AVXTO Moat Page
+                        </a>
+                    </v-list-item-title>
+                </v-list-item>
                 <v-list-item>
                     <v-list-item-title>
                         <a
