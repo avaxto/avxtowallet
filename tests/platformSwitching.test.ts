@@ -284,7 +284,7 @@ describe('tearing down several sessions at once', () => {
         await store.setActivePlatform(EXCLUSIVE)
 
         expect(store.activePlatformId).toBe(EXCLUSIVE)
-        expect(localStorage.getItem('activePlatform')).toBe(EXCLUSIVE)
+        expect(localStorage.getItem('platformAfterReload')).toBe(EXCLUSIVE)
         expect(reloadedTo).toBe('/')
     })
 
@@ -350,5 +350,51 @@ describe('ensureActiveIsConnected', () => {
         // Must not reload: this runs inside a router guard, which redirects to
         // the home page itself.
         expect(reloadedTo).toBeNull()
+    })
+})
+
+describe('the platform the app boots on', () => {
+    // Regression: the last tab used was restored on every boot, so the home
+    // page opened on EVM (yellow, Robinhood) instead of Avalanche.
+    beforeEach(() => localStorage.clear())
+
+    it('is Avalanche after an in-place switch, since nothing reloaded', async () => {
+        const store = useActivePlatformStore()
+        store.activePlatformId = CONCURRENT_A
+        connect(store, CONCURRENT_A)
+        connect(store, CONCURRENT_B)
+        await store.setActivePlatform(CONCURRENT_B)
+
+        setActivePinia(createPinia())
+        const booted = useActivePlatformStore()
+        booted.initPlatform()
+
+        expect(booted.activePlatformId).toBe('avalanche')
+    })
+
+    it('honours a destructive switch across its reload exactly once', async () => {
+        const store = useActivePlatformStore()
+        store.activePlatformId = CONCURRENT_A
+        connect(store, CONCURRENT_A)
+        await store.setActivePlatform(EXCLUSIVE)
+        expect(reloadedTo).toBe('/')
+
+        setActivePinia(createPinia())
+        const afterReload = useActivePlatformStore()
+        afterReload.initPlatform()
+        expect(afterReload.activePlatformId).toBe(EXCLUSIVE)
+
+        setActivePinia(createPinia())
+        const nextVisit = useActivePlatformStore()
+        nextVisit.initPlatform()
+        expect(nextVisit.activePlatformId).toBe('avalanche')
+    })
+
+    it('ignores the old remembered-preference key', () => {
+        localStorage.setItem('activePlatform', CONCURRENT_B)
+        const store = useActivePlatformStore()
+        store.initPlatform()
+        expect(store.activePlatformId).toBe('avalanche')
+        expect(localStorage.getItem('activePlatform')).toBeNull()
     })
 })

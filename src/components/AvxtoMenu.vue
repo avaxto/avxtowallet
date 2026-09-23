@@ -68,7 +68,7 @@
                             to="/wallet/swap"
                             class="wallet_link"
                         >
-                            Swap AVXTO
+                            Get AVXTO Now
                         </router-link>
                         <a
                             v-else
@@ -78,6 +78,14 @@
                         >
                             {{ isConnecting ? 'Connecting…' : 'Swap AVXTO' }}
                         </a>
+                    </v-list-item-title>
+                </v-list-item>
+                <!-- Logged in only: the page needs a wallet to read a balance from. -->
+                <v-list-item v-if="isAuth && !isConnecting">
+                    <v-list-item-title>
+                        <router-link to="/wallet/moats/burn" class="wallet_link">
+                            Burn AVXTO (Moats)
+                        </router-link>
                     </v-list-item-title>
                 </v-list-item>
                 <v-list-item>

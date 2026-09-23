@@ -24,6 +24,7 @@ import Generator from '@/views/wallet/Generator.vue'
 import WalletWizard from '@/views/wallet/WalletWizard.vue'
 import UnifyChains from '@/views/wallet/UnifyChains.vue'
 import Launcher from '@/views/wallet/Launcher.vue'
+import MoatsBurn from '@/views/wallet/MoatsBurn.vue'
 import Swap from '@/views/wallet/Swap.vue'
 import Iceberg from '@/views/wallet/Iceberg.vue'
 import Avxto from '@/views/wallet/Avxto.vue'
@@ -289,6 +290,10 @@ const routes: RouteRecordRaw[] = [
             {
                 path: 'swap',
                 component: Swap,
+            },
+            {
+                path: 'moats/burn',
+                component: MoatsBurn,
             },
             {
                 path: 'config',

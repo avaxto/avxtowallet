@@ -24,7 +24,15 @@ import {
 } from './registry'
 import { applyPlatformTheme } from './theme'
 
-const STORAGE_KEY = 'activePlatform'
+/**
+ * One-shot hand-over of the target platform across a destructive switch's
+ * reload — see `initPlatform`. A new name rather than the old
+ * `activePlatform` key, which held a remembered preference restored on every
+ * boot; reusing it would have treated every existing user's stale value as a
+ * fresh hand-over and opened their next visit on it one more time.
+ */
+const STORAGE_KEY = 'platformAfterReload'
+const LEGACY_STORAGE_KEY = 'activePlatform'
 
 /** What happened to one platform in a `unlockWithMnemonic` pass. */
 export interface MnemonicUnlockResult {
@@ -320,7 +328,9 @@ export const useActivePlatformStore = defineStore('activePlatform', () => {
         const next = getPlatform(id)
 
         if (canHandOverInPlace(previous, next)) {
-            persistPlatformId(id)
+            // Not persisted: nothing reloads here, and a saved id would make
+            // the NEXT cold start open on this tab instead of Avalanche — see
+            // `initPlatform`.
             activePlatformId.value = id
             applyPlatformTheme(next.descriptor.theme)
             await next.activate?.()
@@ -663,42 +673,30 @@ export const useActivePlatformStore = defineStore('activePlatform', () => {
     }
 
     /**
-     * Platform ids that no longer exist, mapped to their successor.
+     * Pick the platform the app boots on: Avalanche, unless a destructive
+     * switch just reloaded the page to land on another one.
      *
-     * The per-chain EVM platforms were folded into the single `evm` platform,
-     * which differentiates by network instead. Without this, anyone whose saved
-     * platform was one of them would silently land on Avalanche — the generic
-     * "unknown id" fallback — which reads as the app forgetting their choice
-     * rather than as the rename it actually is.
-     */
-    const RENAMED_PLATFORM_IDS: Record<string, PlatformId> = {
-        robinhood: 'evm',
-        ethereum: 'evm',
-    }
-
-    /**
-     * Restore the previously chosen platform. A saved id that is no longer
-     * available (removed between releases) silently falls back to the default
-     * rather than leaving the app unusable.
+     * The saved id is a one-shot hand-over across that reload, not a
+     * remembered preference, so it is removed as soon as it is read. It used
+     * to be restored on every boot, which meant the home page opened on
+     * whichever tab was used last — typically EVM, yellow, on Robinhood —
+     * rather than on Avalanche. No session survives a reload anyway (vaults
+     * are in memory only), so there is nothing to come back to on that tab.
+     *
+     * A saved id that is no longer available (removed between releases)
+     * falls back to the default rather than leaving the app unusable.
      */
     const initPlatform = (): void => {
-        const saved = localStorage.getItem(STORAGE_KEY)
-        const migrated = saved ? RENAMED_PLATFORM_IDS[saved] : undefined
-
-        if (migrated && saved !== migrated) {
-            // Rewrite the stored id so the migration happens once rather than
-            // on every boot, and so the stale id cannot linger and confuse a
-            // later release.
-            try {
-                localStorage.setItem(STORAGE_KEY, migrated)
-            } catch {
-                /* storage unavailable — the in-memory value below still applies */
-            }
+        let saved: string | null = null
+        try {
+            saved = localStorage.getItem(STORAGE_KEY)
+            localStorage.removeItem(STORAGE_KEY)
+            localStorage.removeItem(LEGACY_STORAGE_KEY)
+        } catch {
+            /* storage unavailable — boot on the default */
         }
-
-        const resolved = migrated ?? saved
         activePlatformId.value =
-            resolved && isPlatformAvailable(resolved) ? resolved : DEFAULT_PLATFORM_ID
+            saved && isPlatformAvailable(saved) ? saved : DEFAULT_PLATFORM_ID
 
         // Tint the interface for the restored platform before the first paint.
         applyPlatformTheme(activePlatform.value?.descriptor.theme)
