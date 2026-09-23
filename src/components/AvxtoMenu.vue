@@ -83,6 +83,13 @@
                 <!-- Logged in only: the page needs a wallet to read a balance from. -->
                 <v-list-item v-if="isAuth && !isConnecting">
                     <v-list-item-title>
+                        <router-link to="/wallet/moats/dashboard" class="wallet_link">
+                            AVXTO Moat Dashboard
+                        </router-link>
+                    </v-list-item-title>
+                </v-list-item>
+                <v-list-item v-if="isAuth && !isConnecting">
+                    <v-list-item-title>
                         <router-link to="/wallet/moats/stake" class="wallet_link">
                             Stake AVXTO (Moats)
                         </router-link>

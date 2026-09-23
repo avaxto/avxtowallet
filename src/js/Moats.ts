@@ -156,14 +156,21 @@ export interface MoatsState {
     paused: boolean
 }
 
+/**
+ * What reading needs: a chain, an address and a web3 on that chain. A signer
+ * is one, and so is a plain read-only connection (see MoatsStats.ts), which
+ * lets the dashboard read Moats while the wallet is on another chain.
+ */
+export type MoatsReader = Pick<EvmSigner, 'network' | 'address' | 'reader'>
+
 // Built from a local web3, deliberately — see the note on `erc20()` in
 // js/ArenaSwap.ts: `new signer.reader().eth.Contract` parses wrongly.
-function moats(signer: EvmSigner) {
+function moats(signer: MoatsReader) {
     const web3 = signer.reader()
     return new web3.eth.Contract(MOATS_ABI as any, MOATS_CONTRACT_ADDRESS)
 }
 
-function avxto(signer: EvmSigner) {
+function avxto(signer: MoatsReader) {
     const web3 = signer.reader()
     // @ts-ignore - web3 typing for dynamic ABI
     return new web3.eth.Contract(ERC20Abi.abi as any, AVXTO_CONTRACT_ADDRESS)
@@ -172,7 +179,7 @@ function avxto(signer: EvmSigner) {
 const toBN = (v: unknown): BN => new BN(String(v))
 
 /** Throws unless `signer` is on the one chain the Moats contract exists on. */
-export function assertMoatsChain(signer: EvmSigner): void {
+export function assertMoatsChain(signer: MoatsReader): void {
     if (signer.network.evmChainId !== MOATS_CHAIN_ID) {
         throw new Error(
             `Moats is on Avalanche C-Chain. Your wallet is on ${signer.network.name}.`
@@ -180,7 +187,7 @@ export function assertMoatsChain(signer: EvmSigner): void {
     }
 }
 
-export async function readMoatsState(signer: EvmSigner): Promise<MoatsState> {
+export async function readMoatsState(signer: MoatsReader): Promise<MoatsState> {
     assertMoatsChain(signer)
     const m = moats(signer).methods
     const t = avxto(signer).methods

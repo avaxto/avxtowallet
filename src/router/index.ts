@@ -25,6 +25,7 @@ import WalletWizard from '@/views/wallet/WalletWizard.vue'
 import UnifyChains from '@/views/wallet/UnifyChains.vue'
 import Launcher from '@/views/wallet/Launcher.vue'
 import MoatsAction from '@/components/wallet/moats/MoatsAction.vue'
+import MoatsDashboard from '@/views/wallet/MoatsDashboard.vue'
 import Swap from '@/views/wallet/Swap.vue'
 import Iceberg from '@/views/wallet/Iceberg.vue'
 import Avxto from '@/views/wallet/Avxto.vue'
@@ -309,6 +310,10 @@ const routes: RouteRecordRaw[] = [
                 path: 'moats/lock',
                 component: MoatsAction,
                 props: { mode: 'lock' },
+            },
+            {
+                path: 'moats/dashboard',
+                component: MoatsDashboard,
             },
             {
                 path: 'config',
