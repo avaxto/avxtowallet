@@ -314,6 +314,10 @@ export const useMainStore = defineStore('main', () => {
             }
             provider.on('accountsChanged', _injectedAccountsChangedListener)
         }
+
+        // Follow the extension's chain too (mainnet <-> Fuji, or away to
+        // another tab). Lazy: that module reads this store.
+        void import('@/platforms/injectedChainSync').then((m) => m.attachInjectedChainSync())
     }
 
     // `options.navigate === false` when several platforms are being opened at

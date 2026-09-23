@@ -183,6 +183,15 @@ export default defineComponent({
          */
         const nativeSymbolText = computed((): string => {
             if (isAvalanche.value) return platformStore.activePlatform?.descriptor.symbol ?? 'AVAX'
+            // `getActiveNetwork()` reads a plain module-scope mirror (see
+            // peekActiveNetwork in platforms/evm/store.ts), which Vue cannot
+            // track — so this computed kept showing the network it first saw,
+            // and the extension moving Ethereum -> Avalanche left the label on
+            // ETH. A network change always rebinds the wallet to a new object
+            // (followExtensionChain / setNetwork), and `activeWallet` is
+            // reactive through `walletEpoch`, so depending on it re-runs this
+            // exactly when the network can have changed.
+            void platformStore.activeWallet
             const platform = platformStore.activePlatform
             return (
                 platform?.getActiveNetwork?.()?.nativeSymbol ??
@@ -209,6 +218,7 @@ export default defineComponent({
         const {
             amount: platformNativeAmount,
             loading: isFetchingPlatformBalance,
+            failed: platformBalanceFailed,
             refresh: fetchPlatformBalance,
         } = usePlatformNativeBalance(platformWalletForBalance)
 
@@ -295,7 +305,10 @@ export default defineComponent({
         })
 
         const balanceText = computed((): string => {
-            if (!isAvalanche.value) return platformNativeAmount.value.toLocaleString()
+            if (!isAvalanche.value) {
+                if (platformBalanceFailed.value) return '--'
+                return platformNativeAmount.value.toLocaleString()
+            }
             if (ava_asset.value && ava_asset.value.denomination !== undefined) {
                 let denom = ava_asset.value.denomination
                 return totalBalanceBig.value.toLocaleString(denom)
@@ -381,7 +394,10 @@ export default defineComponent({
 
         const unlockedText = computed(() => {
             if (isUpdatingBalance.value) return '--'
-            if (!isAvalanche.value) return platformNativeAmount.value.toLocaleString()
+            if (!isAvalanche.value) {
+                if (platformBalanceFailed.value) return '--'
+                return platformNativeAmount.value.toLocaleString()
+            }
 
             if (ava_asset.value && ava_asset.value.denomination !== undefined) {
                 let denom = ava_asset.value.denomination

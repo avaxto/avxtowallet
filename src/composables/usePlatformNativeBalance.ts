@@ -26,6 +26,13 @@
  * arrives. A `Ref` rather than a plain identity check because the caller needs
  * to change which wallet this is watching (switching platforms, or Avalanche
  * gating itself out — see the component) without re-creating the composable.
+ *
+ * The guard alone was not enough. A fetch that FAILED left `amount` holding
+ * whatever the previous tab had shown, so a Solana tab whose RPC call errored
+ * went on displaying the EVM tab's C-Chain balance under a SOL label. The
+ * amount therefore belongs to one wallet: it is cleared the moment the wallet
+ * changes, and a failure sets `failed` so the caller shows "unknown" rather
+ * than a figure that was never this wallet's.
  */
 import { ref, watch, type Ref } from 'vue'
 import Big from 'big.js'
@@ -35,6 +42,8 @@ import type { PlatformWallet } from '@/platforms/types'
 export function usePlatformNativeBalance(wallet: Ref<PlatformWallet | null>) {
     const amount = ref<Big>(Big(0))
     const loading = ref(false)
+    /** The last fetch for the current wallet failed; `amount` is not its balance. */
+    const failed = ref(false)
 
     const refresh = async (): Promise<void> => {
         const w = wallet.value
@@ -54,8 +63,10 @@ export function usePlatformNativeBalance(wallet: Ref<PlatformWallet | null>) {
 
             const native = balances.find((b) => b.assetId === 'native') ?? balances[0]
             amount.value = native ? Big(native.amount.toString()) : Big(0)
+            failed.value = false
         } catch (e) {
             console.warn('[usePlatformNativeBalance] Could not fetch balance:', e)
+            if (wallet.value === w) failed.value = true
         } finally {
             // Same guard: a stale call finishing must not clear the spinner
             // for a newer one that is still genuinely in flight.
@@ -63,7 +74,16 @@ export function usePlatformNativeBalance(wallet: Ref<PlatformWallet | null>) {
         }
     }
 
-    watch(wallet, refresh, { immediate: true })
+    // A new wallet starts from nothing — never from the previous one's figure.
+    watch(
+        wallet,
+        () => {
+            amount.value = Big(0)
+            failed.value = false
+            return refresh()
+        },
+        { immediate: true }
+    )
 
-    return { amount, loading, refresh }
+    return { amount, loading, failed, refresh }
 }

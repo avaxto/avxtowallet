@@ -156,6 +156,50 @@ describe('usePlatformNativeBalance', () => {
         await flushPromises()
         expect(loading.value).toBe(false)
     })
+
+    /**
+     * A failed fetch used to leave the previous tab's figure in place: EVM on
+     * C-Chain showed 12 AVAX, the user switched to Solana, Solana's RPC call
+     * errored, and the Solana tab kept showing 12 — now labelled SOL.
+     */
+    it("never shows the previous wallet's balance when the new fetch fails", async () => {
+        const evmWallet = fakeWallet('evm', async () => nativeBalance('12'))
+        const solWallet = fakeWallet('solana', async () => {
+            throw new Error('403 from RPC')
+        })
+
+        const wallet = ref<PlatformWallet | null>(evmWallet)
+        const { amount, failed } = usePlatformNativeBalance(wallet)
+        await flushPromises()
+        expect(amount.value.toString()).toBe('12')
+        expect(failed.value).toBe(false)
+
+        const warn = jest.spyOn(console, 'warn').mockImplementation(() => {})
+        wallet.value = solWallet
+        await nextTick()
+        await flushPromises()
+        warn.mockRestore()
+
+        expect(amount.value.toString()).toBe('0')
+        expect(failed.value).toBe(true)
+    })
+
+    it('clears the previous wallet\'s figure as soon as the wallet changes', async () => {
+        const solCall = deferred<PlatformBalance[]>()
+        const wallet = ref<PlatformWallet | null>(
+            fakeWallet('evm', async () => nativeBalance('12'))
+        )
+        const { amount } = usePlatformNativeBalance(wallet)
+        await flushPromises()
+
+        wallet.value = fakeWallet('solana', () => solCall.promise)
+        await nextTick()
+        expect(amount.value.toString()).toBe('0')
+
+        solCall.resolve(nativeBalance('4.5'))
+        await flushPromises()
+        expect(amount.value.toString()).toBe('4.5')
+    })
 })
 
 /** Lets every already-settled microtask (including chained `.then`s) run. */

@@ -134,30 +134,6 @@
                 </v-list-item>
             </v-list>
         </v-menu>
-        <v-menu offset-y>
-            <template v-slot:activator="{ props }">
-                <v-btn text v-bind="props" class="menu-btn">Arena</v-btn>
-            </template>
-            <v-list>
-                <v-list-item>
-                    <v-list-item-title>
-                        <router-link to="/wallet/bridge">ARENA Bridge</router-link>
-                    </v-list-item-title>
-                </v-list-item>
-                <v-list-item>
-                    <v-list-item-title>
-                        <a
-                            href="https://arenatrade.ai/"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            class="wallet_link"
-                        >
-                            ArenaTrade
-                        </a>
-                    </v-list-item-title>
-                </v-list-item>
-            </v-list>
-        </v-menu>
         <AvxtoMenu></AvxtoMenu>
 
         <v-menu offset-y v-if="isAvalanche">
@@ -192,6 +168,31 @@
                             class="wallet_link"
                         >
                             Download Core App
+                        </a>
+                    </v-list-item-title>
+                </v-list-item>
+            </v-list>
+        </v-menu>
+
+        <v-menu offset-y>
+            <template v-slot:activator="{ props }">
+                <v-btn text v-bind="props" class="menu-btn">Arena</v-btn>
+            </template>
+            <v-list>
+                <v-list-item>
+                    <v-list-item-title>
+                        <router-link to="/wallet/bridge">ARENA Bridge</router-link>
+                    </v-list-item-title>
+                </v-list-item>
+                <v-list-item>
+                    <v-list-item-title>
+                        <a
+                            href="https://arenatrade.ai/"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            class="wallet_link"
+                        >
+                            ArenaTrade
                         </a>
                     </v-list-item-title>
                 </v-list-item>

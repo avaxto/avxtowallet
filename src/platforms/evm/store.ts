@@ -139,7 +139,12 @@ export const useEvmStore = defineStore('evm', () => {
         void refreshNativeBalance()
         // Only an extension has an account that can change out from under us; a
         // local wallet's address is fixed by its derivation path.
-        if (w instanceof InjectedEvmWallet) attachAccountsChangedListener(w)
+        if (w instanceof InjectedEvmWallet) {
+            attachAccountsChangedListener(w)
+            // Its chain can change too. Imported lazily: that module reads
+            // this store, so a static import would be circular.
+            void import('../injectedChainSync').then((m) => m.attachInjectedChainSync())
+        }
     }
 
     // Which provider object the listener below is currently attached to, so
@@ -335,6 +340,26 @@ export const useEvmStore = defineStore('evm', () => {
         applyNetwork(next)
     }
 
+    /**
+     * Rebinds the injected wallet to the chain the extension just moved to —
+     * see ../injectedChainSync.ts. A new wallet object for the same reason as
+     * `rebindLocalWallet`: identity is what tells the UI to refetch.
+     */
+    const followExtensionChain = (next: EvmNetwork): void => {
+        const current = wallet.value
+        if (!(current instanceof InjectedEvmWallet)) return
+        if (current.network.evmChainId === next.evmChainId) return
+        applyNetwork(next)
+        setWallet(
+            new InjectedEvmWallet({
+                address: current.getPrimaryAddress(),
+                network: next,
+                provider: current.native,
+                accessMethodId: current.accessMethodId,
+            })
+        )
+    }
+
     const disconnect = (): void => {
         // Discard the vault's ciphertext. The wallet becomes permanently
         // watch-only, which is fine because it is being dropped anyway.
@@ -363,6 +388,7 @@ export const useEvmStore = defineStore('evm', () => {
         connectInjected,
         accessWithMnemonic,
         setNetwork,
+        followExtensionChain,
         disconnect,
     }
 })
