@@ -10,9 +10,12 @@
                 :thr-value="thrValue"
                 :thr-symbol="thrSymbol"
                 :thr-address="thrAddress"
-                :c-chain-address="cChainAddress"
+                :burn-address="cChainAddress"
                 @goToSwap="goToSwap"
             ></InsufficientBalanceNotice>
+            <a class="burn_btn" :href="moatsUrl" target="_blank" rel="noopener noreferrer">
+                Burn {{ thrSymbol }} on Moats
+            </a>
             <button class="restart_btn" @click="restart">Back to AVXTO Wallet Home</button>
         </div>
     </div>
@@ -25,6 +28,7 @@ import { useActivePlatformStore } from '@/platforms'
 import InsufficientBalanceNotice from '@/components/misc/InsufficientBalanceNotice.vue'
 import { useAssetsStore, useMainStore } from '@/stores'
 import { AVXTO_CONTRACT_ADDRESS, AVXTO_SYMBOL, AVXTO_THR } from '@/avxto/AVXTOConf'
+import { MOATS_BURN_URL } from '@/composables/useBaseAssetGate'
 
 export default defineComponent({
     name: 'InsufficientBalance',
@@ -34,17 +38,16 @@ export default defineComponent({
         // configured constants when there isn't. This page used to be handed
         // its values through sessionStorage by the balance check that
         // redirected here — that redirect is gone (the holding requirement is
-        // now asked per action, see composables/useBaseAssetGate), and with it
-        // the only writer of those keys. The page itself stays: it is still
+        // now asked per action, see composables/useBaseAssetGate — and is a
+        // Moats burn requirement, no longer a holding), and with it the only
+        // writer of those keys. The page itself stays: it is still
         // reachable by route, and from the AVXTO menu's "Swap AVXTO" link
         // while logged out, where there is no session to read at all.
         const assetsStore = useAssetsStore()
         const mainStore = useMainStore()
 
-        const thrValue = computed(() => {
-            const thr = assetsStore.baseAsset?.thr ?? AVXTO_THR
-            return thr.toString()
-        })
+        // Whole tokens, the same figure the gate checks burns against.
+        const thrValue = computed(() => AVXTO_THR.toString())
         const thrSymbol = computed(() => assetsStore.baseAsset?.symbol ?? AVXTO_SYMBOL)
         const thrAddress = computed(
             () => assetsStore.baseAsset?.address ?? AVXTO_CONTRACT_ADDRESS
@@ -113,6 +116,7 @@ export default defineComponent({
             thrSymbol,
             thrAddress,
             cChainAddress,
+            moatsUrl: MOATS_BURN_URL,
         }
     },
 })
@@ -138,13 +142,29 @@ export default defineComponent({
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
 }
 
-.restart_btn {
-    margin-top: 24px;
+.burn_btn {
+    display: inline-block;
+    margin-top: 16px;
     padding: 10px 28px;
-    border: none;
     border-radius: 4px;
     background-color: var(--secondary-color, #e84142);
-    color: #fff;
+    color: #fff !important;
+    font-size: 14px;
+    text-decoration: none;
+
+    &:hover {
+        opacity: 0.85;
+    }
+}
+
+.restart_btn {
+    display: block;
+    margin: 12px auto 0;
+    background-color: transparent !important;
+    border: 1px solid var(--primary-color-light, #aeb4b9) !important;
+    padding: 10px 28px;
+    border-radius: 4px;
+    color: var(--primary-color, #e0e0e0);
     font-size: 14px;
     cursor: pointer;
 

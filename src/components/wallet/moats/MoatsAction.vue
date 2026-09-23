@@ -13,9 +13,9 @@
   sending on the first click: a burn cannot be undone, a stake costs the
   unstake fee to get back out, and leaving a lock early costs up to 95%.
 
-  Deliberately not behind useBaseAssetGate: every action requires holding
-  AVXTO already, so the holding gate would only ever refuse people with
-  nothing to move — which the balance check below does with a clearer message.
+  Deliberately not behind useBaseAssetGate, and it must never be: that gate
+  requires a Moats burn, so gating the burn page would lock out the one way
+  to meet it.
 -->
 <template>
     <div class="moats_page">

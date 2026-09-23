@@ -81,6 +81,13 @@ const STATS_ABI = [
         { name: '', type: 'address[]' },
         { name: '', type: 'uint256[]' },
     ]),
+    fn('userInfo', [{ name: '', type: 'address' }], [
+        uint('stakedAmount'),
+        uint('totalUserBurn'),
+        uint('stakingPoints'),
+        uint('burnPoints'),
+        uint('activeLockCount'),
+    ]),
     fn(
         'calculateEarlyExitFee',
         [
@@ -274,6 +281,20 @@ export async function readMoatsOnChain(userAddress: string | null): Promise<Moat
             earlyExit: earlyExitByIndex,
         },
     }
+}
+
+/**
+ * Lifetime AVXTO `address` has burned through Moats, in wei — the one figure
+ * the premium-feature gate needs (composables/useBaseAssetGate), so a single
+ * call rather than the dashboard's full read. Same C-Chain connection, so it
+ * answers whichever chain the wallet is on.
+ */
+export async function readBurnedOnMoats(address: string): Promise<BN> {
+    const web3 = cChainReader(address).reader()
+    const info: any = await new web3.eth.Contract(STATS_ABI as any, MOATS_CONTRACT_ADDRESS).methods
+        .userInfo(address)
+        .call()
+    return toBN(info.totalUserBurn ?? info[1])
 }
 
 /**

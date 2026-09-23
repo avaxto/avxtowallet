@@ -4,34 +4,36 @@
   Licensed under the BSD 3 Clause License. See LICENSE file in the project root for details.
 -->
 <!--
-  The holding requirement, asked at the moment of a gated action instead of
-  at the door.
+  The Moats burn requirement, asked at the moment of a gated action instead
+  of at the door.
 
   Mounted once, in the wallet layout — the modal's open state lives in
   composables/useBaseAssetGate, shared module-level, so every gated button on
   every page raises this same instance rather than each page carrying its own
   copy.
 
-  Two ways out, and they are the two the user actually has: Cancel leaves
-  them exactly where they were (the button behind this is disabled by then,
-  since the check that opened this modal is what taught `isGated` the
-  answer), or they go to /wallet/swap — deliberately ungated — and trade for
-  the base asset.
+  The ways out are the ones the user actually has: Cancel leaves them exactly
+  where they were (the button behind this is disabled by then, since the
+  check that opened this modal is what taught `isGated` the answer); "Burn on
+  Moats" opens moats.app in a new tab, leaving the wallet — and its
+  in-memory session — where it is; or, from the notice, the deliberately
+  ungated /wallet/swap to get AVXTO to burn.
 -->
 <template>
-    <Modal ref="modal" title="AVXTO Required" @beforeClose="onClose">
+    <Modal ref="modal" title="AVXTO Burn Required" @beforeClose="onClose">
         <div class="gate_body">
             <InsufficientBalanceNotice
                 :thr-value="thrValue"
-                :thr-symbol="thrSymbol"
+                :thr-symbol="symbol"
                 :thr-address="thrAddress"
-                :c-chain-address="cChainAddress"
+                :burned-value="burnedValue"
+                :burn-address="burnAddress"
                 @goToSwap="goToSwap"
             ></InsufficientBalanceNotice>
 
             <div class="gate_actions">
-                <v-btn class="ava_button button_primary" @click="goToSwap">
-                    Swap for {{ thrSymbol }}
+                <v-btn class="ava_button button_primary" @click="goToMoats">
+                    Burn {{ symbol }} on Moats
                 </v-btn>
                 <button class="ava_button_secondary cancel_btn" @click="cancel">Cancel</button>
             </div>
@@ -42,11 +44,14 @@
 <script lang="ts">
 import { computed, defineComponent, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
+import Big from 'big.js'
 
 import Modal from '@/components/modals/Modal.vue'
 import InsufficientBalanceNotice from '@/components/misc/InsufficientBalanceNotice.vue'
-import { useBaseAssetGate } from '@/composables/useBaseAssetGate'
+import { MOATS_BURN_URL, useBaseAssetGate } from '@/composables/useBaseAssetGate'
+import { AVXTO_CONTRACT_ADDRESS } from '@/avxto/AVXTOConf'
 import { useMainStore } from '@/stores'
+import { activeEvmSigner } from '@/platforms/evmSigner'
 
 export default defineComponent({
     name: 'BaseAssetGateModal',
@@ -54,7 +59,7 @@ export default defineComponent({
     setup() {
         const router = useRouter()
         const mainStore = useMainStore()
-        const { isModalOpen, closeModal, baseAsset } = useBaseAssetGate()
+        const { isModalOpen, closeModal, required, burned, symbol } = useBaseAssetGate()
 
         const modal = ref<InstanceType<typeof Modal> | null>(null)
 
@@ -65,15 +70,17 @@ export default defineComponent({
             else modal.value?.close()
         })
 
-        // Read live off the store rather than from the sessionStorage the
-        // standalone /insufficient-balance page uses — inside the wallet
-        // there is a session, so these are simply known.
-        const thrValue = computed(() => baseAsset.value?.thr?.toString() ?? '')
-        const thrSymbol = computed(() => baseAsset.value?.symbol ?? 'AVXTO')
-        const thrAddress = computed(() => baseAsset.value?.address ?? '')
-        const cChainAddress = computed(() => {
-            const eth = mainStore.activeWallet?.ethAddress
-            return eth ? '0x' + eth : ''
+        const thrValue = computed(() => required.value.toString())
+        const thrAddress = AVXTO_CONTRACT_ADDRESS
+        /** Whole tokens, from the check that just opened this modal. */
+        const burnedValue = computed(() =>
+            burned.value ? Big(burned.value.toString()).div(Big(10).pow(18)).toString() : ''
+        )
+        /** The address the gate checked — the one whose burns count. */
+        const burnAddress = computed(() => {
+            const eth = mainStore.avalancheWallet?.ethAddress
+            if (eth) return eth.startsWith('0x') ? eth : '0x' + eth
+            return activeEvmSigner()?.address ?? ''
         })
 
         /**
@@ -89,8 +96,15 @@ export default defineComponent({
 
         /**
          * Not a dismissal: the user is acting on the message, so the button
-         * they came from stays live for when they return holding some.
+         * they came from stays live for when they return having burned.
+         * A new tab, not a navigation: the wallet's session is in memory only.
          */
+        const goToMoats = () => {
+            window.open(MOATS_BURN_URL, '_blank', 'noopener,noreferrer')
+            modal.value?.close()
+            closeModal('burn')
+        }
+
         const goToSwap = () => {
             modal.value?.close()
             closeModal('swap')
@@ -99,12 +113,14 @@ export default defineComponent({
 
         return {
             modal,
+            symbol,
             thrValue,
-            thrSymbol,
             thrAddress,
-            cChainAddress,
+            burnedValue,
+            burnAddress,
             onClose,
             cancel,
+            goToMoats,
             goToSwap,
         }
     },

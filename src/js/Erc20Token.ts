@@ -12,23 +12,12 @@ class Erc20Token {
     balanceRaw: string
     balanceBN: BN
     balanceBig: Big
-    /**
-     * Whether `updateBalance` has ever completed for this token.
-     *
-     * A zero balance and a not-yet-fetched balance are indistinguishable by
-     * value alone, and the base-asset gate (see composables/useBaseAssetGate)
-     * has to tell them apart: treating "not loaded yet" as "holds nothing"
-     * would lock every gated action for the first seconds of a session, for
-     * everyone, including holders.
-     */
-    balanceFetched: boolean
 
     constructor(tokenData: TokenListToken) {
         this.data = tokenData
         this.balanceRaw = '0'
         this.balanceBN = new BN('0')
         this.balanceBig = Big(0)
-        this.balanceFetched = false
 
         //@ts-ignore
         const tokenInst = new web3.eth.Contract(ERC20Abi.abi, tokenData.address)
@@ -49,10 +38,6 @@ class Erc20Token {
         this.balanceRaw = '0'
         this.balanceBN = new BN('0')
         this.balanceBig = Big(0)
-        // Back to "unknown", not "known to be zero": the next session's
-        // balance has not been read yet, and the gate must not treat the
-        // outgoing wallet's cleared figure as the incoming one's answer.
-        this.balanceFetched = false
     }
 
     // Returns a new instance of the token, given only the erc20 address
@@ -70,7 +55,6 @@ class Erc20Token {
         this.balanceRaw = bal
         this.balanceBN = new BN(bal)
         this.balanceBig = bnToBig(this.balanceBN, parseInt(this.data.decimals as string))
-        this.balanceFetched = true
     }
 }
 
