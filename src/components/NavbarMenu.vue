@@ -1,3 +1,12 @@
+<!--
+  Menu items that go somewhere put the link ON the row — `<v-list-item to=…>`
+  or `href=…` — never on a <router-link>/<a> inside its title. The row is
+  full-width and highlights on hover, so it reads as the thing to click, but a
+  link wrapping only the text left most of it dead: a click there closed the
+  menu and went nowhere, which users met as items that "do nothing the first
+  time" and then work when a later click happens to land on the words.
+  tests/navbarMenuClicks pins it.
+-->
 <template>
     <div class="navbar-menu">
         <SaveAccountModal ref="saveModal"></SaveAccountModal>
@@ -8,19 +17,15 @@
                 <v-btn text v-bind="props" class="menu-btn">File</v-btn>
             </template>
             <v-list>
-                <v-list-item>
-                    <v-list-item-title>
-                        <router-link to="/wallet/config">Settings</router-link>
-                    </v-list-item-title>
+                <v-list-item to="/wallet/config">
+                    <v-list-item-title>Settings</v-list-item-title>
                 </v-list-item>
 
                 <v-list-item v-if="isAuth && !isInjected" @click="saveAccount">
                     <v-list-item-title>Save Account</v-list-item-title>
                 </v-list-item>
-                <v-list-item v-if="isAuth">
-                    <v-list-item-title>
-                        <router-link to="/wallet/log">Log</router-link>
-                    </v-list-item-title>
+                <v-list-item v-if="isAuth" to="/wallet/log">
+                    <v-list-item-title>Log</v-list-item-title>
                 </v-list-item>
                 <v-list-item v-if="isAuth" @click="logout">
                     <v-list-item-title>Exit</v-list-item-title>
@@ -64,56 +69,36 @@
                     own seed, so it is gated on `isBitcoin` the same way those
                     are gated on `isAvalanche`.
                 -->
-                <v-list-item>
-                    <v-list-item-title>
-                        <router-link to="/wallet/addresses">Addresses</router-link>
-                    </v-list-item-title>
+                <v-list-item to="/wallet/addresses">
+                    <v-list-item-title>Addresses</v-list-item-title>
                 </v-list-item>
-                <v-list-item v-if="isAvalanche">
-                    <v-list-item-title>
-                        <router-link to="/wallet/addresses/derive">Address Derivation</router-link>
-                    </v-list-item-title>
+                <v-list-item v-if="isAvalanche" to="/wallet/addresses/derive">
+                    <v-list-item-title>Address Derivation</v-list-item-title>
                 </v-list-item>
-                <v-list-item v-if="isAvalanche">
-                    <v-list-item-title>
-                        <router-link to="/wallet/broadcast">Broadcast Signed TX</router-link>
-                    </v-list-item-title>
+                <v-list-item v-if="isAvalanche" to="/wallet/broadcast">
+                    <v-list-item-title>Broadcast Signed TX</v-list-item-title>
                 </v-list-item>
-                <v-list-item v-if="isAvalanche">
-                    <v-list-item-title>
-                        <router-link to="/wallet/wizard">Wallet Wizard</router-link>
-                    </v-list-item-title>
+                <v-list-item v-if="isAvalanche" to="/wallet/wizard">
+                    <v-list-item-title>Wallet Wizard</v-list-item-title>
                 </v-list-item>
                 
-                <v-list-item v-if="isAvalanche">
-                    <v-list-item-title>
-                        <router-link to="/wallet/unifychains">Unify Chains</router-link>
-                    </v-list-item-title>
+                <v-list-item v-if="isAvalanche" to="/wallet/unifychains">
+                    <v-list-item-title>Unify Chains</v-list-item-title>
                 </v-list-item>
-                <v-list-item v-if="isAvalanche">
-                    <v-list-item-title>
-                        <router-link to="/wallet/quickdelegate">Quick Delegate</router-link>
-                    </v-list-item-title>
+                <v-list-item v-if="isAvalanche" to="/wallet/quickdelegate">
+                    <v-list-item-title>Quick Delegate</v-list-item-title>
                 </v-list-item>
-                <v-list-item v-if="isAvalanche">
-                    <v-list-item-title>
-                        <router-link to="/wallet/psat">Multisig / PSAT</router-link>
-                    </v-list-item-title>
+                <v-list-item v-if="isAvalanche" to="/wallet/psat">
+                    <v-list-item-title>Multisig / PSAT</v-list-item-title>
                 </v-list-item>
-                <v-list-item>
-                    <v-list-item-title>
-                        <router-link to="/wallet/launcher">Token Launcher</router-link>
-                    </v-list-item-title>
+                <v-list-item to="/wallet/launcher">
+                    <v-list-item-title>Token Launcher</v-list-item-title>
                 </v-list-item>
-                <v-list-item>
-                    <v-list-item-title>
-                        <router-link to="/wallet/soladdr">Decode Solana Address</router-link>
-                    </v-list-item-title>
+                <v-list-item to="/wallet/soladdr">
+                    <v-list-item-title>Decode Solana Address</v-list-item-title>
                 </v-list-item>
-                <v-list-item v-if="isBitcoin">
-                    <v-list-item-title>
-                        <router-link to="/wallet/btcderive">Bitcoin Derived Addresses</router-link>
-                    </v-list-item-title>
+                <v-list-item v-if="isBitcoin" to="/wallet/btcderive">
+                    <v-list-item-title>Bitcoin Derived Addresses</v-list-item-title>
                 </v-list-item>
             </v-list>
         </v-menu>
@@ -122,15 +107,11 @@
                 <v-btn text v-bind="props" class="menu-btn">Trading</v-btn>
             </template>
             <v-list>
-                <v-list-item>
-                    <v-list-item-title>
-                        <router-link to="/wallet/iceberg">Iceberg Order</router-link>
-                    </v-list-item-title>
+                <v-list-item to="/wallet/iceberg">
+                    <v-list-item-title>Iceberg Order</v-list-item-title>
                 </v-list-item>
-                <v-list-item>
-                    <v-list-item-title>
-                        <router-link to="/wallet/swap">Token Swap</router-link>
-                    </v-list-item-title>
+                <v-list-item to="/wallet/swap">
+                    <v-list-item-title>Token Swap</v-list-item-title>
                 </v-list-item>
             </v-list>
         </v-menu>
@@ -141,35 +122,23 @@
                 <v-btn text v-bind="props" class="menu-btn">Avalanche</v-btn>
             </template>
             <v-list>
-                <v-list-item>
-                    <v-list-item-title>
-                        <router-link to="/wallet/earn/rewards">Estimated Rewards</router-link>
-                    </v-list-item-title>
+                <v-list-item to="/wallet/earn/rewards">
+                    <v-list-item-title>Estimated Rewards</v-list-item-title>
                 </v-list-item>
-                <v-list-item>
-                    <v-list-item-title>
-                        <a
-                            href="https://notify.avax.network/"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            class="wallet_link"
-                        >
-                            Validator Monitoring
-                        </a>
-                    </v-list-item-title>
+                <v-list-item
+                    href="https://notify.avax.network/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                >
+                    <v-list-item-title>Validator Monitoring</v-list-item-title>
                 </v-list-item>
 
-                <v-list-item>
-                    <v-list-item-title>
-                        <a
-                            href="https://core.app/download"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            class="wallet_link"
-                        >
-                            Download Core App
-                        </a>
-                    </v-list-item-title>
+                <v-list-item
+                    href="https://core.app/download"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                >
+                    <v-list-item-title>Download Core App</v-list-item-title>
                 </v-list-item>
             </v-list>
         </v-menu>
@@ -179,22 +148,15 @@
                 <v-btn text v-bind="props" class="menu-btn">Arena</v-btn>
             </template>
             <v-list>
-                <v-list-item>
-                    <v-list-item-title>
-                        <router-link to="/wallet/bridge">ARENA Bridge</router-link>
-                    </v-list-item-title>
+                <v-list-item to="/wallet/bridge">
+                    <v-list-item-title>ARENA Bridge</v-list-item-title>
                 </v-list-item>
-                <v-list-item>
-                    <v-list-item-title>
-                        <a
-                            href="https://arenatrade.ai/"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            class="wallet_link"
-                        >
-                            ArenaTrade
-                        </a>
-                    </v-list-item-title>
+                <v-list-item
+                    href="https://arenatrade.ai/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                >
+                    <v-list-item-title>ArenaTrade</v-list-item-title>
                 </v-list-item>
             </v-list>
         </v-menu>
@@ -206,91 +168,56 @@
                 <v-list-item @click="openAbout">
                     <v-list-item-title>About</v-list-item-title>
                 </v-list-item>
-                <v-list-item>
-                    <v-list-item-title>
-                        <a
-                            href="https://avax.to/telegram"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            class="wallet_link"
-                        >
-                            AVXTO Telegram Group
-                        </a>
-                    </v-list-item-title>
+                <v-list-item
+                    href="https://avax.to/telegram"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                >
+                    <v-list-item-title>AVXTO Telegram Group</v-list-item-title>
                 </v-list-item>
 
-                <v-list-item>
-                    <v-list-item-title>
-                        <a
-                            href="https://avax.to/avxto/"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            class="wallet_link"
-                        >
-                            AVXTO Manual and Blog
-                        </a>
-                    </v-list-item-title>
+                <v-list-item
+                    href="https://avax.to/avxto/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                >
+                    <v-list-item-title>AVXTO Manual and Blog</v-list-item-title>
                 </v-list-item>
-                <v-list-item>
-                    <v-list-item-title>
-                        <a
-                            href="https://avax.to/avxto/quick-start/"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            class="wallet_link"
-                        >
-                            AVXTO Quick Start
-                        </a>
-                    </v-list-item-title>
+                <v-list-item
+                    href="https://avax.to/avxto/quick-start/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                >
+                    <v-list-item-title>AVXTO Quick Start</v-list-item-title>
                 </v-list-item>
 
-                <v-list-item>
-                    <v-list-item-title>
-                        <a
-                            href="https://avax.to/avxto/faq/"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            class="wallet_link"
-                        >
-                            AVXTO FAQ
-                        </a>
-                    </v-list-item-title>
+                <v-list-item
+                    href="https://avax.to/avxto/faq/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                >
+                    <v-list-item-title>AVXTO FAQ</v-list-item-title>
                 </v-list-item>
-                <v-list-item>
-                    <v-list-item-title>
-                        <a
-                            href="https://avax.to/avxto/privacy/"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            class="wallet_link"
-                        >
-                            AVXTO Privacy
-                        </a>
-                    </v-list-item-title>
+                <v-list-item
+                    href="https://avax.to/avxto/privacy/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                >
+                    <v-list-item-title>AVXTO Privacy</v-list-item-title>
                 </v-list-item>
-                <v-list-item>
-                    <v-list-item-title>
-                        <a
-                            href="https://github.com/avaxto/avxtowallet/issues/new"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            class="wallet_link"
-                        >
-                            Report Issue
-                        </a>
-                    </v-list-item-title>
+                <v-list-item
+                    href="https://github.com/avaxto/avxtowallet/issues/new"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                >
+                    <v-list-item-title>Report Issue</v-list-item-title>
                 </v-list-item>
-                <v-list-item>
-                    <v-list-item-title>
-                        <a
-                            href="https://github.com/avaxto/avxtowallet/issues"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            class="wallet_link"
-                        >
-                            Check Issues
-                        </a>
-                    </v-list-item-title>
+                <v-list-item
+                    href="https://github.com/avaxto/avxtowallet/issues"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                >
+                    <v-list-item-title>Check Issues</v-list-item-title>
                 </v-list-item>
             </v-list>
         </v-menu>
@@ -407,21 +334,17 @@ export default defineComponent({
 @use '../main';
 @use '../light_theme';
 
-.wallet_link {
-    font-size: 14px !important;
+// Link rows render as <a class="v-list-item"> (see the note atop the
+// template). Bootstrap styles every <a> as an underlined link-coloured one,
+// and Vuetify tints the row for the current route; neither is how these menus
+// have ever looked, so both are put back to a plain item.
+:deep(a.v-list-item) {
     color: var(--primary-color) !important;
-    text-decoration: none;
+    text-decoration: none !important;
 }
 
-// Vuetify applies its own text color straight to the <a>/router-link
-// rendered inside .v-list-item-title, so color:inherit from the title
-// wrapper (see the :deep(.v-list-item-title) rule below) never actually
-// reached it — same fix as Sidebar.vue's nav links: set the theme-aware
-// color explicitly, right on the link itself.
-:deep(.v-list-item-title a),
-:deep(.v-list-item-title .router-link-active) {
-    color: var(--primary-color) !important;
-    text-decoration: none;
+:deep(.v-list-item--active > .v-list-item__overlay) {
+    opacity: 0 !important;
 }
 
 .menu-btn {

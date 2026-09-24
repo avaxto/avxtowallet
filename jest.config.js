@@ -74,6 +74,8 @@ module.exports = {
                 '@unhead',
                 'hookable',
                 'vue3-virtual-scroll-list',
+                // ESM-only; needed to mount real menus (tests/navbarMenuClicks).
+                'vuetify',
             ].join('|') +
             ')/)',
     ],

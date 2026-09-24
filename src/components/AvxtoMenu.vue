@@ -28,147 +28,100 @@
                 </v-btn>
             </template>
             <v-list>
-                <v-list-item>
-                    <v-list-item-title>
-                        <!--
-                          `/wallet/swap` sits behind the `ifAuthenticated`
-                          router guard (Swap.vue reads the active wallet's
-                          held-token balances, so it has nothing to render
-                          without a session) — a plain link to it while logged
-                          out just bounces back to Home with no explanation.
-                          So logged out, this doesn't navigate at all: it logs
-                          the wallet in the same way the Navbar's own Connect
-                          Wallet button does (one extension, every platform it
-                          can open — see useInjectedConnect), and only THEN
-                          lands on swap. Logged in, it's an ordinary link —
-                          no extension round trip for a session that already
-                          exists.
+                <!--
+                  `/wallet/swap` sits behind the `ifAuthenticated`
+                  router guard (Swap.vue reads the active wallet's
+                  held-token balances, so it has nothing to render
+                  without a session) — a plain link to it while logged
+                  out just bounces back to Home with no explanation.
+                  So logged out, this doesn't navigate at all: it logs
+                  the wallet in the same way the Navbar's own Connect
+                  Wallet button does (one extension, every platform it
+                  can open — see useInjectedConnect), and only THEN
+                  lands on swap. Logged in, it's an ordinary link —
+                  no extension round trip for a session that already
+                  exists.
 
-                          Gated on `!isConnecting` too, not `isAuth` alone:
-                          `connectInjected` can sweep several platforms in one
-                          pass (Core: Bitcoin/EVM/Solana), and `isAuth` goes
-                          true the moment the FIRST of them connects —
-                          Avalanche, typically, while EVM's own approval
-                          prompt is still pending. Gating on `isAuth` alone
-                          swaps this to the plain router-link right then, mid
-                          -sweep, before the `router.push('/wallet/swap')` at
-                          the end of the sweep has fired — which is exactly
-                          what a first click that "does nothing" (but flips
-                          the menu button to its logged-in label) was: the
-                          connect kept running invisibly in the background,
-                          and only the second click's ordinary router-link
-                          actually navigated anywhere. Keeping this branch
-                          shown until `isConnecting` itself goes false — which
-                          happens only after the whole sweep, navigation
-                          included, has settled — keeps the visible state
-                          honest about what is actually still in flight.
-                        -->
-                        <router-link
-                            v-if="isAuth && !isConnecting"
-                            to="/wallet/swap"
-                            class="wallet_link"
-                        >
-                            Get AVXTO Now
-                        </router-link>
-                        <a
-                            v-else
-                            href="/wallet/swap"
-                            class="wallet_link"
-                            @click.prevent="connectThenSwap"
-                        >
-                            {{ isConnecting ? 'Connecting…' : 'Swap AVXTO' }}
-                        </a>
+                  Gated on `!isConnecting` too, not `isAuth` alone:
+                  `connectInjected` can sweep several platforms in one
+                  pass (Core: Bitcoin/EVM/Solana), and `isAuth` goes
+                  true the moment the FIRST of them connects —
+                  Avalanche, typically, while EVM's own approval
+                  prompt is still pending. Gating on `isAuth` alone
+                  swaps this to the plain router-link right then, mid
+                  -sweep, before the `router.push('/wallet/swap')` at
+                  the end of the sweep has fired — which is exactly
+                  what a first click that "does nothing" (but flips
+                  the menu button to its logged-in label) was: the
+                  connect kept running invisibly in the background,
+                  and only the second click's ordinary router-link
+                  actually navigated anywhere. Keeping this branch
+                  shown until `isConnecting` itself goes false — which
+                  happens only after the whole sweep, navigation
+                  included, has settled — keeps the visible state
+                  honest about what is actually still in flight.
+                -->
+                <v-list-item v-if="isAuth && !isConnecting" to="/wallet/swap">
+                    <v-list-item-title>Get AVXTO Now</v-list-item-title>
+                </v-list-item>
+                <v-list-item v-else @click="connectThenSwap">
+                    <v-list-item-title>
+                        {{ isConnecting ? 'Connecting…' : 'Swap AVXTO' }}
                     </v-list-item-title>
                 </v-list-item>
                 <!-- Logged in only: the page needs a wallet to read a balance from. -->
-                <v-list-item v-if="isAuth && !isConnecting">
-                    <v-list-item-title>
-                        <router-link to="/wallet/moats/dashboard" class="wallet_link">
-                            AVXTO Moat Dashboard
-                        </router-link>
-                    </v-list-item-title>
+                <v-list-item v-if="isAuth && !isConnecting" to="/wallet/moats/dashboard">
+                    <v-list-item-title>AVXTO Moat Dashboard</v-list-item-title>
                 </v-list-item>
-                <v-list-item v-if="isAuth && !isConnecting">
-                    <v-list-item-title>
-                        <router-link to="/wallet/moats/stake" class="wallet_link">
-                            Stake AVXTO (Moats)
-                        </router-link>
-                    </v-list-item-title>
+                <v-list-item v-if="isAuth && !isConnecting" to="/wallet/moats/stake">
+                    <v-list-item-title>Stake AVXTO (Moats)</v-list-item-title>
                 </v-list-item>
-                <v-list-item v-if="isAuth && !isConnecting">
-                    <v-list-item-title>
-                        <router-link to="/wallet/moats/lock" class="wallet_link">
-                            Lock AVXTO (Moats)
-                        </router-link>
-                    </v-list-item-title>
+                <v-list-item v-if="isAuth && !isConnecting" to="/wallet/moats/lock">
+                    <v-list-item-title>Lock AVXTO (Moats)</v-list-item-title>
                 </v-list-item>
-                <v-list-item v-if="isAuth && !isConnecting">
-                    <v-list-item-title>
-                        <router-link to="/wallet/moats/burn" class="wallet_link">
-                            Burn AVXTO (Moats)
-                        </router-link>
-                    </v-list-item-title>
+                <v-list-item v-if="isAuth && !isConnecting" to="/wallet/moats/burn">
+                    <v-list-item-title>Burn AVXTO (Moats)</v-list-item-title>
                 </v-list-item>
                 <!-- Moats link for reference -->
                 
-                <v-list-item>
-                    <v-list-item-title>
-                        <a
-                            href="https://moats.app/moat/0xebe5fbacb882fd313d05684bef591c31f83b0524"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            class="wallet_link"
-                        >
-                            AVXTO Moat Page
-                        </a>
-                    </v-list-item-title>
+                <v-list-item
+                    href="https://moats.app/moat/0xebe5fbacb882fd313d05684bef591c31f83b0524"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                >
+                    <v-list-item-title>AVXTO Moat Page</v-list-item-title>
                 </v-list-item>
-                <v-list-item>
-                    <v-list-item-title>
-                        <a
-                            href="https://lfj.gg/avalanche/trade/0xf56cecc07d97ac50630022cf84c19e612ae8c93d"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            class="wallet_link"
-                        >
-                            Buy AVXTO at LFJ
-                        </a>
-                    </v-list-item-title>
+                <v-list-item
+                    href="https://lfj.gg/avalanche/trade/0xf56cecc07d97ac50630022cf84c19e612ae8c93d"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                >
+                    <v-list-item-title>Buy AVXTO at LFJ</v-list-item-title>
                 </v-list-item>
                 
-                <v-list-item>
-                    <v-list-item-title>
-                        <!--
-                        Not a plain link: ArenaTrade lists both Avalanche's and
-                        Robinhood's AVXTO under the same symbol at two
-                        different contract addresses, and buying on the wrong
-                        one is a real-money mistake that a hover-only tooltip
-                        is too easy to miss. Clicking opens the notice modal
-                        below instead of navigating; the link only opens once
-                        the user has actually seen it and pressed Proceed.
-                    -->
-                        <a
-                            :href="arenaTradeUrl"
-                            class="wallet_link"
-                            title="In ArenaTrade make sure to switch to Avalanche mode to buy AVXTO. Robinhood CA is on a different address."
-                            @click.prevent="openArenaTradeNotice"
-                        >
-                            Buy AVXTO at ArenaTrade
-                        </a>
+                <!--
+                Not a plain link: ArenaTrade lists both Avalanche's and
+                Robinhood's AVXTO under the same symbol at two
+                different contract addresses, and buying on the wrong
+                one is a real-money mistake that a hover-only tooltip
+                is too easy to miss. Clicking opens the notice modal
+                below instead of navigating; the link only opens once
+                the user has actually seen it and pressed Proceed.
+                -->
+                <v-list-item @click="openArenaTradeNotice">
+                    <v-list-item-title
+                        title="In ArenaTrade make sure to switch to Avalanche mode to buy AVXTO. Robinhood CA is on a different address."
+                    >
+                        Buy AVXTO at ArenaTrade
                     </v-list-item-title>
                 </v-list-item>
 
-                <v-list-item>
-                    <v-list-item-title>
-                        <a
-                            href="https://dexscreener.com/avalanche/0x2bdebde7e1088e42aafef104b5f7457aca5ab86f"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            class="wallet_link"
-                        >
-                            More info @ DEXScreener
-                        </a>
-                    </v-list-item-title>
+                <v-list-item
+                    href="https://dexscreener.com/avalanche/0x2bdebde7e1088e42aafef104b5f7457aca5ab86f"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                >
+                    <v-list-item-title>More info @ DEXScreener</v-list-item-title>
                 </v-list-item>
             </v-list>
         </v-menu>
@@ -239,7 +192,6 @@ export default defineComponent({
             isAuth,
             isConnecting,
             connectThenSwap,
-            arenaTradeUrl: ARENATRADE_URL,
             arenaTradeSelectImg,
             arenaTradeModalRef,
             openArenaTradeNotice,
@@ -253,21 +205,21 @@ export default defineComponent({
 <style scoped lang="scss">
 @use '../main';
 
-.wallet_link {
-    font-size: 14px !important;
+// Link rows are the link themselves (<a class="v-list-item">) — see the note
+// atop NavbarMenu.vue's template for why a link inside the title was a bug.
+// Bootstrap underlines and recolours every <a>, and Vuetify tints the row for
+// the current route; both are put back to a plain menu item.
+:deep(a.v-list-item) {
     color: var(--primary-color) !important;
-    text-decoration: none;
+    text-decoration: none !important;
 }
 
-// Vuetify applies its own text color straight to the <a>/router-link
-// rendered inside .v-list-item-title, so color:inherit from the title
-// wrapper never actually reaches it — same fix NavbarMenu.vue and
-// Sidebar.vue's nav links use: set the theme-aware color explicitly, right
-// on the link itself.
-:deep(.v-list-item-title a),
-:deep(.v-list-item-title .router-link-active) {
-    color: var(--primary-color) !important;
-    text-decoration: none;
+:deep(.v-list-item--active > .v-list-item__overlay) {
+    opacity: 0 !important;
+}
+
+.v-list-item-title {
+    font-size: 14px !important;
 }
 
 // A wrapper element is required (single-root template) purely to hold the
