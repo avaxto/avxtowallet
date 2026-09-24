@@ -151,6 +151,31 @@
                 <v-list-item to="/wallet/bridge">
                     <v-list-item-title>ARENA Bridge</v-list-item-title>
                 </v-list-item>
+                <!--
+                  Gated at the menu: the click runs the same Moats-burn check
+                  as every other gated button (useBaseAssetGate) and only
+                  navigates when it passes; otherwise the burn modal opens.
+                  A click handler rather than `to`, since the navigation is
+                  conditional.
+
+                  Never `:disabled="isBlocked"` like the page buttons: those
+                  reset when their page unmounts, but this menu lives for the
+                  whole session, so a dismissed item would stay dead even
+                  after the user burns — nothing would ever re-check. It stays
+                  clickable (every click re-reads the burn) and shows a lock
+                  while the requirement is known to be unmet.
+                -->
+                <v-list-item class="gated_item" @click="openSniper">
+                    <v-list-item-title>
+                        ArenaTrade Token Sniper
+                        <fa
+                            v-if="isGated"
+                            icon="lock"
+                            class="gate_lock"
+                            title="Requires AVXTO burned on Moats"
+                        ></fa>
+                    </v-list-item-title>
+                </v-list-item>
                 <v-list-item
                     href="https://arenatrade.ai/"
                     target="_blank"
@@ -243,6 +268,8 @@ import EvmNetworkMenu from '@/components/NetworkSettings/EvmNetworkMenu.vue'
 import SolanaNetworkMenu from '@/components/NetworkSettings/SolanaNetworkMenu.vue'
 import BitcoinNetworkMenu from '@/components/NetworkSettings/BitcoinNetworkMenu.vue'
 import AvxtoMenu from '@/components/AvxtoMenu.vue'
+import { useRouter } from 'vue-router'
+import { useBaseAssetGate } from '@/composables/useBaseAssetGate'
 
 export default defineComponent({
     name: 'NavbarMenu',
@@ -311,6 +338,11 @@ export default defineComponent({
             aboutModal.value?.open()
         }
 
+        // Premium: the Moats burn requirement, checked on the click itself.
+        const router = useRouter()
+        const { isGated, gatedAction } = useBaseAssetGate()
+        const openSniper = () => gatedAction(() => router.push('/wallet/arenatrade/sniper'))
+
         return {
             isAuth,
             isInjected,
@@ -325,6 +357,8 @@ export default defineComponent({
             saveAccount,
             logout,
             openAbout,
+            isGated,
+            openSniper,
         }
     },
 })
@@ -341,6 +375,12 @@ export default defineComponent({
 :deep(a.v-list-item) {
     color: var(--primary-color) !important;
     text-decoration: none !important;
+}
+
+.gate_lock {
+    margin-left: 6px;
+    font-size: 11px;
+    opacity: 0.7;
 }
 
 :deep(.v-list-item--active > .v-list-item__overlay) {
