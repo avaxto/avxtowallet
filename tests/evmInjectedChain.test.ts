@@ -150,3 +150,65 @@ describe('BalanceCard gas coin', () => {
         wrapper.unmount()
     })
 })
+
+describe('BalanceCard wallet badge', () => {
+    it("shows the extension's own name for the EVM tab's injected wallet", async () => {
+        const { mount } = await import('@vue/test-utils')
+        const { useActivePlatformStore } = await import('@/platforms/store')
+        const BalanceCard = (await import('@/components/wallet/TopCards/BalanceCard/BalanceCard.vue'))
+            .default
+
+        const pinia = createPinia()
+        setActivePinia(pinia)
+        installProvider(1)
+        ;(window as any).ethereum.isMetaMask = true
+        await useEvmStore().connectInjected({ navigate: false })
+        await useActivePlatformStore().setActivePlatform('evm')
+
+        const wrapper = mount(BalanceCard, {
+            global: {
+                plugins: [pinia],
+                mocks: { $t: (k: string) => k },
+                stubs: { fa: true, UtxosBreakdownModal: true, Spinner: true },
+            },
+        })
+        expect(wrapper.find('.wallet_type_badge').text()).toBe('MetaMask')
+        wrapper.unmount()
+    })
+
+    it("shows the account's name from inside Core, with the Core wallet on hover", async () => {
+        const { mount, flushPromises } = await import('@vue/test-utils')
+        const { useActivePlatformStore } = await import('@/platforms/store')
+        const BalanceCard = (await import('@/components/wallet/TopCards/BalanceCard/BalanceCard.vue'))
+            .default
+
+        const pinia = createPinia()
+        setActivePinia(pinia)
+        installProvider(1)
+        const eth = (window as any).ethereum
+        eth.isAvalanche = true
+        const plainRequest = eth.request
+        eth.request = async (args: { method: string }) =>
+            args.method === 'avalanche_getAccounts'
+                ? [{ name: 'Account 2', walletName: 'd2n', addressC: '0x' + '1'.repeat(40), active: true }]
+                : plainRequest(args)
+        await useEvmStore().connectInjected({ navigate: false })
+        await useActivePlatformStore().setActivePlatform('evm')
+
+        const wrapper = mount(BalanceCard, {
+            global: {
+                plugins: [pinia],
+                mocks: { $t: (k: string) => k },
+                stubs: { fa: true, UtxosBreakdownModal: true, Spinner: true },
+            },
+        })
+        await flushPromises()
+        await new Promise((r) => setTimeout(r, 0))
+        await wrapper.vm.$nextTick()
+
+        const badge = wrapper.find('.wallet_type_badge')
+        expect(badge.text()).toBe('Account 2')
+        expect(badge.attributes('title')).toBe('Core · d2n')
+        wrapper.unmount()
+    })
+})

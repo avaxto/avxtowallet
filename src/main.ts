@@ -20,6 +20,7 @@ import '@/utils/big-extensions'
 import { installRateLimiter } from '@/providers/rate_limiter'
 // Side-effect import: populates the platform registry before anything reads it.
 import { useActivePlatformStore } from '@/platforms'
+import { discoverInjectedWallets } from '@/js/wallets/injectedWalletName'
 
 console.log('Starting AVAX Toolbox')
 installRateLimiter()
@@ -55,6 +56,11 @@ app.use(i18n)
 
 // Restore the previously selected platform (defaults to Avalanche).
 useActivePlatformStore().initPlatform()
+
+// Ask installed wallet extensions to announce themselves (EIP-6963) now, so
+// their names are known by the time one connects — the wallet-type badge
+// shows it (see js/wallets/injectedWalletName).
+discoverInjectedWallets()
 
 const head = createUnhead()
 app.use({

@@ -77,6 +77,7 @@ import {
 } from 'viem'
 
 import { avalanche } from 'viem/chains'
+import { injectedAccountName, injectedWalletName, type InjectedAccountName } from './injectedWalletName'
 import { address } from 'bitcoinjs-lib'
 
 
@@ -137,6 +138,16 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
 
     private walletClient: WalletClient
     private provider: any
+
+    /** The extension's own name ("Core", "MetaMask", …), or null — see ./injectedWalletName. */
+    get walletName(): string | null {
+        return injectedWalletName(this.provider)
+    }
+
+    /** This account's name inside the extension ("Account 1"), or null — Core only. */
+    get accountName(): InjectedAccountName | null {
+        return injectedAccountName(this.provider, this.ethAddress)
+    }
 
     constructor(provider: any, evmAddress: string) {
         super()

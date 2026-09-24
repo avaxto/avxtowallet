@@ -10,7 +10,13 @@
                     </button>
                 </div>
                 <h4>{{ $t('top.title2') }}</h4>
-                <span v-if="walletTypeLabel" class="wallet_type_badge badge badge-info">{{ walletTypeLabel }}</span>
+                <span
+                    v-if="walletTypeLabel"
+                    class="wallet_type_badge badge badge-info"
+                    :title="walletTypeTitle || undefined"
+                >
+                    {{ walletTypeLabel }}
+                </span>
                 <button v-if="isAvalanche" class="breakdown_toggle" @click="toggleBreakdown">
                     <fa :icon="isBreakdown ? 'eye-slash' : 'eye'"></fa>
                     {{ isBreakdown ? $t('top.balance.hide') : $t('top.balance.show') }}
@@ -135,6 +141,11 @@ import { bnToBig } from '@/helpers/helper'
 type priceDict = { usd: number }
 import { Wallet } from '@/js/wallets/AbstractWallet'
 import UtxosBreakdownModal from '@/components/modals/UtxosBreakdown/UtxosBreakdownModal.vue'
+import {
+    injectedAccountName,
+    injectedWalletName,
+    type InjectedAccountName,
+} from '@/js/wallets/injectedWalletName'
 
 export default defineComponent({
     name: 'BalanceCard',
@@ -460,15 +471,53 @@ export default defineComponent({
             return wallet.value.type === 'injected'
         })
 
+        /**
+         * The names an extension-backed wallet goes by: the account's own name
+         * inside the extension, and the extension's. Avalanche's
+         * `InjectedWallet` answers through its getters; the EVM platform's
+         * injected wallet through its provider. Null when not extension-backed.
+         */
+        const injectedNames = computed(
+            (): { account: InjectedAccountName | null; extension: string | null } | null => {
+                const w = wallet.value as any
+                if (w?.type === 'injected') return { account: w.accountName, extension: w.walletName }
+                if (w) return null
+                const pw = platformStore.activeWallet
+                if (pw?.platformId === 'evm' && pw.accessMethodId === 'injected') {
+                    return {
+                        account: injectedAccountName(pw.native, pw.getPrimaryAddress()),
+                        extension: injectedWalletName(pw.native),
+                    }
+                }
+                return null
+            }
+        )
+
+        /**
+         * The badge beside the balance. For an extension-backed wallet it is
+         * the account's own name as the extension shows it ("Account 1" —
+         * Core tells us, via js/wallets/injectedWalletName), falling back to
+         * the extension's name ("MetaMask", which keeps account labels
+         * private) — never the "Core" this used to print for all of them.
+         */
         const walletTypeLabel = computed((): string => {
+            const names = injectedNames.value
+            if (names) return names.account?.name ?? names.extension ?? 'Extension'
             const typeMap: Record<string, string> = {
                 mnemonic: 'Mnemonic',
                 singleton: 'PKey',
                 ledger: 'Ledger',
-                injected: 'Core',
                 xpub: 'R.O.',
             }
             return typeMap[wallet.value?.type ?? ''] ?? ''
+        })
+
+        /** Hover text: which extension, and which of its wallets the account is in. */
+        const walletTypeTitle = computed((): string => {
+            const names = injectedNames.value
+            if (!names) return ''
+            const extension = names.extension ?? 'Browser extension'
+            return names.account?.walletName ? `${extension} · ${names.account.walletName}` : extension
         })
 
         const isUpdatingBalance = computed((): boolean => {
@@ -534,6 +583,7 @@ export default defineComponent({
             wallet,
             isInjected,
             walletTypeLabel,
+            walletTypeTitle,
             isUpdatingBalance,
             priceDict,
             hasLocked,
