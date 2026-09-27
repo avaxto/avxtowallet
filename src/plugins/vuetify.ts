@@ -27,6 +27,25 @@ import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
 
 library.add(fas, fab, far)
 
+// Vuetify draws its own controls' icons — the checkbox box, radio dots,
+// select arrows, clear buttons — from an icon font, Material Design Icons by
+// default. That font was never installed or loaded here, so every one of
+// them rendered as an empty glyph: an invisible checkbox on /create, among
+// others. Font Awesome 5 (loaded above) is what the app uses everywhere
+// else, and Vuetify ships an icon set mapping all its built-in icons onto it.
+import { aliases as faAliases, fa } from 'vuetify/iconsets/fa'
+
+// Vuetify's `fa` set names four icons the Font Awesome 6 way; this is Font
+// Awesome 5, which calls them something else — left alone they render blank.
+// tests/vuetifyIcons checks every alias against the installed CSS.
+const aliases = {
+    ...faAliases,
+    fullscreen: 'fas fa-expand',
+    volumeHigh: 'fas fa-volume-up',
+    volumeMedium: 'fas fa-volume-down',
+    search: 'fas fa-search',
+}
+
 // Import Vuetify components
 import * as components from 'vuetify/components'
 import * as directives from 'vuetify/directives'
@@ -68,7 +87,9 @@ export default createVuetify({
             },
         },
     },
-    // icons: {
-    //     defaultSet: 'fa',
-    // },
+    icons: {
+        defaultSet: 'fa',
+        aliases,
+        sets: { fa },
+    },
 })

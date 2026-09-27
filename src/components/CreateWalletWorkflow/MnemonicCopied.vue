@@ -35,18 +35,21 @@ export default {
 <style lang="scss">
 @use "../../main";
 
+// Vuetify 3 class names (these used to target Vuetify 2's
+// `.v-input--selection-controls__*`, which no longer exist, so none of it
+// applied and the box and label fell back to the theme's colours). Explicit
+// theme colours: light box and label on the dark page, accent when ticked.
 .checkbox {
     .v-label {
-        color: var(--primary-color);
+        color: var(--primary-color) !important;
+        opacity: 1;
     }
 
-    .v-input--selection-controls__input {
-        > * {
-            color: var(--primary-color) !important;
-        }
+    .v-selection-control__input {
+        color: var(--primary-color) !important;
     }
 
-    .v-input--selection-controls__ripple {
+    .v-selection-control--dirty .v-selection-control__input {
         color: var(--secondary-color) !important;
     }
 }
