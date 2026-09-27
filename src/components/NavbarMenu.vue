@@ -110,6 +110,9 @@
                 <v-list-item to="/wallet/iceberg">
                     <v-list-item-title>Iceberg Order</v-list-item-title>
                 </v-list-item>
+                <v-list-item to="/wallet/limit">
+                    <v-list-item-title>Limit Order</v-list-item-title>
+                </v-list-item>
                 <v-list-item to="/wallet/swap">
                     <v-list-item-title>Token Swap</v-list-item-title>
                 </v-list-item>

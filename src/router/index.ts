@@ -27,6 +27,7 @@ import Launcher from '@/views/wallet/Launcher.vue'
 import MoatsAction from '@/components/wallet/moats/MoatsAction.vue'
 import MoatsDashboard from '@/views/wallet/MoatsDashboard.vue'
 import ArenaSniper from '@/views/wallet/ArenaSniper.vue'
+import LimitOrder from '@/views/wallet/LimitOrder.vue'
 import Swap from '@/views/wallet/Swap.vue'
 import Iceberg from '@/views/wallet/Iceberg.vue'
 import Avxto from '@/views/wallet/Avxto.vue'
@@ -323,6 +324,10 @@ const routes: RouteRecordRaw[] = [
             {
                 path: 'iceberg',
                 component: Iceberg,
+            },
+            {
+                path: 'limit',
+                component: LimitOrder,
             },
             {
                 path: 'avxto',
