@@ -124,7 +124,7 @@
                             rel="noopener noreferrer"
                             class="wallet_link"
                         >
-                            More info @ DEXScreener
+                            AVXTO @ DEXScreener
                         </a>
                     </v-list-item-title>
                 </v-list-item>

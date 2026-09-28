@@ -1,4 +1,4 @@
-import { isRegistryToken, findRegistryEntry } from '@/helpers/registry_token'
+import { isRegistryToken, findRegistryEntry, partitionVerified, verifiedFirst } from '@/helpers/registry_token'
 
 const AVXTO = '0xf56CeCc07d97Ac50630022CF84C19e612ae8C93D'
 const USDC_SOL = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'
@@ -32,5 +32,20 @@ describe('USDC registry entry', () => {
     it('recognises native USDC on C-Chain mainnet', () => {
         expect(findRegistryEntry(USDC, 43114)?.symbol).toBe('USDC')
         expect(isRegistryToken(USDC, 43113)).toBe(false)
+    })
+})
+
+describe('verifiedFirst', () => {
+    it('lifts verified items above the rest, keeping each group in its incoming order', () => {
+        const list = ['a1', 'b1', 'a2', 'b2', 'a3']
+        expect(verifiedFirst(list, (s) => s.startsWith('b'))).toEqual(['b1', 'b2', 'a1', 'a2', 'a3'])
+        expect(partitionVerified(list, (s) => s.startsWith('b'))).toEqual([
+            ['b1', 'b2'],
+            ['a1', 'a2', 'a3'],
+        ])
+    })
+
+    it('leaves a list with nothing verified untouched', () => {
+        expect(verifiedFirst([3, 2, 1], () => false)).toEqual([3, 2, 1])
     })
 })

@@ -107,6 +107,7 @@ import Big from 'big.js'
 
 import Spinner from '@/components/misc/Spinner.vue'
 import RegistryCheck from '@/components/misc/RegistryCheck.vue'
+import { verifiedFirst } from '@/helpers/registry_token'
 import { useSolanaStore } from '@/platforms/solana/store'
 import {
     readSolBalance,
@@ -186,19 +187,18 @@ export default defineComponent({
                 isUnverified: false,
                 isToken2022: false,
             }
-            return [
-                native,
-                ...tokens.value.map((t) => ({
-                    key: t.mint,
-                    mint: t.mint,
-                    symbol: t.symbol,
-                    name: t.name,
-                    amount: t.amount,
-                    isNative: false,
-                    isUnverified: t.isUnverified,
-                    isToken2022: t.isToken2022,
-                })),
-            ]
+            // SOL on top, then pinned (verified) mints, then the rest.
+            const rows: Row[] = tokens.value.map((t) => ({
+                key: t.mint,
+                mint: t.mint,
+                symbol: t.symbol,
+                name: t.name,
+                amount: t.amount,
+                isNative: false,
+                isUnverified: t.isUnverified,
+                isToken2022: t.isToken2022,
+            }))
+            return [native].concat(verifiedFirst(rows, (r) => !r.isUnverified))
         })
 
         const unverifiedCount = computed(

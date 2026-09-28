@@ -43,3 +43,21 @@ export function findRegistryEntry(
 export function isRegistryToken(address: string | null | undefined, chainId?: number): boolean {
     return !!findRegistryEntry(address, chainId)
 }
+
+/**
+ * `list` split into what `isVerified` accepts, then everything else. Stable:
+ * each group keeps its incoming order (e.g. by balance), so this only lifts
+ * verified tokens above the rest, never reshuffles either group.
+ */
+export function partitionVerified<T>(list: T[], isVerified: (item: T) => boolean): [T[], T[]] {
+    const verified: T[] = []
+    const rest: T[] = []
+    for (const item of list) (isVerified(item) ? verified : rest).push(item)
+    return [verified, rest]
+}
+
+/** `list` with verified items first — see `partitionVerified`. */
+export function verifiedFirst<T>(list: T[], isVerified: (item: T) => boolean): T[] {
+    const [verified, rest] = partitionVerified(list, isVerified)
+    return [...verified, ...rest]
+}

@@ -111,6 +111,7 @@ import Big from 'big.js'
 import Spinner from '@/components/misc/Spinner.vue'
 import EtherscanKeyForm from '@/components/wallet/portfolio/EtherscanKeyForm.vue'
 import RegistryCheck from '@/components/misc/RegistryCheck.vue'
+import { isRegistryToken, verifiedFirst } from '@/helpers/registry_token'
 import {
     useEvmPortfolioStore,
     type EvmNetworkResult,
@@ -169,7 +170,13 @@ export default defineComponent({
                         t.network.shortName.toLowerCase().includes(q)
                 )
             }
-            return list
+            // Native assets stay on top, then registry-verified tokens, then
+            // the rest; the store's balance order holds within each group.
+            const natives = list.filter((t) => t.isNative)
+            const tokens = list.filter((t) => !t.isNative)
+            return natives.concat(
+                verifiedFirst(tokens, (t) => isRegistryToken(t.address, t.network.evmChainId))
+            )
         })
 
         const formatBalance = (value: Big): string => {

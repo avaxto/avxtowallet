@@ -18,7 +18,7 @@
             <p>Network is unstable. Some assets may not show.</p>
         </div>
         <div style="flex-grow: 1">
-            <div class="sdk_section_header">Default Assets</div>
+            <div class="sdk_section_header">Popular Assets</div>
             <div v-if="walletBalances.length === 0 && erc20Balances.length === 0 && sdkAssetsFiltered.length === 0 && !sdkLoading" class="empty">
                 <p>{{ $t('portfolio.nobalance') }}</p>
             </div>
@@ -30,17 +30,35 @@
                         :key="asset.id"
                         :asset="asset"
                     ></fungible-row>
+                    <!--
+                      Registry-verified tokens first, whichever source found
+                      them: a verified token the SDK discovered is lifted out of
+                      "All Assets" into this section rather than left below
+                      every unverified default token.
+                    -->
                     <ERC20Row
                         class="asset"
-                        v-for="erc in erc20Balances"
+                        v-for="erc in erc20Verified"
                         :key="erc.data.address"
                         :token="erc"
                     ></ERC20Row>
-                    <template v-if="sdkAssetsFiltered.length > 0">
+                    <CChainSdkRow
+                        class="asset"
+                        v-for="(asset, i) in sdkVerified"
+                        :key="asset.address + (asset.tokenId ?? '') + i"
+                        :asset="asset"
+                    ></CChainSdkRow>
+                    <ERC20Row
+                        class="asset"
+                        v-for="erc in erc20Rest"
+                        :key="erc.data.address"
+                        :token="erc"
+                    ></ERC20Row>
+                    <template v-if="sdkRest.length > 0">
                         <div class="sdk_section_header">All Assets</div>
                         <CChainSdkRow
                             class="asset"
-                            v-for="(asset, i) in sdkAssetsFiltered"
+                            v-for="(asset, i) in sdkRest"
                             :key="asset.address + (asset.tokenId ?? '') + i"
                             :asset="asset"
                             :alternate="i % 2 === 1"
@@ -73,6 +91,7 @@ import AvaAsset from '@/js/AvaAsset'
 import Erc20Token from '@/js/Erc20Token'
 import ERC20Row from '@/components/wallet/portfolio/ERC20Row.vue'
 import CChainSdkRow from '@/components/wallet/portfolio/CChainSdkRow.vue'
+import { isRegistryToken, partitionVerified } from '@/helpers/registry_token'
 import AddERC20TokenModal from '@/components/modals/AddERC20TokenModal.vue'
 import TokenListModal from '@/components/modals/TokenList/TokenListModal.vue'
 import { useCChainSdkBalances } from '@/composables/useCChainSdkBalances'
@@ -237,6 +256,18 @@ export default defineComponent({
             return list
         })
 
+        const isVerifiedAddress = (address: string) => isRegistryToken(address, evmChainId.value)
+        const erc20Split = computed(() =>
+            partitionVerified(erc20Balances.value, (erc) => isVerifiedAddress(erc.data.address))
+        )
+        const sdkSplit = computed(() =>
+            partitionVerified(sdkAssetsFiltered.value, (a) => isVerifiedAddress(a.address))
+        )
+        const erc20Verified = computed(() => erc20Split.value[0])
+        const erc20Rest = computed(() => erc20Split.value[1])
+        const sdkVerified = computed(() => sdkSplit.value[0])
+        const sdkRest = computed(() => sdkSplit.value[1])
+
         const addToken = () => {
             addTokenModal.value?.open()
         }
@@ -255,6 +286,10 @@ export default defineComponent({
             erc20Balances,
             walletBalances,
             sdkAssetsFiltered,
+            erc20Verified,
+            erc20Rest,
+            sdkVerified,
+            sdkRest,
             sdkLoading,
             addToken,
             addTokenList
