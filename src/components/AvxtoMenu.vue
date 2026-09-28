@@ -4,7 +4,8 @@
   Licensed under the BSD 3 Clause License. See LICENSE file in the project root for details.
 -->
 <!--
-  The "AVXTO" dropdown — where to buy it.
+  The "AVXTO" dropdown — where to buy it. Moat links (dashboard, burn/stake/
+  lock, moats.app) live in MoatsMenu.vue.
 
   Extracted out of NavbarMenu.vue so the same menu can appear on the
   pre-login Home page, not only inside the logged-in wallet layout
@@ -80,49 +81,6 @@
                         </a>
                     </v-list-item-title>
                 </v-list-item>
-                <!-- Logged in only: the page needs a wallet to read a balance from. -->
-                <v-list-item v-if="isAuth && !isConnecting">
-                    <v-list-item-title>
-                        <router-link to="/wallet/moats/dashboard" class="wallet_link">
-                            AVXTO Moat Dashboard
-                        </router-link>
-                    </v-list-item-title>
-                </v-list-item>
-                <v-list-item v-if="isAuth && !isConnecting">
-                    <v-list-item-title>
-                        <router-link to="/wallet/moats/stake" class="wallet_link">
-                            Stake AVXTO (Moats)
-                        </router-link>
-                    </v-list-item-title>
-                </v-list-item>
-                <v-list-item v-if="isAuth && !isConnecting">
-                    <v-list-item-title>
-                        <router-link to="/wallet/moats/lock" class="wallet_link">
-                            Lock AVXTO (Moats)
-                        </router-link>
-                    </v-list-item-title>
-                </v-list-item>
-                <v-list-item v-if="isAuth && !isConnecting">
-                    <v-list-item-title>
-                        <router-link to="/wallet/moats/burn" class="wallet_link">
-                            Burn AVXTO (Moats)
-                        </router-link>
-                    </v-list-item-title>
-                </v-list-item>
-                
-                <v-list-item>
-                    <v-list-item-title>
-                        <a
-                            href="https://moats.app/moat/0xebe5fbacb882fd313d05684bef591c31f83b0524"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            class="wallet_link"
-                        >
-                            AVXTO Moat Page
-                        </a>
-                    </v-list-item-title>
-                </v-list-item>
-                
                 <v-list-item>
                     <v-list-item-title>
                         <a

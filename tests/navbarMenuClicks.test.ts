@@ -70,6 +70,7 @@ async function mountMenu() {
                     ConfirmLogout: true,
                     AboutModal: true,
                     AvxtoMenu: true,
+                    MoatsMenu: true,
                     'network-menu': true,
                     NetworkMenu: true,
                     EvmNetworkMenu: true,
@@ -137,7 +138,7 @@ it('opens external items from anywhere on the row, in a new tab', async () => {
     wrapper.unmount()
 })
 
-describe('the AVXTO menu', () => {
+describe('the Moats menu', () => {
     it('navigates from anywhere on the row when logged in', async () => {
         const { useActivePlatformStore } = await import('@/platforms/store')
         const { registerPlatform } = await import('@/platforms/registry')
@@ -164,11 +165,11 @@ describe('the AVXTO menu', () => {
             routes: [{ path: '/:any(.*)*', component: Page }],
         })
         await router.push('/wallet')
-        const AvxtoMenu = (await import('@/components/AvxtoMenu.vue')).default
+        const MoatsMenu = (await import('@/components/MoatsMenu.vue')).default
         const wrapper = mount(
             defineComponent({
-                components: { AvxtoMenu, VApp: components.VApp },
-                template: '<v-app><AvxtoMenu /></v-app>',
+                components: { MoatsMenu, VApp: components.VApp },
+                template: '<v-app><MoatsMenu /></v-app>',
             }),
             {
                 attachTo: document.body.appendChild(document.createElement('div')),
@@ -178,9 +179,9 @@ describe('the AVXTO menu', () => {
                 },
             }
         )
-        await openMenu(wrapper, 'AVXTO')
+        await openMenu(wrapper, 'Moats')
 
-        row('Burn AVXTO (Moats)').dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+        row('Burn AVXTO').dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
 
         expect(await settled(router, '/wallet/moats/burn')).toBe('/wallet/moats/burn')
         wrapper.unmount()

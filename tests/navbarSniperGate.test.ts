@@ -75,6 +75,7 @@ async function mountMenu() {
                     ConfirmLogout: true,
                     AboutModal: true,
                     AvxtoMenu: true,
+                    MoatsMenu: true,
                     NetworkMenu: true,
                     EvmNetworkMenu: true,
                     SolanaNetworkMenu: true,

@@ -4,9 +4,10 @@
   Licensed under the BSD 3 Clause License. See LICENSE file in the project root for details.
 -->
 <!--
-  The AVXTO moat at a glance — everything moats.app's dashboard for it shows,
-  from the same sources (see js/MoatsStats.ts): the contract, moats.app's own
-  API, and DexScreener for the price.
+  Any moat at a glance — everything moats.app's dashboard for it shows, from
+  the same sources (see js/MoatsStats.ts): the contract, moats.app's own API,
+  and DexScreener for the price. The moat comes from the route
+  (/wallet/moats/dashboard/:moat); the menu links to the AVXTO moat.
 
   Works on any tab: the contract is read through a C-Chain connection of its
   own. The "Your position" panels need an EVM address, so they appear
@@ -19,9 +20,9 @@
     <div class="moats_dash">
         <div class="dash_header">
             <div>
-                <h1>AVXTO Moat</h1>
+                <h1>{{ moat ? `${sym} Moat` : 'Moat' }}</h1>
                 <p class="desc">
-                    Live statistics for the AVXTO moat on
+                    Live statistics for the {{ moat ? `${sym} moat` : 'moat' }} on
                     <a :href="moatsAppUrl" target="_blank" rel="noopener noreferrer">moats.app</a>
                     .
                     <span v-if="api && api.config" class="tags">
@@ -37,11 +38,28 @@
                     </span>
                 </p>
             </div>
-            <button type="button" class="refresh_btn" :disabled="loading" @click="load">
+            <button type="button" class="refresh_btn" :disabled="loading || !moatAddr" @click="load">
                 <fa icon="sync" :class="{ spinning: loading }"></fa>
             </button>
         </div>
 
+        <form class="moat_jump" @submit.prevent="openMoat">
+            <input
+                v-model="jumpInput"
+                type="text"
+                class="jump_input mono"
+                placeholder="Moat contract address (0x…)"
+                spellcheck="false"
+                autocomplete="off"
+                data-1p-ignore
+                data-lpignore="true"
+            />
+            <button type="submit" class="jump_btn" :disabled="!jumpTarget">View moat</button>
+        </form>
+
+        <p v-if="!moatAddr" class="error_msg">
+            "{{ moatAddress }}" is not a contract address. Enter a moat's 0x… address above.
+        </p>
         <p v-if="chainError" class="error_msg">{{ chainError }}</p>
 
         <!-- ── Market ── -->
@@ -49,7 +67,7 @@
             <h2>Market</h2>
             <div class="tiles">
                 <div class="tile">
-                    <label>AVXTO price</label>
+                    <label>{{ sym }} price</label>
                     <p class="big">${{ price(market.priceUsd) }}</p>
                     <span :class="market.priceChange24h >= 0 ? 'up' : 'down'">
                         {{ market.priceChange24h >= 0 ? '+' : '' }}{{ market.priceChange24h.toFixed(2) }}% 24h
@@ -83,28 +101,28 @@
             <div v-if="moat" class="tiles">
                 <div class="tile">
                     <label>Total value in moat</label>
-                    <p class="big">{{ tok(moat.totalInContract) }} AVXTO</p>
+                    <p class="big">{{ tok(moat.totalInContract) }} {{ sym }}</p>
                     <span v-if="market">{{ usdOf(moat.totalInContract) }}</span>
                 </div>
                 <div class="tile">
                     <label>Staked</label>
-                    <p>{{ tok(moat.totalStaked) }} AVXTO</p>
+                    <p>{{ tok(moat.totalStaked) }} {{ sym }}</p>
                     <span>{{ share(moat.totalStaked, moatActive) }} of staked + locked</span>
                 </div>
                 <div class="tile">
                     <label>Locked</label>
-                    <p>{{ tok(moat.totalLocked) }} AVXTO</p>
+                    <p>{{ tok(moat.totalLocked) }} {{ sym }}</p>
                     <span>{{ share(moat.totalLocked, moatActive) }} of staked + locked</span>
                 </div>
                 <div class="tile">
                     <label>Burned</label>
-                    <p>{{ tok(moat.totalBurned) }} AVXTO</p>
+                    <p>{{ tok(moat.totalBurned) }} {{ sym }}</p>
                     <span v-if="market">{{ usdOf(moat.totalBurned) }} destroyed</span>
                 </div>
                 <div class="tile">
                     <label>Total points</label>
                     <p>{{ pts(moat.totalPoints) }}</p>
-                    <span>AVXTO-weighted</span>
+                    <span>{{ sym }}-weighted</span>
                 </div>
                 <div class="tile">
                     <label>Active users</label>
@@ -128,23 +146,23 @@
             <div class="tiles">
                 <div class="tile">
                     <label>Wallet balance</label>
-                    <p class="big">{{ tok(user.state.balance) }} AVXTO</p>
+                    <p class="big">{{ tok(user.state.balance) }} {{ sym }}</p>
                     <span v-if="market">{{ usdOf(user.state.balance) }}</span>
                 </div>
                 <div class="tile">
                     <label>Staked</label>
-                    <p>{{ tok(user.state.userStaked) }} AVXTO</p>
-                    <router-link to="/wallet/moats/stake" class="small_link">Stake more</router-link>
+                    <p>{{ tok(user.state.userStaked) }} {{ sym }}</p>
+                    <router-link v-if="isAvxto" to="/wallet/moats/stake" class="small_link">Stake more</router-link>
                 </div>
                 <div class="tile">
                     <label>Locked</label>
-                    <p>{{ tok(user.state.userLocked) }} AVXTO</p>
-                    <router-link to="/wallet/moats/lock" class="small_link">Lock more</router-link>
+                    <p>{{ tok(user.state.userLocked) }} {{ sym }}</p>
+                    <router-link v-if="isAvxto" to="/wallet/moats/lock" class="small_link">Lock more</router-link>
                 </div>
                 <div class="tile">
                     <label>Burned</label>
-                    <p>{{ tok(user.state.userBurned) }} AVXTO</p>
-                    <router-link to="/wallet/moats/burn" class="small_link">Burn more</router-link>
+                    <p>{{ tok(user.state.userBurned) }} {{ sym }}</p>
+                    <router-link v-if="isAvxto" to="/wallet/moats/burn" class="small_link">Burn more</router-link>
                 </div>
                 <div class="tile">
                     <label>Your points</label>
@@ -227,7 +245,7 @@
                     <p>{{ Math.round(api.userPoints.breakdown[src.key]).toLocaleString() }}</p>
                     <span>
                         {{ api.userPoints.breakdownPercent[src.key].toFixed(1) }}% ·
-                        {{ api.userPoints.tokenAmounts[src.key].toLocaleString() }} AVXTO
+                        {{ api.userPoints.tokenAmounts[src.key].toLocaleString() }} {{ sym }}
                     </span>
                 </div>
                 <div v-if="api.mapScore" class="tile">
@@ -312,12 +330,12 @@
                     <dd>1 to 730 days</dd>
                 </div>
                 <div>
-                    <dt>Points per AVXTO</dt>
+                    <dt>Points per {{ sym }}</dt>
                     <dd>1x staked · 2x–5x locked · 10x burned</dd>
                 </div>
                 <div>
                     <dt>Minimum amount</dt>
-                    <dd>{{ fmtUnits(moat.minAmount, moat.token.decimals) }} AVXTO</dd>
+                    <dd>{{ fmtUnits(moat.minAmount, moat.token.decimals) }} {{ sym }}</dd>
                 </div>
                 <div>
                     <dt>Reward tokens</dt>
@@ -335,6 +353,14 @@
                 <div v-if="api && api.config">
                     <dt>Moat version</dt>
                     <dd>v{{ api.config.moatVersion }}</dd>
+                </div>
+                <div>
+                    <dt>Token</dt>
+                    <dd>
+                        {{ moat.token.name || sym }} ({{ sym }})
+                        <RegistryCheck :address="moat.token.address"></RegistryCheck>
+                        <a class="mono" :href="explorer(moat.token.address)" target="_blank" rel="noopener noreferrer">{{ short(moat.token.address) }}</a>
+                    </dd>
                 </div>
                 <div>
                     <dt>Contract</dt>
@@ -357,17 +383,18 @@
 
 <script lang="ts">
 import { defineComponent, ref, computed, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import Big from 'big.js'
 
 import { BN } from '@/avalanche'
 import { activeEvmSigner } from '@/platforms/evmSigner'
-import { MOATS_CONTRACT_ADDRESS, lockMultiplier } from '@/js/Moats'
+import { MOATS_CONTRACT_ADDRESS, isAvxtoMoat, lockMultiplier, parseMoatAddress } from '@/js/Moats'
 import {
-    readAvxtoMarket,
+    readTokenMarket,
     readMoatsApi,
     readMoatsOnChain,
     pointsAsTokens,
-    type AvxtoMarket,
+    type TokenMarket,
     type MoatsApiStats,
     type MoatsContractStats,
     type MoatsUserStats,
@@ -381,13 +408,24 @@ export default defineComponent({
     // come back showing the figures from the last visit.
     name: 'moats_dashboard',
     components: { RegistryCheck },
-    setup() {
+    props: {
+        /** From the route's `:moat`; defaults to the AVXTO moat. */
+        moatAddress: {
+            type: String,
+            default: MOATS_CONTRACT_ADDRESS,
+        },
+    },
+    setup(props) {
+        const router = useRouter()
         const address = computed(() => activeEvmSigner()?.address ?? null)
+        /** The moat on screen, or null when the route's address is malformed. */
+        const moatAddr = computed(() => parseMoatAddress(props.moatAddress))
+        const isAvxto = computed(() => !!moatAddr.value && isAvxtoMoat(moatAddr.value))
 
         const moat = ref<MoatsContractStats | null>(null)
         const user = ref<MoatsUserStats | null>(null)
         const api = ref<MoatsApiStats | null>(null)
-        const market = ref<AvxtoMarket | null>(null)
+        const market = ref<TokenMarket | null>(null)
         const loading = ref(false)
         const chainError = ref('')
         const updatedAt = ref('')
@@ -395,42 +433,70 @@ export default defineComponent({
         let generation = 0
         const load = async () => {
             const me = address.value
+            const target = moatAddr.value
             const mine = ++generation
-            loading.value = true
             chainError.value = ''
+            if (!target) {
+                loading.value = false
+                return
+            }
+            loading.value = true
             // Each source lands on its own, so a slow API never holds up the
-            // on-chain figures (or the other way round).
-            const onChain = readMoatsOnChain(me)
-                .then((r) => {
+            // on-chain figures (or the other way round). The price waits for
+            // the contract read only because that is what names the token.
+            const onChain = readMoatsOnChain(me, target)
+                .then(async (r) => {
                     if (mine !== generation) return
                     moat.value = r.moat
                     user.value = r.user
+                    const m = await readTokenMarket(r.moat.token.address)
+                    if (mine === generation) market.value = m
                 })
                 .catch((e) => {
                     console.warn('[MoatsDashboard] contract read failed:', e)
-                    if (mine === generation) chainError.value = 'Could not read the Moats contract. Try refreshing.'
+                    if (mine === generation)
+                        chainError.value = 'Could not read this Moats contract. Check the address, or try refreshing.'
                 })
-            const offChain = readMoatsApi(me).then((r) => {
+            const offChain = readMoatsApi(me, target).then((r) => {
                 if (mine === generation) api.value = r
             })
-            const price = readAvxtoMarket().then((r) => {
-                if (mine === generation) market.value = r
-            })
-            await Promise.all([onChain, offChain, price])
+            await Promise.all([onChain, offChain])
             if (mine === generation) {
                 loading.value = false
                 updatedAt.value = new Date().toLocaleTimeString()
             }
         }
 
+        // A different moat is a different page: drop everything from the last
+        // one so its figures never show under the new address.
         watch(
-            address,
+            moatAddr,
+            () => {
+                moat.value = null
+                api.value = null
+                market.value = null
+            }
+        )
+
+        watch(
+            [address, moatAddr],
             () => {
                 user.value = null
                 load()
             },
             { immediate: true }
         )
+
+        const sym = computed(() => moat.value?.token.symbol || 'token')
+
+        const jumpInput = ref('')
+        const jumpTarget = computed(() => parseMoatAddress(jumpInput.value))
+        const openMoat = () => {
+            const target = jumpTarget.value
+            if (!target || !router) return
+            router.push(`/wallet/moats/dashboard/${target}`)
+            jumpInput.value = ''
+        }
 
         // ── formatting ──
         const decimals = computed(() => moat.value?.token.decimals ?? 18)
@@ -512,8 +578,14 @@ export default defineComponent({
             epochLabel,
             pointSources,
             flags,
-            contractAddress: MOATS_CONTRACT_ADDRESS,
-            moatsAppUrl: `https://moats.app/moat/${MOATS_CONTRACT_ADDRESS}`,
+            moatAddr,
+            isAvxto,
+            sym,
+            jumpInput,
+            jumpTarget,
+            openMoat,
+            contractAddress: computed(() => moatAddr.value ?? ''),
+            moatsAppUrl: computed(() => `https://moats.app/moat/${moatAddr.value ?? ''}`),
             fmtUnits,
             tok,
             pts,
@@ -790,5 +862,44 @@ table {
 .error_msg {
     color: var(--error);
     margin-bottom: 12px !important;
+}
+
+.moat_jump {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+
+    .jump_input {
+        flex: 1;
+        min-width: 0;
+        padding: 8px 10px;
+        font-size: 13px;
+        color: var(--primary-color);
+        background: transparent;
+        border: 1px solid var(--bg-light);
+        border-radius: 4px;
+
+        &:focus {
+            outline: none;
+            border-color: var(--secondary-color);
+        }
+    }
+
+    .jump_btn {
+        padding: 8px 14px;
+        font-size: 13px;
+        font-weight: bold;
+        white-space: nowrap;
+        border-radius: 4px;
+        border: 1px solid var(--bg-light);
+        background-color: var(--primary-color);
+        color: var(--bg);
+        cursor: pointer;
+
+        &:disabled {
+            opacity: 0.5;
+            cursor: default;
+        }
+    }
 }
 </style>

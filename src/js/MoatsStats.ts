@@ -5,7 +5,8 @@
 
 */
 /**
- * Everything the moats.app dashboard for the AVXTO moat shows, gathered from
+ * Everything the moats.app dashboard for a moat shows (the AVXTO moat by
+ * default, any moat by address), gathered from
  * the same three places it reads (reconstructed from a HAR of that page and
  * of the Core extension serving it):
  *
@@ -19,7 +20,10 @@
  *     call here is independent and optional: a failure blanks that panel, not
  *     the page. The API allows cross-origin reads (it reflects the caller's
  *     Origin).
- *  3. DexScreener, for the AVXTO price, which turns the totals into USD.
+ *  3. DexScreener, for the staked token's price, which turns the totals into USD.
+ *
+ * A moat's token is not assumed: it is read from the moat's own
+ * `stakingToken()`, so the same code serves every moat.
  *
  * One call in the capture is left out: `0xce43c032` on
  * 0x9ae44fdbf8203d01aa00a1f1d82cbdf876b59f95, a contract with no verified
@@ -37,6 +41,7 @@ import ERC20Abi from '@openzeppelin/contracts/build/contracts/ERC20.json'
 import {
     MOATS_CHAIN_ID,
     MOATS_CONTRACT_ADDRESS,
+    readMoatStakingToken,
     readMoatsState,
     type MoatsReader,
     type MoatsState,
@@ -113,11 +118,13 @@ export interface RewardTokenStats extends TokenMeta {
 }
 
 export interface MoatsContractStats {
+    /** The moat's own address. */
+    address: string
     token: TokenMeta & { name: string }
     totalStaked: BN
     totalLocked: BN
     totalBurned: BN
-    /** AVXTO the contract actually holds (staked + locked, plus anything sent to it). */
+    /** Tokens the contract actually holds (staked + locked, plus anything sent to it). */
     totalInContract: BN
     /** Every point in the moat, in the contract's raw units — see `pointsAsTokens`. */
     totalPoints: BN
@@ -173,19 +180,24 @@ async function tokenMeta(r: MoatsReader, address: string): Promise<TokenMeta> {
 
 /**
  * Moat-wide and (when `userAddress` is given) personal figures, all from the
- * contract. `userAddress` is the viewer's EVM address — the same on every EVM
- * chain, so it is right whichever chain their wallet happens to be on.
+ * contract at `moatAddress`. `userAddress` is the viewer's EVM address — the
+ * same on every EVM chain, so it is right whichever chain their wallet
+ * happens to be on.
  */
-export async function readMoatsOnChain(userAddress: string | null): Promise<MoatsOnChainStats> {
+export async function readMoatsOnChain(
+    userAddress: string | null,
+    moatAddress: string = MOATS_CONTRACT_ADDRESS
+): Promise<MoatsOnChainStats> {
     const r = cChainReader(userAddress ?? '')
     const web3 = r.reader()
-    const m = new web3.eth.Contract(STATS_ABI as any, MOATS_CONTRACT_ADDRESS).methods
+    const m = new web3.eth.Contract(STATS_ABI as any, moatAddress).methods
+    const tokenAddress = await readMoatStakingToken(r, moatAddress)
     // @ts-ignore - web3 typing for dynamic ABI
-    const t = new web3.eth.Contract(ERC20Abi.abi as any, AVXTO_CONTRACT_ADDRESS).methods
+    const t = new web3.eth.Contract(ERC20Abi.abi as any, tokenAddress).methods
 
     // The flags, fee and minimum come from the action pages' own read, so
     // both show the same figures; with no viewer it reads the zero address.
-    const [totals, totalPoints, activeUsers, scaling, earlyExit, emergency, owner, feeCollector, rewards, name, base] =
+    const [totals, totalPoints, activeUsers, scaling, earlyExit, emergency, owner, feeCollector, rewards, name, symbol, base] =
         await Promise.all([
             m.getTotalAmounts().call(),
             m.totalPoints().call(),
@@ -196,9 +208,12 @@ export async function readMoatsOnChain(userAddress: string | null): Promise<Moat
             m.owner().call(),
             m.feeCollector().call(),
             m.getRewardTokens().call(),
-            t.name().call(),
+            t.name().call().catch(() => ''),
+            t.symbol().call().catch(() => '?'),
             readMoatsState(
-                userAddress ? r : { ...r, address: '0x0000000000000000000000000000000000000000' }
+                userAddress ? r : { ...r, address: '0x0000000000000000000000000000000000000000' },
+                moatAddress,
+                tokenAddress
             ),
         ])
 
@@ -208,7 +223,8 @@ export async function readMoatsOnChain(userAddress: string | null): Promise<Moat
     const rewardMeta = await Promise.all(rewardAddresses.map((a) => tokenMeta(r, a)))
 
     const moat: MoatsContractStats = {
-        token: { address: AVXTO_CONTRACT_ADDRESS, name: String(name), symbol: 'AVXTO', decimals: base.decimals },
+        address: moatAddress,
+        token: { address: tokenAddress, name: String(name), symbol: String(symbol), decimals: base.decimals },
         totalStaked: toBN(tot._totalStaked ?? tot[0]),
         totalLocked: toBN(tot._totalLocked ?? tot[1]),
         totalBurned: toBN(tot._totalBurned ?? tot[2]),
@@ -455,8 +471,11 @@ export function parseConfig(d: any): MoatsApiConfig {
     }
 }
 
-export async function readMoatsApi(userAddress: string | null): Promise<MoatsApiStats> {
-    const moat = { contractAddress: MOATS_CONTRACT_ADDRESS, network: 'avalanche' }
+export async function readMoatsApi(
+    userAddress: string | null,
+    moatAddress: string = MOATS_CONTRACT_ADDRESS
+): Promise<MoatsApiStats> {
+    const moat = { contractAddress: moatAddress, network: 'avalanche' }
     const [userPoints, leaderboard, averageLock, votingEpoch, config, mapScore] = await Promise.all([
         userAddress
             ? optional('user points', async () =>
@@ -481,7 +500,7 @@ export async function readMoatsApi(userAddress: string | null): Promise<MoatsApi
         }),
         optional('config', async () =>
             parseConfig(
-                await getJson(`${MOATS_API}/moat-config/${MOATS_CONTRACT_ADDRESS}`, { network: 'avalanche' })
+                await getJson(`${MOATS_API}/moat-config/${moatAddress}`, { network: 'avalanche' })
             )
         ),
         userAddress
@@ -496,7 +515,7 @@ export async function readMoatsApi(userAddress: string | null): Promise<MoatsApi
 
 // ─── Price ─────────────────────────────────────────────────────────────────
 
-export interface AvxtoMarket {
+export interface TokenMarket {
     priceUsd: number
     priceChange24h: number
     liquidityUsd: number
@@ -507,16 +526,19 @@ export interface AvxtoMarket {
     pairUrl: string
 }
 
+/** Kept for existing imports; a market is no longer AVXTO-specific. */
+export type AvxtoMarket = TokenMarket
+
 /**
- * The deepest AVXTO pair on Avalanche. Thin pairs quote wild prices (the
- * capture had one with $1 of liquidity), so the price comes from whichever
- * pair holds the most.
+ * The deepest pair on Avalanche with `tokenAddress` as its base token. Thin
+ * pairs quote wild prices (the capture had one with $1 of liquidity), so the
+ * price comes from whichever pair holds the most.
  */
-export function pickMarket(d: any): AvxtoMarket | null {
+export function pickMarket(d: any, tokenAddress: string = AVXTO_CONTRACT_ADDRESS): TokenMarket | null {
     const pairs: any[] = (Array.isArray(d?.pairs) ? d.pairs : []).filter(
         (p: any) =>
             p?.chainId === 'avalanche' &&
-            String(p?.baseToken?.address).toLowerCase() === AVXTO_CONTRACT_ADDRESS.toLowerCase()
+            String(p?.baseToken?.address).toLowerCase() === tokenAddress.toLowerCase()
     )
     if (!pairs.length) return null
     const best = pairs.reduce((a, b) => (num(b?.liquidity?.usd) > num(a?.liquidity?.usd) ? b : a))
@@ -532,6 +554,12 @@ export function pickMarket(d: any): AvxtoMarket | null {
     }
 }
 
-export async function readAvxtoMarket(): Promise<AvxtoMarket | null> {
-    return optional('price', async () => pickMarket(await getJson(DEXSCREENER_TOKEN_URL + AVXTO_CONTRACT_ADDRESS)))
+export async function readTokenMarket(tokenAddress: string): Promise<TokenMarket | null> {
+    return optional('price', async () =>
+        pickMarket(await getJson(DEXSCREENER_TOKEN_URL + tokenAddress), tokenAddress)
+    )
+}
+
+export async function readAvxtoMarket(): Promise<TokenMarket | null> {
+    return readTokenMarket(AVXTO_CONTRACT_ADDRESS)
 }

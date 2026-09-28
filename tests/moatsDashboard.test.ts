@@ -5,7 +5,7 @@
 
 */
 /**
- * /wallet/moats/dashboard: renders the moat's totals with no wallet at all,
+ * /wallet/moats/dashboard/:moat: renders the moat's totals with no wallet at all,
  * adds the viewer's position when there is an EVM address, and keeps going
  * when moats.app's API or the price feed is down.
  */
@@ -19,21 +19,30 @@ const E18 = (n: number) => new BN(String(n)).mul(new BN('1000000000000000000'))
 const signerRef: { current: any } = { current: null }
 jest.mock('@/platforms/evmSigner', () => ({ activeEvmSigner: () => signerRef.current }))
 
+const routerPush = jest.fn()
+jest.mock('vue-router', () => ({
+    ...jest.requireActual('vue-router'),
+    useRouter: () => ({ push: routerPush }),
+}))
+
 const readMoatsApi = jest.fn()
-const readAvxtoMarket = jest.fn()
+const readTokenMarket = jest.fn()
 const readMoatsOnChain = jest.fn()
 jest.mock('@/js/MoatsStats', () => ({
     ...jest.requireActual('@/js/MoatsStats'),
     readMoatsOnChain: (...a: any[]) => readMoatsOnChain(...a),
     readMoatsApi: (...a: any[]) => readMoatsApi(...a),
-    readAvxtoMarket: (...a: any[]) => readAvxtoMarket(...a),
+    readTokenMarket: (...a: any[]) => readTokenMarket(...a),
 }))
 
 import MoatsDashboard from '@/views/wallet/MoatsDashboard.vue'
 
 const ME = '0x5da60a5391bf349e64d4d2ae41c5e28896396fd9'
+const AVXTO_MOAT = '0xebe5fbacb882fd313d05684bef591c31f83b0524'
+const OTHER_MOAT = '0x1111111111111111111111111111111111111111'
 
 const moat = {
+    address: AVXTO_MOAT,
     token: { address: '0xf56c', name: 'AVAX Toolbox Token', symbol: 'AVXTO', decimals: 18 },
     totalStaked: E18(500),
     totalLocked: E18(300),
@@ -69,10 +78,11 @@ const user = {
     earlyExit: { 0: { fee: E18(47), afterFee: E18(3) } },
 }
 
-function mountPage() {
+function mountPage(props: Record<string, unknown> = {}) {
     const pinia = createPinia()
     setActivePinia(pinia)
     return mount(MoatsDashboard, {
+        props,
         global: { plugins: [pinia], stubs: { fa: true, 'router-link': { template: '<a><slot /></a>' } } },
     })
 }
@@ -92,7 +102,7 @@ beforeEach(() => {
         config: null,
         mapScore: null,
     })
-    readAvxtoMarket.mockResolvedValue({
+    readTokenMarket.mockResolvedValue({
         priceUsd: 0.000001867,
         priceChange24h: 14.45,
         liquidityUsd: 9760,
@@ -110,7 +120,7 @@ it('shows the moat totals with no wallet connected, and asks for one for the per
     const wrapper = mountPage()
     await flushPromises()
 
-    expect(readMoatsOnChain).toHaveBeenCalledWith(null)
+    expect(readMoatsOnChain).toHaveBeenCalledWith(null, AVXTO_MOAT)
     const text = wrapper.text()
     expect(text).toContain('800 AVXTO') // in contract
     expect(text).toContain('Active users')
@@ -127,7 +137,7 @@ it("adds the viewer's position, locks and leaderboard rank", async () => {
     await flushPromises()
 
     // Read by address even though the wallet is on another chain.
-    expect(readMoatsOnChain).toHaveBeenCalledWith(ME)
+    expect(readMoatsOnChain).toHaveBeenCalledWith(ME, AVXTO_MOAT)
     const text = wrapper.text()
     expect(text).toContain('Your position')
     expect(text).toContain('1,000 AVXTO') // balance
@@ -148,7 +158,7 @@ it('keeps the on-chain figures when moats.app and the price feed are down', asyn
         config: null,
         mapScore: null,
     })
-    readAvxtoMarket.mockResolvedValue(null)
+    readTokenMarket.mockResolvedValue(null)
     const wrapper = mountPage()
     await flushPromises()
 
@@ -167,5 +177,54 @@ it('says so when the contract cannot be read', async () => {
     await flushPromises()
     warn.mockRestore()
 
-    expect(wrapper.text()).toContain('Could not read the Moats contract')
+    expect(wrapper.text()).toContain('Could not read this Moats contract')
+})
+
+it('shows any moat by address, labelled with that moat\'s own token', async () => {
+    signerRef.current = { address: ME, network: { evmChainId: 43114, name: 'Avalanche' } }
+    const other = {
+        ...moat,
+        address: OTHER_MOAT,
+        token: { address: '0x2222222222222222222222222222222222222222', name: 'Other Token', symbol: 'OTH', decimals: 18 },
+    }
+    readMoatsOnChain.mockResolvedValue({ moat: other, user })
+    const wrapper = mountPage({ moatAddress: OTHER_MOAT.toUpperCase().replace('0X', '0x') })
+    await flushPromises()
+
+    expect(readMoatsOnChain).toHaveBeenCalledWith(ME, OTHER_MOAT)
+    expect(readMoatsApi).toHaveBeenCalledWith(ME, OTHER_MOAT)
+    expect(readTokenMarket).toHaveBeenCalledWith(other.token.address)
+    const text = wrapper.text()
+    expect(text).toContain('OTH Moat')
+    expect(text).toContain('800 OTH')
+    expect(text).not.toContain('AVXTO')
+    // Stake/lock/burn pages act on the AVXTO moat only.
+    expect(text).not.toContain('Stake more')
+})
+
+it('refuses a malformed moat address without reading anything', async () => {
+    signerRef.current = null
+    readMoatsOnChain.mockClear()
+    readMoatsApi.mockClear()
+    const wrapper = mountPage({ moatAddress: 'not-an-address' })
+    await flushPromises()
+
+    expect(readMoatsOnChain).not.toHaveBeenCalled()
+    expect(readMoatsApi).not.toHaveBeenCalled()
+    expect(wrapper.text()).toContain('is not a contract address')
+})
+
+it('opens another moat from the address box', async () => {
+    signerRef.current = null
+    readMoatsOnChain.mockResolvedValue({ moat, user: null })
+    const wrapper = mountPage()
+    await flushPromises()
+
+    const btn = wrapper.find('.jump_btn')
+    await wrapper.find('.jump_input').setValue('nope')
+    expect(btn.attributes('disabled')).toBeDefined()
+
+    await wrapper.find('.jump_input').setValue(` ${OTHER_MOAT} `)
+    await wrapper.find('form.moat_jump').trigger('submit')
+    expect(routerPush).toHaveBeenCalledWith(`/wallet/moats/dashboard/${OTHER_MOAT}`)
 })

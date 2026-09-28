@@ -165,15 +165,33 @@ export type MoatsReader = Pick<EvmSigner, 'network' | 'address' | 'reader'>
 
 // Built from a local web3, deliberately — see the note on `erc20()` in
 // js/ArenaSwap.ts: `new signer.reader().eth.Contract` parses wrongly.
-function moats(signer: MoatsReader) {
+function moats(signer: MoatsReader, moatAddress: string = MOATS_CONTRACT_ADDRESS) {
     const web3 = signer.reader()
-    return new web3.eth.Contract(MOATS_ABI as any, MOATS_CONTRACT_ADDRESS)
+    return new web3.eth.Contract(MOATS_ABI as any, moatAddress)
 }
 
-function avxto(signer: MoatsReader) {
+function avxto(signer: MoatsReader, tokenAddress: string = AVXTO_CONTRACT_ADDRESS) {
     const web3 = signer.reader()
     // @ts-ignore - web3 typing for dynamic ABI
-    return new web3.eth.Contract(ERC20Abi.abi as any, AVXTO_CONTRACT_ADDRESS)
+    return new web3.eth.Contract(ERC20Abi.abi as any, tokenAddress)
+}
+
+const HEX_ADDRESS_RE = /^0x[0-9a-fA-F]{40}$/
+
+/** `input` as a lowercased contract address, or null when it isn't one. */
+export function parseMoatAddress(input: unknown): string | null {
+    const s = typeof input === 'string' ? input.trim() : ''
+    return HEX_ADDRESS_RE.test(s) ? s.toLowerCase() : null
+}
+
+/** True for the AVXTO moat — the one the burn/stake/lock pages act on. */
+export function isAvxtoMoat(moatAddress: string): boolean {
+    return moatAddress.toLowerCase() === MOATS_CONTRACT_ADDRESS.toLowerCase()
+}
+
+/** The ERC-20 a moat stakes, locks and burns — read from the moat itself. */
+export async function readMoatStakingToken(signer: MoatsReader, moatAddress: string): Promise<string> {
+    return String(await moats(signer, moatAddress).methods.stakingToken().call())
 }
 
 const toBN = (v: unknown): BN => new BN(String(v))
@@ -187,10 +205,18 @@ export function assertMoatsChain(signer: MoatsReader): void {
     }
 }
 
-export async function readMoatsState(signer: MoatsReader): Promise<MoatsState> {
+/**
+ * `moatAddress` / `tokenAddress` default to the AVXTO moat, which is all the
+ * action pages use; the dashboard passes another moat and its staking token.
+ */
+export async function readMoatsState(
+    signer: MoatsReader,
+    moatAddress: string = MOATS_CONTRACT_ADDRESS,
+    tokenAddress: string = AVXTO_CONTRACT_ADDRESS
+): Promise<MoatsState> {
     assertMoatsChain(signer)
-    const m = moats(signer).methods
-    const t = avxto(signer).methods
+    const m = moats(signer, moatAddress).methods
+    const t = avxto(signer, tokenAddress).methods
     const me = signer.address
 
     const [
@@ -211,7 +237,7 @@ export async function readMoatsState(signer: MoatsReader): Promise<MoatsState> {
     ] = await Promise.all([
         t.decimals().call(),
         t.balanceOf(me).call(),
-        t.allowance(me, MOATS_CONTRACT_ADDRESS).call(),
+        t.allowance(me, moatAddress).call(),
         m.userInfo(me).call(),
         m.totalBurned().call(),
         m.totalStaked().call(),

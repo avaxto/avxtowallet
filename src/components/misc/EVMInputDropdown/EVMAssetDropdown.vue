@@ -1,7 +1,7 @@
 <template>
     <div class="evm_dropdown hover_border" :active="isPopup" :disabled="disabled">
         <button @click="showPopup" :disabled="disabled">
-            Transferring {{ symbol }}<RegistryCheck :address="selectedAddress"></RegistryCheck> (Click to Change)
+            {{ symbol }}<RegistryCheck :address="selectedAddress"></RegistryCheck> (Click to Change)
         </button>
         <EVMTokenSelectModal
             ref="select_modal"

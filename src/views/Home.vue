@@ -6,6 +6,7 @@
                     <div class="home_wrapper">
                         <div class="home_topbar">
                             <AvxtoMenu></AvxtoMenu>
+                            <MoatsMenu></MoatsMenu>
                         </div>
 
                         <h1 class="homeh1">{{ $t('home.desc') }}</h1>
@@ -62,6 +63,7 @@ import { defineComponent, computed } from 'vue'
 import ToS from '@/components/misc/ToS.vue'
 import CookieConsent from '@/components/misc/CookieConsent.vue'
 import AvxtoMenu from '@/components/AvxtoMenu.vue'
+import MoatsMenu from '@/components/MoatsMenu.vue'
 import { useActivePlatformStore } from '@/platforms'
 import diamondAvalanche from '@/assets/diamond-secondary-avalanche.svg'
 import diamondEvm from '@/assets/diamond-secondary-evm.svg'
@@ -69,7 +71,7 @@ import diamondSolana from '@/assets/diamond-secondary-solana.svg'
 
 export default defineComponent({
     name: 'Home',
-    components: { ToS, CookieConsent, AvxtoMenu },
+    components: { ToS, CookieConsent, AvxtoMenu, MoatsMenu },
     setup() {
         const platformStore = useActivePlatformStore()
 

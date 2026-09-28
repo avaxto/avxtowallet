@@ -119,6 +119,7 @@
             </v-list>
         </v-menu>
         <AvxtoMenu></AvxtoMenu>
+        <MoatsMenu></MoatsMenu>
 
         <v-menu offset-y v-if="isAvalanche">
             <template v-slot:activator="{ props }">
@@ -271,6 +272,7 @@ import EvmNetworkMenu from '@/components/NetworkSettings/EvmNetworkMenu.vue'
 import SolanaNetworkMenu from '@/components/NetworkSettings/SolanaNetworkMenu.vue'
 import BitcoinNetworkMenu from '@/components/NetworkSettings/BitcoinNetworkMenu.vue'
 import AvxtoMenu from '@/components/AvxtoMenu.vue'
+import MoatsMenu from '@/components/MoatsMenu.vue'
 import { useRouter } from 'vue-router'
 import { useBaseAssetGate } from '@/composables/useBaseAssetGate'
 
@@ -285,6 +287,7 @@ export default defineComponent({
         SolanaNetworkMenu,
         BitcoinNetworkMenu,
         AvxtoMenu,
+        MoatsMenu,
     },
     setup() {
         const mainStore = useMainStore()

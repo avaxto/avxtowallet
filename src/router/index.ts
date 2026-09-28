@@ -25,6 +25,7 @@ import WalletWizard from '@/views/wallet/WalletWizard.vue'
 import UnifyChains from '@/views/wallet/UnifyChains.vue'
 import Launcher from '@/views/wallet/Launcher.vue'
 import MoatsAction from '@/components/wallet/moats/MoatsAction.vue'
+import { MOATS_CONTRACT_ADDRESS } from '@/js/Moats'
 import MoatsDashboard from '@/views/wallet/MoatsDashboard.vue'
 import ArenaSniper from '@/views/wallet/ArenaSniper.vue'
 import LimitOrder from '@/views/wallet/LimitOrder.vue'
@@ -313,9 +314,17 @@ const routes: RouteRecordRaw[] = [
                 component: MoatsAction,
                 props: { mode: 'lock' },
             },
+            // Any moat by address; the bare path is the AVXTO moat, so old
+            // links keep working. The redirect is a function so the constant
+            // is read at navigation time, not while the router module loads.
             {
                 path: 'moats/dashboard',
+                redirect: () => `/wallet/moats/dashboard/${MOATS_CONTRACT_ADDRESS}`,
+            },
+            {
+                path: 'moats/dashboard/:moat',
                 component: MoatsDashboard,
+                props: (route) => ({ moatAddress: String(route.params.moat ?? '') }),
             },
             {
                 path: 'config',
