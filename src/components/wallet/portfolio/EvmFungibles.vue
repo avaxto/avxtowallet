@@ -32,6 +32,11 @@
                     <p class="name">
                         {{ token.name || token.symbol }}
                         <span class="sym">({{ token.symbol }})</span>
+                        <RegistryCheck
+                            v-if="!token.isNative"
+                            :address="token.address"
+                            :chain-id="token.network.evmChainId"
+                        ></RegistryCheck>
                         <span v-if="token.isNative" class="native_tag">native</span>
                     </p>
                     <a
@@ -105,6 +110,7 @@ import Big from 'big.js'
 
 import Spinner from '@/components/misc/Spinner.vue'
 import EtherscanKeyForm from '@/components/wallet/portfolio/EtherscanKeyForm.vue'
+import RegistryCheck from '@/components/misc/RegistryCheck.vue'
 import {
     useEvmPortfolioStore,
     type EvmNetworkResult,
@@ -118,7 +124,7 @@ const DUST_THRESHOLD = Big('0.000001')
 
 export default defineComponent({
     name: 'EvmFungibles',
-    components: { Spinner, EtherscanKeyForm },
+    components: { Spinner, EtherscanKeyForm, RegistryCheck },
     props: {
         search: { type: String, default: '' },
     },

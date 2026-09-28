@@ -38,7 +38,7 @@
                     <div class="field_head">
                         <label>You pay</label>
                         <span v-if="tokenIn" class="muted">
-                            Balance: {{ balanceOf(tokenIn) }} {{ tokenIn.symbol }}
+                            Balance: {{ balanceOf(tokenIn) }} {{ tokenIn.symbol }}<RegistryCheck :address="tokenIn.address"></RegistryCheck>
                         </span>
                     </div>
                     <div class="row">
@@ -83,7 +83,7 @@
                             @input="onTargetChange"
                         />
                         <span v-if="isResolving" class="state">Resolving…</span>
-                        <span v-else-if="tokenOut" class="state ok">✓ {{ tokenOut.symbol }}</span>
+                        <span v-else-if="tokenOut" class="state ok">✓ {{ tokenOut.symbol }}<RegistryCheck :address="tokenOut.address"></RegistryCheck></span>
                         <span v-else-if="targetError" class="state err">{{ targetError }}</span>
                     </div>
                 </div>
@@ -288,6 +288,7 @@ import { activeEvmSigner } from '@/platforms/evmSigner'
 import { authorizeBatch, authorizeSingle, SessionAuthCancelled } from '@/js/security/authorize'
 import { isOfflineTxId } from '@/stores/offlineSigning'
 import { useBaseAssetGate } from '@/composables/useBaseAssetGate'
+import RegistryCheck from '@/components/misc/RegistryCheck.vue'
 import type { EvmSigner } from '@/evm/signer'
 
 const CHECK_INTERVAL_MS = 15_000
@@ -319,6 +320,7 @@ export default defineComponent({
     // Listed in Wallet.vue's keep-alive `exclude`: leaving the page must
     // destroy the watcher, never keep a cached one polling in the background.
     name: 'limit_order',
+    components: { RegistryCheck },
     setup() {
         // Premium, asked when the order is placed — see useBaseAssetGate.
         const { isBlocked, gatedAction } = useBaseAssetGate()

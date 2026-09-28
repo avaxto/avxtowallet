@@ -22,7 +22,7 @@
                 <div class="token_head">
                     <label>Source token (you pay)</label>
                     <span v-if="tokenIn" class="balance">
-                        Balance: {{ balanceOf(tokenIn) }} {{ tokenIn.symbol }}
+                        Balance: {{ balanceOf(tokenIn) }} {{ tokenIn.symbol }}<RegistryCheck :address="tokenIn.address"></RegistryCheck>
                     </span>
                 </div>
                 <select v-model="tokenInAddr" class="token_select full" :disabled="isLocked">
@@ -38,7 +38,7 @@
                 <div class="token_head">
                     <label>Target token (you receive)</label>
                     <span v-if="tokenOut" class="balance">
-                        {{ tokenOut.symbol }} · {{ tokenOut.decimals }} decimals
+                        {{ tokenOut.symbol }}<RegistryCheck :address="tokenOut.address"></RegistryCheck> · {{ tokenOut.decimals }} decimals
                     </span>
                 </div>
                 <div class="target_row">
@@ -56,7 +56,7 @@
                         data-lpignore="true"
                     />
                     <span v-if="isResolving" class="resolve_state">Resolving…</span>
-                    <span v-else-if="tokenOut" class="resolve_state ok">✓ {{ tokenOut.symbol }}</span>
+                    <span v-else-if="tokenOut" class="resolve_state ok">✓ {{ tokenOut.symbol }}<RegistryCheck :address="tokenOut.address"></RegistryCheck></span>
                     <span v-else-if="targetError" class="resolve_state err">{{ targetError }}</span>
                 </div>
             </div>
@@ -318,6 +318,7 @@ import { activeEvmSigner } from '@/platforms/evmSigner'
 import { AvaWalletCore } from '@/js/wallets/types'
 import { authorizeBatch, SessionAuthCancelled } from '@/js/security/authorize'
 import { useBaseAssetGate } from '@/composables/useBaseAssetGate'
+import RegistryCheck from '@/components/misc/RegistryCheck.vue'
 
 // Gas budget assumptions (units). A single aggregator swap rarely exceeds
 // ~500k gas; the approval (ERC20 inputs only) is a one-time ~80k. The reserve
@@ -356,6 +357,7 @@ export default defineComponent({
     // name is referenced by <keep-alive exclude> in Wallet.vue so this view is
     // never cached — leaving the page fully destroys any in-flight order.
     name: 'iceberg',
+    components: { RegistryCheck },
     setup() {
         // The AVXTO holding requirement, asked at the moment of the
         // action rather than at the door — see useBaseAssetGate. The

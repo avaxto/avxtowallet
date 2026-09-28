@@ -27,7 +27,7 @@
                 </div>
                 <div v-if="selectedTokenAddress" class="contract_row">
                     <span class="contract_label">
-                        Verify that {{ selectedTokenSymbol }} CA - Contract Address Is Correct!
+                        Verify that {{ selectedTokenSymbol }}<RegistryCheck :address="selectedTokenAddress"></RegistryCheck> CA - Contract Address Is Correct!
                     </span>
                     <div class="contract_addr">
                         <a
@@ -233,6 +233,7 @@ import { useOfflineSigningStore, isOfflineTxId, useCChainSdkAssetsStore } from '
 import SignOnlyToggle from '@/components/misc/SignOnlyToggle.vue'
 import SignedTxExport from '@/components/misc/SignedTxExport.vue'
 import CopyText from '@/components/misc/CopyText.vue'
+import RegistryCheck from '@/components/misc/RegistryCheck.vue'
 
 export default defineComponent({
     name: 'FormC',
@@ -244,6 +245,7 @@ export default defineComponent({
         SignOnlyToggle,
         SignedTxExport,
         CopyText,
+        RegistryCheck,
     },
     setup() {
         const mainStore = useMainStore()

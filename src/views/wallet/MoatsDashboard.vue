@@ -156,6 +156,7 @@
                     <p v-if="!user.pendingRewards.length">None</p>
                     <p v-for="r in user.pendingRewards" :key="r.address">
                         {{ fmtUnits(r.amount, r.decimals) }} {{ r.symbol }}
+                        <RegistryCheck :address="r.address"></RegistryCheck>
                     </p>
                 </div>
             </div>
@@ -322,7 +323,7 @@
                     <dt>Reward tokens</dt>
                     <dd v-if="!moat.rewardTokens.length">None configured</dd>
                     <dd v-for="r in moat.rewardTokens" :key="r.address">
-                        {{ r.symbol }}: {{ fmtUnits(r.deposited, r.decimals) }} deposited,
+                        {{ r.symbol }}<RegistryCheck :address="r.address"></RegistryCheck>: {{ fmtUnits(r.deposited, r.decimals) }} deposited,
                         {{ fmtUnits(r.claimed, r.decimals) }} claimed,
                         {{ fmtUnits(r.unallocated, r.decimals) }} unallocated
                     </dd>
@@ -371,6 +372,7 @@ import {
     type MoatsContractStats,
     type MoatsUserStats,
 } from '@/js/MoatsStats'
+import RegistryCheck from '@/components/misc/RegistryCheck.vue'
 
 const SNOWTRACE = 'https://snowtrace.io/address/'
 
@@ -378,6 +380,7 @@ export default defineComponent({
     // Listed in Wallet.vue's keep-alive `exclude`: a cached instance would
     // come back showing the figures from the last visit.
     name: 'moats_dashboard',
+    components: { RegistryCheck },
     setup() {
         const address = computed(() => activeEvmSigner()?.address ?? null)
 

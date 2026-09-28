@@ -1,7 +1,7 @@
 <template>
     <div class="evm_dropdown hover_border" :active="isPopup" :disabled="disabled">
         <button @click="showPopup" :disabled="disabled">
-            Transferring {{ symbol }} (Click to Change)
+            Transferring {{ symbol }}<RegistryCheck :address="selectedAddress"></RegistryCheck> (Click to Change)
         </button>
         <EVMTokenSelectModal
             ref="select_modal"
@@ -19,6 +19,7 @@ import { Wallet } from '@/js/wallets/AbstractWallet'
 import { bnToBig } from '@/helpers/helper'
 import Big from 'big.js'
 import EVMTokenSelectModal from '@/components/modals/EvmTokenSelect/EVMTokenSelectModal.vue'
+import RegistryCheck from '@/components/misc/RegistryCheck.vue'
 import { iErc721SelectInput } from '@/components/misc/EVMInputDropdown/types'
 import ERC721Token from '@/js/ERC721Token'
 import type { EvmPortfolioToken } from '@/stores/evmPortfolio'
@@ -26,7 +27,8 @@ import type { EvmPortfolioToken } from '@/stores/evmPortfolio'
 export default defineComponent({
     name: 'EVMAssetDropdown',
     components: { 
-        EVMTokenSelectModal 
+        EVMTokenSelectModal,
+        RegistryCheck
     },
     props: {
         disabled: {
@@ -53,6 +55,13 @@ export default defineComponent({
             return 'data' in selected.value
                 ? selected.value.data.symbol
                 : selected.value.symbol
+        })
+
+        const selectedAddress = computed((): string => {
+            if (selected.value === 'native') return ''
+            return 'data' in selected.value
+                ? selected.value.data.address
+                : selected.value.address
         })
 
         const showPopup = () => {
@@ -87,6 +96,7 @@ export default defineComponent({
             isPopup,
             selected,
             symbol,
+            selectedAddress,
             showPopup,
             avaxBalance,
             select,

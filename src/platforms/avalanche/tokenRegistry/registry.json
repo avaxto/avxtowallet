@@ -197,5 +197,13 @@
         "description": "Native token of LFJ, a decentralized exchange on Avalanche offering swapping, staking, yield farming and lending (Banker Joe).",
         "symbol": "JOE",
         "websiteUrl": "https://www.lfj.gg"
+    },
+    {
+        "contractAddress": "0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E",
+        "chainId": 43114,
+        "name": "USD Coin",
+        "description": "Circle's native USD stablecoin on the Avalanche C-Chain, redeemable 1:1 for US dollars.",
+        "symbol": "USDC",
+        "websiteUrl": "https://www.circle.com/usdc"
     }
 ]

@@ -29,6 +29,10 @@
                     <p class="name">
                         {{ row.name }}
                         <span class="sym">({{ row.symbol }})</span>
+                        <RegistryCheck
+                            v-if="!row.isNative && !row.isUnverified"
+                            :address="row.mint"
+                        ></RegistryCheck>
                         <span v-if="row.isNative" class="native_tag">native</span>
                     </p>
                     <a
@@ -102,6 +106,7 @@ import { defineComponent, computed, ref, watch, onMounted } from 'vue'
 import Big from 'big.js'
 
 import Spinner from '@/components/misc/Spinner.vue'
+import RegistryCheck from '@/components/misc/RegistryCheck.vue'
 import { useSolanaStore } from '@/platforms/solana/store'
 import {
     readSolBalance,
@@ -124,7 +129,7 @@ interface Row {
 
 export default defineComponent({
     name: 'SolanaFungibles',
-    components: { Spinner },
+    components: { Spinner, RegistryCheck },
     props: {
         search: { type: String, default: '' },
     },

@@ -6,6 +6,7 @@
         </div>
         <p class="col_name">
             {{ token.data.name }} ({{ token.data.symbol }})
+            <RegistryCheck :address="token.data.address"></RegistryCheck>
             <span>ERC20</span>
             <a
                 :href="explorerUrl"
@@ -40,6 +41,7 @@ import { useRouter } from 'vue-router'
 import Erc20Token from '@/js/Erc20Token'
 import { useAssetsStore, useNotificationsStore } from '@/stores'
 import { goToTransfer } from '@/helpers/transfer_link'
+import RegistryCheck from '@/components/misc/RegistryCheck.vue'
 
 interface Props {
     token: Erc20Token
@@ -47,6 +49,7 @@ interface Props {
 
 export default defineComponent({
     name: 'ERC20Row',
+    components: { RegistryCheck },
     props: {
         token: {
             type: Object as () => Erc20Token,

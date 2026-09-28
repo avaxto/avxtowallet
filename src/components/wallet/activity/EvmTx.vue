@@ -13,7 +13,7 @@
         </div>
         <div v-if="erc20Transfers.length" class="erc20_transfers">
             <div v-for="(t, i) in erc20Transfers" :key="i" class="erc20_transfer">
-                <span class="erc20_symbol">{{ tokenSymbol(t) }}</span>
+                <span class="erc20_symbol">{{ tokenSymbol(t) }}<RegistryCheck :address="t?.erc20Token?.address"></RegistryCheck></span>
                 <span class="erc20_value">{{ formatErc20(t.value, tokenDecimals(t)) }}</span>
             </div>
         </div>
@@ -25,9 +25,11 @@ import { defineComponent, computed } from 'vue'
 import { EvmTransactionDetails } from '@/js/Glacier/models'
 import Big from 'big.js'
 import { useMainStore } from '@/stores'
+import RegistryCheck from '@/components/misc/RegistryCheck.vue'
 
 export default defineComponent({
     name: 'EvmTx',
+    components: { RegistryCheck },
     props: {
         transaction: {
             type: Object as () => EvmTransactionDetails,

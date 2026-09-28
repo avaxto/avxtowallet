@@ -24,7 +24,7 @@
                         title="Click to use max amount"
                         @click="setMaxAmount"
                     >
-                        Balance: {{ tokenIn.balance.toFixed(4) }} {{ tokenIn.symbol }}
+                        Balance: {{ tokenIn.balance.toFixed(4) }} {{ tokenIn.symbol }}<RegistryCheck :address="tokenIn.address"></RegistryCheck>
                     </span>
                 </div>
                 <div class="token_row">
@@ -52,7 +52,7 @@
                             :disabled="isBusy || (!heldTokens.length && !sdkLoading)"
                             @click="toggleTokenDropdown"
                         >
-                            <template v-if="tokenIn">{{ tokenIn.symbol }}</template>
+                            <template v-if="tokenIn">{{ tokenIn.symbol }}<RegistryCheck :address="tokenIn.address"></RegistryCheck></template>
                             <template v-else-if="sdkLoading && !heldTokens.length">
                                 <Spinner class="token_btn_spinner"></Spinner>
                                 Loading…
@@ -81,7 +81,7 @@
                 <div class="token_head">
                     <label>You receive (estimated)</label>
                     <span v-if="tokenOut" class="balance">
-                        {{ tokenOut.symbol }} · {{ tokenOut.decimals }} decimals
+                        {{ tokenOut.symbol }}<RegistryCheck :address="tokenOut.address"></RegistryCheck> · {{ tokenOut.decimals }} decimals
                     </span>
                 </div>
                 <div class="token_row">
@@ -104,7 +104,7 @@
                         @input="onTargetChange"
                     />
                     <span v-if="isResolving" class="resolve_state">Resolving…</span>
-                    <span v-else-if="tokenOut" class="resolve_state ok">✓ {{ tokenOut.symbol }}</span>
+                    <span v-else-if="tokenOut" class="resolve_state ok">✓ {{ tokenOut.symbol }}<RegistryCheck :address="tokenOut.address"></RegistryCheck></span>
                     <span v-else-if="targetError" class="resolve_state err">{{ targetError }}</span>
                 </div>
                 <div v-if="tokenOut && !isNativeToken(tokenOut.address)" class="contract_row">
@@ -222,6 +222,7 @@ import { BN } from '@/avalanche'
 import { bnToBig } from '@/helpers/helper'
 import { toBaseUnits } from '@/js/TokenLauncher'
 import CopyText from '@/components/misc/CopyText.vue'
+import RegistryCheck from '@/components/misc/RegistryCheck.vue'
 import Spinner from '@/components/misc/Spinner.vue'
 import TokenListPicker from '@/components/misc/TokenListPicker.vue'
 import { useHeldErc20Tokens, HeldToken } from '@/composables/useHeldErc20Tokens'
@@ -250,6 +251,7 @@ export default defineComponent({
         CopyText,
         Spinner,
         TokenListPicker,
+        RegistryCheck,
     },
     setup() {
         const assetsStore = useAssetsStore()

@@ -72,7 +72,7 @@
                     <tbody>
                         <tr v-for="t in sorted" :key="t.tokenId" :class="{ fresh: freshIds.has(t.tokenId) }">
                             <td class="token">
-                                <span class="symbol">{{ t.symbol || '?' }}</span>
+                                <span class="symbol">{{ t.symbol || '?' }}<RegistryCheck :address="t.address"></RegistryCheck></span>
                                 <span class="name">{{ t.name || short(t.address) }}</span>
                                 <span v-if="t.graduated" class="grad" title="Moved to a DEX pool; figures cover bonding-curve trades only">
                                     graduated
@@ -131,6 +131,7 @@ import {
     type SniperSort,
     type SniperToken,
 } from '@/js/ArenaSniper'
+import RegistryCheck from '@/components/misc/RegistryCheck.vue'
 
 const PAGE = 25
 const LIVE_INTERVAL_MS = 20_000
@@ -141,6 +142,7 @@ export default defineComponent({
     // Listed in Wallet.vue's keep-alive `exclude`: a cached instance would
     // come back showing a stale list and keep its live timer running.
     name: 'arena_sniper',
+    components: { RegistryCheck },
     setup() {
         const mainStore = useMainStore()
 

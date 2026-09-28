@@ -6,6 +6,7 @@
         </div>
         <p class="col_name">
             {{ asset.name }} ({{ asset.symbol }})
+            <RegistryCheck :address="asset.address"></RegistryCheck>
             <span>{{ ercLabel }}</span>
             <a
                 :href="explorerUrl"
@@ -42,6 +43,7 @@ import { useRouter } from 'vue-router'
 import { useAssetsStore, useNotificationsStore } from '@/stores'
 import type { CChainSdkAsset } from '@/composables/useCChainSdkBalances'
 import { goToTransfer } from '@/helpers/transfer_link'
+import RegistryCheck from '@/components/misc/RegistryCheck.vue'
 
 interface Props {
     asset: CChainSdkAsset
@@ -49,6 +51,7 @@ interface Props {
 
 export default defineComponent({
     name: 'CChainSdkRow',
+    components: { RegistryCheck },
     props: {
         asset: {
             type: Object as () => CChainSdkAsset,

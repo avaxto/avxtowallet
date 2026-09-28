@@ -16,7 +16,10 @@
             <div class="contract_row">
                 <img v-if="tokenIcon" :src="tokenIcon" class="token_icon" alt="" />
                 <div class="contract_info">
-                    <div class="token_title">{{ tokenName }} ({{ tokenSymbol }})</div>
+                    <div class="token_title">
+                        {{ tokenName }} ({{ tokenSymbol }})
+                        <RegistryCheck :address="contractAddress"></RegistryCheck>
+                    </div>
                     <CopyText :value="contractAddress" class="addr_copy">
                         {{ shortAddr(contractAddress) }}
                     </CopyText>
@@ -86,6 +89,7 @@ import { isMainnetNetworkID } from '@/utils/network-utils'
 import { Avalanche as ChainKitAvalanche } from '@avalanche-sdk/chainkit'
 import Big from 'big.js'
 import CopyText from '@/components/misc/CopyText.vue'
+import RegistryCheck from '@/components/misc/RegistryCheck.vue'
 import { web3 } from '@/evm'
 import {
     AVXTO_CONTRACT_ADDRESS,
@@ -118,6 +122,7 @@ export default defineComponent({
     name: 'avxto',
     components: {
         CopyText,
+        RegistryCheck,
     },
     setup() {
         const netID = ava.getNetworkID()

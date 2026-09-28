@@ -30,6 +30,11 @@
                 <div class="token_list_name">
                     <p>
                         {{ t.symbol }}
+                        <RegistryCheck
+                            v-if="!t.isNative"
+                            :address="t.address"
+                            :chain-id="t.network?.evmChainId"
+                        ></RegistryCheck>
                         <span
                             v-if="t.network"
                             class="token_net_chip"
@@ -52,6 +57,7 @@
 <script lang="ts">
 import { defineComponent, ref, computed, type PropType } from 'vue'
 import Spinner from '@/components/misc/Spinner.vue'
+import RegistryCheck from '@/components/misc/RegistryCheck.vue'
 import type { HeldToken } from '@/composables/useHeldErc20Tokens'
 
 // Reusable search + list body for picking a held ERC20 (or native AVAX)
@@ -63,7 +69,7 @@ import type { HeldToken } from '@/composables/useHeldErc20Tokens'
 // wraps it in a Modal), since only that part differs between the two.
 export default defineComponent({
     name: 'TokenListPicker',
-    components: { Spinner },
+    components: { Spinner, RegistryCheck },
     props: {
         tokens: {
             type: Array as PropType<HeldToken[]>,
