@@ -12,6 +12,7 @@ import MnemonicWallet from '@/js/wallets/MnemonicWallet'
 import { LedgerWallet } from '@/js/wallets/LedgerWallet'
 import { SingletonWallet } from '@/js/wallets/SingletonWallet'
 import { InjectedWallet } from '@/js/wallets/InjectedWallet'
+import { isSameInjectedAccount } from '@/helpers/injected_account'
 import { Wallet } from '@/js/wallets/AbstractWallet'
 import { Buffer } from '@/avalanche'
 import { WalletHelper } from '@/helpers/wallet_helper'
@@ -309,6 +310,12 @@ export const useMainStore = defineStore('main', () => {
                     logout()
                     return
                 }
+                // Core re-announces the SAME account on unlock and on chain
+                // switches. Rebuilding for that would blank the session (and
+                // its tab) for nothing, so only a genuinely different account
+                // switches — same rule as the EVM platform's listener.
+                const current = (avalancheWallet.value as InjectedWallet | null)?.ethAddress
+                if (isSameInjectedAccount(current, accounts[0])) return
                 // Switch to the new account immediately without a page reload.
                 switchInjectedAccount(accounts[0])
             }

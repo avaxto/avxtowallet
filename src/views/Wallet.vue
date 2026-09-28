@@ -102,6 +102,13 @@ export default defineComponent({
         /**
          * Locks the wallet once the user has been idle past the timeout.
          *
+         * Locking means ending EVERY connected platform's session and going
+         * back to the login screen — `logoutAll`, the same path as File → Exit.
+         * It used to call `mainStore.logout()`, which predates concurrent
+         * sessions and only ended Avalanche's: the Avalanche tab vanished while
+         * every other tab stayed open with its keys in memory, so the lock
+         * protected nothing.
+         *
          * This check previously did not exist — the timestamp and the mouse
          * listeners were wired up but nothing ever compared them, so the wallet
          * never actually locked.
@@ -113,9 +120,16 @@ export default defineComponent({
          */
         const lockPending = ref(false)
 
+        // Once, and the idle check stops: `logoutAll` awaits each platform's
+        // teardown before reloading, and the 15s check must not start a
+        // second teardown alongside a slow first one.
+        let locked = false
         const doLock = () => {
             lockPending.value = false
-            store.logout()
+            if (locked) return
+            locked = true
+            if (intervalId.value) clearInterval(intervalId.value)
+            platformStore.logoutAll()
         }
 
         const checkIdle = () => {
