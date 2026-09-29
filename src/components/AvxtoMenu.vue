@@ -81,6 +81,15 @@
                         </a>
                     </v-list-item-title>
                 </v-list-item>
+                <!--
+                  The link is on the row itself (see the note atop
+                  NavbarMenu.vue), so a click anywhere on it navigates. Logged
+                  in only: /wallet/* sits behind the auth guard.
+                -->
+                <v-list-item v-if="isAuth && !isConnecting" to="/wallet/avxto" class="row_link">
+                    <v-list-item-title>AVXTO Dashboard</v-list-item-title>
+                </v-list-item>
+
                 <v-list-item>
                     <v-list-item-title>
                         <a
@@ -222,6 +231,15 @@ export default defineComponent({
 // wrapper never actually reaches it — same fix NavbarMenu.vue and
 // Sidebar.vue's nav links use: set the theme-aware color explicitly, right
 // on the link itself.
+:deep(a.v-list-item.row_link) {
+    color: var(--primary-color) !important;
+    text-decoration: none !important;
+}
+
+:deep(.row_link.v-list-item--active > .v-list-item__overlay) {
+    opacity: 0 !important;
+}
+
 :deep(.v-list-item-title a),
 :deep(.v-list-item-title .router-link-active) {
     color: var(--primary-color) !important;

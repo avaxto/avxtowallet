@@ -49,6 +49,7 @@ import {
 
 export const MOATS_API = 'https://api.moats.app/api'
 const DEXSCREENER_TOKEN_URL = 'https://api.dexscreener.com/latest/dex/tokens/'
+const DEXSCREENER_ORDERS_URL = 'https://api.dexscreener.com/orders/v1/avalanche/'
 const HTTP_TIMEOUT_MS = 10_000
 
 const uint = (name: string) => ({ name, type: 'uint256' })
@@ -515,6 +516,9 @@ export async function readMoatsApi(
 
 // ─── Price ─────────────────────────────────────────────────────────────────
 
+export type MarketWindow = 'm5' | 'h1' | 'h6' | 'h24'
+export const MARKET_WINDOWS: MarketWindow[] = ['m5', 'h1', 'h6', 'h24']
+
 export interface TokenMarket {
     priceUsd: number
     priceChange24h: number
@@ -524,6 +528,43 @@ export interface TokenMarket {
     fdvUsd: number
     dex: string
     pairUrl: string
+    /** Price in the pair's quote token (e.g. WAVAX). */
+    priceNative: number
+    quoteSymbol: string
+    /** The deepest pair's figures per window. Null where DexScreener omits a window (no trades in it). */
+    priceChange: Record<MarketWindow, number | null>
+    volumeUsd: Record<MarketWindow, number>
+    txns: Record<MarketWindow, { buys: number; sells: number }>
+    /** Unix ms; 0 when unknown. */
+    pairCreatedAt: number
+    /** Every Avalanche pair of the token, not just the deepest. */
+    pairCount: number
+    totalLiquidityUsd: number
+    totalVolume24hUsd: number
+    /** Tokens pooled in the deepest pair, in whole units. */
+    pooledBase: number
+    pooledQuote: number
+    /** From the token's DexScreener profile; https only. */
+    headerImage: string
+    links: { label: string; url: string }[]
+}
+
+const SOCIAL_LABELS: Record<string, string> = { twitter: 'X', telegram: 'Telegram', discord: 'Discord' }
+
+/** Website and social links from a DexScreener `info` block — https URLs only, since they become hrefs. */
+export function profileLinks(info: any): { label: string; url: string }[] {
+    const out: { label: string; url: string }[] = []
+    const add = (label: unknown, url: unknown) => {
+        const u = String(url ?? '')
+        if (!/^https:\/\/[^\s"'<>]+$/.test(u)) return
+        out.push({ label: String(label ?? '').slice(0, 24) || new URL(u).hostname, url: u })
+    }
+    for (const w of Array.isArray(info?.websites) ? info.websites : []) add(w?.label, w?.url)
+    for (const s of Array.isArray(info?.socials) ? info.socials : []) {
+        const type = String(s?.type ?? '')
+        add(SOCIAL_LABELS[type] ?? type, s?.url)
+    }
+    return out
 }
 
 /** Kept for existing imports; a market is no longer AVXTO-specific. */
@@ -542,6 +583,8 @@ export function pickMarket(d: any, tokenAddress: string = AVXTO_CONTRACT_ADDRESS
     )
     if (!pairs.length) return null
     const best = pairs.reduce((a, b) => (num(b?.liquidity?.usd) > num(a?.liquidity?.usd) ? b : a))
+    const perWindow = <T>(f: (w: MarketWindow) => T) =>
+        Object.fromEntries(MARKET_WINDOWS.map((w) => [w, f(w)])) as Record<MarketWindow, T>
     return {
         priceUsd: num(best.priceUsd),
         priceChange24h: num(best.priceChange?.h24),
@@ -551,6 +594,19 @@ export function pickMarket(d: any, tokenAddress: string = AVXTO_CONTRACT_ADDRESS
         fdvUsd: num(best.fdv),
         dex: String(best.dexId ?? ''),
         pairUrl: /^https:\/\/dexscreener\.com\//.test(String(best.url)) ? String(best.url) : '',
+        priceNative: num(best.priceNative),
+        quoteSymbol: String(best.quoteToken?.symbol ?? ''),
+        priceChange: perWindow((w) => (best.priceChange?.[w] === undefined ? null : num(best.priceChange[w]))),
+        volumeUsd: perWindow((w) => num(best.volume?.[w])),
+        txns: perWindow((w) => ({ buys: num(best.txns?.[w]?.buys), sells: num(best.txns?.[w]?.sells) })),
+        pairCreatedAt: num(best.pairCreatedAt),
+        pairCount: pairs.length,
+        totalLiquidityUsd: pairs.reduce((sum, p) => sum + num(p?.liquidity?.usd), 0),
+        totalVolume24hUsd: pairs.reduce((sum, p) => sum + num(p?.volume?.h24), 0),
+        pooledBase: num(best.liquidity?.base),
+        pooledQuote: num(best.liquidity?.quote),
+        headerImage: /^https:\/\/cdn\.dexscreener\.com\//.test(String(best.info?.header)) ? String(best.info.header) : '',
+        links: profileLinks(best.info),
     }
 }
 
@@ -562,4 +618,24 @@ export async function readTokenMarket(tokenAddress: string): Promise<TokenMarket
 
 export async function readAvxtoMarket(): Promise<TokenMarket | null> {
     return readTokenMarket(AVXTO_CONTRACT_ADDRESS)
+}
+
+export interface DexProfileStatus {
+    /** The token's DexScreener profile order, e.g. "approved"; '' when there is none. */
+    status: string
+    /** Unix ms. */
+    since: number
+}
+
+export function parseDexOrders(d: any): DexProfileStatus {
+    const orders: any[] = Array.isArray(d?.orders) ? d.orders : Array.isArray(d) ? d : []
+    const profile = orders.find((o) => o?.type === 'tokenProfile')
+    return profile ? { status: String(profile.status ?? ''), since: num(profile.paymentTimestamp) } : { status: '', since: 0 }
+}
+
+/** Whether the token has an (approved) DexScreener profile — the public orders endpoint. */
+export async function readDexProfileStatus(tokenAddress: string): Promise<DexProfileStatus | null> {
+    return optional('dexscreener profile', async () =>
+        parseDexOrders(await getJson(`${DEXSCREENER_ORDERS_URL}${tokenAddress}`))
+    )
 }

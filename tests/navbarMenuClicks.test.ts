@@ -187,3 +187,53 @@ describe('the Moats menu', () => {
         wrapper.unmount()
     })
 })
+
+describe('the AVXTO menu', () => {
+    it('navigates from anywhere on the row when logged in', async () => {
+        const { useActivePlatformStore } = await import('@/platforms/store')
+        const { registerPlatform } = await import('@/platforms/registry')
+        const pinia = createPinia()
+        setActivePinia(pinia)
+        // Logged in: a platform with a wallet is the active one.
+        const id = 'test-logged-in-avxto' as any
+        registerPlatform({
+            descriptor: { id, name: id, symbol: 'T', status: 'available' },
+            capabilities: {} as any,
+            accessMethods: [{ id: 'x', label: 'x', kind: 'route', route: '/access' }],
+            chains: [],
+            networks: [],
+            supportsConcurrentSession: true,
+            getActiveWallet: () => ({ getPrimaryAddress: () => '0xabc' }) as any,
+            logout: async () => {},
+        } as any)
+        const platformStore = useActivePlatformStore()
+        platformStore.activePlatformId = id
+        platformStore.notifyWalletChanged()
+
+        const router = createRouter({
+            history: createMemoryHistory(),
+            routes: [{ path: '/:any(.*)*', component: Page }],
+        })
+        await router.push('/wallet')
+        const AvxtoMenu = (await import('@/components/AvxtoMenu.vue')).default
+        const wrapper = mount(
+            defineComponent({
+                components: { AvxtoMenu, VApp: components.VApp },
+                template: '<v-app><AvxtoMenu /></v-app>',
+            }),
+            {
+                attachTo: document.body.appendChild(document.createElement('div')),
+                global: {
+                    plugins: [pinia, router, createVuetify({ components, directives })],
+                    stubs: { fa: true, Modal: true },
+                },
+            }
+        )
+        await openMenu(wrapper, 'AVXTO')
+
+        row('AVXTO Dashboard').dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+
+        expect(await settled(router, '/wallet/avxto')).toBe('/wallet/avxto')
+        wrapper.unmount()
+    })
+})

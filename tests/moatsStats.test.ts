@@ -14,7 +14,9 @@ import {
     parseConfig,
     parseLeaderboard,
     parseUserPoints,
+    parseDexOrders,
     pickMarket,
+    profileLinks,
     pointsAsTokens,
 } from '@/js/MoatsStats'
 
@@ -22,6 +24,7 @@ import userPoints from './fixtures/moats/user-points.json'
 import leaderboard from './fixtures/moats/leaderboard.json'
 import config from './fixtures/moats/config.json'
 import dexscreener from './fixtures/moats/dexscreener.json'
+import liveToken from './fixtures/avxto/dexscreener-token.json'
 
 describe('moats.app API parsers', () => {
     it('reads a user\'s points, breakdown and indexed token amounts', () => {
@@ -75,6 +78,50 @@ describe('pickMarket', () => {
     it('returns null when there is no AVXTO pair on Avalanche', () => {
         expect(pickMarket({ pairs: [] })).toBeNull()
         expect(pickMarket(null)).toBeNull()
+    })
+
+    it('carries every window, totals across pairs, and the pooled amounts', () => {
+        const m = pickMarket(dexscreener)!
+        expect(m.txns.h24).toEqual({ buys: 24, sells: 8 })
+        expect(m.volumeUsd.h1).toBe(157.69)
+        expect(m.priceChange.m5).toBe(-4.12)
+        expect(m.quoteSymbol).toBe('WAVAX')
+        expect(m.pairCount).toBe(2)
+        expect(m.totalLiquidityUsd).toBeCloseTo(9760.36 + 1.12, 2)
+        expect(m.pooledBase).toBe(2612792428)
+    })
+
+    it('reads the live token payload: quiet windows are unknown, not 0%, and profile links are kept', () => {
+        const m = pickMarket(liveToken)!
+        // DexScreener leaves out m5/h1 price change when nothing traded in them.
+        expect(m.priceChange.m5).toBeNull()
+        expect(m.priceChange.h24).toBe(8.29)
+        expect(m.headerImage).toMatch(/^https:\/\/cdn\.dexscreener\.com\//)
+        expect(m.links.map((l) => l.label)).toEqual(['Website', 'Docs', 'X', 'Telegram'])
+    })
+})
+
+describe('profileLinks', () => {
+    it('keeps https links only, since they become hrefs', () => {
+        const links = profileLinks({
+            websites: [{ label: 'Site', url: 'https://ok.example' }, { label: 'Bad', url: 'javascript:alert(1)' }],
+            socials: [{ type: 'twitter', url: 'http://x.com/insecure' }, { type: 'telegram', url: 'https://t.me/x' }],
+        })
+        expect(links).toEqual([
+            { label: 'Site', url: 'https://ok.example' },
+            { label: 'Telegram', url: 'https://t.me/x' },
+        ])
+    })
+})
+
+describe('parseDexOrders', () => {
+    it('finds the token profile order', () => {
+        const p = parseDexOrders({
+            orders: [{ type: 'tokenProfile', status: 'approved', paymentTimestamp: 1750913420995 }],
+            boosts: [],
+        })
+        expect(p).toEqual({ status: 'approved', since: 1750913420995 })
+        expect(parseDexOrders({ orders: [] })).toEqual({ status: '', since: 0 })
     })
 })
 

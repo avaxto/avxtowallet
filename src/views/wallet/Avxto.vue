@@ -5,11 +5,11 @@
 -->
 <template>
     <div class="avxto_page">
-        <h1>AVXTO Activity</h1>
+        <h1>AVXTO Dashboard</h1>
         <p class="desc">
-            Latest ERC-20 transfer activity for the {{ tokenSymbol }} contract on the Avalanche
-            C-Chain, sourced directly from the on-chain transfer log via the same explorer data
-            API used by the Activity page.
+            Price, volume, supply and transfer activity for the {{ tokenSymbol }} token on the Avalanche
+            C-Chain. Market figures come from DexScreener; supply is read from the token contract; activity
+            is computed from the on-chain transfer log.
         </p>
 
         <div class="card contract_card">
@@ -31,6 +31,181 @@
                 </div>
             </div>
         </div>
+
+        <p v-if="!isMainnet" class="state_msg">Switch to Mainnet to view the AVXTO dashboard.</p>
+
+        <!-- ── Market ── -->
+        <img v-if="isMainnet && market && market.headerImage" :src="market.headerImage" class="header_img" alt="" />
+        <section v-if="isMainnet" class="av_panel">
+            <div class="table_head_row">
+                <h2>Market</h2>
+                <a v-if="market && market.pairUrl" class="panel_link" :href="market.pairUrl" target="_blank" rel="noopener noreferrer">
+                    DexScreener ↗
+                </a>
+            </div>
+            <div v-if="market" class="tiles">
+                <div class="tile">
+                    <label>Price</label>
+                    <p class="big">${{ priceText(market.priceUsd) }}</p>
+                    <span>{{ priceText(market.priceNative) }} {{ market.quoteSymbol }}</span>
+                </div>
+                <div class="tile">
+                    <label>Price change</label>
+                    <div class="changes">
+                        <span v-for="w in windows" :key="w" :class="changeClass(market.priceChange[w])">
+                            {{ w }} {{ changeText(market.priceChange[w]) }}
+                        </span>
+                    </div>
+                </div>
+                <div class="tile">
+                    <label>Market cap</label>
+                    <p>{{ usd(market.marketCapUsd) }}</p>
+                    <span>FDV {{ usd(market.fdvUsd) }}</span>
+                </div>
+                <div class="tile">
+                    <label>Liquidity</label>
+                    <p>{{ usd(market.totalLiquidityUsd) }}</p>
+                    <span>across {{ market.pairCount }} {{ market.pairCount === 1 ? 'pair' : 'pairs' }}</span>
+                </div>
+                <div class="tile">
+                    <label>24h volume</label>
+                    <p>{{ usd(market.totalVolume24hUsd) }}</p>
+                    <span>6h {{ usd(market.volumeUsd.h6) }} · 1h {{ usd(market.volumeUsd.h1) }}</span>
+                </div>
+                <div class="tile">
+                    <label>24h trades</label>
+                    <p>{{ market.txns.h24.buys + market.txns.h24.sells }}</p>
+                    <span>{{ market.txns.h24.buys }} buys · {{ market.txns.h24.sells }} sells</span>
+                </div>
+                <div class="tile">
+                    <label>Pooled</label>
+                    <p>{{ amount(market.pooledBase) }} {{ tokenSymbol }}</p>
+                    <span>{{ amount(market.pooledQuote) }} {{ market.quoteSymbol }}</span>
+                </div>
+                <div class="tile">
+                    <label>Main pair</label>
+                    <p>{{ tokenSymbol }}/{{ market.quoteSymbol }}</p>
+                    <span>{{ market.dex }}<template v-if="market.pairCreatedAt"> · since {{ date(market.pairCreatedAt) }}</template></span>
+                </div>
+            </div>
+
+            <div v-if="market" class="table_wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th></th>
+                            <th v-for="w in windows" :key="w">{{ windowLabels[w] }}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Price change</td>
+                            <td v-for="w in windows" :key="w" :class="changeClass(market.priceChange[w])">
+                                {{ changeText(market.priceChange[w]) }}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>Volume</td>
+                            <td v-for="w in windows" :key="w">{{ usd(market.volumeUsd[w]) }}</td>
+                        </tr>
+                        <tr>
+                            <td>Buys / sells</td>
+                            <td v-for="w in windows" :key="w">{{ market.txns[w].buys }} / {{ market.txns[w].sells }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div v-if="market && (market.links.length || profile)" class="links_row">
+                <a v-for="l in market.links" :key="l.url" :href="l.url" target="_blank" rel="noopener noreferrer" class="panel_link">
+                    {{ l.label }} ↗
+                </a>
+                <span v-if="profile && profile.status" class="profile_tag">
+                    DexScreener profile {{ profile.status }}<template v-if="profile.since"> · {{ date(profile.since) }}</template>
+                </span>
+            </div>
+            <p v-else class="state_msg">{{ marketLoading ? 'Loading market data…' : 'Market data unavailable right now.' }}</p>
+        </section>
+
+        <!-- ── Supply ── -->
+        <section v-if="isMainnet" class="av_panel">
+            <h2>Supply</h2>
+            <div v-if="supply" class="tiles">
+                <div class="tile">
+                    <label>Total supply</label>
+                    <p class="big">{{ tokens(supply.total) }}</p>
+                </div>
+                <div class="tile">
+                    <label>Burned</label>
+                    <p>{{ tokens(supply.burned) }}</p>
+                    <span>{{ share(supply.burned, supply.total) }} of supply</span>
+                </div>
+                <div class="tile">
+                    <label>Circulating</label>
+                    <p>{{ tokens(supply.circulating) }}</p>
+                    <span>total minus burned</span>
+                </div>
+                <div class="tile">
+                    <label>Held in Moats</label>
+                    <p>{{ tokens(supply.inMoats) }}</p>
+                    <span>{{ share(supply.inMoats, supply.circulating) }} of circulating, staked + locked</span>
+                    <router-link :to="`/wallet/moats/dashboard/${moatsAddress}`" class="panel_link small">Moats dashboard</router-link>
+                </div>
+            </div>
+            <p v-else class="state_msg">{{ supplyError || 'Reading the token contract…' }}</p>
+        </section>
+
+        <!-- ── Activity ── -->
+        <section v-if="isMainnet && summary" class="av_panel">
+            <div class="table_head_row">
+                <h2>Transfer activity</h2>
+                <span class="window_note">
+                    {{ summary.transfers.toLocaleString() }} transfers since {{ dateTime(summary.windowStart) }}
+                </span>
+            </div>
+            <div class="tiles">
+                <div class="tile">
+                    <label>Last 24h</label>
+                    <p class="big">{{ summary.last24h.transfers.toLocaleString() }}</p>
+                    <span>{{ amount(summary.last24h.volume) }} {{ tokenSymbol }} moved</span>
+                </div>
+                <div class="tile">
+                    <label>Moved in window</label>
+                    <p>{{ amount(summary.volume) }}</p>
+                    <span>{{ summary.transactions.toLocaleString() }} transactions</span>
+                </div>
+                <div class="tile">
+                    <label>Active addresses</label>
+                    <p>{{ summary.uniqueAddresses.toLocaleString() }}</p>
+                </div>
+                <div class="tile">
+                    <label>Into Moats</label>
+                    <p>{{ amount(summary.toMoats.volume) }}</p>
+                    <span>{{ summary.toMoats.transfers }} burns, stakes and locks</span>
+                </div>
+                <div class="tile">
+                    <label>Burned</label>
+                    <p>{{ amount(summary.burned.volume) }}</p>
+                    <span>{{ summary.burned.transfers }} transfers to the dead address</span>
+                </div>
+                <div v-if="summary.largest" class="tile">
+                    <label>Largest transfer</label>
+                    <p>{{ formatAmount(summary.largest.value) }}</p>
+                    <a class="panel_link small" :href="txUrl(summary.largest.txHash)" target="_blank" rel="noopener noreferrer">
+                        {{ dateTime(summary.largest.blockTimestamp) }} ↗
+                    </a>
+                </div>
+            </div>
+
+            <div v-if="summary.mostActive.length" class="active_table">
+                <h3>Most active addresses</h3>
+                <div v-for="a in summary.mostActive" :key="a.address" class="active_row">
+                    <span class="addr_cell">{{ a.name || shortAddr(a.address) }}</span>
+                    <span>{{ a.transfers }} transfers</span>
+                    <span class="amount_cell">{{ amount(a.volume) }} {{ tokenSymbol }}</span>
+                </div>
+            </div>
+        </section>
 
         <div class="card">
             <div class="table_head_row">
@@ -84,6 +259,7 @@
 
 <script lang="ts">
 import { defineComponent, ref, computed, onMounted } from 'vue'
+import ERC20Abi from '@openzeppelin/contracts/build/contracts/ERC20.json'
 import { ava } from '@/AVA'
 import { isMainnetNetworkID } from '@/utils/network-utils'
 import { Avalanche as ChainKitAvalanche } from '@avalanche-sdk/chainkit'
@@ -101,6 +277,15 @@ import {
     TESTNET_AVXTO_NAME,
     TESTNET_AVXTO_ICON,
 } from '@/avxto/AVXTOConf'
+import {
+    readAvxtoMarket,
+    readDexProfileStatus,
+    MARKET_WINDOWS,
+    type DexProfileStatus,
+    type TokenMarket,
+} from '@/js/MoatsStats'
+import { MOATS_CONTRACT_ADDRESS } from '@/js/Moats'
+import { summarizeTransfers, DEAD_ADDRESS, ZERO_ADDRESS, type ActivitySummary } from '@/js/avxtoActivity'
 
 // How far back (in blocks) to scan for transfers. The list-transfers API does
 // not expose a sort order, so we bound the range to the recent chain tip and
@@ -108,6 +293,14 @@ import {
 const BLOCK_RANGE = 300_000
 const MAX_PAGES = 10
 const DISPLAY_LIMIT = 50
+const TOKEN_DECIMALS = 18
+
+interface SupplyStats {
+    total: Big
+    burned: Big
+    circulating: Big
+    inMoats: Big
+}
 
 interface TransferRow {
     txHash: string
@@ -137,7 +330,16 @@ export default defineComponent({
 
         const isLoading = ref(false)
         const error = ref('')
-        const transfers = ref<TransferRow[]>([])
+        /** Everything loaded — the stats use all of it; the table shows the newest. */
+        const allTransfers = ref<TransferRow[]>([])
+        const transfers = computed(() => allTransfers.value.slice(0, DISPLAY_LIMIT))
+        const summary = ref<ActivitySummary | null>(null)
+
+        const market = ref<TokenMarket | null>(null)
+        const profile = ref<DexProfileStatus | null>(null)
+        const marketLoading = ref(false)
+        const supply = ref<SupplyStats | null>(null)
+        const supplyError = ref('')
 
         const snowtraceTokenUrl = computed(() => {
             const base = evmChainId === 43113 ? 'https://testnet.snowtrace.io' : 'https://snowtrace.io'
@@ -215,7 +417,14 @@ export default defineComponent({
                 }
 
                 collected.sort((a, b) => b.blockTimestamp - a.blockTimestamp)
-                transfers.value = collected.slice(0, DISPLAY_LIMIT)
+                allTransfers.value = collected
+                summary.value = collected.length
+                    ? summarizeTransfers(collected, {
+                          nowSec: Math.floor(Date.now() / 1000),
+                          decimals: TOKEN_DECIMALS,
+                          moatsAddress: MOATS_CONTRACT_ADDRESS,
+                      })
+                    : null
             } catch (e: any) {
                 console.error('Failed to fetch AVXTO contract transfers:', e)
                 error.value = e?.message || 'Failed to load AVXTO activity.'
@@ -224,16 +433,67 @@ export default defineComponent({
             }
         }
 
+        const fetchMarket = async () => {
+            marketLoading.value = true
+            try {
+                const [m, p] = await Promise.all([readAvxtoMarket(), readDexProfileStatus(contractAddress)])
+                market.value = m
+                profile.value = p
+            } finally {
+                marketLoading.value = false
+            }
+        }
+
+        /** Supply from the token itself: total, what sits at the burn addresses, and what Moats holds. */
+        const fetchSupply = async () => {
+            supplyError.value = ''
+            try {
+                // @ts-ignore - web3 typing for dynamic ABI
+                const t = new web3.eth.Contract(ERC20Abi.abi as any, contractAddress).methods
+                const [total, dead, zero, moats] = await Promise.all([
+                    t.totalSupply().call(),
+                    t.balanceOf(DEAD_ADDRESS).call(),
+                    t.balanceOf(ZERO_ADDRESS).call(),
+                    t.balanceOf(MOATS_CONTRACT_ADDRESS).call(),
+                ])
+                const scale = new Big(10).pow(TOKEN_DECIMALS)
+                const totalBig = new Big(String(total)).div(scale)
+                const burned = new Big(String(dead)).plus(String(zero)).div(scale)
+                supply.value = {
+                    total: totalBig,
+                    burned,
+                    circulating: totalBig.minus(burned),
+                    inMoats: new Big(String(moats)).div(scale),
+                }
+            } catch (e) {
+                console.warn('Failed to read AVXTO supply:', e)
+                supplyError.value = 'Could not read the token contract.'
+            }
+        }
+
         const refresh = () => {
             if (!isMainnet) return
             fetchTransfers()
+            fetchMarket()
+            fetchSupply()
         }
 
-        onMounted(() => {
-            if (isMainnet) {
-                fetchTransfers()
-            }
-        })
+        onMounted(refresh)
+
+        // ── formatting ──
+        const usd = (v: number) =>
+            v.toLocaleString(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: v < 100 ? 2 : 0 })
+        const priceText = (v: number) => (v ? v.toPrecision(4) : '0')
+        const changeText = (v: number | null) => (v === null ? '--' : `${v >= 0 ? '+' : ''}${v.toFixed(2)}%`)
+        const changeClass = (v: number | null) => (v === null ? '' : v >= 0 ? 'up' : 'down')
+        const windowLabels = { m5: '5m', h1: '1h', h6: '6h', h24: '24h' }
+        const amount = (v: number) => v.toLocaleString(undefined, { maximumFractionDigits: v >= 1000 ? 0 : 2 })
+        const tokens = (v: Big) => amount(Number(v.toString()))
+        const share = (part: Big, whole: Big) => (whole.eq(0) ? '0%' : `${part.div(whole).times(100).toFixed(2)}%`)
+        const date = (ms: number) =>
+            new Date(ms).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
+        const dateTime = (sec: number) =>
+            new Date(sec * 1000).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
 
         return {
             isMainnet,
@@ -245,6 +505,24 @@ export default defineComponent({
             isLoading,
             error,
             transfers,
+            summary,
+            market,
+            marketLoading,
+            supply,
+            supplyError,
+            windows: MARKET_WINDOWS,
+            moatsAddress: MOATS_CONTRACT_ADDRESS,
+            usd,
+            priceText,
+            changeText,
+            changeClass,
+            windowLabels,
+            profile,
+            amount,
+            tokens,
+            share,
+            date,
+            dateTime,
             shortAddr,
             addrLabel,
             formatAmount,
@@ -327,6 +605,192 @@ export default defineComponent({
 
     &:hover {
         text-decoration: underline;
+    }
+}
+
+.av_panel {
+    background: var(--bg-light);
+    border-radius: 12px;
+    padding: 20px 24px;
+    margin-bottom: 20px;
+    color: var(--primary-color);
+
+    h2 {
+        margin: 0 0 14px;
+        font-size: 18px;
+    }
+
+    h3 {
+        font-size: 14px;
+        margin: 18px 0 8px;
+    }
+
+    .table_head_row h2 {
+        margin: 0;
+    }
+}
+
+.tiles {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+    gap: 12px;
+}
+
+.tile {
+    background: var(--bg);
+    border-radius: 8px;
+    padding: 12px 14px;
+    min-width: 0;
+
+    label {
+        font-size: 12px;
+        color: var(--primary-color-light);
+    }
+
+    p {
+        font-size: 15px;
+        font-weight: 600;
+        margin-top: 4px !important;
+        word-break: break-word;
+    }
+
+    .big {
+        font-size: 19px;
+    }
+
+    span {
+        display: block;
+        margin-top: 2px;
+        font-size: 12px;
+        color: var(--primary-color-light);
+    }
+
+    .changes {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 2px 8px;
+        margin-top: 4px;
+
+        span {
+            margin: 0;
+            font-weight: 600;
+        }
+    }
+
+    .up {
+        color: var(--success);
+    }
+
+    .down {
+        color: var(--error);
+    }
+}
+
+.panel_link {
+    color: var(--secondary-color) !important;
+    font-weight: 600;
+    font-size: 13px;
+    text-decoration: none;
+
+    &.small {
+        display: inline-block;
+        margin-top: 4px;
+        font-size: 12px;
+    }
+
+    &:hover {
+        text-decoration: underline;
+    }
+}
+
+.header_img {
+    display: block;
+    width: 100%;
+    max-height: 180px;
+    object-fit: cover;
+    border-radius: 12px;
+    margin-bottom: 20px;
+}
+
+.table_wrap {
+    margin-top: 16px;
+    overflow-x: auto;
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+        color: var(--primary-color);
+    }
+
+    th {
+        text-align: right;
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--primary-color-light);
+        padding: 6px 10px;
+        border-bottom: 1px solid var(--bg);
+    }
+
+    td {
+        text-align: right;
+        padding: 7px 10px;
+        border-bottom: 1px solid var(--bg);
+        white-space: nowrap;
+
+        &:first-child {
+            text-align: left;
+            color: var(--primary-color-light);
+        }
+
+        &.up {
+            color: var(--success);
+        }
+
+        &.down {
+            color: var(--error);
+        }
+    }
+}
+
+.links_row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 16px;
+    margin-top: 14px;
+}
+
+.profile_tag {
+    font-size: 12px;
+    color: var(--success);
+    border: 1px solid var(--success);
+    border-radius: 10px;
+    padding: 0 8px;
+}
+
+.window_note {
+    font-size: 12px;
+    color: var(--primary-color-light);
+}
+
+.active_table {
+    font-size: 13px;
+
+    .active_row {
+        display: grid;
+        grid-template-columns: 1.4fr 1fr 1fr;
+        gap: 10px;
+        padding: 8px 0;
+        border-top: 1px solid var(--bg);
+    }
+
+    .addr_cell {
+        font-family: monospace;
+    }
+
+    .amount_cell {
+        text-align: right;
     }
 }
 
