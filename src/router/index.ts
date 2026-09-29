@@ -59,6 +59,7 @@ import AddressesDerive from '@/views/wallet/AddressesDerive.vue'
 import Broadcast from '@/views/wallet/Broadcast.vue'
 import QuickDelegate from '@/views/wallet/QuickDelegate.vue'
 import Restake from '@/views/wallet/Restake.vue'
+import PharAutoVault from '@/views/wallet/PharAutoVault.vue'
 import Config from '@/views/wallet/Config.vue'
 import WalletReadonly from '@/views/WalletReadonly.vue'
 import InsufficientBalance from '@/views/InsufficientBalance.vue'
@@ -283,6 +284,10 @@ const routes: RouteRecordRaw[] = [
             {
                 path: 'restake',
                 component: Restake,
+            },
+            {
+                path: 'phar/autovault',
+                component: PharAutoVault,
             },
             {
                 path: 'wizard',

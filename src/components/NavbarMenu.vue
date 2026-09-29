@@ -121,6 +121,23 @@
         <AvxtoMenu></AvxtoMenu>
         <MoatsMenu></MoatsMenu>
 
+        <v-menu offset-y>
+            <template v-slot:activator="{ props }">
+                <v-btn text v-bind="props" class="menu-btn">PHAR</v-btn>
+            </template>
+            <v-list>
+                <v-list-item to="/wallet/phar/autovault">
+                    <v-list-item-title>AutoVault Dashboard</v-list-item-title>
+                </v-list-item>
+                <v-list-item href="https://www.phar.gg/autovault" target="_blank" rel="noopener noreferrer">
+                    <v-list-item-title>AutoVault on phar.gg</v-list-item-title>
+                </v-list-item>
+                <v-list-item href="https://www.phar.gg" target="_blank" rel="noopener noreferrer">
+                    <v-list-item-title>Pharaoh Exchange</v-list-item-title>
+                </v-list-item>
+            </v-list>
+        </v-menu>
+
         <v-menu offset-y v-if="isAvalanche">
             <template v-slot:activator="{ props }">
                 <v-btn text v-bind="props" class="menu-btn">Avalanche</v-btn>

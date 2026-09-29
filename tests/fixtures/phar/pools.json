@@ -1,0 +1,32 @@
+{
+ "totalPools": 811,
+ "pools": [
+  {
+   "id": "0x8ac5707f8d4bde1d771d34c7afd81c3922b73379",
+   "symbol": "WAVAX/USDC",
+   "type": "NATIVE/STABLE",
+   "tvlUsd": 9173150.74477489,
+   "voteApr": 35.851349183215625,
+   "voterRewardsUsd": 328076.3329925918,
+   "feeTier": 0
+  },
+  {
+   "id": "0xf01449c0ba930b6e2caca3def3ccbd7a3e589534",
+   "symbol": "WAVAX/USDC",
+   "type": "NATIVE/STABLE",
+   "tvlUsd": 3779472.76954904,
+   "voteApr": 36.787848965657844,
+   "voterRewardsUsd": 251813.17277860234,
+   "feeTier": 1000
+  },
+  {
+   "id": "0x0afdee8162ccead9ac6a30c94f691e6e7d1af670",
+   "symbol": "PHAR/WAVAX",
+   "type": "UNKNOWN",
+   "tvlUsd": 731530.5235450324,
+   "voteApr": 39.36141564938266,
+   "voterRewardsUsd": 4036.9134912328527,
+   "feeTier": 15000
+  }
+ ]
+}
