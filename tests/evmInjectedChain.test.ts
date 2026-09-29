@@ -176,7 +176,7 @@ describe('BalanceCard wallet badge', () => {
         wrapper.unmount()
     })
 
-    it("shows the account's name from inside Core, with the Core wallet on hover", async () => {
+    it("shows the Core wallet's name, with the account's name on hover", async () => {
         const { mount, flushPromises } = await import('@vue/test-utils')
         const { useActivePlatformStore } = await import('@/platforms/store')
         const BalanceCard = (await import('@/components/wallet/TopCards/BalanceCard/BalanceCard.vue'))
@@ -207,8 +207,8 @@ describe('BalanceCard wallet badge', () => {
         await wrapper.vm.$nextTick()
 
         const badge = wrapper.find('.wallet_type_badge')
-        expect(badge.text()).toBe('Account 2')
-        expect(badge.attributes('title')).toBe('Core · d2n')
+        expect(badge.text()).toBe('d2n')
+        expect(badge.attributes('title')).toBe('Core · Account 2')
         wrapper.unmount()
     })
 })

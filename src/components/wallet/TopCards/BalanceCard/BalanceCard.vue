@@ -495,14 +495,13 @@ export default defineComponent({
 
         /**
          * The badge beside the balance. For an extension-backed wallet it is
-         * the account's own name as the extension shows it ("Account 1" —
-         * Core tells us, via js/wallets/injectedWalletName), falling back to
-         * the extension's name ("MetaMask", which keeps account labels
-         * private) — never the "Core" this used to print for all of them.
+         * the extension wallet the account lives in ("Seed Phrase 1" — Core
+         * tells us, via js/wallets/injectedWalletName), falling back to the
+         * extension's name ("MetaMask", which keeps its labels private).
          */
         const walletTypeLabel = computed((): string => {
             const names = injectedNames.value
-            if (names) return names.account?.name ?? names.extension ?? 'Extension'
+            if (names) return names.account?.walletName ?? names.extension ?? 'Extension'
             const typeMap: Record<string, string> = {
                 mnemonic: 'Mnemonic',
                 singleton: 'PKey',
@@ -512,12 +511,12 @@ export default defineComponent({
             return typeMap[wallet.value?.type ?? ''] ?? ''
         })
 
-        /** Hover text: which extension, and which of its wallets the account is in. */
+        /** Hover text: which extension, and the account's name inside it. */
         const walletTypeTitle = computed((): string => {
             const names = injectedNames.value
             if (!names) return ''
             const extension = names.extension ?? 'Browser extension'
-            return names.account?.walletName ? `${extension} · ${names.account.walletName}` : extension
+            return names.account?.name ? `${extension} · ${names.account.name}` : extension
         })
 
         const isUpdatingBalance = computed((): boolean => {
