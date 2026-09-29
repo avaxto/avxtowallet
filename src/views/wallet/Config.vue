@@ -88,6 +88,54 @@
                 </v-btn>
             </div>
 
+            <!-- ── Price source ──────────────────────────────────────── -->
+            <div class="grid_box">
+                <h3>Price Source</h3>
+                <p class="description">
+                    Where the wallet gets the AVAX price for USD values, and the daily price
+                    history used for staking and CSV exports. All of these are free public
+                    APIs that need no key; public tiers are rate-limited, so switch if one
+                    starts failing.
+                </p>
+
+                <div class="form_row">
+                    <label for="config-price-service">Price service</label>
+                    <select id="config-price-service" v-model="priceChoice" class="field">
+                        <option v-for="s in priceServices" :key="s.id" :value="s.id">
+                            {{ s.name }} ({{ s.quote }})
+                        </option>
+                    </select>
+                </div>
+
+                <p class="hint" v-if="priceChoiceService.quote === 'USDT'">
+                    Quoted in USDT, which tracks the US dollar closely but not exactly.
+                </p>
+                <p class="hint" v-if="pricePreview">
+                    {{ pricePreview }}
+                </p>
+                <p class="form_error" v-if="priceErr">{{ priceErr }}</p>
+                <p class="hint">
+                    Currently using <strong>{{ activePriceServiceName }}</strong>.
+                    <a :href="priceChoiceService.homepage" target="_blank" rel="noopener noreferrer">
+                        About {{ priceChoiceService.name }} ↗
+                    </a>
+                </p>
+
+                <div class="sol_buttons">
+                    <v-btn class="button_secondary save_btn" size="small" :loading="priceTesting" @click="testPriceService">
+                        Test
+                    </v-btn>
+                    <v-btn
+                        class="button_primary save_btn"
+                        size="small"
+                        :disabled="priceChoice === activePriceServiceId"
+                        @click="applyPriceService"
+                    >
+                        Apply
+                    </v-btn>
+                </div>
+            </div>
+
             <!--
               Avalanche-only: these fields write to Avalanche's own network
               store (stores/network.ts). Gated on chain shape rather than a
@@ -250,7 +298,8 @@
 import { defineComponent, ref, computed, watch } from 'vue'
 import { globalRateLimiter } from '@/providers/rate_limiter'
 import { useNetworkStore } from '@/stores/network'
-import { useStatusBarStore, useOfflineSigningStore } from '@/stores'
+import { useStatusBarStore, useOfflineSigningStore, useMainStore } from '@/stores'
+import { PRICE_SERVICES, getPriceService, priceServiceId, setPriceService } from '@/prices'
 import { useActivePlatformStore } from '@/platforms'
 import { getSolanaNetworkById, setSolanaRpcOverride } from '@/solana/networks'
 import { resetConnections } from '@/solana/rpc'
@@ -453,6 +502,50 @@ export default defineComponent({
             applyBtcEsplora()
         }
 
+        // ── Price source ──
+        const mainStore = useMainStore()
+        const priceChoice = ref<string>(priceServiceId.value)
+        const priceChoiceService = computed(() => getPriceService(priceChoice.value))
+        const activePriceServiceId = computed(() => priceServiceId.value)
+        const activePriceServiceName = computed(() => getPriceService(priceServiceId.value).name)
+        const pricePreview = ref('')
+        const priceErr = ref('')
+        const priceTesting = ref(false)
+
+        watch(priceChoice, () => {
+            pricePreview.value = ''
+            priceErr.value = ''
+        })
+
+        /** Asks the chosen service for the AVAX price, without switching to it. */
+        const testPriceService = async (): Promise<void> => {
+            const service = priceChoiceService.value
+            priceTesting.value = true
+            priceErr.value = ''
+            pricePreview.value = ''
+            try {
+                const price = await service.getPriceUSD('AVAX')
+                if (priceChoice.value !== service.id) return
+                pricePreview.value = `${service.name}: 1 AVAX = ${price.toLocaleString(undefined, {
+                    maximumFractionDigits: 4,
+                })} ${service.quote}`
+            } catch (e: any) {
+                if (priceChoice.value !== service.id) return
+                priceErr.value = `${service.name} did not answer: ${e?.message ?? String(e)}`
+            } finally {
+                priceTesting.value = false
+            }
+        }
+
+        const applyPriceService = (): void => {
+            const service = setPriceService(priceChoice.value)
+            statusBar.success(`Prices now come from ${service.name}.`)
+            // Refetch now rather than waiting for the next refresh.
+            mainStore.updateAvaxPrice().catch((e: any) => {
+                priceErr.value = `${service.name} did not answer: ${e?.message ?? String(e)}`
+            })
+        }
+
         return {
             offline,
             isBitcoin,
@@ -493,6 +586,18 @@ export default defineComponent({
             btcErr,
             applyBtcEsplora,
             resetBtcEsplora,
+
+            // Price source
+            priceServices: PRICE_SERVICES,
+            priceChoice,
+            priceChoiceService,
+            activePriceServiceId,
+            activePriceServiceName,
+            pricePreview,
+            priceErr,
+            priceTesting,
+            testPriceService,
+            applyPriceService,
         }
     },
 })

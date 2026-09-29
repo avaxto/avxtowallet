@@ -1,31 +1,37 @@
-import axios from 'axios'
+/*
+  Copyright (c) 2026 @REKTBuildr
 
-const CG_DAYS = 1
-const COIN_ID = 'avalanche-2'
-const COINGECKO_URL =
-    'https://api.coingecko.com/api/v3/simple/price?ids=avalanche-2&vs_currencies=usd'
+  Licensed under the BSD 3 Clause License. See LICENSE file in the project root for details.
 
-const coingeckoApi = axios.create({
-    baseURL: 'https://api.coingecko.com/api/v3',
-    timeout: 10000,
-})
+*/
+/**
+ * AVAX prices for the rest of the wallet, from whichever price service the
+ * user chose in Settings (see @/prices). This module used to call CoinGecko
+ * directly; its two exports are unchanged so existing callers keep working.
+ */
+import { getDailyHistoryUSD, getPriceUSD, onPriceServiceChange } from '@/prices'
+import type { PricePoint } from '@/prices'
+
+/** How many days of daily closes `getPriceAtUnixTime` can answer from. */
+const HISTORY_DAYS = 1
 
 export async function getAvaxPriceUSD(): Promise<number> {
-    const res = await axios.get(COINGECKO_URL)
-    return res.data['avalanche-2']['usd']
+    return getPriceUSD('AVAX')
 }
 
-let priceHistory: [number, number][] = []
-async function getPriceHistory() {
-    const res = await coingeckoApi.get(`/coins/${COIN_ID}/market_chart`, {
-        params: {
-            vs_currency: 'usd',
-            days: '' + CG_DAYS,
-            interval: 'daily',
-        },
-    })
+let priceHistory: PricePoint[] = []
+let generation = 0
 
-    priceHistory = res.data.prices
+async function loadPriceHistory(): Promise<void> {
+    const mine = ++generation
+    try {
+        const points = await getDailyHistoryUSD('AVAX', HISTORY_DAYS)
+        // A switch of service mid-request must not be overwritten by the old one.
+        if (mine === generation) priceHistory = points
+    } catch (e) {
+        console.warn('[price_helper] could not load AVAX price history:', e)
+        if (mine === generation) priceHistory = []
+    }
 }
 
 /**
@@ -44,4 +50,9 @@ export function getPriceAtUnixTime(time: number): number | undefined {
     return pricePair[1]
 }
 
-getPriceHistory()
+onPriceServiceChange(() => {
+    priceHistory = []
+    loadPriceHistory()
+})
+
+loadPriceHistory()
