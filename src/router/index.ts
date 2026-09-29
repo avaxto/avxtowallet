@@ -58,6 +58,7 @@ import Addresses from '@/views/wallet/Addresses.vue'
 import AddressesDerive from '@/views/wallet/AddressesDerive.vue'
 import Broadcast from '@/views/wallet/Broadcast.vue'
 import QuickDelegate from '@/views/wallet/QuickDelegate.vue'
+import Restake from '@/views/wallet/Restake.vue'
 import Config from '@/views/wallet/Config.vue'
 import WalletReadonly from '@/views/WalletReadonly.vue'
 import InsufficientBalance from '@/views/InsufficientBalance.vue'
@@ -278,6 +279,10 @@ const routes: RouteRecordRaw[] = [
             {
                 path: 'quickdelegate',
                 component: QuickDelegate,
+            },
+            {
+                path: 'restake',
+                component: Restake,
             },
             {
                 path: 'wizard',

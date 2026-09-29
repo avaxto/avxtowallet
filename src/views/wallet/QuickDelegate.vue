@@ -14,7 +14,12 @@
             </p>
         </div>
 
-        <template v-if="!matched">
+        <div v-if="restake && !matched" class="restake_loading">
+            <Spinner class="restake_spinner"></Spinner>
+            Loading the validator for your restake…
+        </div>
+
+        <template v-else-if="!matched">
             <div class="field amount_field">
                 <h4>Amount to delegate</h4>
                 <p class="hint">Minimum {{ minStakeText }} AVAX.</p>
@@ -33,7 +38,11 @@
                     Between 48 hours and 365 days from now. The chosen validator must
                     stay active at least until this date.
                 </p>
-                <DateForm @change_end="setEnd" :min-duration-ms="MIN_DELEGATION_DURATION_MS"></DateForm>
+                <DateForm
+                    @change_end="setEnd"
+                    :min-duration-ms="MIN_DELEGATION_DURATION_MS"
+                    :initial-end="endDate || undefined"
+                ></DateForm>
             </div>
 
             <div class="field">
@@ -86,7 +95,16 @@
             ></SignedTxExport>
 
             <template v-else-if="!isSuccess">
-                <p class="match_note">
+                <div v-if="restakePlan" class="restake_note">
+                    <p class="match_note">
+                        Restaking your {{ restakeFromText }} delegation: same validator, amount, period and
+                        reward address. Check the details below, then press Delegate.
+                    </p>
+                    <ul v-if="restakePlan.notices.length" class="notices">
+                        <li v-for="n in restakePlan.notices" :key="n">{{ n }}</li>
+                    </ul>
+                </div>
+                <p v-else class="match_note">
                     {{
                         matchCount === 1
                             ? 'Found 1 matching validator.'
@@ -105,15 +123,27 @@
                     :node-i-d="matched.nodeID"
                     :end="endDateObj"
                     :amount="stakeAmt"
-                    reward-destination="local"
+                    :reward-destination="rewardIsOwn ? 'local' : 'custom'"
                     :reward-address="rewardAddress"
                 ></ConfirmPage>
+
+                <div v-if="restakePlan" class="field reward_est">
+                    <h4>Validator fee</h4>
+                    <p>{{ maxFee }}%</p>
+                </div>
 
                 <div v-if="err" class="error">{{ err }}</div>
 
                 <SignOnlyToggle :disabled="isLoading"></SignOnlyToggle>
 
-                <v-btn class="button_primary submit" depressed block :loading="isLoading" @click="submit">
+                <v-btn
+                    class="button_primary submit"
+                    depressed
+                    block
+                    :loading="isLoading"
+                    :disabled="restakeBlocked"
+                    @click="submit"
+                >
                     Delegate
                 </v-btn>
                 <v-btn
@@ -161,7 +191,7 @@
 
 <script lang="ts">
 import 'reflect-metadata'
-import { defineComponent, ref, computed, onMounted } from 'vue'
+import { defineComponent, ref, computed, onMounted, watch } from 'vue'
 import Big from 'big.js'
 
 import {
@@ -189,6 +219,7 @@ import Spinner from '@/components/misc/Spinner.vue'
 import SignOnlyToggle from '@/components/misc/SignOnlyToggle.vue'
 import SignedTxExport from '@/components/misc/SignedTxExport.vue'
 import { useBaseAssetGate } from '@/composables/useBaseAssetGate'
+import { planRestake, takeRestakeSelection, type PastDelegation, type RestakePlan } from '@/js/restake'
 
 export default defineComponent({
     name: 'QuickDelegate',
@@ -238,7 +269,44 @@ export default defineComponent({
         const platformBalance = computed((): BN => assetsStore.walletPlatformBalance.available)
         const platformBalanceBig = computed(() => bnToBig(platformBalance.value, 9))
 
-        const rewardAddress = computed(() => wallet.value.getPlatformRewardAddress())
+        /**
+         * Restake mode: a past delegation chosen on the Restake page (handed
+         * over in memory — see js/restake.ts). The form is skipped: the
+         * validator is the one from last time, and amount, period, fee and
+         * reward address are filled in from it, re-planned against today's
+         * balance and the validator's current state.
+         */
+        const restake = ref<PastDelegation | null>(takeRestakeSelection())
+        const restakePlan = ref<RestakePlan | null>(null)
+
+        const buildRestakePlan = (past: PastDelegation): RestakePlan =>
+            planRestake(past, {
+                now: Date.now(),
+                available: platformBalance.value,
+                minStake: minStake.value,
+                validators: platformStore.validatorListEarn,
+                fallbackRewardAddress: wallet.value.getPlatformRewardAddress(),
+            })
+
+        const rewardAddress = computed(
+            () => restakePlan.value?.rewardAddress ?? wallet.value.getPlatformRewardAddress()
+        )
+        const rewardIsOwn = computed(() => {
+            if (!restakePlan.value) return true
+            const bare = (a: string) => (a.split('-')[1] || a).toLowerCase()
+            const target = bare(restakePlan.value.rewardAddress)
+            return wallet.value.getAllAddressesP().some((a) => bare(a) === target)
+        })
+        const restakeBlocked = computed(() => !!restakePlan.value?.blockers.length)
+        const restakeFromText = computed(() =>
+            restake.value
+                ? new Date(restake.value.start).toLocaleDateString(undefined, {
+                      year: 'numeric',
+                      month: 'short',
+                      day: 'numeric',
+                  })
+                : ''
+        )
 
         const endDateObj = computed(() => new Date(endDate.value))
 
@@ -343,7 +411,52 @@ export default defineComponent({
         const changeFilters = () => {
             matched.value = null
             err.value = ''
+            // Back to the ordinary search, keeping the prefilled amount,
+            // period and fee as its starting point.
+            restake.value = null
+            restakePlan.value = null
         }
+
+        let validatorsRequested = false
+
+        /**
+         * (Re)plans the restake whenever what it depends on arrives or changes:
+         * the validator list and the balance both load after the page opens.
+         */
+        const applyRestake = () => {
+            const past = restake.value
+            if (!past || isSuccess.value) return
+            if (!platformStore.validatorListEarn.length) {
+                // Still loading, or not asked for yet (this first runs before
+                // onMounted starts the fetch).
+                if (platformStore.isFetchingValidators || !validatorsRequested) return
+                // The fetch finished empty: fall back to the form, prefilled.
+                stakeAmt.value = past.amount
+                restake.value = null
+                err.value = 'Could not load the validator list, so the restake cannot be prepared. Try again later.'
+                return
+            }
+            const plan = buildRestakePlan(past)
+            restakePlan.value = plan
+            stakeAmt.value = plan.amount
+            endDate.value = plan.end.toISOString()
+            maxFee.value = plan.fee
+            err.value = plan.blockers.join(' ')
+            if (plan.validator) {
+                matched.value = plan.validator
+                matchCount.value = 1
+            } else {
+                // Nothing to restake with; fall back to the form, prefilled.
+                matched.value = null
+                restake.value = null
+                restakePlan.value = null
+            }
+        }
+        watch(
+            () => [platformStore.validatorListEarn, platformStore.isFetchingValidators, platformBalance.value, minStake.value],
+            applyRestake,
+            { immediate: true }
+        )
 
         const updateTxStatus = async (id: string) => {
             const res = await pChain.getTxStatus(id)
@@ -384,9 +497,26 @@ export default defineComponent({
             // Start delegation in 5 minutes, matching the manual Delegate flow.
             const startDate = new Date(Date.now() + 5 * MINUTE_MS)
 
+            // A restake is planned again at the moment of submitting, so the end
+            // date is measured from now rather than from when the page opened.
+            let plan: RestakePlan | null = null
+            if (restake.value) {
+                plan = buildRestakePlan(restake.value)
+                restakePlan.value = plan
+                if (plan.blockers.length) {
+                    err.value = plan.blockers.join(' ')
+                    isLoading.value = false
+                    return
+                }
+                stakeAmt.value = plan.amount
+                endDate.value = plan.end.toISOString()
+            }
+
             try {
                 const resultTxId = await authorizeSingle(wallet.value, 'Delegate stake', () =>
-                    wallet.value.delegate(matched.value!.nodeID, stakeAmt.value, startDate, endDateObj.value)
+                    plan
+                        ? wallet.value.delegate(plan.nodeID, plan.amount, startDate, plan.end, plan.rewardAddress)
+                        : wallet.value.delegate(matched.value!.nodeID, stakeAmt.value, startDate, endDateObj.value)
                 )
                 // A captured (offline-signed) transaction has a sentinel id — there
                 // is nothing on chain to poll a status for; the export panel above
@@ -418,6 +548,8 @@ export default defineComponent({
         }
 
         const startOver = () => {
+            restake.value = null
+            restakePlan.value = null
             matched.value = null
             isSuccess.value = false
             txId.value = ''
@@ -428,6 +560,8 @@ export default defineComponent({
 
         onMounted(() => {
             platformStore.fetchValidatorListEarn()
+            validatorsRequested = true
+            applyRestake()
             platformStore.updateMinStakeAmount()
             platformStore.updateCurrentSupply()
         })
@@ -455,6 +589,11 @@ export default defineComponent({
             platformBalance,
             platformBalanceBig,
             rewardAddress,
+            rewardIsOwn,
+            restake,
+            restakePlan,
+            restakeBlocked,
+            restakeFromText,
             endDateObj,
             estimatedRewardText,
             setEnd,
@@ -571,6 +710,33 @@ label {
 
 .node_card {
     margin-bottom: 20px;
+}
+
+.restake_loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    color: var(--primary-color-light);
+    padding: 24px 0;
+
+    .restake_spinner {
+        width: 18px !important;
+        height: 18px !important;
+    }
+}
+
+.restake_note .notices {
+    font-size: 0.85em;
+    color: var(--primary-color-light);
+    background-color: var(--bg-light);
+    border-radius: 6px;
+    padding: 8px 16px 8px 30px;
+    margin-bottom: 12px;
+
+    li {
+        margin: 2px 0;
+    }
 }
 
 .reward_est {

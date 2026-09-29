@@ -126,6 +126,9 @@
                 <v-btn text v-bind="props" class="menu-btn">Avalanche</v-btn>
             </template>
             <v-list>
+                <v-list-item to="/wallet/restake">
+                    <v-list-item-title>Restake AVAX</v-list-item-title>
+                </v-list-item>
                 <v-list-item to="/wallet/earn/rewards">
                     <v-list-item-title>Estimated Rewards</v-list-item-title>
                 </v-list-item>

@@ -23,6 +23,8 @@ interface Props {
     maxEndDate?: string
     /** Overrides the default 14-day minimum — e.g. delegation's 48-hour minimum. */
     minDurationMs?: number
+    /** ISO end date to start from instead of the 21-day default (clamped to the allowed range). */
+    initialEnd?: string
 }
 
 /** Convert an ISO string to the "YYYY-MM-DDTHH:MM" format expected by datetime-local inputs */
@@ -42,6 +44,10 @@ export default defineComponent({
         },
         minDurationMs: {
             type: Number,
+            default: undefined
+        },
+        initialEnd: {
+            type: String,
             default: undefined
         }
     },
@@ -111,7 +117,15 @@ export default defineComponent({
 
         onMounted(() => {
             localStart.value = startDateMin.value
-            localEnd.value = defaultEndDate.value
+            const initial = props.initialEnd ? new Date(props.initialEnd).getTime() : NaN
+            if (Number.isFinite(initial)) {
+                // The watcher below lifts anything under the minimum; cap the
+                // top here, since nothing else would.
+                const max = new Date(endDateMax.value).getTime()
+                localEnd.value = new Date(Math.min(initial, max)).toISOString()
+            } else {
+                localEnd.value = defaultEndDate.value
+            }
             setEndDate(localEnd.value)
         })
 
