@@ -60,25 +60,42 @@
               form's own `access()` does.
             -->
             <div class="manager_panel">
-                <h4>Access using AVXTO Manager</h4>
+                <h4 class="manager_title">
+                    <fa icon="server" class="manager_icon"></fa>
+                    Access using AVXTO Manager
+                </h4>
                 <p class="manager_desc">
                     Reads your mnemonic phrase from a JSON-RPC endpoint you run yourself, instead
                     of pasting it above. The session password below is sent to that endpoint to
                     unlock it, then reused as this wallet's own session password — exactly as if
                     you had typed the returned phrase into the field above.
-                    <strong>The password travels in plain JSON-RPC — only point this at an
-                    endpoint you trust, and prefer an https:// URL.</strong>
                 </p>
+                <p class="manager_warn">
+                    <fa icon="triangle-exclamation" class="warn_icon"></fa>
+                    <span>
+                        The password travels in plain JSON-RPC — only point this at an endpoint you
+                        trust, and prefer an <span class="mono">https://</span> URL.
+                    </span>
+                </p>
+
+                <label class="manager_label" for="manager-url">Manager endpoint</label>
                 <input
+                    id="manager-url"
+                    class="manager_input"
                     type="text"
                     v-model="managerUrl"
                     placeholder="https://your-avxto-manager.example/rpc"
                     autocomplete="off"
                     autocapitalize="off"
+                    spellcheck="false"
                     data-1p-ignore
                     data-lpignore="true"
                 />
+
+                <label class="manager_label" for="manager-pw">Session password</label>
                 <input
+                    id="manager-pw"
+                    class="manager_input"
                     type="password"
                     ref="manager_pw_in"
                     v-model="managerPassword"
@@ -357,46 +374,116 @@ export default defineComponent({
 }
 
 .manager_panel {
-    margin-top: 30px;
-    padding: 16px 20px;
-    max-width: 440px;
+    margin-top: 36px;
+    padding: 26px 28px 28px;
+    max-width: 520px;
     width: 100%;
+    box-sizing: border-box;
     text-align: left;
     border: 1px solid var(--secondary-color);
-    border-radius: 6px;
+    border-radius: 14px;
     background-color: var(--bg);
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.12);
 
-    h4 {
-        font-size: 13px;
-        font-weight: bold;
-        margin-bottom: 4px;
+    .manager_title {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 17px;
+        font-weight: 600;
+        margin: 0 0 12px;
+        color: var(--primary-color);
     }
 
-    .manager_desc {
-        font-size: 12px;
-        color: var(--primary-color-light);
-        margin-bottom: 10px;
-        line-height: 1.5;
+    .manager_icon {
+        color: var(--secondary-color);
+        font-size: 16px;
+    }
 
-        strong {
-            color: var(--primary-color);
+    // Paragraph margins need !important here: App.vue resets every <p> to
+    // `margin: 0 !important`, which otherwise wins and collapses the spacing.
+    .manager_desc {
+        font-size: 13px;
+        color: var(--primary-color-light);
+        line-height: 1.6;
+        margin: 0 0 16px !important;
+    }
+
+    .manager_warn {
+        display: flex;
+        gap: 10px;
+        align-items: flex-start;
+        font-size: 12.5px;
+        line-height: 1.5;
+        color: var(--primary-color);
+        background-color: var(--bg-light);
+        border-left: 3px solid var(--warning, #e6a817);
+        border-radius: 8px;
+        padding: 10px 14px;
+        margin: 0 0 32px !important;
+
+        .warn_icon {
+            color: var(--warning, #e6a817);
+            margin-top: 2px;
+            flex-shrink: 0;
+        }
+
+        .mono {
+            font-family: monospace;
         }
     }
 
-    input {
+    .manager_label {
+        display: block;
+        text-align: left;
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+        color: var(--primary-color-light);
+        margin: 0 0 6px;
+    }
+
+    // Both inputs styled here, not by the page-wide input[type='password'] rule
+    // (which never reached the URL field, a text input — it sat flush against
+    // the description with no padding or background of its own).
+    .manager_input {
         display: block;
         width: 100%;
-        margin-bottom: 8px;
+        max-width: none;
+        box-sizing: border-box;
+        margin: 0 0 18px;
+        padding: 14px 16px;
+        font-size: 15px;
+        color: var(--primary-color);
+        background-color: var(--bg-light) !important;
+        border: 1px solid var(--bg-light);
+        border-radius: 10px;
+        transition: border-color 0.15s, box-shadow 0.15s;
+
+        &::placeholder {
+            color: var(--primary-color-light);
+            opacity: 0.7;
+        }
+
+        &:focus {
+            outline: none;
+            border-color: var(--secondary-color);
+            box-shadow: 0 0 0 3px rgba(128, 128, 128, 0.15);
+        }
     }
 
     .err {
         text-align: left;
-        margin: 6px 0 !important;
+        margin: -8px 0 14px !important;
     }
 }
 
 .manager_proceed {
     width: 100%;
+    height: 46px;
+    border-radius: 10px !important;
+    font-size: 15px;
+    margin-top: 4px;
 }
 
 
