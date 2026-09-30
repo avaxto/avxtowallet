@@ -32,6 +32,7 @@ import { createAvalancheWalletClient } from '@avalanche-sdk/client'
 import { activeNetwork } from '@/avalanche-wallet-sdk/Network/network'
 import { delegatePermissionlessLocal } from '@/js/permissionlessDelegate'
 import { issueC, issueP, issueX } from '@/helpers/issueTx'
+import { restoreEvmExportSigners } from '@/js/wallets/evmExportSigners'
 import { sortUTxoSetP } from '@/helpers/sortUTXOs'
 import { getStakeForAddresses } from '@/helpers/utxo_helper'
 import glacier from '@/js/Glacier/Glacier'
@@ -413,6 +414,10 @@ abstract class AbstractWallet implements AvaWalletCore {
         const txBytes = exportTxResult.tx.toBytes()
         const oldUnsignedTx = new EVMUnsignedTx()
         oldUnsignedTx.fromBuffer(Buffer.from(txBytes) as any)
+        // The bytes don't carry which key signs each input, so the re-parsed
+        // inputs have none and would be signed with zero signatures — rejected
+        // as "incorrect number of signatures (0): want 1, got 0". Put them back.
+        restoreEvmExportSigners(oldUnsignedTx, hexAddr, this.getEvmAddressBech())
         const tx = await this.signC(oldUnsignedTx)
         const issuedTx = this.issueC(tx)
         console.log('Issued export transaction', issuedTx)
