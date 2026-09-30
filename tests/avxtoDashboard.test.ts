@@ -84,6 +84,13 @@ jest.mock('@/js/MoatsStats', () => ({
     readDexProfileStatus: () => readProfile(),
 }))
 
+const avaxPrice = jest.fn()
+jest.mock('@/prices', () => ({
+    ...jest.requireActual('@/prices'),
+    getPriceUSD: (asset: string) => avaxPrice(asset),
+    getPriceService: () => ({ name: 'Coinbase' }),
+}))
+
 import { pickMarket } from '@/js/MoatsStats'
 import Avxto from '@/views/wallet/Avxto.vue'
 
@@ -98,6 +105,8 @@ function mountPage() {
         },
     })
 }
+
+beforeEach(() => avaxPrice.mockResolvedValue(11.45))
 
 it('shows market, supply and activity for AVXTO', async () => {
     readMarket.mockResolvedValue(pickMarket(liveToken))
@@ -140,5 +149,34 @@ it('keeps supply and activity when DexScreener is down', async () => {
     expect(text).toContain('Market data unavailable right now.')
     expect(text).toContain('Total supply')
     expect(text).toContain('Transfer activity')
+    wrapper.unmount()
+})
+
+it('estimates the dollar price from the AVXTO/AVAX ratio and the chosen AVAX price', async () => {
+    readMarket.mockResolvedValue(pickMarket(liveToken))
+    readProfile.mockResolvedValue(null)
+    const wrapper = mountPage()
+    await flushPromises()
+
+    expect(avaxPrice).toHaveBeenCalledWith('AVAX')
+    const tile = wrapper.findAll('.tile').find((t) => t.find('label').text() === 'Estimated price')!
+    // 0.0000002795 AVAX × $11.45 = $0.0000032003, 1.18% above DexScreener's $0.000003163.
+    expect(tile.find('p').text()).toBe('$0.0000032')
+    expect(tile.text()).toContain('0.0000002795 AVAX × $11.45 (Coinbase)')
+    expect(tile.text()).toContain('+1.18% vs DexScreener')
+    wrapper.unmount()
+})
+
+it('leaves the estimate out when the AVAX price is unavailable', async () => {
+    avaxPrice.mockRejectedValue(new Error('rate limited'))
+    readMarket.mockResolvedValue(pickMarket(liveToken))
+    readProfile.mockResolvedValue(null)
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {})
+    const wrapper = mountPage()
+    await flushPromises()
+    warn.mockRestore()
+
+    expect(wrapper.text()).not.toContain('Estimated price')
+    expect(wrapper.text()).toContain('$0.000003163') // DexScreener's price still shows
     wrapper.unmount()
 })

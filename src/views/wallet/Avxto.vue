@@ -49,6 +49,16 @@
                     <p class="big">${{ priceText(market.priceUsd) }}</p>
                     <span>{{ priceText(market.priceNative) }} {{ market.quoteSymbol }}</span>
                 </div>
+                <div v-if="estimate" class="tile">
+                    <label>Estimated price</label>
+                    <p class="big">${{ priceText(estimate.usd) }}</p>
+                    <span>
+                        {{ priceText(estimate.ratio) }} AVAX × ${{ estimate.avaxUsd.toFixed(2) }} ({{ avaxPriceSource }})
+                    </span>
+                    <span :class="{ up: estimate.gapPct >= 0, down: estimate.gapPct < 0 }">
+                        {{ estimate.gapPct >= 0 ? '+' : '' }}{{ estimate.gapPct.toFixed(2) }}% vs DexScreener
+                    </span>
+                </div>
                 <div class="tile">
                     <label>Price change</label>
                     <div class="changes">
@@ -285,6 +295,7 @@ import {
     type TokenMarket,
 } from '@/js/MoatsStats'
 import { MOATS_CONTRACT_ADDRESS } from '@/js/Moats'
+import { getPriceService, getPriceUSD } from '@/prices'
 import { summarizeTransfers, DEAD_ADDRESS, ZERO_ADDRESS, type ActivitySummary } from '@/js/avxtoActivity'
 
 // How far back (in blocks) to scan for transfers. The list-transfers API does
@@ -337,6 +348,24 @@ export default defineComponent({
 
         const market = ref<TokenMarket | null>(null)
         const profile = ref<DexProfileStatus | null>(null)
+        const avaxUsd = ref<number | null>(null)
+        const avaxPriceSource = ref('')
+
+        /**
+         * AVXTO's dollar price from its AVAX ratio: the pool's AVXTO→AVAX
+         * price times AVAX's dollar price from the chosen price service. An
+         * independent check on DexScreener's own dollar figure — shown only
+         * when the main pair is actually quoted in (W)AVAX.
+         */
+        const estimate = computed(() => {
+            const m = market.value
+            const avax = avaxUsd.value
+            if (!m || !avax || !m.priceNative) return null
+            if (!/^W?AVAX$/.test(m.quoteSymbol)) return null
+            const usd = m.priceNative * avax
+            const gapPct = m.priceUsd ? ((usd - m.priceUsd) / m.priceUsd) * 100 : 0
+            return { ratio: m.priceNative, avaxUsd: avax, usd, gapPct }
+        })
         const marketLoading = ref(false)
         const supply = ref<SupplyStats | null>(null)
         const supplyError = ref('')
@@ -436,9 +465,19 @@ export default defineComponent({
         const fetchMarket = async () => {
             marketLoading.value = true
             try {
-                const [m, p] = await Promise.all([readAvxtoMarket(), readDexProfileStatus(contractAddress)])
+                const [m, p, avax] = await Promise.all([
+                    readAvxtoMarket(),
+                    readDexProfileStatus(contractAddress),
+                    // The user's chosen price service (Settings); a failure only hides the estimate.
+                    getPriceUSD('AVAX').catch((e) => {
+                        console.warn('[Avxto] AVAX price unavailable:', e)
+                        return null
+                    }),
+                ])
                 market.value = m
                 profile.value = p
+                avaxUsd.value = avax
+                avaxPriceSource.value = getPriceService().name
             } finally {
                 marketLoading.value = false
             }
@@ -483,7 +522,10 @@ export default defineComponent({
         // ── formatting ──
         const usd = (v: number) =>
             v.toLocaleString(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: v < 100 ? 2 : 0 })
-        const priceText = (v: number) => (v ? v.toPrecision(4) : '0')
+        // Four significant digits, always in plain decimals: toPrecision turns
+        // anything under 1e-6 (AVXTO's AVAX ratio, for one) into "2.795e-7".
+        const priceText = (v: number) =>
+            v ? v.toLocaleString('en-US', { maximumSignificantDigits: 4, useGrouping: false }) : '0'
         const changeText = (v: number | null) => (v === null ? '--' : `${v >= 0 ? '+' : ''}${v.toFixed(2)}%`)
         const changeClass = (v: number | null) => (v === null ? '' : v >= 0 ? 'up' : 'down')
         const windowLabels = { m5: '5m', h1: '1h', h6: '6h', h24: '24h' }
@@ -518,6 +560,9 @@ export default defineComponent({
             changeClass,
             windowLabels,
             profile,
+            estimate,
+            avaxUsd,
+            avaxPriceSource,
             amount,
             tokens,
             share,
