@@ -35,12 +35,12 @@
             <div class="field">
                 <h4>Delegation end date</h4>
                 <p class="hint">
-                    Between 48 hours and 365 days from now. The chosen validator must
+                    Between {{ minDelegationLabel }} and 365 days from now. The chosen validator must
                     stay active at least until this date.
                 </p>
                 <DateForm
                     @change_end="setEnd"
-                    :min-duration-ms="MIN_DELEGATION_DURATION_MS"
+                    :min-duration-ms="minDelegationDuration"
                     :initial-end="endDate || undefined"
                 ></DateForm>
             </div>
@@ -204,8 +204,8 @@ import {
     isOfflineTxId,
 } from '@/stores'
 import { BN } from '@/avalanche'
-import { pChain } from '@/AVA'
-import { DAY_MS, MINUTE_MS, MIN_DELEGATION_DURATION_MS } from '@/constants'
+import { ava, pChain } from '@/AVA'
+import { DAY_MS, MINUTE_MS, durationLabel, minDelegationDurationMs } from '@/constants'
 import { ValidatorListItem } from '@/types'
 import { bnToBig, calculateStakingReward, errorToString } from '@/helpers/helper'
 import { Wallet } from '@/js/wallets/AbstractWallet'
@@ -264,6 +264,8 @@ export default defineComponent({
         const wallet = computed(() => mainStore.activeWallet as Wallet)
 
         const minStake = computed((): BN => platformStore.minStakeDelegation)
+        const minDelegationDuration = computed(() => minDelegationDurationMs(ava.getNetworkID()))
+        const minDelegationLabel = computed(() => durationLabel(minDelegationDuration.value))
         const minStakeText = computed(() => bnToBig(minStake.value, 9).toLocaleString())
 
         const platformBalance = computed((): BN => assetsStore.walletPlatformBalance.available)
@@ -284,6 +286,7 @@ export default defineComponent({
                 now: Date.now(),
                 available: platformBalance.value,
                 minStake: minStake.value,
+                minDurationMs: minDelegationDuration.value,
                 validators: platformStore.validatorListEarn,
                 fallbackRewardAddress: wallet.value.getPlatformRewardAddress(),
             })
@@ -356,8 +359,8 @@ export default defineComponent({
                 err.value = 'Choose an end date.'
                 return
             }
-            if (endTime - now < MIN_DELEGATION_DURATION_MS) {
-                err.value = 'End date must be at least 48 hours from now.'
+            if (endTime - now < minDelegationDuration.value) {
+                err.value = `End date must be at least ${minDelegationLabel.value} from now.`
                 return
             }
             if (endTime - now > DAY_MS * 365) {
@@ -571,7 +574,8 @@ export default defineComponent({
             gatedAction,
             offline,
             platformStore,
-            MIN_DELEGATION_DURATION_MS,
+            minDelegationDuration,
+            minDelegationLabel,
             stakeAmt,
             endDate,
             minUptime,

@@ -119,6 +119,7 @@ function ctx(over: Partial<RestakeContext> = {}): RestakeContext {
         now: NOW,
         available: AVAX(150),
         minStake: AVAX(25),
+        minDurationMs: 14 * DAY, // mainnet
         validators: [validator()],
         fallbackRewardAddress: 'P-avax1fallback',
         ...over,
@@ -149,23 +150,27 @@ describe('planRestake', () => {
         expect(plan.blockers.join(' ')).toMatch(/at least 25 AVAX/)
     })
 
-    it('stretches a too-short period to the 48-hour minimum, with room to sign', () => {
-        const plan = planRestake(past({ start: NOW - 3 * DAY, end: NOW - 2 * DAY }), ctx())
-        expect(plan.end.getTime()).toBe(NOW + 2 * DAY + RESTAKE_SAFETY_MS)
-        expect(plan.notices.join(' ')).toMatch(/48-hour to 365-day/)
+    it("stretches a too-short period to the network's minimum, with room to sign", () => {
+        // A 3-day delegation (fine on Fuji) is below mainnet's 14 days.
+        const plan = planRestake(past({ start: NOW - 5 * DAY, end: NOW - 2 * DAY }), ctx())
+        expect(plan.end.getTime()).toBe(NOW + 14 * DAY + RESTAKE_SAFETY_MS)
+        expect(plan.notices.join(' ')).toMatch(/14 days to 365-day/)
+
+        const fuji = planRestake(past({ start: NOW - 5 * DAY, end: NOW - 2 * DAY }), ctx({ minDurationMs: DAY }))
+        expect(fuji.end.getTime()).toBe(NOW + 3 * DAY)
     })
 
     it('ends with the validator when it stops validating first', () => {
-        const plan = planRestake(past(), ctx({ validators: [validator({ endTime: new Date(NOW + 10 * DAY) })] }))
-        expect(plan.end.getTime()).toBe(NOW + 10 * DAY)
+        const plan = planRestake(past(), ctx({ validators: [validator({ endTime: new Date(NOW + 20 * DAY) })] }))
+        expect(plan.end.getTime()).toBe(NOW + 20 * DAY)
         expect(plan.blockers).toEqual([])
     })
 
-    it('blocks when the validator is gone, ends within 48 hours, or is full', () => {
+    it('blocks when the validator is gone, ends before the minimum period, or is full', () => {
         expect(planRestake(past(), ctx({ validators: [] })).blockers.join(' ')).toMatch(/not an active validator/)
         expect(
-            planRestake(past(), ctx({ validators: [validator({ endTime: new Date(NOW + DAY) })] })).blockers.join(' ')
-        ).toMatch(/less than 48 hours/)
+            planRestake(past(), ctx({ validators: [validator({ endTime: new Date(NOW + 10 * DAY) })] })).blockers.join(' ')
+        ).toMatch(/less than 14 days/)
         expect(
             planRestake(past(), ctx({ validators: [validator({ remainingStake: AVAX(50) })] })).blockers.join(' ')
         ).toMatch(/only accept 50 AVAX/)

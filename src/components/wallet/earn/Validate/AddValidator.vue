@@ -191,7 +191,8 @@
                                 * {{ $t('earn.validate.summary.warn') }}
                             </label>
                             <p v-if="warnShortDuration" class="err">
-                                {{ $t('earn.validate.errs.duration_warn') }}
+                                WARNING: You must have at least {{ minDelegationLabel }} remaining on your
+                                validation period to accept delegations.
                             </p>
                             <p class="err">{{ err }}</p>
                             <SignOnlyToggle :disabled="isLoading"></SignOnlyToggle>
@@ -279,7 +280,7 @@ import { BN } from '@/avalanche'
 import Big from 'big.js'
 import Modal from '@/components/modals/Modal.vue'
 import { QrReader, QrInput } from '@/vue_components'
-import { bintools, pChain } from '@/AVA'
+import { ava, bintools, pChain } from '@/AVA'
 import MnemonicWallet from '@/js/wallets/MnemonicWallet'
 import ConfirmPage from '@/components/wallet/earn/Validate/ConfirmPage.vue'
 import moment from 'moment'
@@ -301,7 +302,7 @@ import { authorizeSingle, SessionAuthCancelled } from '@/js/security/authorize'
 import { useOfflineSigningStore, isOfflineTxId } from '@/stores'
 import SignOnlyToggle from '@/components/misc/SignOnlyToggle.vue'
 import SignedTxExport from '@/components/misc/SignedTxExport.vue'
-import { MIN_DELEGATION_DURATION_MS } from '@/constants'
+import { durationLabel, minDelegationDurationMs } from '@/constants'
 
 const MIN_MS = 60000
 const HOUR_MS = MIN_MS * 60
@@ -443,13 +444,16 @@ export default defineComponent({
             return diff
         })
 
+        const minDelegationDuration = computed(() => minDelegationDurationMs(ava.getNetworkID()))
+        const minDelegationLabel = computed(() => durationLabel(minDelegationDuration.value))
+
         const warnShortDuration = computed((): boolean => {
             const dur = stakeDuration.value
 
-            // Helicon: delegators need MIN_DELEGATION_DURATION_MS (48 hours,
-            // was 14 days) remaining on the validator's period to delegate to
-            // it — warn here if less than that remains.
-            if (dur <= MIN_DELEGATION_DURATION_MS) {
+            // Delegators need the network's minimum delegation period (14 days
+            // on mainnet — see constants.ts) left on the validator's period to
+            // delegate to it; warn if less than that remains.
+            if (dur <= minDelegationDuration.value) {
                 return true
             }
             return false
@@ -896,6 +900,7 @@ export default defineComponent({
             maxFormAmount,
             stakeDuration,
             warnShortDuration,
+            minDelegationLabel,
             durationText,
             denomination,
             maxDelegationAmt,

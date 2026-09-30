@@ -14,7 +14,7 @@
  *  2. `planRestake` — turn one of them into a new delegation that can actually
  *     be submitted *now*: same validator, amount, length and reward address,
  *     adjusted to today's balance, the validator's remaining time and capacity,
- *     and the protocol's 48-hour / 365-day bounds.
+ *     and the network's minimum / 365-day bounds.
  *
  * The chosen delegation reaches Quick Delegate through `setRestakeSelection`,
  * an in-memory hand-over — deliberately not the URL. A prefilled reward
@@ -22,7 +22,7 @@
  * one-click submit is exactly what would make it work.
  */
 import { BN } from '@/avalanche'
-import { DAY_MS, MINUTE_MS, MIN_DELEGATION_DURATION_MS } from '@/constants'
+import { DAY_MS, MINUTE_MS, durationLabel } from '@/constants'
 import type { ValidatorListItem } from '@/types'
 
 /** Delegation transaction types: current (post-Durango) and legacy. */
@@ -113,6 +113,8 @@ export interface RestakeContext {
     available: BN
     /** Protocol minimum delegation, nAVAX. */
     minStake: BN
+    /** The network's minimum delegation period, ms — see minDelegationDurationMs. */
+    minDurationMs: number
     validators: ValidatorListItem[]
     /** This wallet's reward address, for past delegations the indexer has none for. */
     fallbackRewardAddress: string
@@ -127,12 +129,13 @@ export function planRestake(past: PastDelegation, ctx: RestakeContext): RestakeP
     const validator = ctx.validators.find((v) => v.nodeID === past.nodeID) ?? null
 
     // Length: the same as last time, within the protocol's bounds.
-    const earliest = ctx.now + MIN_DELEGATION_DURATION_MS + RESTAKE_SAFETY_MS
+    const minLabel = durationLabel(ctx.minDurationMs)
+    const earliest = ctx.now + ctx.minDurationMs + RESTAKE_SAFETY_MS
     const latest = ctx.now + MAX_DELEGATION_MS - RESTAKE_SAFETY_MS
     const duration = past.end - past.start
     let end = Math.min(Math.max(ctx.now + duration, earliest), latest)
     if (end !== ctx.now + duration) {
-        notices.push('The period was adjusted to fit the 48-hour to 365-day delegation limits.')
+        notices.push(`The period was adjusted to fit the ${minLabel} to 365-day delegation limits.`)
     }
 
     // Amount: the same as last time, if the balance still covers it.
@@ -155,7 +158,7 @@ export function planRestake(past: PastDelegation, ctx: RestakeContext): RestakeP
         const validatorEnd = validator.endTime.getTime()
         if (validatorEnd < end) {
             if (validatorEnd < earliest) {
-                blockers.push('This validator stops validating in less than 48 hours.')
+                blockers.push(`This validator stops validating in less than ${minLabel}.`)
             } else {
                 end = validatorEnd
                 notices.push(`Shortened to end with the validator on ${new Date(validatorEnd).toLocaleDateString()}.`)

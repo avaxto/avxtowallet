@@ -238,7 +238,7 @@ import { authorizeSingle, SessionAuthCancelled } from '@/js/security/authorize'
 import { useOfflineSigningStore, isOfflineTxId } from '@/stores'
 import SignOnlyToggle from '@/components/misc/SignOnlyToggle.vue'
 import SignedTxExport from '@/components/misc/SignedTxExport.vue'
-import { MIN_DELEGATION_DURATION_MS } from '@/constants'
+import { durationLabel, minDelegationDurationMs } from '@/constants'
 
 const MIN_MS = 60000
 const HOUR_MS = MIN_MS * 60
@@ -291,6 +291,7 @@ export default defineComponent({
         const formUtxos = ref<UTXO[]>([])
         const formAmt = ref(new BN(0))
         const formEnd = ref(new Date())
+        const minDelegationDuration = computed(() => minDelegationDurationMs(ava.getNetworkID()))
         const formRewardAddr = ref('')
 
         const currency_type = ref('AVAX')
@@ -468,9 +469,11 @@ export default defineComponent({
                 return false
             }
 
-            // Helicon: minimum delegation duration is 48 hours (was 14 days).
-            if (diffTime < MIN_DELEGATION_DURATION_MS) {
-                err.value = t('earn.delegate.errs.min_dur') as string
+            // The network's own minimum (14 days on mainnet, 24 hours on Fuji —
+            // see constants.ts). Built here rather than from the min_dur
+            // translation, which hard-codes a figure in every locale.
+            if (diffTime < minDelegationDuration.value) {
+                err.value = `The minimum delegation period is ${durationLabel(minDelegationDuration.value)}.`
                 return false
             }
 
@@ -696,7 +699,7 @@ export default defineComponent({
         return {
 
             offline,
-            minDelegationDuration: MIN_DELEGATION_DURATION_MS,
+            minDelegationDuration,
             startDate,
             endDate,
             stakeAmt,
