@@ -24,6 +24,7 @@ import {
     explorerAddressUrl,
     explorerName,
     explorerTxUrl,
+    getAvalancheCChainNetwork,
     getEvmNetworkByChainId,
     loadCustomEvmNetworks,
 } from '@/evm/networkRegistry'
@@ -133,6 +134,14 @@ describe('explorer URLs follow the network', () => {
     it('names the explorer from its host', () => {
         expect(explorerName(AVALANCHE)).toBe('snowtrace.io')
         expect(explorerName(ROBINHOOD)).toBe('robinhoodchain.blockscout.com')
+    })
+
+    it('links an Avalanche C-Chain send to Snowtrace, or its testnet on Fuji', () => {
+        // What the C-Chain send form's success screen links to.
+        expect(explorerTxUrl(getAvalancheCChainNetwork(false), '0xabc')).toBe('https://snowtrace.io/tx/0xabc')
+        expect(explorerTxUrl(getAvalancheCChainNetwork(true), '0xabc')).toBe(
+            'https://testnet.snowtrace.io/tx/0xabc'
+        )
     })
 
     it('returns empty rather than a broken link when a network has no explorer', () => {

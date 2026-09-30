@@ -188,6 +188,18 @@
                         <p class="confirm_data" style="word-break: break-all">
                             {{ txHash }}
                         </p>
+                        <div class="tx_actions">
+                            <CopyText :value="txHash" class="tx_copy">Copy transaction hash</CopyText>
+                            <a
+                                v-if="txExplorerUrl"
+                                :href="txExplorerUrl"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                class="tx_explorer"
+                            >
+                                View on {{ txExplorerName }} ↗
+                            </a>
+                        </div>
                     </div>
                     <v-btn
                         style="margin: 14px 0"
@@ -218,6 +230,7 @@ import { BN } from '@/avalanche'
 import { bnToBig, errorToString } from '@/helpers/helper'
 import { web3 } from '@/evm'
 import { gasFor } from '@/evm/gas'
+import { explorerName, explorerTxUrl, getAvalancheCChainNetwork, type EvmNetwork } from '@/evm/networkRegistry'
 import { encodeMemoToTxData, intrinsicGasForData } from '@/evm/memo'
 import { useActivePlatformStore } from '@/platforms'
 import { useEvmStore } from '@/platforms/evm/store'
@@ -293,6 +306,15 @@ export default defineComponent({
         const memoText = ref('')
 
         const txHash = ref('')
+        /**
+         * The network the transaction went out on, captured when it was sent —
+         * the explorer link must not follow a network switch made afterwards.
+         */
+        const txNetwork = ref<EvmNetwork | null>(null)
+        const txExplorerUrl = computed(() =>
+            txNetwork.value && txHash.value ? explorerTxUrl(txNetwork.value, txHash.value) : ''
+        )
+        const txExplorerName = computed(() => (txNetwork.value ? explorerName(txNetwork.value) : ''))
 
         // Template refs
         const token_in = ref<InstanceType<typeof EVMInputDropdown> | null>(null)
@@ -630,6 +652,9 @@ export default defineComponent({
                 // the export panel renders instead of the success screen.
                 if (!isOfflineTxId(hash)) {
                     txHash.value = hash
+                    txNetwork.value = isGeneralEvm.value
+                        ? evmStore.network
+                        : getAvalancheCChainNetwork(assetsStore.evmChainId === 43113)
                     isSuccess.value = true
 
                     // Unlike the X-chain send path (Transfer.vue's onsuccess,
@@ -673,6 +698,7 @@ export default defineComponent({
             addressIn.value = ''
             amountIn.value = markRaw(new BN(0))
             txHash.value = ''
+            txNetwork.value = null
             canSendAgain.value = false
             err.value = ''
             showMemo.value = false
@@ -701,6 +727,8 @@ export default defineComponent({
             showMemo,
             memoText,
             txHash,
+            txExplorerUrl,
+            txExplorerName,
             token_in,
             updateGasPrice,
             gasPriceNumber,
@@ -807,6 +835,28 @@ h4 {
 
     .copy_btn {
         flex-shrink: 0;
+    }
+}
+
+.tx_actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 20px;
+    margin-top: 8px;
+    font-size: 13px;
+
+    .tx_copy {
+        color: var(--primary-color);
+    }
+
+    .tx_explorer {
+        color: var(--secondary-color);
+        text-decoration: none;
+
+        &:hover {
+            text-decoration: underline;
+        }
     }
 }
 
