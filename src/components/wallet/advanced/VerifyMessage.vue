@@ -42,7 +42,7 @@
                 <p class="verdict_title">{{ verdictTitle }}</p>
                 <p class="verdict_note">{{ verdictNote }}</p>
                 <template v-if="addressX">
-                    <label>{{ $t('advanced.verify.label3') }}</label>
+                    <label>Signer</label>
                     <p class="address">{{ addressX }}</p>
                     <p class="address">{{ addressP }}</p>
                 </template>
