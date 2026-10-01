@@ -378,3 +378,54 @@ describe('claim and unwrap / claim to X-Chain', () => {
         w.unmount()
     })
 })
+
+describe('the Done button', () => {
+    beforeEach(() => {
+        signerRef.current = { address: ME, authSubject: {}, network: { evmChainId: 43114, name: 'Avalanche C-Chain' } }
+        mainStoreRef.activeWallet = { id: 'avalanche-wallet' }
+        readOnChain.mockReset()
+        claimFn.mockReset()
+        claimToXFn.mockReset()
+    })
+
+    it('clears the claim result and re-reads the rewards', async () => {
+        readOnChain.mockResolvedValue({ vault, user: userWith(EARNED) })
+        claimFn.mockResolvedValue({ txHash: '0xabc123', offline: false, amount: EARNED, token: WAVAX })
+        const w = mount(PharDashboard, { global: { stubs } })
+        await flushPromises()
+        await claimButton(w).trigger('click')
+        await flushPromises()
+        expect(w.find('.claim_done').exists()).toBe(true)
+        const readsBefore = readOnChain.mock.calls.length
+
+        await button(w, 'Done').trigger('click')
+        await flushPromises()
+
+        expect(w.find('.claim_done').exists()).toBe(false)
+        expect(readOnChain.mock.calls.length).toBe(readsBefore + 1)
+        expect(claimButton(w).attributes('disabled')).toBeUndefined() // ready for the next claim
+        w.unmount()
+    })
+
+    it('clears a multi-step flow that failed partway', async () => {
+        readOnChain.mockResolvedValue({ vault, user: userWith(EARNED) })
+        claimToXFn.mockImplementation(async (_s: any, _w: any, opts: any) => {
+            opts.onStep('claim', 'running')
+            opts.onStep('claim', 'done')
+            throw new Error('export rejected')
+        })
+        const w = mount(PharDashboard, { global: { stubs } })
+        await flushPromises()
+        await button(w, 'Claim rewards to X-Chain').trigger('click')
+        await flushPromises()
+        expect(w.text()).toContain('export rejected')
+        expect(w.find('.flow_steps').exists()).toBe(true)
+
+        await button(w, 'Done').trigger('click')
+        await flushPromises()
+
+        expect(w.text()).not.toContain('export rejected')
+        expect(w.find('.flow_steps').exists()).toBe(false)
+        w.unmount()
+    })
+})

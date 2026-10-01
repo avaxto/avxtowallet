@@ -76,6 +76,7 @@
                                 View on snowtrace.io ↗
                             </a>
                         </div>
+                        <v-btn class="button_secondary done_btn" depressed small @click="done">Done</v-btn>
                     </div>
 
                     <div v-if="flowResult" class="claim_done">
@@ -94,6 +95,7 @@
                                 </a>
                             </div>
                         </div>
+                        <v-btn class="button_secondary done_btn" depressed small @click="done">Done</v-btn>
                     </div>
 
                     <ol v-if="steps.length" class="flow_steps">
@@ -106,6 +108,16 @@
                     </ol>
 
                     <p v-if="claimError" class="error_msg">{{ claimError }}</p>
+                    <!-- A multi-step flow that failed partway leaves its steps showing; Done clears them too. -->
+                    <v-btn
+                        v-if="claimError && steps.length && !claiming"
+                        class="button_secondary done_btn"
+                        depressed
+                        small
+                        @click="done"
+                    >
+                        Done
+                    </v-btn>
                     <p v-else-if="wrongChain" class="muted note">
                         Rewards are claimed on Avalanche C-Chain; your wallet is on {{ wrongChain }}. Switch
                         to C-Chain to claim.
@@ -352,6 +364,12 @@ export default defineComponent({
             steps.value = []
         }
 
+        /** Done: back to the plain form, with fresh figures. */
+        const done = () => {
+            resetOutcome()
+            load()
+        }
+
         const claim = async () => {
             const s = signer.value
             if (!s || !canClaim.value) return
@@ -507,6 +525,7 @@ export default defineComponent({
             claim,
             claimUnwrap,
             claimX,
+            done,
             onOfflineDone,
             short,
             sym,
@@ -651,6 +670,10 @@ export default defineComponent({
     gap: 8px 20px;
     margin-top: 8px;
     font-size: 13px;
+}
+
+.done_btn {
+    margin-top: 12px;
 }
 
 .flow_steps {
