@@ -13,9 +13,9 @@
   sending on the first click: a burn cannot be undone, a stake costs the
   unstake fee to get back out, and leaving a lock early costs up to 95%.
 
-  Deliberately not behind useBaseAssetGate, and it must never be: that gate
-  requires a Moats burn, so gating the burn page would lock out the one way
-  to meet it.
+  Stake and lock are premium actions behind useBaseAssetGate. Burn is
+  deliberately not, and it must never be: that gate requires a Moats burn, so
+  gating burning would lock out the one way to meet it.
 -->
 <template>
     <div class="moats_page">
@@ -203,8 +203,8 @@
                     v-else
                     type="button"
                     class="action_btn"
-                    :disabled="!canSend"
-                    @click="confirming = true"
+                    :disabled="!canSend || gateBlocksMode"
+                    @click="arm"
                 >
                     {{ copy.verb }} AVXTO
                 </button>
@@ -246,6 +246,7 @@
 
 <script lang="ts">
 import { defineComponent, ref, computed, watch, type PropType } from 'vue'
+import { useBaseAssetGate } from '@/composables/useBaseAssetGate'
 import { useNotificationsStore } from '@/stores'
 import { activeEvmSigner } from '@/platforms/evmSigner'
 import { explorerTxUrl } from '@/evm/networkRegistry'
@@ -323,6 +324,20 @@ export default defineComponent({
 
         const amountText = ref('')
         const confirming = ref(false)
+
+        // Premium gate for stake and lock, never burn (see the file comment).
+        const { isBlocked, gatedAction } = useBaseAssetGate()
+        const gateBlocksMode = computed(() => props.mode !== 'burn' && isBlocked.value)
+        /** Arms the confirmation step; stake and lock check the burn requirement first. */
+        const arm = () => {
+            if (props.mode === 'burn') {
+                confirming.value = true
+                return
+            }
+            return gatedAction(() => {
+                confirming.value = true
+            })
+        }
         const isSending = ref(false)
         const progressText = ref('')
         const result = ref<(MoatsResult & { amount: string }) | null>(null)
@@ -497,6 +512,8 @@ export default defineComponent({
         }
 
         return {
+            gateBlocksMode,
+            arm,
             copy,
             signer,
             wrongChain,

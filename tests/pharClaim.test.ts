@@ -161,6 +161,20 @@ jest.mock('@/js/PharAutoVault', () => ({
     claimAutoVaultRewards: (...a: any[]) => claimFn(...a),
 }))
 
+// The premium gate (Moats AVXTO burn). `open` = requirement met.
+const gate = { open: true, checks: 0 }
+jest.mock('@/composables/useBaseAssetGate', () => ({
+    useBaseAssetGate: () => ({
+        isBlocked: false,
+        gatedAction: async (fn: () => unknown) => {
+            gate.checks++
+            if (!gate.open) return false // the burn modal would open instead
+            await fn()
+            return true
+        },
+    }),
+}))
+
 import PharDashboard from '@/views/wallet/PharDashboard.vue'
 
 const vault = {
@@ -426,6 +440,47 @@ describe('the Done button', () => {
 
         expect(w.text()).not.toContain('export rejected')
         expect(w.find('.flow_steps').exists()).toBe(false)
+        w.unmount()
+    })
+})
+
+describe('the PHAR Dashboard premium gate', () => {
+    beforeEach(() => {
+        signerRef.current = { address: ME, authSubject: {}, network: { evmChainId: 43114, name: 'Avalanche C-Chain' } }
+        mainStoreRef.activeWallet = { id: 'avalanche-wallet' }
+        gate.checks = 0
+        readOnChain.mockReset().mockResolvedValue({ vault, user: userWith(EARNED) })
+        claimFn.mockReset().mockResolvedValue({ txHash: '0xc', offline: false, amount: EARNED, token: WAVAX })
+        claimUnwrapFn.mockReset()
+        claimToXFn.mockReset()
+    })
+
+    it('runs none of the three claims when the burn requirement is not met', async () => {
+        gate.open = false
+        const w = mount(PharDashboard, { global: { stubs } })
+        await flushPromises()
+
+        for (const label of ['Claim rewards', 'Claim and unwrap to AVAX', 'Claim rewards to X-Chain']) {
+            await button(w, label).trigger('click')
+            await flushPromises()
+        }
+
+        expect(gate.checks).toBe(3)
+        expect(claimFn).not.toHaveBeenCalled()
+        expect(claimUnwrapFn).not.toHaveBeenCalled()
+        expect(claimToXFn).not.toHaveBeenCalled()
+        w.unmount()
+    })
+
+    it('claims once the requirement is met', async () => {
+        gate.open = true
+        const w = mount(PharDashboard, { global: { stubs } })
+        await flushPromises()
+        await claimButton(w).trigger('click')
+        await flushPromises()
+
+        expect(gate.checks).toBe(1)
+        expect(claimFn).toHaveBeenCalledTimes(1)
         w.unmount()
     })
 })

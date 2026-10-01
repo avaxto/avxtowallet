@@ -51,6 +51,20 @@ jest.mock('@/js/Moats', () => {
     }
 })
 
+// The premium gate (Moats AVXTO burn). `open` = requirement met.
+const gate = { open: true, checks: 0 }
+jest.mock('@/composables/useBaseAssetGate', () => ({
+    useBaseAssetGate: () => ({
+        isBlocked: { value: false },
+        gatedAction: async (fn: () => unknown) => {
+            gate.checks++
+            if (!gate.open) return false // the burn modal would open instead
+            await fn()
+            return true
+        },
+    }),
+}))
+
 // Imported after the mocks so the page picks them up.
 import MoatsAction from '@/components/wallet/moats/MoatsAction.vue'
 
@@ -75,7 +89,11 @@ function mountPage(mode: string) {
     })
 }
 
-beforeEach(() => runMoatsAction.mockReset())
+beforeEach(() => {
+    runMoatsAction.mockReset()
+    gate.open = true
+    gate.checks = 0
+})
 
 describe('burn page', () => {
     it('shows the AVXTO balance and burn stats', async () => {
@@ -102,6 +120,7 @@ describe('burn page', () => {
 
         await wrapper.find('input').setValue('250')
         await wrapper.find('button.action_btn').trigger('click')
+        await flushPromises()
 
         expect(runMoatsAction).not.toHaveBeenCalled()
         expect(wrapper.text()).toContain('permanently destroy 250 AVXTO')
@@ -143,6 +162,7 @@ describe('stake page', () => {
 
         await wrapper.find('input').setValue('250')
         await wrapper.find('button.action_btn').trigger('click')
+        await flushPromises()
         expect(runMoatsAction).not.toHaveBeenCalled()
         expect(wrapper.text()).toContain('You are about to stake 250 AVXTO')
         expect(wrapper.text()).toContain('0.5% unstake fee')
@@ -194,6 +214,7 @@ describe('lock page', () => {
         await wrapper.find('input[name="moats-lock-amount"]').setValue('250')
         await wrapper.findAll('button.preset_btn').find((b) => b.text() === '90 days')!.trigger('click')
         await wrapper.find('button.action_btn').trigger('click')
+        await flushPromises()
 
         expect(runMoatsAction).not.toHaveBeenCalled()
         const text = wrapper.text()
@@ -208,5 +229,43 @@ describe('lock page', () => {
         expect((amount as BN).toString()).toBe('250000000000000000000')
         expect(opts).toEqual({ lockDays: 90 })
         expect(wrapper.text()).toContain('Locked 250 AVXTO')
+    })
+})
+
+describe('premium gate', () => {
+    async function armAndConfirm(mode: string) {
+        signerRef.current = ON_C_CHAIN
+        runMoatsAction.mockResolvedValue({ approveTxHash: null, actionTxHash: '0xb', offline: false })
+        const wrapper = mountPage(mode)
+        await flushPromises()
+        await wrapper.find('input').setValue('250')
+        await wrapper.find('button.action_btn').trigger('click')
+        await flushPromises()
+        const confirm = wrapper.find('.confirm_box button.action_btn')
+        if (confirm.exists()) {
+            await confirm.trigger('click')
+            await flushPromises()
+        }
+        return wrapper
+    }
+
+    it('stakes and locks only when the burn requirement is met', async () => {
+        gate.open = false
+        await armAndConfirm(MoatsStake)
+        await armAndConfirm(MoatsLock)
+        expect(gate.checks).toBe(2)
+        expect(runMoatsAction).not.toHaveBeenCalled()
+
+        gate.open = true
+        await armAndConfirm(MoatsStake)
+        expect(runMoatsAction).toHaveBeenCalledTimes(1)
+    })
+
+    it('never gates burning — burning is how the requirement is met', async () => {
+        gate.open = false
+        await armAndConfirm(MoatsBurn)
+        expect(gate.checks).toBe(0)
+        expect(runMoatsAction).toHaveBeenCalledTimes(1)
+        expect(runMoatsAction.mock.calls[0][1]).toBe('burn')
     })
 })

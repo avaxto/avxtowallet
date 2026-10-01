@@ -210,10 +210,14 @@ export function useBaseAssetGate() {
 
     /**
      * Wraps one gated action: `/wallet/unifychains`'s "Unify onto",
-     * `/wallet/quickdelegate`'s "Find Validator", `/wallet/launcher`'s
-     * "Deploy Token", `/wallet/psat`'s "Load transaction",
-     * `/wallet/iceberg`'s "Start Iceberg Order", `/wallet/broadcast`'s
-     * "Broadcast to", and every step button in `/wallet/wizard`.
+     * `/wallet/quickdelegate`'s "Find Validator" (and "Delegate" when
+     * restaking), `/wallet/restake`'s "Restake", `/wallet/moats/stake` and
+     * `/wallet/moats/lock`'s action buttons, `/wallet/launcher`'s "Deploy Token", `/wallet/psat`'s "Load
+     * transaction", `/wallet/iceberg`'s "Start Iceberg Order",
+     * `/wallet/limit`'s order buttons, `/wallet/broadcast`'s "Broadcast to",
+     * `/wallet/phar/swap`'s "Swap" and "Swap all", `/wallet/phar/dashboard`'s
+     * three claim buttons, and every step button in `/wallet/wizard`.
+     * Never the Moats burn page: burning is how the requirement is met.
      *
      * Runs `action` when the requirement is met; otherwise opens the modal
      * and runs nothing. The page itself stays where it is either way —

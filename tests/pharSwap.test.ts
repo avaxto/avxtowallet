@@ -227,6 +227,20 @@ jest.mock('@/js/PharSwap', () => ({
     executeSwap: (...a: any[]) => executeMock(...a),
 }))
 
+// The premium gate (Moats AVXTO burn). `open` = requirement met.
+const gate = { open: true, checks: 0 }
+jest.mock('@/composables/useBaseAssetGate', () => ({
+    useBaseAssetGate: () => ({
+        isBlocked: false,
+        gatedAction: async (fn: () => unknown) => {
+            gate.checks++
+            if (!gate.open) return false // the burn modal would open instead
+            await fn()
+            return true
+        },
+    }),
+}))
+
 import PharSwap from '@/views/wallet/PharSwap.vue'
 
 describe('the PHAR Swap page', () => {
@@ -273,6 +287,63 @@ describe('the PHAR Swap page', () => {
         expect(q.amountIn.toString()).toBe(CAPTURED_AMOUNT.toString())
         expect(w.text()).toContain('Swapped 23.264046 WAVAX → 23.264046 AVAX')
         expect(w.text()).toContain('0xdone')
+        w.unmount()
+    })
+})
+
+describe('the PHAR Swap premium gate', () => {
+    const stubs = {
+        fa: true,
+        RegistryCheck: true,
+        SignOnlyToggle: true,
+        SignedTxExport: true,
+        CopyText: { template: '<span><slot /></span>' },
+        'v-btn': {
+            props: ['disabled', 'loading'],
+            emits: ['click'],
+            template: '<button class="v_btn" :disabled="disabled" @click="$emit(\'click\')"><slot /></button>',
+        },
+    }
+    const btn = (w: any, label: string) => w.findAll('button.v_btn').find((b: any) => b.text() === label)!
+
+    beforeEach(() => {
+        gate.checks = 0
+        executeMock.mockReset().mockResolvedValue({ txHash: '0xdone', offline: false, approveTxHash: null })
+        http.get.mockResolvedValue({ data: [] })
+        signerRef.current = fakeSigner({
+            balances: { [WAVAX_TOKEN.address.toLowerCase()]: CAPTURED_AMOUNT.toString(), native: '5000000000000000000' },
+        }).signer
+    })
+
+    it('sends no swap when the burn requirement is not met', async () => {
+        gate.open = false
+        const w = mount(PharSwap, { global: { stubs } })
+        await flushPromises()
+
+        await btn(w, 'Swap all').trigger('click')
+        await w.find('.amount_input').setValue('1')
+        await new Promise((r) => setTimeout(r, 500)) // quote debounce
+        await flushPromises()
+        await btn(w, 'Unwrap WAVAX to AVAX').trigger('click')
+        await flushPromises()
+
+        expect(gate.checks).toBe(2) // both buttons asked the gate
+        expect(executeMock).not.toHaveBeenCalled()
+        w.unmount()
+    })
+
+    it('swaps once the requirement is met', async () => {
+        gate.open = true
+        const w = mount(PharSwap, { global: { stubs } })
+        await flushPromises()
+        await w.find('.amount_input').setValue('1')
+        await new Promise((r) => setTimeout(r, 500))
+        await flushPromises()
+        await btn(w, 'Unwrap WAVAX to AVAX').trigger('click')
+        await flushPromises()
+
+        expect(gate.checks).toBe(1)
+        expect(executeMock).toHaveBeenCalledTimes(1)
         w.unmount()
     })
 })

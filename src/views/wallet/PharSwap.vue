@@ -43,8 +43,8 @@
                         depressed
                         small
                         :loading="busy && swappingAll"
-                        :disabled="!canSwapAll"
-                        @click="swapAllWavax"
+                        :disabled="!canSwapAll || isBlocked"
+                        @click="gatedAction(swapAllWavax)"
                     >
                         Swap all
                     </v-btn>
@@ -193,7 +193,14 @@
                     </div>
 
                     <SignOnlyToggle :disabled="busy"></SignOnlyToggle>
-                    <v-btn class="button_primary swap_btn" depressed block :loading="busy && !swappingAll" :disabled="!canSwap" @click="swap">
+                    <v-btn
+                        class="button_primary swap_btn"
+                        depressed
+                        block
+                        :loading="busy && !swappingAll"
+                        :disabled="!canSwap || isBlocked"
+                        @click="gatedAction(swap)"
+                    >
                         {{ swapLabel }}
                     </v-btn>
                 </section>
@@ -232,6 +239,7 @@ import CopyText from '@/components/misc/CopyText.vue'
 import RegistryCheck from '@/components/misc/RegistryCheck.vue'
 import SignOnlyToggle from '@/components/misc/SignOnlyToggle.vue'
 import SignedTxExport from '@/components/misc/SignedTxExport.vue'
+import { useBaseAssetGate } from '@/composables/useBaseAssetGate'
 
 /** A quote older than this is refetched before it is sent. */
 const QUOTE_MAX_AGE_MS = 20_000
@@ -245,6 +253,9 @@ export default defineComponent({
     name: 'phar_swap',
     components: { CopyText, RegistryCheck, SignOnlyToggle, SignedTxExport },
     setup() {
+        // Premium feature: every swap first checks the Moats AVXTO burn
+        // requirement (useBaseAssetGate). The page itself stays usable.
+        const { isBlocked, gatedAction } = useBaseAssetGate()
         const offline = useOfflineSigningStore()
         const signer = computed(() => activeEvmSigner())
 
@@ -485,6 +496,8 @@ export default defineComponent({
         const resultText = computed(() => (result.value ? `Swapped ${result.value.summary}` : ''))
 
         return {
+            isBlocked,
+            gatedAction,
             offline,
             signer,
             from,

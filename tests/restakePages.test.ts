@@ -54,8 +54,18 @@ jest.mock('@/js/security/authorize', () => ({
     authorizeSingle: (_w: unknown, _label: string, fn: () => Promise<string>) => fn(),
     SessionAuthCancelled: class extends Error {},
 }))
+// The premium gate (Moats AVXTO burn). `open` = requirement met.
+const gate = { open: true, checks: 0 }
 jest.mock('@/composables/useBaseAssetGate', () => ({
-    useBaseAssetGate: () => ({ isBlocked: false, gatedAction: (fn: () => void) => fn() }),
+    useBaseAssetGate: () => ({
+        isBlocked: false,
+        gatedAction: async (fn: () => unknown) => {
+            gate.checks++
+            if (!gate.open) return false // the burn modal would open instead
+            await fn()
+            return true
+        },
+    }),
 }))
 
 const listDelegations = jest.fn()
@@ -113,6 +123,8 @@ const activeValidator = {
 }
 
 beforeEach(() => {
+    gate.open = true
+    gate.checks = 0
     delegate.mockClear()
     routerPush.mockClear()
     platform.validatorListEarn = [activeValidator]
@@ -188,4 +200,47 @@ it('opens as the ordinary search when nothing was chosen', async () => {
     expect(wrapper.text()).toContain('Find Validator')
     expect(wrapper.text()).not.toContain('Restaking your')
     wrapper.unmount()
+})
+
+describe('premium gate', () => {
+    it('hands nothing to Quick Delegate when the burn requirement is not met', async () => {
+        gate.open = false
+        listDelegations.mockResolvedValue([past])
+        const w = mount(Restake, { global: { stubs } })
+        await flushPromises()
+        await w.find('button').trigger('click')
+        await flushPromises()
+
+        expect(gate.checks).toBe(1)
+        expect(routerPush).not.toHaveBeenCalled()
+        w.unmount()
+
+        // Nothing was handed over, so Quick Delegate opens as the ordinary search.
+        const qd = mount(QuickDelegate, { global: { stubs } })
+        await flushPromises()
+        expect(qd.text()).toContain('Find Validator')
+        expect(qd.text()).not.toContain('Restaking your')
+        qd.unmount()
+    })
+
+    it("checks again at the restake's Delegate button, and does not delegate if it fails", async () => {
+        listDelegations.mockResolvedValue([past])
+        const list = mount(Restake, { global: { stubs } })
+        await flushPromises()
+        await list.find('button').trigger('click')
+        await flushPromises()
+        list.unmount()
+
+        gate.open = false // e.g. the burn figure changed since the Restake page
+        gate.checks = 0
+        const w = mount(QuickDelegate, { global: { stubs } })
+        await flushPromises()
+        const btn = w.findAll('button').find((b) => b.text() === 'Delegate')!
+        await btn.trigger('click')
+        await flushPromises()
+
+        expect(gate.checks).toBe(1)
+        expect(delegate).not.toHaveBeenCalled()
+        w.unmount()
+    })
 })

@@ -141,8 +141,8 @@
                     depressed
                     block
                     :loading="isLoading"
-                    :disabled="restakeBlocked"
-                    @click="submit"
+                    :disabled="restakeBlocked || (!!restakePlan && isBlocked)"
+                    @click="onDelegate"
                 >
                     Delegate
                 </v-btn>
@@ -550,6 +550,14 @@ export default defineComponent({
             }
         }
 
+        /**
+         * The Delegate button. A restake skips "Find Validator" — the gated
+         * step of the normal flow — so it checks the burn requirement here
+         * instead (it was already checked on the Restake page; this is the
+         * second line, and passes silently when met).
+         */
+        const onDelegate = () => (restakePlan.value ? gatedAction(submit) : submit())
+
         const startOver = () => {
             restake.value = null
             restakePlan.value = null
@@ -572,6 +580,7 @@ export default defineComponent({
         return {
             isBlocked,
             gatedAction,
+            onDelegate,
             offline,
             platformStore,
             minDelegationDuration,

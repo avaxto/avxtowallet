@@ -133,8 +133,8 @@
                         depressed
                         block
                         :loading="claiming && busyAction === 'claim'"
-                        :disabled="!canClaim"
-                        @click="claim"
+                        :disabled="!canClaim || isBlocked"
+                        @click="gatedAction(claim)"
                     >
                         Claim rewards
                     </v-btn>
@@ -143,8 +143,8 @@
                         depressed
                         block
                         :loading="claiming && busyAction === 'unwrap'"
-                        :disabled="!canClaimAndUnwrap"
-                        @click="claimUnwrap"
+                        :disabled="!canClaimAndUnwrap || isBlocked"
+                        @click="gatedAction(claimUnwrap)"
                     >
                         Claim and unwrap to AVAX
                     </v-btn>
@@ -153,8 +153,8 @@
                         depressed
                         block
                         :loading="claiming && busyAction === 'x'"
-                        :disabled="!canClaimToX"
-                        @click="claimX"
+                        :disabled="!canClaimToX || isBlocked"
+                        @click="gatedAction(claimX)"
                     >
                         Claim rewards to X-Chain
                     </v-btn>
@@ -243,6 +243,7 @@ import {
 import CopyText from '@/components/misc/CopyText.vue'
 import SignOnlyToggle from '@/components/misc/SignOnlyToggle.vue'
 import SignedTxExport from '@/components/misc/SignedTxExport.vue'
+import { useBaseAssetGate } from '@/composables/useBaseAssetGate'
 
 export default defineComponent({
     // Listed in Wallet.vue's keep-alive `exclude`: a cached instance would
@@ -250,6 +251,9 @@ export default defineComponent({
     name: 'phar_dashboard',
     components: { CopyText, SignOnlyToggle, SignedTxExport },
     setup() {
+        // Premium feature: all three claim actions first check the Moats AVXTO
+        // burn requirement (useBaseAssetGate). Reading rewards stays open.
+        const { isBlocked, gatedAction } = useBaseAssetGate()
         const offline = useOfflineSigningStore()
         const signer = computed(() => activeEvmSigner())
         const address = computed(() => signer.value?.address ?? null)
@@ -501,6 +505,8 @@ export default defineComponent({
         })
 
         return {
+            isBlocked,
+            gatedAction,
             offline,
             address,
             vault,
