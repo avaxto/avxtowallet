@@ -342,4 +342,22 @@ export default defineComponent({
     font-weight: normal;
     font-size: 14px !important;
 }
+
+// On phones the long "AVXTO Required For Access" label must fit the screen:
+// smaller, and allowed to wrap inside the button instead of overflowing it.
+@include main.mobile-device {
+    .menu-btn {
+        font-size: 15px !important;
+        height: auto !important;
+        min-height: 36px;
+        max-width: calc(100vw - 32px);
+        padding: 6px 10px !important;
+    }
+
+    .menu-btn :deep(.v-btn__content) {
+        white-space: normal;
+        text-align: center;
+        line-height: 1.25;
+    }
+}
 </style>

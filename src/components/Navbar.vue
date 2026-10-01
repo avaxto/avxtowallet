@@ -53,6 +53,18 @@
                 <div style="display: flex; justify-content: space-between; padding: 4px 8px">
                     <img src="@/assets/wallet_logo_dark.svg" />
                 </div>
+                <!--
+                  Logged out: on phones the navbar's Connect / Access / Create
+                  buttons are hidden, so the drawer has to carry them — without
+                  this it was empty before login.
+                -->
+                <template v-if="!isAuth">
+                    <a href="/access" class="drawer_connect" @click.prevent="isDrawer = false; connectWallet()">
+                        {{ isConnecting ? $t('access.injected.waiting') : $t('access.but_connect_wallet') }}
+                    </a>
+                    <router-link to="/access" @click="isDrawer = false">{{ $t('nav.access') }}</router-link>
+                    <router-link to="/create" @click="isDrawer = false">{{ $t('nav.create') }}</router-link>
+                </template>
                 <template v-if="isAuth">
                     <router-link to="/wallet">{{ $t('wallet.sidebar.portfolio') }}</router-link>
                     <router-link to="/wallet/transfer">{{ $t('wallet.sidebar.send') }}</router-link>

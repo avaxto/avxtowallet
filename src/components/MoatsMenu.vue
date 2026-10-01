@@ -125,4 +125,22 @@ export default defineComponent({
     font-weight: normal;
     font-size: 14px !important;
 }
+
+// On phones, matching AvxtoMenu: a smaller label that may wrap inside the
+// button rather than overflow it, so the home top bar fits the screen.
+@include main.mobile-device {
+    .menu-btn {
+        font-size: 15px !important;
+        height: auto !important;
+        min-height: 36px;
+        max-width: calc(100vw - 32px);
+        padding: 6px 10px !important;
+    }
+
+    .menu-btn :deep(.v-btn__content) {
+        white-space: normal;
+        text-align: center;
+        line-height: 1.25;
+    }
+}
 </style>

@@ -139,6 +139,10 @@ export default defineComponent({
         .home_topbar {
             display: flex;
             justify-content: flex-end;
+            // Wrap rather than overflow: a right-aligned row that is wider than
+            // the screen spills off the LEFT edge (seen on a Galaxy S24).
+            flex-wrap: wrap;
+            gap: 4px 8px;
             margin-bottom: 10px;
         }
 
@@ -220,6 +224,16 @@ img {
 }
 
 @include main.mobile-device {
+    // Even side margins on phones (the desktop rule only pads the left).
+    :deep(.container) {
+        padding-left: 16px;
+        padding-right: 16px;
+    }
+
+    .home .home_wrapper .home_topbar {
+        justify-content: center;
+    }
+
     .auth {
         border-radius: 0;
         box-shadow: none;
