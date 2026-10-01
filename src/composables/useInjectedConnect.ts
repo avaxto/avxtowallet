@@ -22,6 +22,7 @@ import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useActivePlatformStore } from '@/platforms'
 import { useNotificationsStore } from '@/stores'
+import { needsWalletAppBrowser } from '@/helpers/mobileWallets'
 
 export function useInjectedConnect() {
     const platformStore = useActivePlatformStore()
@@ -35,6 +36,15 @@ export function useInjectedConnect() {
      */
     const connectInjected = async (targetRoute: string = '/wallet'): Promise<void> => {
         if (isConnecting.value) return
+
+        // On a phone with no wallet injected there is nothing to connect to
+        // here — the wallet app only injects into its own browser. The access
+        // screen explains that and links into the wallet apps; a "no extension
+        // found" toast would only read as "you have no wallet".
+        if (needsWalletAppBrowser()) {
+            router.push('/access')
+            return
+        }
 
         // Read from the ACTIVE platform rather than always calling
         // Avalanche's own connect, so the single-platform fallback below

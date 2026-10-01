@@ -15,6 +15,13 @@
         <router-link to="/create" class="link">{{ $t('access.create') }}</router-link>
         <div class="menus">
             <!--
+              On a phone with no wallet injected, the connect buttons below can
+              only fail: phone browsers run no wallet extensions, and wallet
+              apps inject only into their own in-app browser. Say so up front,
+              with links that reopen this page inside the wallet app.
+            -->
+            <MobileWalletHelp v-if="showMobileWalletHelp"></MobileWalletHelp>
+            <!--
               Extension takes priority over phrase: connecting is one click
               and no typing, so whoever has an extension installed should see
               that shortcut first. Shown regardless of which platform tab is
@@ -168,6 +175,8 @@ import { useI18n } from 'vue-i18n'
 import LedgerButton from '@/components/Ledger/LedgerButton.vue'
 import AccountsFound from '@/components/Access/AccountsFound.vue'
 import PlatformSelect from '@/components/Access/PlatformSelect.vue'
+import MobileWalletHelp from '@/components/Access/MobileWalletHelp.vue'
+import { hasInjectedWallet, isMobileBrowser } from '@/helpers/mobileWallets'
 import ToS from '@/components/misc/ToS.vue'
 import ImageDayNight from '@/components/misc/ImageDayNight.vue'
 import { getPlatform, useActivePlatformStore } from '@/platforms'
@@ -181,6 +190,7 @@ export default defineComponent({
         LedgerButton,
         AccountsFound,
         PlatformSelect,
+        MobileWalletHelp,
     },
     setup() {
         const platformStore = useActivePlatformStore()
@@ -281,6 +291,11 @@ export default defineComponent({
         })
 
         const canConnectMultiple = computed((): boolean => injectedPlatforms.value.length > 1)
+        // Re-evaluated with the same 1s poll as `injectedPlatforms`, so the help
+        // goes away if a wallet does inject after all.
+        const showMobileWalletHelp = computed(
+            (): boolean => isMobileBrowser() && injectedPlatforms.value.length === 0 && !hasInjectedWallet()
+        )
         const injectedPlatformNames = computed((): string =>
             injectedPlatforms.value.map((p) => p.descriptor.name).join(', ')
         )
@@ -397,6 +412,7 @@ export default defineComponent({
             connectError,
             hasInjectedMethod,
             canConnectMultiple,
+            showMobileWalletHelp,
             injectedPlatformNames,
             connectingPlatformName,
             partialFailures,
