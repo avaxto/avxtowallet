@@ -283,7 +283,10 @@ export interface ClaimResult {
  * before asking for a signature, so a claim that would revert fails here
  * rather than costing gas. Run it inside an `authorizeSingle` scope.
  */
-export async function claimAutoVaultRewards(signer: EvmSigner): Promise<ClaimResult> {
+export async function claimAutoVaultRewards(
+    signer: EvmSigner,
+    opts: { nonce?: number } = {}
+): Promise<ClaimResult> {
     if (signer.network.evmChainId !== PHAR_CHAIN_ID) {
         throw new Error(`Pharaoh AutoVault is on Avalanche C-Chain. Your wallet is on ${signer.network.name}.`)
     }
@@ -307,7 +310,9 @@ export async function claimAutoVaultRewards(signer: EvmSigner): Promise<ClaimRes
         label: 'Claim Pharaoh AutoVault rewards',
     }
     const gasLimit = await signer.estimateGas(req, AUTOVAULT_CLAIM_GAS_FALLBACK)
-    const txHash = await signer.send({ ...req, gasLimit })
+    // An explicit nonce lets a follow-up transaction be sequenced right behind
+    // this one (offline signing captures both before either is broadcast).
+    const txHash = await signer.send({ ...req, gasLimit, nonce: opts.nonce })
     if (isOfflineTxId(txHash)) return { txHash, offline: true, amount, token: String(token) }
 
     const receipt = await signer.waitForReceipt(txHash)

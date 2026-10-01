@@ -78,6 +78,33 @@
                         </div>
                     </div>
 
+                    <div v-if="flowResult" class="claim_done">
+                        <p class="claim_title">
+                            <fa icon="circle-check"></fa>
+                            {{ flowResult.title }}
+                        </p>
+                        <p v-if="flowResult.note" class="muted flow_note">{{ flowResult.note }}</p>
+                        <div v-for="tx in flowResult.txs" :key="tx.hash" class="flow_tx">
+                            <span class="flow_tx_label">{{ tx.label }}</span>
+                            <span class="mono tx_hash">{{ tx.hash }}</span>
+                            <div class="tx_actions">
+                                <CopyText :value="tx.hash" class="tx_copy">Copy</CopyText>
+                                <a :href="tx.url" target="_blank" rel="noopener noreferrer" class="panel_link">
+                                    View on {{ tx.explorer }} ↗
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <ol v-if="steps.length" class="flow_steps">
+                        <li v-for="st in steps" :key="st.step" :class="st.state">
+                            <fa v-if="st.state === 'done'" icon="circle-check"></fa>
+                            <fa v-else-if="st.state === 'running'" icon="spinner" spin></fa>
+                            <span v-else class="step_dot"></span>
+                            {{ stepLabels[st.step] }}
+                        </li>
+                    </ol>
+
                     <p v-if="claimError" class="error_msg">{{ claimError }}</p>
                     <p v-else-if="wrongChain" class="muted note">
                         Rewards are claimed on Avalanche C-Chain; your wallet is on {{ wrongChain }}. Switch
@@ -93,12 +120,39 @@
                         class="button_primary claim_btn"
                         depressed
                         block
-                        :loading="claiming"
+                        :loading="claiming && busyAction === 'claim'"
                         :disabled="!canClaim"
                         @click="claim"
                     >
                         Claim rewards
                     </v-btn>
+                    <v-btn
+                        class="button_secondary claim_btn"
+                        depressed
+                        block
+                        :loading="claiming && busyAction === 'unwrap'"
+                        :disabled="!canClaimAndUnwrap"
+                        @click="claimUnwrap"
+                    >
+                        Claim and unwrap to AVAX
+                    </v-btn>
+                    <v-btn
+                        class="button_secondary claim_btn"
+                        depressed
+                        block
+                        :loading="claiming && busyAction === 'x'"
+                        :disabled="!canClaimToX"
+                        @click="claimX"
+                    >
+                        Claim rewards to X-Chain
+                    </v-btn>
+                    <p v-if="user && !user.earned.isZero() && !payoutIsWavax" class="muted note option_note">
+                        Unwrapping to AVAX needs your rewards paid in WAVAX; yours are paid in
+                        {{ sym(user.outputPreference) }}. Change the payout token on phar.gg to use those options.
+                    </p>
+                    <p v-else-if="user && !user.earned.isZero() && !avalancheWallet" class="muted note option_note">
+                        Claiming to X-Chain needs the Avalanche tab, where your X-Chain address lives.
+                    </p>
                 </template>
                 <p v-else class="muted">{{ loading ? 'Reading your rewards…' : '--' }}</p>
             </section>
@@ -154,8 +208,11 @@ import Big from 'big.js'
 
 import { BN } from '@/avalanche'
 import { activeEvmSigner } from '@/platforms/evmSigner'
-import { useOfflineSigningStore } from '@/stores'
-import { authorizeSingle, SessionAuthCancelled } from '@/js/security/authorize'
+import { useMainStore, useOfflineSigningStore } from '@/stores'
+import { authorizeBatch, authorizeCrossChain, authorizeSingle, SessionAuthCancelled } from '@/js/security/authorize'
+import { getTxURL } from '@/js/Glacier/getTxURL'
+import { claimAndUnwrap, claimToXChain, type FlowStep, type StepState } from '@/js/PharClaimFlows'
+import { WAVAX_ADDRESS } from '@/js/PharSwap'
 import { errorToString } from '@/helpers/helper'
 import {
     AUTOVAULT_APP_URL,
@@ -194,8 +251,36 @@ export default defineComponent({
         const updatedAt = ref('')
 
         const claiming = ref(false)
+        const busyAction = ref<'claim' | 'unwrap' | 'x' | null>(null)
         const claimError = ref('')
         const claimed = ref<ClaimResult | null>(null)
+
+        // Multi-step claims: progress while running, every transaction after.
+        interface FlowTx {
+            label: string
+            hash: string
+            url: string
+            explorer: string
+        }
+        const flowResult = ref<{ title: string; note?: string; txs: FlowTx[] } | null>(null)
+        const steps = ref<{ step: FlowStep; state: StepState | 'waiting' }[]>([])
+        const stepLabels: Record<FlowStep, string> = {
+            claim: 'Claim rewards',
+            unwrap: 'Unwrap WAVAX to AVAX',
+            export: 'Export AVAX from C-Chain',
+            import: 'Import AVAX on X-Chain',
+        }
+        const startSteps = (list: FlowStep[]) => {
+            steps.value = list.map((step) => ({ step, state: 'waiting' }))
+        }
+        const onStep = (step: FlowStep, state: StepState) => {
+            const s = steps.value.find((x) => x.step === step)
+            if (s) s.state = state
+        }
+
+        // X-Chain lives in the Avalanche wallet, which is only set on the Avalanche tab.
+        const mainStore = useMainStore()
+        const avalancheWallet = computed(() => mainStore.activeWallet as any)
 
         let generation = 0
         const load = async () => {
@@ -254,13 +339,25 @@ export default defineComponent({
         const canClaim = computed(
             () => !!signer.value && !!user.value && !user.value.earned.isZero() && !claiming.value && !wrongChain.value
         )
+        const payoutIsWavax = computed(
+            () => !!user.value && user.value.outputPreference.toLowerCase() === WAVAX_ADDRESS.toLowerCase()
+        )
+        const canClaimAndUnwrap = computed(() => canClaim.value && payoutIsWavax.value)
+        const canClaimToX = computed(() => canClaimAndUnwrap.value && !!avalancheWallet.value)
+
+        const resetOutcome = () => {
+            claimError.value = ''
+            claimed.value = null
+            flowResult.value = null
+            steps.value = []
+        }
 
         const claim = async () => {
             const s = signer.value
             if (!s || !canClaim.value) return
             claiming.value = true
-            claimError.value = ''
-            claimed.value = null
+            busyAction.value = 'claim'
+            resetOutcome()
             try {
                 const res = await authorizeSingle(s.authSubject, 'Claim Pharaoh AutoVault rewards', () =>
                     claimAutoVaultRewards(s)
@@ -274,6 +371,78 @@ export default defineComponent({
                 claimError.value = errorToString(e)
             } finally {
                 claiming.value = false
+                busyAction.value = null
+            }
+        }
+
+        const cTx = (label: string, hash: string): FlowTx => ({ label, hash, url: txUrl(hash), explorer: 'snowtrace.io' })
+
+        /** Claim, then unwrap exactly what was claimed into C-Chain AVAX. */
+        const claimUnwrap = async () => {
+            const s = signer.value
+            if (!s || !canClaimAndUnwrap.value) return
+            claiming.value = true
+            busyAction.value = 'unwrap'
+            resetOutcome()
+            startSteps(['claim', 'unwrap'])
+            try {
+                const res = await authorizeBatch(s.authSubject, 'Claim rewards and unwrap to AVAX (2 transactions)', () =>
+                    claimAndUnwrap(s, onStep)
+                )
+                if (!res.offline) {
+                    flowResult.value = {
+                        title: `Claimed and unwrapped ${amt(res.unwrapped, 18)} AVAX`,
+                        txs: [cTx('Claim', res.claim.txHash), cTx('Unwrap', res.unwrapTxHash)],
+                    }
+                }
+                steps.value = []
+                await load()
+            } catch (e) {
+                if (e instanceof SessionAuthCancelled) return
+                claimError.value = errorToString(e)
+            } finally {
+                claiming.value = false
+                busyAction.value = null
+            }
+        }
+
+        /** Claim, unwrap, and move it all to X-Chain (export + import). */
+        const claimX = async () => {
+            const s = signer.value
+            const w = avalancheWallet.value
+            if (!s || !w || !canClaimToX.value) return
+            claiming.value = true
+            busyAction.value = 'x'
+            resetOutcome()
+            startSteps(['claim', 'unwrap', 'export', 'import'])
+            try {
+                // One authorization for all four signatures, across the import delay.
+                const res = await authorizeCrossChain(w, 'Claim rewards to X-Chain (4 transactions)', () =>
+                    claimToXChain(s, w, { offlineSigning: offline.isEnabled, onStep })
+                )
+                flowResult.value = {
+                    title: `Sent ${amt(res.fees.sent, 9)} AVAX to X-Chain`,
+                    note: `Claimed and unwrapped ${amt(res.unwrapped, 18)} AVAX; cross-chain fees ${amt(
+                        res.fees.exportFee.add(res.fees.importFee),
+                        9
+                    )} AVAX.`,
+                    txs: [
+                        cTx('Claim', res.claim.txHash),
+                        cTx('Unwrap', res.unwrapTxHash),
+                        { label: 'Export (C → X)', hash: res.exportTxId, url: getTxURL(res.exportTxId, 'C', true), explorer: 'avascan.info' },
+                        { label: 'Import on X-Chain', hash: res.importTxId, url: getTxURL(res.importTxId, 'X', true), explorer: 'subnets.avax.network' },
+                    ],
+                }
+                steps.value = []
+                await load()
+            } catch (e) {
+                if (e instanceof SessionAuthCancelled) return
+                // Steps left showing say how far it got before failing.
+                claimError.value = errorToString(e)
+                await load()
+            } finally {
+                claiming.value = false
+                busyAction.value = null
             }
         }
 
@@ -324,10 +493,20 @@ export default defineComponent({
             claiming,
             claimError,
             claimed,
+            busyAction,
+            flowResult,
+            steps,
+            stepLabels,
+            avalancheWallet,
+            payoutIsWavax,
+            canClaimAndUnwrap,
+            canClaimToX,
             wrongChain,
             canClaim,
             load,
             claim,
+            claimUnwrap,
+            claimX,
             onOfflineDone,
             short,
             sym,
@@ -472,6 +651,59 @@ export default defineComponent({
     gap: 8px 20px;
     margin-top: 8px;
     font-size: 13px;
+}
+
+.flow_steps {
+    list-style: none;
+    padding: 10px 14px;
+    margin: 0 0 12px;
+    background: var(--bg);
+    border-radius: 10px;
+    font-size: 13px;
+
+    li {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 3px 0;
+        color: var(--primary-color-light);
+
+        &.done {
+            color: var(--success);
+        }
+
+        &.running {
+            color: var(--primary-color);
+            font-weight: 600;
+        }
+    }
+
+    .step_dot {
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        margin: 0 3px;
+        border-radius: 50%;
+        border: 1px solid var(--primary-color-light);
+    }
+}
+
+.flow_note {
+    margin-top: 4px !important;
+}
+
+.flow_tx {
+    margin-top: 10px;
+
+    .flow_tx_label {
+        display: block;
+        font-size: 12px;
+        font-weight: 600;
+    }
+}
+
+.option_note {
+    margin-top: 8px !important;
 }
 
 .tiles {

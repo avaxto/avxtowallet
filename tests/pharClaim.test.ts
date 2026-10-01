@@ -122,11 +122,29 @@ jest.mock('@/stores/offlineSigning', () => ({
 const signerRef: { current: any } = { current: null }
 jest.mock('@/platforms/evmSigner', () => ({ activeEvmSigner: () => signerRef.current }))
 
-const offlineStore = { hasRecords: false, records: [], clearRecords: jest.fn() }
-jest.mock('@/stores', () => ({ useOfflineSigningStore: () => offlineStore }))
+const offlineStore = { hasRecords: false, isEnabled: false, records: [], clearRecords: jest.fn() }
+/** The Avalanche wallet — set only while the Avalanche tab is active. */
+const mainStoreRef: { activeWallet: any } = { activeWallet: null }
+jest.mock('@/stores', () => ({
+    useOfflineSigningStore: () => offlineStore,
+    useMainStore: () => mainStoreRef,
+}))
+const authorized: string[] = []
+const pass = (scope: string) => (_w: unknown, _r: string, fn: () => Promise<unknown>) => {
+    authorized.push(scope)
+    return fn()
+}
 jest.mock('@/js/security/authorize', () => ({
-    authorizeSingle: (_w: unknown, _r: string, fn: () => Promise<unknown>) => fn(),
+    authorizeSingle: (...a: any[]) => pass('single')(...(a as [any, any, any])),
+    authorizeBatch: (...a: any[]) => pass('batch')(...(a as [any, any, any])),
+    authorizeCrossChain: (...a: any[]) => pass('crosschain')(...(a as [any, any, any])),
     SessionAuthCancelled: class extends Error {},
+}))
+const claimUnwrapFn = jest.fn()
+const claimToXFn = jest.fn()
+jest.mock('@/js/PharClaimFlows', () => ({
+    claimAndUnwrap: (...a: any[]) => claimUnwrapFn(...a),
+    claimToXChain: (...a: any[]) => claimToXFn(...a),
 }))
 
 const readOnChain = jest.fn()
@@ -182,7 +200,8 @@ const stubs = {
     },
 }
 
-const claimButton = (w: any) => w.findAll('button.v_btn').find((b: any) => b.text() === 'Claim rewards')!
+const button = (w: any, label: string) => w.findAll('button.v_btn').find((b: any) => b.text() === label)!
+const claimButton = (w: any) => button(w, 'Claim rewards')
 
 describe('the PHAR Dashboard', () => {
     beforeEach(() => {
@@ -259,6 +278,103 @@ describe('the PHAR Dashboard', () => {
         await flushPromises()
         expect(w.text()).toContain('Connect an Avalanche wallet')
         expect(readOnChain).not.toHaveBeenCalled()
+        w.unmount()
+    })
+})
+
+describe('claim and unwrap / claim to X-Chain', () => {
+    const USDC_ADDR = '0xb97ef9ef8734c71904d8002f8b6bc66dd9c48a6e'
+
+    beforeEach(() => {
+        signerRef.current = { address: ME, authSubject: {}, network: { evmChainId: 43114, name: 'Avalanche C-Chain' } }
+        mainStoreRef.activeWallet = { id: 'avalanche-wallet' }
+        offlineStore.isEnabled = false
+        authorized.length = 0
+        readOnChain.mockReset().mockResolvedValue({ vault, user: userWith(EARNED) })
+        claimUnwrapFn.mockReset()
+        claimToXFn.mockReset()
+    })
+
+    it('offers both when rewards are paid in WAVAX on the Avalanche tab', async () => {
+        const w = mount(PharDashboard, { global: { stubs } })
+        await flushPromises()
+        expect(button(w, 'Claim and unwrap to AVAX').attributes('disabled')).toBeUndefined()
+        expect(button(w, 'Claim rewards to X-Chain').attributes('disabled')).toBeUndefined()
+        w.unmount()
+    })
+
+    it('claims and unwraps under one authorization, then lists both transactions', async () => {
+        claimUnwrapFn.mockResolvedValue({
+            claim: { txHash: '0xclaim', offline: false, amount: EARNED, token: WAVAX },
+            unwrapTxHash: '0xunwrap',
+            unwrapped: EARNED,
+            offline: false,
+        })
+        const w = mount(PharDashboard, { global: { stubs } })
+        await flushPromises()
+        await button(w, 'Claim and unwrap to AVAX').trigger('click')
+        await flushPromises()
+
+        expect(claimUnwrapFn).toHaveBeenCalledWith(signerRef.current, expect.any(Function))
+        expect(authorized).toEqual(['batch'])
+        const done = w.find('.claim_done').text()
+        expect(done).toContain('Claimed and unwrapped 120.183')
+        expect(done).toContain('0xclaim')
+        expect(done).toContain('0xunwrap')
+        w.unmount()
+    })
+
+    it('claims to X-Chain with the Avalanche wallet, linking all four transactions', async () => {
+        claimToXFn.mockResolvedValue({
+            claim: { txHash: '0xclaim', offline: false, amount: EARNED, token: WAVAX },
+            unwrapTxHash: '0xunwrap',
+            unwrapped: EARNED,
+            offline: false,
+            exportTxId: 'exportId',
+            importTxId: 'importId',
+            fees: { exportFee: new BN(673_800), importFee: new BN(1_000_000), sent: new BN('120181367011') },
+        })
+        const w = mount(PharDashboard, { global: { stubs } })
+        await flushPromises()
+        await button(w, 'Claim rewards to X-Chain').trigger('click')
+        await flushPromises()
+
+        const [s, wallet, opts] = claimToXFn.mock.calls[0]
+        expect(s).toBe(signerRef.current)
+        expect(wallet).toBe(mainStoreRef.activeWallet)
+        expect(opts.offlineSigning).toBe(false)
+        expect(authorized).toEqual(['crosschain'])
+
+        const done = w.find('.claim_done')
+        expect(done.text()).toContain('Sent 120.1814 AVAX to X-Chain')
+        const links = done.findAll('a').map((a) => a.attributes('href'))
+        expect(links).toEqual([
+            'https://snowtrace.io/tx/0xclaim',
+            'https://snowtrace.io/tx/0xunwrap',
+            'https://avascan.info/blockchain/c/tx/exportId',
+            'https://subnets.avax.network/x-chain/tx/importId',
+        ])
+        w.unmount()
+    })
+
+    it('disables both unwrap options, saying why, when rewards are not paid in WAVAX', async () => {
+        readOnChain.mockResolvedValue({ vault, user: { ...userWith(EARNED), outputPreference: USDC_ADDR } })
+        const w = mount(PharDashboard, { global: { stubs } })
+        await flushPromises()
+        expect(button(w, 'Claim rewards').attributes('disabled')).toBeUndefined()
+        expect(button(w, 'Claim and unwrap to AVAX').attributes('disabled')).toBeDefined()
+        expect(button(w, 'Claim rewards to X-Chain').attributes('disabled')).toBeDefined()
+        expect(w.text()).toContain('needs your rewards paid in WAVAX')
+        w.unmount()
+    })
+
+    it('disables claiming to X-Chain off the Avalanche tab', async () => {
+        mainStoreRef.activeWallet = null
+        const w = mount(PharDashboard, { global: { stubs } })
+        await flushPromises()
+        expect(button(w, 'Claim and unwrap to AVAX').attributes('disabled')).toBeUndefined()
+        expect(button(w, 'Claim rewards to X-Chain').attributes('disabled')).toBeDefined()
+        expect(w.text()).toContain('needs the Avalanche tab')
         w.unmount()
     })
 })

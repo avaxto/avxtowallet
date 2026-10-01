@@ -165,6 +165,21 @@ export async function quoteSwap(
     }
 }
 
+/**
+ * Unwraps `amount` of WAVAX into AVAX: `withdraw(amount)` on the WAVAX
+ * contract, exactly the transaction phar.gg sends. Waits for it to be mined
+ * (unless offline signing captured it) and returns its hash.
+ */
+export async function unwrapWavax(signer: EvmSigner, amount: BN, opts: { nonce?: number } = {}): Promise<string> {
+    const wavax = new (signer.reader().eth.Contract)(WAVAX_ABI as any, WAVAX_ADDRESS).methods
+    return sendAndConfirm(
+        signer,
+        { to: WAVAX_ADDRESS, data: wavax.withdraw(amount.toString()).encodeABI(), label: 'Unwrap WAVAX to AVAX', nonce: opts.nonce },
+        WRAP_GAS_FALLBACK,
+        'unwrap'
+    )
+}
+
 export interface SwapResult {
     txHash: string
     offline: boolean
@@ -193,13 +208,14 @@ export async function executeSwap(signer: EvmSigner, quote: SwapQuote, slippageB
     await signer.assertOnChain()
     const web3 = signer.reader()
 
-    if (quote.kind === 'unwrap' || quote.kind === 'wrap') {
+    if (quote.kind === 'unwrap') {
+        const txHash = await unwrapWavax(signer, quote.amountIn)
+        return { txHash, offline: isOfflineTxId(txHash), approveTxHash: null }
+    }
+    if (quote.kind === 'wrap') {
         const wavax = new web3.eth.Contract(WAVAX_ABI as any, WAVAX_ADDRESS).methods
-        const req =
-            quote.kind === 'unwrap'
-                ? { to: WAVAX_ADDRESS, data: wavax.withdraw(quote.amountIn.toString()).encodeABI(), label: 'Unwrap WAVAX to AVAX' }
-                : { to: WAVAX_ADDRESS, data: wavax.deposit().encodeABI(), value: quote.amountIn, label: 'Wrap AVAX to WAVAX' }
-        const txHash = await sendAndConfirm(signer, req, WRAP_GAS_FALLBACK, quote.kind)
+        const req = { to: WAVAX_ADDRESS, data: wavax.deposit().encodeABI(), value: quote.amountIn, label: 'Wrap AVAX to WAVAX' }
+        const txHash = await sendAndConfirm(signer, req, WRAP_GAS_FALLBACK, 'wrap')
         return { txHash, offline: isOfflineTxId(txHash), approveTxHash: null }
     }
 
