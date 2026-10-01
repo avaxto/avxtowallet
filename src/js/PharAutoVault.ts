@@ -37,6 +37,8 @@ import axios from 'axios'
 import { BN } from '@/avalanche'
 import { getEvmNetworkByChainId } from '@/evm/networkRegistry'
 import { web3For } from '@/evm/providers'
+import type { EvmSigner } from '@/evm/signer'
+import { isOfflineTxId } from '@/stores/offlineSigning'
 
 export const AUTOVAULT_ADDRESS = '0xfe99e92df71f53a26005d1bfbe54c941a3131aa0'
 export const XPHAR_ADDRESS = '0xe8164ea89665dab7a553e667f81f30cfda736b9a'
@@ -44,7 +46,13 @@ export const PHAR_MINTER_ADDRESS = '0xd23f124bbbc958bcddc0ce624042b48154222fde'
 export const PHAR_VOTER_ADDRESS = '0x922b9ca8e2207bfb850b6ff647c054d4b58a2aa7'
 export const PHAR_API = 'https://gateway.kingdomsubgraph.com/avalanche/api'
 export const AUTOVAULT_APP_URL = 'https://www.phar.gg/autovault'
-const PHAR_CHAIN_ID = 43114
+export const PHAR_CHAIN_ID = 43114
+/**
+ * Gas for `claim()` when estimation is unavailable. phar.gg's captured claim
+ * estimated 108,872 and used 104,157; this leaves headroom for a payout that
+ * touches more storage.
+ */
+export const AUTOVAULT_CLAIM_GAS_FALLBACK = 140_000
 /** Pharaoh epochs are weekly, numbered from the Unix epoch. */
 export const PHAR_PERIOD_SECONDS = 604_800
 const HTTP_TIMEOUT_MS = 15_000
@@ -70,6 +78,7 @@ const VAULT_ABI = [
     view('getPendingSwaps', [], ['address[]', 'address[]', 'uint256[]']),
     view('getClaimedInputTokens', [], ['address[]']),
     view('OPERATOR', [], ['address']),
+    { name: 'claim', type: 'function', stateMutability: 'nonpayable', inputs: [], outputs: [] },
 ]
 const ERC20_ABI = [
     view('balanceOf', ['address'], ['uint256']),
@@ -250,6 +259,60 @@ export async function readTokenInfo(addresses: string[]): Promise<TokenInfo[]> {
             return { address, symbol: String(symbol) || `${address.slice(0, 6)}…`, decimals: Number(decimals), price: null }
         })
     )
+}
+
+// ─── Claiming ──────────────────────────────────────────────────────────────
+
+export interface ClaimResult {
+    txHash: string
+    /** Captured by offline signing rather than broadcast. */
+    offline: boolean
+    /** What was pending just before claiming, in the payout token's units. */
+    amount: BN
+    /** The payout token it was paid in. */
+    token: string
+}
+
+/**
+ * Claims the viewer's AutoVault rewards — the same single call phar.gg makes:
+ * `claim()` on the vault, no arguments, no value, which pays everything
+ * `earned(user)` reports in the user's chosen payout token (captured claim:
+ * tx 0x98cf93…1b16, 120.18 WAVAX, `Claimed(user, WAVAX, amount)`).
+ *
+ * Like phar.gg, it checks there is something to claim and simulates the call
+ * before asking for a signature, so a claim that would revert fails here
+ * rather than costing gas. Run it inside an `authorizeSingle` scope.
+ */
+export async function claimAutoVaultRewards(signer: EvmSigner): Promise<ClaimResult> {
+    if (signer.network.evmChainId !== PHAR_CHAIN_ID) {
+        throw new Error(`Pharaoh AutoVault is on Avalanche C-Chain. Your wallet is on ${signer.network.name}.`)
+    }
+    await signer.assertOnChain()
+
+    const web3 = signer.reader()
+    const v = new web3.eth.Contract(VAULT_ABI as any, AUTOVAULT_ADDRESS).methods
+    const [earned, token] = await Promise.all([
+        v.earned(signer.address).call(),
+        v.outputPreference(signer.address).call(),
+    ])
+    const amount = toBN(earned)
+    if (amount.isZero()) throw new Error('There are no AutoVault rewards to claim right now.')
+
+    // Simulate first: a revert surfaces with its reason instead of as a failed transaction.
+    await v.claim().call({ from: signer.address })
+
+    const req = {
+        to: AUTOVAULT_ADDRESS,
+        data: v.claim().encodeABI(),
+        label: 'Claim Pharaoh AutoVault rewards',
+    }
+    const gasLimit = await signer.estimateGas(req, AUTOVAULT_CLAIM_GAS_FALLBACK)
+    const txHash = await signer.send({ ...req, gasLimit })
+    if (isOfflineTxId(txHash)) return { txHash, offline: true, amount, token: String(token) }
+
+    const receipt = await signer.waitForReceipt(txHash)
+    if (!receipt.status) throw new Error('The claim transaction failed.')
+    return { txHash: receipt.txHash, offline: false, amount, token: String(token) }
 }
 
 // ─── Pharaoh's API ─────────────────────────────────────────────────────────

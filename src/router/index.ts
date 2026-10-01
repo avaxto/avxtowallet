@@ -60,6 +60,7 @@ import Broadcast from '@/views/wallet/Broadcast.vue'
 import QuickDelegate from '@/views/wallet/QuickDelegate.vue'
 import Restake from '@/views/wallet/Restake.vue'
 import PharAutoVault from '@/views/wallet/PharAutoVault.vue'
+import PharDashboard from '@/views/wallet/PharDashboard.vue'
 import Config from '@/views/wallet/Config.vue'
 import WalletReadonly from '@/views/WalletReadonly.vue'
 import InsufficientBalance from '@/views/InsufficientBalance.vue'
@@ -288,6 +289,10 @@ const routes: RouteRecordRaw[] = [
             {
                 path: 'phar/autovault',
                 component: PharAutoVault,
+            },
+            {
+                path: 'phar/dashboard',
+                component: PharDashboard,
             },
             {
                 path: 'wizard',
