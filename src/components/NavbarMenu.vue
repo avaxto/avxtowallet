@@ -127,7 +127,7 @@
             </template>
             <v-list>
                 <v-list-item to="/wallet/phar/dashboard">
-                    <v-list-item-title>PHAR Dashboard (rewards)</v-list-item-title>
+                    <v-list-item-title>Claim PHAR Rewards</v-list-item-title>
                 </v-list-item>
                 <v-list-item to="/wallet/phar/swap">
                     <v-list-item-title>PHAR Swap</v-list-item-title>
