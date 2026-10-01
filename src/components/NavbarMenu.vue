@@ -129,6 +129,9 @@
                 <v-list-item to="/wallet/phar/dashboard">
                     <v-list-item-title>PHAR Dashboard (rewards)</v-list-item-title>
                 </v-list-item>
+                <v-list-item to="/wallet/phar/swap">
+                    <v-list-item-title>PHAR Swap</v-list-item-title>
+                </v-list-item>
                 <v-list-item to="/wallet/phar/autovault">
                     <v-list-item-title>AutoVault Dashboard</v-list-item-title>
                 </v-list-item>
