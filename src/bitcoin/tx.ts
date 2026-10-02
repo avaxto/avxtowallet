@@ -61,6 +61,8 @@ export interface BuildTxRequest {
      * tweak it (see `tweakForTaproot`).
      */
     signerFor: (path: string) => TxSigner
+    /** Optional OP_RETURN payload (e.g. a THORChain memo), added as a zero-value output. */
+    opReturn?: Uint8Array
 }
 
 /**
@@ -179,9 +181,16 @@ export async function buildAndSignTx(req: BuildTxRequest): Promise<BuiltTx> {
         await addInput(psbt, utxo, network, node.publicKey)
     }
 
+    // Output order matters to THORChain, the reason memos exist here: the
+    // vault first, change second, the OP_RETURN memo last.
     psbt.addOutput({ address: toAddress, value: BigInt(selection.outputSats) })
     if (selection.changeSats > 0) {
         psbt.addOutput({ address: changeAddress, value: BigInt(selection.changeSats) })
+    }
+    if (req.opReturn?.length) {
+        const embed = bitcoin.payments.embed({ data: [Buffer.from(req.opReturn)] })
+        if (!embed.output) throw new Error('Could not build the memo output.')
+        psbt.addOutput({ script: embed.output, value: BigInt(0) })
     }
 
     // Sign each input with the key that owns it.

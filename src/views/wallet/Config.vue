@@ -136,6 +136,27 @@
                 </div>
             </div>
 
+            <!-- ── Bridge providers ──────────────────────────────────── -->
+            <div class="grid_box">
+                <h3>Bridge Providers</h3>
+                <p class="description">
+                    Which services the Bridge page asks for routes. Every enabled provider that serves
+                    a pair is quoted side by side; turning one off hides its routes. Transfers already
+                    sent stay trackable either way.
+                </p>
+                <label v-for="p in bridgeProviders" :key="p.id" class="provider_row">
+                    <input
+                        type="checkbox"
+                        :checked="isBridgeProviderEnabled(p.id)"
+                        @change="onBridgeProviderToggle(p.id, $event)"
+                    />
+                    <span>
+                        <strong>{{ p.name }}</strong>
+                        <span class="hint">{{ bridgeProviderNotes[p.id] }}</span>
+                    </span>
+                </label>
+            </div>
+
             <!--
               Avalanche-only: these fields write to Avalanche's own network
               store (stores/network.ts). Gated on chain shape rather than a
@@ -304,6 +325,7 @@ import { useActivePlatformStore } from '@/platforms'
 import { getSolanaNetworkById, setSolanaRpcOverride } from '@/solana/networks'
 import { resetConnections } from '@/solana/rpc'
 import { getBitcoinNetworkById, setEsploraOverride } from '@/bitcoin/networks'
+import { isProviderEnabled, listProviders, setProviderEnabled } from '@/bridge/registry'
 
 export default defineComponent({
     name: 'Config',
@@ -546,7 +568,21 @@ export default defineComponent({
             })
         }
 
+        // ── Bridge providers ──
+        const bridgeProviders = listProviders()
+        const bridgeProviderNotes: Record<string, string> = {
+            wormhole: 'Tokens and native coins between EVM chains and Solana; AVXTO through its NTT deployment.',
+            thorchain: 'Native BTC to and from ETH, AVAX, BNB and Base ETH. Mainnet only.',
+        }
+        const isBridgeProviderEnabled = (id: string) => isProviderEnabled(id)
+        const onBridgeProviderToggle = (id: string, e: Event) =>
+            setProviderEnabled(id, (e.target as HTMLInputElement).checked)
+
         return {
+            bridgeProviders,
+            bridgeProviderNotes,
+            isBridgeProviderEnabled,
+            onBridgeProviderToggle,
             offline,
             isBitcoin,
             isAvalanche,
@@ -681,6 +717,22 @@ h1 {
     &:focus {
         outline: none;
         border-color: var(--primary-color);
+    }
+}
+
+.provider_row {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin-top: 10px;
+    cursor: pointer;
+
+    input {
+        margin-top: 4px;
+    }
+
+    .hint {
+        display: block;
     }
 }
 

@@ -76,6 +76,8 @@ module.exports = {
                 'vue3-virtual-scroll-list',
                 // ESM-only; needed to mount real menus (tests/navbarMenuClicks).
                 'vuetify',
+                // Wormhole SDK 6 ships ES modules only (src/bridge/wormhole).
+                '@wormhole-foundation',
             ].join('|') +
             ')/)',
     ],

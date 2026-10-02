@@ -98,6 +98,8 @@ export interface CoinSelectionRequest {
     changeType: BtcAddressType
     /** Sweep everything: no change output, fee comes out of the amount. */
     sendMax?: boolean
+    /** Size of any extra zero-value outputs (an OP_RETURN memo), so the fee covers them. */
+    extraOutputVbytes?: number
 }
 
 export interface CoinSelectionResult {
@@ -113,11 +115,24 @@ export interface CoinSelectionResult {
 /** Size of a transaction with these inputs and outputs. */
 export function estimateVbytes(
     inputs: { addressType: BtcAddressType }[],
-    outputTypes: BtcAddressType[]
+    outputTypes: BtcAddressType[],
+    extraOutputVbytes = 0
 ): number {
     const inputVb = inputs.reduce((sum, i) => sum + INPUT_VBYTES[i.addressType], 0)
     const outputVb = outputTypes.reduce((sum, t) => sum + OUTPUT_VBYTES[t], 0)
-    return TX_OVERHEAD_VBYTES + inputVb + outputVb
+    return TX_OVERHEAD_VBYTES + inputVb + outputVb + extraOutputVbytes
+}
+
+/** The largest OP_RETURN payload standard relay policy accepts. */
+export const MAX_OP_RETURN_BYTES = 80
+
+/**
+ * Size of an OP_RETURN output carrying `dataBytes`: 8 (value) + 1 (script
+ * length) + OP_RETURN + the push opcode(s) + the data. Payloads over 75 bytes
+ * need OP_PUSHDATA1, one byte more.
+ */
+export function opReturnVbytes(dataBytes: number): number {
+    return 8 + 1 + 1 + (dataBytes > 75 ? 2 : 1) + dataBytes
 }
 
 /**
@@ -137,6 +152,7 @@ export function estimateVbytes(
  */
 export function selectCoins(req: CoinSelectionRequest): CoinSelectionResult {
     const { utxos, feeRate, recipientType, changeType, sendMax } = req
+    const extra = req.extraOutputVbytes ?? 0
 
     if (feeRate <= 0) throw new Error('Fee rate must be greater than zero.')
     if (utxos.length === 0) throw new Error('This wallet has no spendable outputs.')
@@ -148,7 +164,7 @@ export function selectCoins(req: CoinSelectionRequest): CoinSelectionResult {
     })
 
     if (sendMax) {
-        return selectAll(sorted, feeRate, recipientType)
+        return selectAll(sorted, feeRate, recipientType, extra)
     }
 
     const targetSats = Math.floor(req.targetSats)
@@ -168,7 +184,7 @@ export function selectCoins(req: CoinSelectionRequest): CoinSelectionResult {
         total += utxo.value
 
         // Cost if we finish here WITH a change output...
-        const withChangeVb = estimateVbytes(chosen, [recipientType, changeType])
+        const withChangeVb = estimateVbytes(chosen, [recipientType, changeType], extra)
         const withChangeFee = Math.ceil(withChangeVb * feeRate)
         const change = total - targetSats - withChangeFee
 
@@ -186,7 +202,7 @@ export function selectCoins(req: CoinSelectionRequest): CoinSelectionResult {
         // change go to the miner instead. Creating a sub-dust change output is
         // not an option — the network would reject the transaction — so the
         // choice is between donating it and adding another input.
-        const noChangeVb = estimateVbytes(chosen, [recipientType])
+        const noChangeVb = estimateVbytes(chosen, [recipientType], extra)
         const noChangeFee = Math.ceil(noChangeVb * feeRate)
         if (total >= targetSats + noChangeFee && change < DUST_THRESHOLD_SATS) {
             return {
@@ -203,7 +219,7 @@ export function selectCoins(req: CoinSelectionRequest): CoinSelectionResult {
 
     // Ran out of UTXOs. Report the shortfall against the cheapest possible
     // completion so the number shown is achievable rather than pessimistic.
-    const finalVb = estimateVbytes(sorted, [recipientType])
+    const finalVb = estimateVbytes(sorted, [recipientType], extra)
     const needed = targetSats + Math.ceil(finalVb * feeRate)
     throw new Error(
         `Not enough BTC. This transfer needs ${formatSats(needed)} including the fee, ` +
@@ -215,10 +231,11 @@ export function selectCoins(req: CoinSelectionRequest): CoinSelectionResult {
 function selectAll(
     utxos: SelectableUtxo[],
     feeRate: number,
-    recipientType: BtcAddressType
+    recipientType: BtcAddressType,
+    extraOutputVbytes = 0
 ): CoinSelectionResult {
     const total = utxos.reduce((sum, u) => sum + u.value, 0)
-    const vbytes = estimateVbytes(utxos, [recipientType])
+    const vbytes = estimateVbytes(utxos, [recipientType], extraOutputVbytes)
     const feeSats = Math.ceil(vbytes * feeRate)
     const outputSats = total - feeSats
 

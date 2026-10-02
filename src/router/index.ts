@@ -62,6 +62,7 @@ import Restake from '@/views/wallet/Restake.vue'
 import PharAutoVault from '@/views/wallet/PharAutoVault.vue'
 import PharDashboard from '@/views/wallet/PharDashboard.vue'
 import PharSwap from '@/views/wallet/PharSwap.vue'
+import UniversalBridge from '@/views/wallet/UniversalBridge.vue'
 import Config from '@/views/wallet/Config.vue'
 import WalletReadonly from '@/views/WalletReadonly.vue'
 import InsufficientBalance from '@/views/InsufficientBalance.vue'
@@ -365,6 +366,10 @@ const routes: RouteRecordRaw[] = [
             {
                 path: 'bridge',
                 component: Bridge,
+            },
+            {
+                path: 'xbridge',
+                component: UniversalBridge,
             },
             {
                 path: 'arenatrade/sniper',

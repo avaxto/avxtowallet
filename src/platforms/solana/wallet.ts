@@ -40,6 +40,7 @@ import {
     PublicKey,
     SystemProgram,
     Transaction,
+    VersionedTransaction,
     type Connection,
 } from '@solana/web3.js'
 
@@ -117,6 +118,29 @@ export abstract class SolanaWallet implements PlatformWallet {
 
     getPrimaryAddress(): string {
         return this.address
+    }
+
+    /**
+     * Signs and broadcasts a transaction built elsewhere (e.g. a Wormhole
+     * Token Bridge step). `extraSigners` are one-off keypairs the builder
+     * created — accounts the transaction initialises — which must sign
+     * alongside the wallet. Returns the signature (transaction id).
+     */
+    abstract sendTransaction(
+        tx: Transaction | VersionedTransaction,
+        extraSigners?: Keypair[]
+    ): Promise<string>
+
+    /** Fills in a legacy transaction's blockhash and fee payer when the builder left them blank. */
+    protected async prepareTransaction(tx: Transaction | VersionedTransaction): Promise<void> {
+        if (tx instanceof VersionedTransaction) return
+        if (!tx.feePayer) tx.feePayer = new PublicKey(this.address)
+        if (!tx.recentBlockhash) {
+            const { blockhash } = await withRpcErrors('Preparing the transaction', () =>
+                this.connection.getLatestBlockhash()
+            )
+            tx.recentBlockhash = blockhash
+        }
     }
 
     /** Native SOL plus every SPL holding, in the platform-neutral shape. */
@@ -302,6 +326,18 @@ export class InjectedSolanaWallet extends SolanaWallet {
         const { signature } = await this.native.signAndSendTransaction(tx)
         return signature
     }
+
+    async sendTransaction(tx: Transaction | VersionedTransaction, extraSigners: Keypair[] = []): Promise<string> {
+        await this.prepareTransaction(tx)
+        // The builder's one-off signers sign here; the extension adds the
+        // wallet's signature and submits.
+        if (extraSigners.length) {
+            if (tx instanceof VersionedTransaction) tx.sign(extraSigners)
+            else tx.partialSign(...extraSigners)
+        }
+        const { signature } = await this.native.signAndSendTransaction(tx)
+        return signature
+    }
 }
 
 /**
@@ -417,6 +453,27 @@ export class LocalSolanaWallet extends SolanaWallet {
 
         return signature
     }
+
+    async sendTransaction(tx: Transaction | VersionedTransaction, extraSigners: Keypair[] = []): Promise<string> {
+        await this.prepareTransaction(tx)
+        const raw = await this.withKeypair((kp) => {
+            if (tx instanceof VersionedTransaction) tx.sign([kp, ...extraSigners])
+            else tx.partialSign(kp, ...extraSigners)
+            return tx.serialize()
+        })
+
+        const signature = await withRpcErrors('Broadcasting the transaction', () =>
+            this.connection.sendRawTransaction(raw, { preflightCommitment: 'confirmed' })
+        )
+        const blockhash = tx instanceof VersionedTransaction ? tx.message.recentBlockhash : tx.recentBlockhash!
+        const { lastValidBlockHeight } = await withRpcErrors('Confirming the transaction', () =>
+            this.connection.getLatestBlockhash()
+        )
+        await withRpcErrors('Confirming the transaction', () =>
+            this.connection.confirmTransaction({ signature, blockhash, lastValidBlockHeight }, 'confirmed')
+        )
+        return signature
+    }
 }
 
 /** Watch-only. Balances render; nothing can be signed. */
@@ -435,6 +492,10 @@ export class WatchSolanaWallet extends SolanaWallet {
 
     async sendSol(): Promise<string> {
         throw new Error('This wallet is watch-only and cannot send.')
+    }
+
+    async sendTransaction(): Promise<string> {
+        throw new Error('This is a watch-only wallet; it cannot sign transactions.')
     }
 }
 

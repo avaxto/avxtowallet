@@ -62,6 +62,8 @@ import {
 import { getAddressStats, getAddressUtxos, broadcastTx } from '@/bitcoin/esplora'
 import {
     DUST_THRESHOLD_SATS,
+    MAX_OP_RETURN_BYTES,
+    opReturnVbytes,
     selectCoins,
     type SelectableUtxo,
 } from '@/bitcoin/coinSelect'
@@ -107,6 +109,21 @@ export interface SendRequest {
     /** sat/vB. */
     feeRate: number
     sendMax?: boolean
+    /**
+     * Optional memo, carried in an OP_RETURN output (UTF-8, at most 80 bytes)
+     * — how THORChain is told where to deliver a cross-chain swap.
+     */
+    memo?: string
+}
+
+/** A send memo as OP_RETURN bytes, or null for none. Refuses what relay policy would reject. */
+export function memoBytes(memo: string | undefined): Uint8Array | null {
+    if (!memo) return null
+    const bytes = new TextEncoder().encode(memo)
+    if (bytes.length > MAX_OP_RETURN_BYTES) {
+        throw new Error(`The memo is ${bytes.length} bytes; Bitcoin allows at most ${MAX_OP_RETURN_BYTES}.`)
+    }
+    return bytes
 }
 
 export interface SendPreview {
@@ -252,6 +269,7 @@ export abstract class BitcoinWallet implements PlatformWallet {
         if (!isValidBitcoinAddress(to, this.network)) {
             throw new Error(`Enter a valid ${this.network.name} Bitcoin address.`)
         }
+        const memo = memoBytes(req.memo)
         return selectCoins({
             utxos: this.utxos,
             targetSats: req.amountSats,
@@ -259,6 +277,7 @@ export abstract class BitcoinWallet implements PlatformWallet {
             recipientType: detectAddressType(to, this.network) ?? 'p2wpkh',
             changeType: this.addressType,
             sendMax: req.sendMax,
+            extraOutputVbytes: memo ? opReturnVbytes(memo.length) : 0,
         })
     }
 
@@ -285,6 +304,7 @@ export abstract class BitcoinWallet implements PlatformWallet {
             changeAddress,
             network: this.network,
             signerFor,
+            opReturn: memoBytes(req.memo) ?? undefined,
         })
 
         assertFeeSane(built.feeSats, selection.feeSats)

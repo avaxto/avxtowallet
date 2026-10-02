@@ -89,6 +89,9 @@
                 <v-list-item v-if="isAuth && !isConnecting" to="/wallet/avxto" class="row_link">
                     <v-list-item-title>AVXTO Dashboard</v-list-item-title>
                 </v-list-item>
+                <v-list-item v-if="isAuth && !isConnecting" to="/wallet/xbridge" class="row_link">
+                    <v-list-item-title>Bridge AVXTO</v-list-item-title>
+                </v-list-item>
 
                 <v-list-item>
                     <v-list-item-title>

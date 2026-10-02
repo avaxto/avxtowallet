@@ -177,5 +177,73 @@
         },
         "txType": "legacy",
         "color": "#ccff00"
+    },
+    {
+        "id": "sepolia",
+        "name": "Ethereum Sepolia",
+        "shortName": "Sepolia",
+        "evmChainId": 11155111,
+        "isTestnet": true,
+        "rpcUrl": "https://ethereum-sepolia-rpc.publicnode.com",
+        "native": { "symbol": "ETH", "name": "Ether", "decimals": 18 },
+        "explorerUrl": "https://sepolia.etherscan.io",
+        "explorerApi": {
+            "family": "blockscout",
+            "url": "https://eth-sepolia.blockscout.com/api",
+            "requiresKey": false
+        },
+        "txType": "legacy",
+        "color": "#627eea"
+    },
+    {
+        "id": "base-sepolia",
+        "name": "Base Sepolia",
+        "shortName": "Base Sepolia",
+        "evmChainId": 84532,
+        "isTestnet": true,
+        "rpcUrl": "https://base-sepolia-rpc.publicnode.com",
+        "native": { "symbol": "ETH", "name": "Ether", "decimals": 18 },
+        "explorerUrl": "https://sepolia.basescan.org",
+        "explorerApi": {
+            "family": "blockscout",
+            "url": "https://base-sepolia.blockscout.com/api",
+            "requiresKey": false
+        },
+        "txType": "legacy",
+        "color": "#0052ff"
+    },
+    {
+        "id": "arbitrum-sepolia",
+        "name": "Arbitrum Sepolia",
+        "shortName": "Arb Sepolia",
+        "evmChainId": 421614,
+        "isTestnet": true,
+        "rpcUrl": "https://arbitrum-sepolia-rpc.publicnode.com",
+        "native": { "symbol": "ETH", "name": "Ether", "decimals": 18 },
+        "explorerUrl": "https://sepolia.arbiscan.io",
+        "explorerApi": {
+            "family": "blockscout",
+            "url": "https://arbitrum-sepolia.blockscout.com/api",
+            "requiresKey": false
+        },
+        "txType": "legacy",
+        "color": "#28a0f0"
+    },
+    {
+        "id": "optimism-sepolia",
+        "name": "OP Sepolia",
+        "shortName": "OP Sepolia",
+        "evmChainId": 11155420,
+        "isTestnet": true,
+        "rpcUrl": "https://optimism-sepolia-rpc.publicnode.com",
+        "native": { "symbol": "ETH", "name": "Ether", "decimals": 18 },
+        "explorerUrl": "https://sepolia-optimism.etherscan.io",
+        "explorerApi": {
+            "family": "blockscout",
+            "url": "https://testnet-explorer.optimism.io/api",
+            "requiresKey": false
+        },
+        "txType": "legacy",
+        "color": "#ff0420"
     }
 ]

@@ -216,7 +216,8 @@ export function useBaseAssetGate() {
      * transaction", `/wallet/iceberg`'s "Start Iceberg Order",
      * `/wallet/limit`'s order buttons, `/wallet/broadcast`'s "Broadcast to",
      * `/wallet/phar/swap`'s "Swap" and "Swap all", `/wallet/phar/dashboard`'s
-     * three claim buttons, and every step button in `/wallet/wizard`.
+     * three claim buttons, `/wallet/xbridge`'s "Bridge" and "Claim" buttons,
+     * and every step button in `/wallet/wizard`.
      * Never the Moats burn page: burning is how the requirement is met.
      *
      * Runs `action` when the requirement is met; otherwise opens the modal

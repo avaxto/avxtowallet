@@ -17,7 +17,7 @@
  * `window.solflare` handles are checked first so a user with two extensions
  * installed gets a predictable one rather than a race.
  */
-import type { Transaction } from '@solana/web3.js'
+import type { Transaction, VersionedTransaction } from '@solana/web3.js'
 import { detectStandardSolanaProvider } from './walletStandard'
 
 export interface SolanaProvider {
@@ -36,7 +36,7 @@ export interface SolanaProvider {
      */
     signMessage(message: Uint8Array, encoding?: string): Promise<{ signature: Uint8Array }>
 
-    signAndSendTransaction(transaction: Transaction): Promise<{ signature: string }>
+    signAndSendTransaction(transaction: Transaction | VersionedTransaction): Promise<{ signature: string }>
 
     on?(event: string, handler: (...args: any[]) => void): void
     removeListener?(event: string, handler: (...args: any[]) => void): void

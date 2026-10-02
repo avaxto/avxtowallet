@@ -26,7 +26,7 @@
  * the same call `provider.ts` already makes for the Phantom-style interface
  * instead of depending on `@solana/wallet-adapter-phantom`.
  */
-import type { Transaction } from '@solana/web3.js'
+import type { Transaction, VersionedTransaction } from '@solana/web3.js'
 import bs58 from 'bs58'
 import type { SolanaProvider } from './provider'
 
@@ -217,17 +217,19 @@ class WalletStandardAdapter implements SolanaProvider {
         return { signature: result.signature }
     }
 
-    async signAndSendTransaction(transaction: Transaction): Promise<{ signature: string }> {
+    async signAndSendTransaction(transaction: Transaction | VersionedTransaction): Promise<{ signature: string }> {
         const feature = this.wallet.features['solana:signAndSendTransaction']
         if (!feature) throw new Error(`${this.wallet.name} does not support sending transactions.`)
 
         // Unsigned, serialized: the wallet signs AND submits in one round
         // trip — the same contract as the Phantom-style path this replaces,
         // see the note on InjectedSolanaWallet.sendSol in ./wallet.ts.
-        const serialized = transaction.serialize({
-            requireAllSignatures: false,
-            verifySignatures: false,
-        })
+        // A versioned transaction serializes as-is; a legacy one must be told
+        // it is still missing the wallet's signature.
+        const serialized =
+            'version' in transaction
+                ? transaction.serialize()
+                : transaction.serialize({ requireAllSignatures: false, verifySignatures: false })
         const [result] = await feature.signAndSendTransaction({
             account: this.requireAccount(),
             transaction: serialized,
