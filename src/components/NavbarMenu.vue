@@ -94,6 +94,9 @@
                 <v-list-item to="/wallet/launcher">
                     <v-list-item-title>Token Launcher</v-list-item-title>
                 </v-list-item>
+                <v-list-item to="/wallet/scripts">
+                    <v-list-item-title>Wallet Scripts</v-list-item-title>
+                </v-list-item>
                 <v-list-item to="/wallet/soladdr">
                     <v-list-item-title>Decode Solana Address</v-list-item-title>
                 </v-list-item>

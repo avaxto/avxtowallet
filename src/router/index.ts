@@ -63,6 +63,7 @@ import PharAutoVault from '@/views/wallet/PharAutoVault.vue'
 import PharDashboard from '@/views/wallet/PharDashboard.vue'
 import PharSwap from '@/views/wallet/PharSwap.vue'
 import UniversalBridge from '@/views/wallet/UniversalBridge.vue'
+import Scripting from '@/views/wallet/Scripting.vue'
 import Config from '@/views/wallet/Config.vue'
 import WalletReadonly from '@/views/WalletReadonly.vue'
 import InsufficientBalance from '@/views/InsufficientBalance.vue'
@@ -370,6 +371,10 @@ const routes: RouteRecordRaw[] = [
             {
                 path: 'xbridge',
                 component: UniversalBridge,
+            },
+            {
+                path: 'scripts',
+                component: Scripting,
             },
             {
                 path: 'arenatrade/sniper',

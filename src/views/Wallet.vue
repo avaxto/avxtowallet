@@ -35,7 +35,7 @@
                           dev — and as a hard compile error under vue-jest.
                         -->
                         <keep-alive
-                            exclude="cross_chain,activity,advanced,earn,manage,studio,iceberg,avxto,MoatsAction,moats_dashboard,phar_autovault,phar_dashboard,phar_swap,universal_bridge,arena_sniper,limit_order">
+                            exclude="cross_chain,activity,advanced,earn,manage,studio,iceberg,avxto,MoatsAction,moats_dashboard,phar_autovault,phar_dashboard,phar_swap,universal_bridge,wallet_scripts,arena_sniper,limit_order">
                             <component :is="Component" :key="`${$route.path}|${activePlatformId}`" />
                         </keep-alive>
                     </transition>

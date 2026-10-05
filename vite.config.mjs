@@ -111,6 +111,10 @@ export default defineConfig({
       '@unhead/vue',
     ],
     exclude: [
+      // Wallet scripting's QuickJS engine finds its .wasm next to its own
+      // module (new URL(..., import.meta.url)); pre-bundling would move the
+      // module into .vite/deps without the .wasm and break it in dev.
+      '@jitl/quickjs-wasmfile-release-sync',
     ],
     // Force optimization for problematic packages
     force: true,

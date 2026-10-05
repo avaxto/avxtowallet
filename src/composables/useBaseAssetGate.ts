@@ -217,6 +217,7 @@ export function useBaseAssetGate() {
      * `/wallet/limit`'s order buttons, `/wallet/broadcast`'s "Broadcast to",
      * `/wallet/phar/swap`'s "Swap" and "Swap all", `/wallet/phar/dashboard`'s
      * three claim buttons, `/wallet/xbridge`'s "Bridge" and "Claim" buttons,
+     * `/wallet/scripts`' "Approve and execute" and "Run live",
      * and every step button in `/wallet/wizard`.
      * Never the Moats burn page: burning is how the requirement is met.
      *
