@@ -7,6 +7,17 @@
         <v-spacer></v-spacer>
 
         <div class="buts_right">
+            <a
+                v-if="!isAuth"
+                href="https://avax.to/avxto/"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="globe_link"
+                title="AVXTO website"
+                aria-label="AVXTO website"
+            >
+                <fa icon="globe"></fa>
+            </a>
             <button
                 v-if="!isAuth"
                 class="ava_button button_secondary connect_but"
@@ -236,6 +247,21 @@ button {
 .connect_but {
     margin-right: 15px;
     min-width: unset;
+}
+
+.globe_link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    color: var(--primary-color) !important;
+    margin-right: 15px !important;
+    opacity: 0.8;
+
+    &:hover {
+        opacity: 1;
+        color: var(--secondary-color) !important;
+    }
 }
 
 #nav {
