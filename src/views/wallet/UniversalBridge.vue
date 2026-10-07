@@ -42,50 +42,20 @@
                     <option v-for="c in chains" :key="c.id" :value="c.id">{{ c.name }}</option>
                 </select>
 
-                <div class="asset_tabs">
-                    <button type="button" :class="{ on: assetMode === 'native' }" @click="assetMode = 'native'">
-                        {{ fromChainNativeSymbol }}
-                    </button>
-                    <button
-                        v-if="fromChainKind === 'evm'"
-                        type="button"
-                        :class="{ on: assetMode === 'avxto' }"
-                        @click="assetMode = 'avxto'"
-                    >
-                        AVXTO
-                    </button>
-                    <button
-                        v-if="fromChainKind !== 'bitcoin'"
-                        type="button"
-                        :class="{ on: assetMode === 'token' }"
-                        @click="assetMode = 'token'"
-                    >
-                        Token
-                    </button>
-                </div>
-
-                <template v-if="assetMode === 'token' && fromChainKind === 'evm'">
-                    <input
-                        v-model.trim="tokenAddress"
-                        class="field mono"
-                        placeholder="Token contract address (0x…)"
-                        spellcheck="false"
-                        autocomplete="off"
-                    />
-                </template>
-                <template v-if="assetMode === 'token' && fromChainKind === 'solana'">
-                    <select v-model="solanaMint" class="field">
-                        <option value="" disabled>{{ solanaTokens.length ? 'Pick a token you hold' : 'No SPL tokens in this wallet' }}</option>
-                        <option v-for="t in solanaTokens" :key="t.address" :value="t.address">
-                            {{ t.symbol }} — {{ short(t.address) }}
-                        </option>
-                    </select>
-                </template>
-                <p v-if="assetError" class="form_error">{{ assetError }}</p>
-                <p v-else-if="fromAsset && fromAsset.address !== 'native'" class="muted small token_line">
+                <label class="sub_label" for="bridge-from-token">Token</label>
+                <select id="bridge-from-token" v-model="fromKey" class="field" :disabled="loadingHeld">
+                    <option v-if="loadingHeld" value="">Reading your portfolio…</option>
+                    <option v-for="t in heldTokens" :key="t.address" :value="t.address">
+                        {{ t.symbol }} — {{ fmt(t.balance, t.decimals) }}{{ t.address === 'native' ? '' : ' · ' + short(t.address) }}{{ t.address !== 'native' && t.verified ? ' ✓' : '' }}
+                    </option>
+                </select>
+                <p v-if="!loadingHeld && heldTokens.length <= 1 && !sender" class="muted small">
+                    Connect a wallet on {{ fromChainName }} to see its tokens.
+                </p>
+                <p v-if="fromAsset && fromAsset.address !== 'native'" class="muted small token_line">
                     {{ fromAsset.symbol }}
                     <RegistryCheck v-if="fromChainEvmId" :address="fromAsset.address" :chain-id="fromChainEvmId"></RegistryCheck>
-                    <span class="mono">{{ short(fromAsset.address) }}</span>
+                    <span class="mono">{{ fromAsset.address }}</span>
                 </p>
 
                 <div class="amount_row">
@@ -113,6 +83,50 @@
                 <select id="bridge-to-chain" v-model="toChainId" class="field">
                     <option v-for="c in destChains" :key="c.id" :value="c.id">{{ c.name }}</option>
                 </select>
+                <label class="sub_label" for="bridge-receive-token">Receive token</label>
+                <div class="combo">
+                    <input
+                        id="bridge-receive-token"
+                        v-model="receiveQuery"
+                        class="field"
+                        :placeholder="receiveToken ? '' : 'Any — type a symbol, e.g. USDC'"
+                        spellcheck="false"
+                        autocomplete="off"
+                        role="combobox"
+                        aria-autocomplete="list"
+                        :aria-expanded="showSuggestions"
+                        @focus="suggestionsOpen = true"
+                        @input="onReceiveInput"
+                        @keydown.esc="suggestionsOpen = false"
+                    />
+                    <button v-if="receiveToken || receiveQuery" type="button" class="clear_btn" title="Any token" @click="clearReceive">✕</button>
+                    <ul v-if="showSuggestions" class="suggestions" role="listbox">
+                        <li v-if="searching" class="muted small">Searching…</li>
+                        <li
+                            v-for="t in suggestions"
+                            :key="t.address"
+                            role="option"
+                            class="suggestion"
+                            @mousedown.prevent="pickReceive(t)"
+                        >
+                            <span class="sym">{{ t.symbol }}</span>
+                            <span class="muted small">{{ t.name }}</span>
+                            <span class="muted small mono">{{ t.address === 'native' ? 'native' : short(t.address) }}</span>
+                            <span class="src" :class="{ verified: t.verified }">{{ sourceLabel(t) }}</span>
+                        </li>
+                        <li v-if="!searching && !suggestions.length && receiveQuery.trim()" class="muted small">
+                            No token called “{{ receiveQuery.trim() }}” found on {{ toChainName }}.
+                        </li>
+                    </ul>
+                </div>
+                <p v-if="receiveToken" class="muted small token_line">
+                    Receive {{ receiveToken.symbol }}
+                    <span v-if="receiveToken.address !== 'native'" class="mono">{{ receiveToken.address }}</span>
+                    <span v-if="receiveUnverified" class="warn_badge">not in the registry — check the address</span>
+                </p>
+                <p v-if="searchNote" class="muted small">{{ searchNote }}</p>
+                <p v-if="receiveError" class="form_error">{{ receiveError }}</p>
+
                 <label class="sub_label" for="bridge-recipient">Recipient</label>
                 <input
                     id="bridge-recipient"
@@ -142,7 +156,7 @@
             <p v-else-if="quoting" class="muted center">Finding routes…</p>
             <template v-else>
                 <button
-                    v-for="q in quotes"
+                    v-for="q in sortedQuotes"
                     :key="quoteKey(q)"
                     type="button"
                     class="route"
@@ -156,6 +170,9 @@
                     <div class="route_receive">
                         You receive <strong>{{ fmt(q.receive.amount, q.receive.asset.decimals) }} {{ q.receive.asset.symbol }}</strong>
                         <span class="kind" :class="q.receive.kind">{{ kindLabel(q.receive.kind) }}</span>
+                    </div>
+                    <div v-if="receiveToken" class="match" :class="{ ok: routeMatches(q) }">
+                        {{ routeMatches(q) ? `✓ Delivers ${receiveToken.symbol}` : `Delivers ${q.receive.asset.symbol}, not ${receiveToken.symbol}` }}
                     </div>
                     <div v-if="hasMin(q)" class="muted small">
                         At least {{ fmt(minOf(q), q.receive.asset.decimals) }} {{ q.receive.asset.symbol }}, or refunded
@@ -173,6 +190,10 @@
                         <li v-for="(w, i) in q.warnings" :key="i">{{ w }}</li>
                     </ul>
                 </button>
+                <p v-if="receiveToken && quotes.length && !quotes.some(routeMatches)" class="route_error">
+                    No route delivers {{ receiveToken.symbol }} for this pair. The routes above deliver something else — or
+                    clear the receive token.
+                </p>
                 <div v-for="e in quoteErrors" :key="e.providerId" class="route_error">
                     <strong>{{ e.providerName }}:</strong> {{ e.message }}
                 </div>
@@ -283,16 +304,15 @@ import { quoteAll, providersFor, getProvider } from '@/bridge/registry'
 import { bridgeTransfers, removeTransfer } from '@/bridge/history'
 import { canSignOn, ownAddressOn } from '@/bridge/signers'
 import { recipientError } from '@/bridge/address'
+import { nativeAsset, parseAmount, formatAmount, amountInput, readBalance } from '@/bridge/assets'
 import {
-    nativeAsset,
-    parseAmount,
-    formatAmount,
-    amountInput,
-    readTokenAsset,
-    readBalance,
-    solanaHeldTokens,
-    avxtoAssetFor,
-} from '@/bridge/assets'
+    portfolioTokens,
+    suggestReceiveTokens,
+    resolveToken,
+    deliversToken,
+    type HeldToken,
+    type TokenSuggestion,
+} from '@/bridge/tokens'
 import { runTransfer, runClaim, refreshTransfer, isPending } from '@/bridge/run'
 import { wormholescanUrl } from '@/bridge/wormhole/provider'
 import { thorchainTrackerUrl, THORCHAIN_ID } from '@/bridge/thorchain/provider'
@@ -305,13 +325,13 @@ import { errorToString } from '@/helpers/helper'
 import { useBaseAssetGate } from '@/composables/useBaseAssetGate'
 import RegistryCheck from '@/components/misc/RegistryCheck.vue'
 
-type AssetMode = 'native' | 'avxto' | 'token'
 
 const DEFAULT_PAIRS: Record<string, [string, string]> = {
     mainnet: ['evm:43114', 'evm:1'],
     testnet: ['evm:43113', 'evm:11155111'],
 }
 const QUOTE_DEBOUNCE_MS = 600
+const SEARCH_DEBOUNCE_MS = 400
 const POLL_MS = 30_000
 /** Native coin kept back by MAX, for the source chain's own fees. */
 const NATIVE_RESERVE: Record<string, bigint> = {
@@ -340,8 +360,7 @@ export default defineComponent({
         const toChain = computed<BridgeChain | undefined>(() => chains.value.find((c) => c.id === toChainId.value))
         const destChains = computed(() => chains.value.filter((c) => c.id !== fromChainId.value))
 
-        const fromChainKind = computed(() => fromChain.value?.kind ?? 'evm')
-        const fromChainNativeSymbol = computed(() => fromChain.value?.native.symbol ?? '')
+        const fromChainName = computed(() => fromChain.value?.name ?? '')
         const fromChainEvmId = computed(() => fromChain.value?.evmChainId)
         const toChainName = computed(() => toChain.value?.name ?? '')
 
@@ -353,73 +372,114 @@ export default defineComponent({
             toChainId.value = chains.value.some((c) => c.id === t) ? t : destChains.value[0]?.id ?? ''
         }
 
-        // ── asset ──
-        const assetMode = ref<AssetMode>('native')
-        const tokenAddress = ref('')
-        const solanaMint = ref('')
-        const solanaTokens = ref<BridgeAsset[]>([])
-        const tokenAsset = ref<BridgeAsset | null>(null)
-        const assetError = ref('')
-
+        // ── what to send: the portfolio on the source chain ──
+        const sender = computed(() => (fromChain.value ? ownAddressOn(fromChain.value) : ''))
+        const heldTokens = ref<HeldToken[]>([])
+        const loadingHeld = ref(false)
+        const fromKey = ref<string>(NATIVE)
         const fromAsset = computed<BridgeAsset | null>(() => {
             const c = fromChain.value
             if (!c) return null
-            if (assetMode.value === 'native') return nativeAsset(c)
-            if (assetMode.value === 'avxto') return avxtoAssetFor(c)
-            return tokenAsset.value
+            const held = heldTokens.value.find((t) => t.address === fromKey.value)
+            if (held) return { chainId: held.chainId, address: held.address, symbol: held.symbol, decimals: held.decimals, name: held.name }
+            return fromKey.value === NATIVE ? nativeAsset(c) : null
         })
-
-        let tokenSeq = 0
-        const loadToken = async () => {
+        let heldSeq = 0
+        const loadHeld = async () => {
             const c = fromChain.value
-            tokenAsset.value = null
-            assetError.value = ''
             if (!c) return
-            if (assetMode.value === 'avxto' && !avxtoAssetFor(c)) {
-                assetError.value = `AVXTO is not on ${c.name} yet — it arrives with AVXTO's Wormhole NTT deployment.`
-                return
-            }
-            if (assetMode.value !== 'token') return
-            if (c.kind === 'solana') {
-                tokenAsset.value = solanaTokens.value.find((t) => t.address === solanaMint.value) ?? null
-                return
-            }
-            const addr = tokenAddress.value
-            if (!addr) return
-            if (!/^0x[0-9a-fA-F]{40}$/.test(addr)) {
-                assetError.value = 'Not a contract address.'
-                return
-            }
-            const seq = ++tokenSeq
+            const seq = ++heldSeq
+            heldTokens.value = [Object.assign(nativeAsset(c), { balance: BigInt(0), verified: true })]
+            loadingHeld.value = true
             try {
-                const t = await readTokenAsset(c, addr)
-                if (seq === tokenSeq) tokenAsset.value = t
-            } catch (e) {
-                if (seq === tokenSeq) assetError.value = `Could not read that token on ${c.name}.`
+                const list = await portfolioTokens(c, sender.value)
+                if (seq !== heldSeq) return
+                heldTokens.value = list
+                if (!list.some((t) => t.address === fromKey.value)) fromKey.value = NATIVE
+            } finally {
+                if (seq === heldSeq) loadingHeld.value = false
             }
         }
-        watch([fromChainId, assetMode, tokenAddress, solanaMint], loadToken)
-
-        const loadSolanaTokens = async () => {
-            const c = fromChain.value
-            solanaTokens.value = []
-            if (!c || c.kind !== 'solana') return
-            try {
-                solanaTokens.value = await solanaHeldTokens(c)
-            } catch (e) {
-                console.warn('[Bridge] SPL tokens unavailable:', e)
-            }
-        }
+        watch([fromChainId, sender], loadHeld)
 
         watch(fromChainId, () => {
-            if (fromChain.value?.kind === 'bitcoin') assetMode.value = 'native'
-            solanaMint.value = ''
+            fromKey.value = NATIVE
             if (toChainId.value === fromChainId.value || !toChain.value) toChainId.value = destChains.value[0]?.id ?? ''
-            loadSolanaTokens()
         })
 
+        // ── what to receive: open ended, suggested ──
+        const receiveQuery = ref('')
+        const receiveToken = ref<BridgeAsset | null>(null)
+        const receiveUnverified = ref(false)
+        const suggestions = ref<TokenSuggestion[]>([])
+        const searching = ref(false)
+        const suggestionsOpen = ref(false)
+        const searchNote = ref('')
+        const receiveError = ref('')
+        const showSuggestions = computed(() => suggestionsOpen.value && !!receiveQuery.value.trim() && (searching.value || suggestions.value.length > 0 || !receiveToken.value))
+        let searchTimer: ReturnType<typeof setTimeout> | null = null
+        let searchSeq = 0
+        const runSearch = async () => {
+            const c = toChain.value
+            const q = receiveQuery.value.trim()
+            const seq = ++searchSeq
+            if (!c || !q) {
+                suggestions.value = []
+                searching.value = false
+                return
+            }
+            searching.value = true
+            try {
+                const res = await suggestReceiveTokens(c, q)
+                if (seq !== searchSeq) return
+                suggestions.value = res.suggestions
+                searchNote.value = res.webError
+                    ? res.webError
+                    : res.searchedWeb && res.suggestions.length
+                    ? `Not in the local registry — results from public token lists. Check the address before bridging.`
+                    : ''
+            } catch (e) {
+                if (seq === searchSeq) searchNote.value = 'Token search failed.'
+            } finally {
+                if (seq === searchSeq) searching.value = false
+            }
+        }
+        const onReceiveInput = () => {
+            receiveToken.value = null
+            receiveError.value = ''
+            suggestionsOpen.value = true
+            if (searchTimer) clearTimeout(searchTimer)
+            searchTimer = setTimeout(runSearch, SEARCH_DEBOUNCE_MS)
+        }
+        const pickReceive = async (t: TokenSuggestion) => {
+            const c = toChain.value
+            if (!c) return
+            suggestionsOpen.value = false
+            receiveQuery.value = t.symbol
+            receiveError.value = ''
+            try {
+                receiveToken.value = await resolveToken(c, t)
+                receiveUnverified.value = !t.verified
+            } catch (e) {
+                receiveToken.value = null
+                receiveError.value = errorToString(e)
+            }
+        }
+        const clearReceive = () => {
+            receiveQuery.value = ''
+            receiveToken.value = null
+            receiveUnverified.value = false
+            suggestions.value = []
+            searchNote.value = ''
+            receiveError.value = ''
+        }
+        // A token on one chain means nothing on another.
+        watch(toChainId, clearReceive)
+        const sourceLabel = (t: TokenSuggestion) =>
+            t.source === 'native' ? 'native' : t.verified ? '✓ registry' : t.source === 'tokenlist' ? 'Uniswap list' : 'CoinGecko'
+        const routeMatches = (q: BridgeQuote) => (receiveToken.value ? deliversToken(q.receive.asset, receiveToken.value) : true)
+
         // ── balance ──
-        const sender = computed(() => (fromChain.value ? ownAddressOn(fromChain.value) : ''))
         const balance = ref<bigint | null>(null)
         let balanceSeq = 0
         const loadBalance = async () => {
@@ -487,7 +547,6 @@ export default defineComponent({
             if (!t) return
             fromChainId.value = t
             toChainId.value = f
-            if (assetMode.value === 'token') assetMode.value = 'native'
         }
 
         // ── quotes ──
@@ -523,7 +582,14 @@ export default defineComponent({
             const a = fromAsset.value
             const t = toChain.value
             if (!a || !t || amount.value === null || insufficient.value || recipientErr.value) return null
-            return { from: a, toChain: t, amount: amount.value, sender: sender.value, recipient: recipient.value }
+            return {
+                from: a,
+                toChain: t,
+                amount: amount.value,
+                sender: sender.value,
+                recipient: recipient.value,
+                receiveToken: receiveToken.value ?? undefined,
+            }
         }
         const requote = async () => {
             const req = buildRequest()
@@ -541,7 +607,8 @@ export default defineComponent({
                 quotes.value = res.quotes
                 quoteErrors.value = res.errors
                 if (!res.quotes.some((q) => quoteKey(q) === selectedKey.value)) {
-                    selectedKey.value = res.quotes.length ? quoteKey(res.quotes[0]) : ''
+                    const best = res.quotes.find(routeMatches) ?? res.quotes[0]
+                    selectedKey.value = best ? quoteKey(best) : ''
                 }
             } finally {
                 if (seq === quoteSeq) quoting.value = false
@@ -553,7 +620,11 @@ export default defineComponent({
             quoteErrors.value = []
             quoteTimer = setTimeout(requote, QUOTE_DEBOUNCE_MS)
         }
-        watch([fromAsset, toChainId, amount, recipient, insufficient], scheduleQuote)
+        watch([fromAsset, toChainId, amount, recipient, insufficient, receiveToken], scheduleQuote)
+        // Routes delivering the chosen receive token first.
+        const sortedQuotes = computed(() =>
+            receiveToken.value ? quotes.value.filter(routeMatches).concat(quotes.value.filter((q) => !routeMatches(q))) : quotes.value
+        )
 
         // ── signing ──
         const offlineOn = computed(() => offline.isActive)
@@ -630,6 +701,7 @@ export default defineComponent({
                 lastTransfer.value = await runTransfer(fresh, onProgress)
                 amountText.value = ''
                 loadBalance()
+                loadHeld()
             } catch (e) {
                 // A dismissed password prompt is not an error — the user backed out.
                 if (e instanceof SessionAuthCancelled) return
@@ -695,7 +767,7 @@ export default defineComponent({
 
         let poll: ReturnType<typeof setInterval> | null = null
         onMounted(() => {
-            loadToken()
+            loadHeld()
             loadBalance()
             refreshAll()
             poll = setInterval(() => {
@@ -703,6 +775,7 @@ export default defineComponent({
             }, POLL_MS)
         })
         onBeforeUnmount(() => {
+            if (searchTimer) clearTimeout(searchTimer)
             if (poll) clearInterval(poll)
             if (quoteTimer) clearTimeout(quoteTimer)
         })
@@ -753,15 +826,28 @@ export default defineComponent({
             toChainId,
             fromChain,
             toChain,
-            fromChainKind,
-            fromChainNativeSymbol,
+            fromChainName,
             fromChainEvmId,
             toChainName,
-            assetMode,
-            tokenAddress,
-            solanaMint,
-            solanaTokens,
-            assetError,
+            heldTokens,
+            loadingHeld,
+            fromKey,
+            sender,
+            receiveQuery,
+            receiveToken,
+            receiveUnverified,
+            suggestions,
+            searching,
+            suggestionsOpen,
+            showSuggestions,
+            searchNote,
+            receiveError,
+            onReceiveInput,
+            pickReceive,
+            clearReceive,
+            sourceLabel,
+            routeMatches,
+            sortedQuotes,
             fromAsset,
             balance,
             amountText,
@@ -916,26 +1002,6 @@ export default defineComponent({
     font-size: 13px;
 }
 
-.asset_tabs {
-    display: flex;
-    gap: 6px;
-    margin: 10px 0 8px;
-
-    button {
-        padding: 5px 12px;
-        border-radius: 16px;
-        font-size: 13px;
-        font-weight: 600;
-        background: var(--bg-light);
-        color: var(--primary-color-light);
-
-        &.on {
-            background: var(--secondary-color);
-            color: #fff;
-        }
-    }
-}
-
 .token_line {
     display: flex;
     align-items: center;
@@ -974,6 +1040,79 @@ export default defineComponent({
     font-weight: 600;
     color: var(--secondary-color);
     padding: 4px 6px;
+}
+
+.combo {
+    position: relative;
+
+    .clear_btn {
+        position: absolute;
+        right: 8px;
+        top: 8px;
+        font-size: 12px;
+        color: var(--primary-color-light);
+    }
+}
+
+.suggestions {
+    position: absolute;
+    z-index: 10;
+    left: 0;
+    right: 0;
+    top: calc(100% + 4px);
+    max-height: 280px;
+    overflow: auto;
+    list-style: none;
+    margin: 0;
+    padding: 4px;
+    background: var(--bg-light);
+    border: 1px solid var(--secondary-color);
+    border-radius: 8px;
+
+    li {
+        padding: 6px 8px;
+    }
+}
+
+.suggestion {
+    display: grid;
+    grid-template-columns: auto 1fr auto auto;
+    gap: 8px;
+    align-items: baseline;
+    cursor: pointer;
+    border-radius: 6px;
+
+    &:hover {
+        background: var(--bg);
+    }
+
+    .sym {
+        font-weight: 700;
+    }
+
+    .src {
+        font-size: 11px;
+        color: var(--primary-color-light);
+
+        &.verified {
+            color: var(--success);
+        }
+    }
+}
+
+.warn_badge {
+    font-size: 11px;
+    color: var(--warning, #d08700);
+}
+
+.match {
+    font-size: 12px;
+    margin-top: 4px;
+    color: var(--warning, #d08700);
+
+    &.ok {
+        color: var(--success);
+    }
 }
 
 .flip_row {

@@ -61,6 +61,12 @@ export interface BridgeQuoteRequest {
     sender: string
     /** Address receiving on the destination chain. */
     recipient: string
+    /**
+     * The token the user wants to end up with, when they chose one. Providers
+     * that can swap (THORChain) deliver it; the others deliver what they
+     * deliver, and the page says when that is something else.
+     */
+    receiveToken?: BridgeAsset
 }
 
 export interface BridgeFee {

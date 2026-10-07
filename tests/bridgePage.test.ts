@@ -39,6 +39,22 @@ jest.mock('@/bridge/assets', () => ({
     readBalance: jest.fn(async () => BigInt('10000000000000000000')),
 }))
 
+const USDC_AVAX = { chainId: 'evm:43114', address: '0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E', symbol: 'USDC', name: 'USD Coin', decimals: 6 }
+const USDC_ETH = { chainId: 'evm:1', address: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48', symbol: 'USDC', name: 'USD Coin', decimals: 6 }
+const suggest = jest.fn()
+jest.mock('@/bridge/tokens', () => ({
+    ...jest.requireActual('@/bridge/tokens'),
+    portfolioTokens: async (chain: any) =>
+        chain.id === 'evm:43114'
+            ? [
+                  { chainId: chain.id, address: 'native', symbol: 'AVAX', name: 'Avalanche', decimals: 18, balance: BigInt('10000000000000000000'), verified: true },
+                  Object.assign({}, USDC_AVAX, { balance: BigInt(250_000_000), verified: true }),
+              ]
+            : [{ chainId: chain.id, address: 'native', symbol: chain.native.symbol, name: chain.native.name, decimals: chain.native.decimals, balance: BigInt(0), verified: true }],
+    suggestReceiveTokens: (...a: any[]) => suggest(...a),
+    resolveToken: async (_c: any, t: any) => (t.address === 'native' ? { chainId: t.chainId, address: 'native', symbol: t.symbol, decimals: 18 } : USDC_ETH),
+}))
+
 // The premium gate (Moats AVXTO burn). `open` = requirement met.
 const gate = { open: true, blocked: false, checks: 0 }
 jest.mock('@/composables/useBaseAssetGate', () => ({
@@ -133,10 +149,11 @@ afterEach(() => {
 
 describe('the Bridge page', () => {
     it('defaults to Avalanche → Ethereum with my own address, and shows routes from every provider', async () => {
+        suggest.mockReset()
         const w = mount(UniversalBridge, { global: { stubs } })
         await flushPromises()
-        const [from, to] = w.findAll('select').map((s) => (s.element as HTMLSelectElement).value)
-        expect([from, to]).toEqual(['evm:43114', 'evm:1'])
+        const sel = (id: string) => (w.find(id).element as HTMLSelectElement).value
+        expect([sel('#bridge-from-chain'), sel('#bridge-to-chain')]).toEqual(['evm:43114', 'evm:1'])
         expect((w.find('#bridge-recipient').element as HTMLInputElement).value).toBe(ME)
         expect(w.text()).toContain('Balance: 10 AVAX')
 
@@ -207,27 +224,91 @@ describe('the Bridge page', () => {
         w.unmount()
     })
 
-    it('says AVXTO is not on a chain until its NTT spoke exists', async () => {
+    it('lists the tokens in my portfolio to send, and quotes the one I pick', async () => {
         const w = mount(UniversalBridge, { global: { stubs } })
         await flushPromises()
-        await w.findAll('select')[0].setValue('evm:1')
+        const options = w.findAll('#bridge-from-token option').map((o) => o.text())
+        expect(options[0]).toMatch(/^AVAX — 10/)
+        expect(options[1]).toMatch(/^USDC — 250 · 0xB97E…8a6E ✓/)
+        await w.find('#bridge-from-token').setValue(USDC_AVAX.address)
+        await w.find('.amount_input').setValue('100')
+        await settle()
+        const req = whQuote.mock.calls[0][0] as BridgeQuoteRequest
+        expect(req.from).toMatchObject({ address: USDC_AVAX.address, symbol: 'USDC', decimals: 6 })
+        expect(req.amount).toBe(BigInt(100_000_000))
+        w.unmount()
+    })
+
+    it('suggests receive tokens as I type, and asks routes for the one I pick', async () => {
+        suggest.mockResolvedValue({
+            suggestions: [{ chainId: 'evm:1', address: USDC_ETH.address, symbol: 'USDC', name: 'USD Coin', decimals: 6, source: 'tokenlist', verified: false }],
+            searchedWeb: true,
+        })
+        const w = mount(UniversalBridge, { global: { stubs } })
         await flushPromises()
-        await w.findAll('.asset_tabs button').find((b) => b.text() === 'AVXTO')!.trigger('click')
+        const input = w.find('#bridge-receive-token')
+        await input.trigger('focus')
+        await input.setValue('usd')
+        await new Promise((r) => setTimeout(r, 450))
         await flushPromises()
-        expect(w.text()).toContain('AVXTO is not on Ethereum yet')
+        expect(suggest.mock.calls[0][0].id).toBe('evm:1')
+        expect(suggest.mock.calls[0][1]).toBe('usd')
+        expect(w.text()).toContain('Not in the local registry')
+        const item = w.findAll('.suggestion')
+        expect(item).toHaveLength(1)
+        expect(item[0].text()).toContain('Uniswap list')
+        await item[0].trigger('mousedown')
+        await flushPromises()
+        expect(w.text()).toContain(`Receive USDC ${USDC_ETH.address}`)
+        expect(w.text()).toContain('not in the registry')
+
+        await w.find('.amount_input').setValue('1')
+        await settle()
+        const req = whQuote.mock.calls[whQuote.mock.calls.length - 1][0] as BridgeQuoteRequest
+        expect(req.receiveToken).toMatchObject({ address: USDC_ETH.address, symbol: 'USDC' })
+        // Wormhole would deliver wrapped AVAX: the card says so.
+        expect(w.text()).toContain('Delivers WAVAX, not USDC')
+        expect(w.text()).toContain('No route delivers USDC for this pair')
+        w.unmount()
+    })
+
+    it('puts the route that delivers the chosen token first and selects it', async () => {
+        suggest.mockResolvedValue({
+            suggestions: [{ chainId: 'evm:1', address: USDC_ETH.address, symbol: 'USDC', name: 'USD Coin', decimals: 6, source: 'registry', verified: true }],
+            searchedWeb: false,
+        })
+        tcQuote.mockImplementation(async (req: BridgeQuoteRequest) =>
+            Object.assign(quoteFor(req, 'thorchain'), {
+                receive: { asset: Object.assign({}, USDC_ETH), amount: BigInt(30_000_000), kind: 'canonical' },
+            })
+        )
+        const w = mount(UniversalBridge, { global: { stubs } })
+        await flushPromises()
+        const input = w.find('#bridge-receive-token')
+        await input.trigger('focus')
+        await input.setValue('USDC')
+        await new Promise((r) => setTimeout(r, 450))
+        await flushPromises()
+        await w.findAll('.suggestion')[0].trigger('mousedown')
+        await flushPromises()
+        await w.find('.amount_input').setValue('1')
+        await settle()
+        const cards = w.findAll('.route')
+        expect(cards[0].text()).toContain('✓ Delivers USDC')
+        expect(cards[0].classes()).toContain('selected')
+        expect(cards[1].text()).toContain('Delivers WAVAX, not USDC')
         w.unmount()
     })
 
     it('explains that Bitcoin ↔ Solana has no provider', async () => {
         const w = mount(UniversalBridge, { global: { stubs } })
         await flushPromises()
-        await w.findAll('select')[0].setValue('bitcoin:mainnet')
+        await w.find('#bridge-from-chain').setValue('bitcoin:mainnet')
         await flushPromises()
-        await w.findAll('select')[1].setValue('solana:mainnet-beta')
+        await w.find('#bridge-to-chain').setValue('solana:mainnet-beta')
         await flushPromises()
         expect(w.text()).toContain('No provider moves Bitcoin to or from Solana directly')
-        // Bitcoin is native-only.
-        expect(w.findAll('.asset_tabs button').map((b) => b.text())).toEqual(['BTC'])
+        expect(w.findAll('#bridge-from-token option').map((o) => o.text())).toEqual(['BTC — 0'])
         w.unmount()
     })
 
@@ -236,8 +317,8 @@ describe('the Bridge page', () => {
         await flushPromises()
         await w.findAll('.net_toggle button')[1].trigger('click')
         await flushPromises()
-        const [from, to] = w.findAll('select').map((s) => (s.element as HTMLSelectElement).value)
-        expect([from, to]).toEqual(['evm:43113', 'evm:11155111'])
+        const sel = (id: string) => (w.find(id).element as HTMLSelectElement).value
+        expect([sel('#bridge-from-chain'), sel('#bridge-to-chain')]).toEqual(['evm:43113', 'evm:11155111'])
         w.unmount()
     })
 })

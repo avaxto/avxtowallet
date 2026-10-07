@@ -132,6 +132,35 @@ function assetFor(chainId: string): string | undefined {
     return THOR_ASSETS[chainId]
 }
 
+let pools: Promise<string[]> | null = null
+
+/** THORChain's available pool assets (e.g. "ETH.USDC-0XA0B8…"), loaded once per session. */
+export function thorPoolAssets(): Promise<string[]> {
+    if (!pools) {
+        pools = thornodeGet('/thorchain/pools').then((list: any[]) =>
+            (Array.isArray(list) ? list : []).filter((p) => p?.status === 'Available').map((p) => String(p.asset))
+        )
+        pools.catch(() => {
+            pools = null
+        })
+    }
+    return pools
+}
+
+/** The THORChain asset for token `address` on bridge chain `chainId`, when THORChain has a pool for it. */
+export async function poolAssetFor(chainId: string, address: string): Promise<string | null> {
+    const native = THOR_ASSETS[chainId]
+    if (!native) return null
+    const prefix = native.split('.')[0] + '.'
+    const suffix = '-' + address.toUpperCase()
+    return (await thorPoolAssets()).find((a) => a.startsWith(prefix) && a.toUpperCase().endsWith(suffix)) ?? null
+}
+
+/** Test seam: forget the cached pools. */
+export function __resetThorPools(): void {
+    pools = null
+}
+
 export const thorchainProvider: BridgeProvider = {
     id: THORCHAIN_ID,
     name: 'THORChain',
@@ -142,9 +171,15 @@ export const thorchainProvider: BridgeProvider = {
 
     async quote(req: BridgeQuoteRequest): Promise<BridgeQuote> {
         const fromAsset = assetFor(req.from.chainId)
-        const toAsset = assetFor(req.toChain.id)
-        if (req.from.address !== NATIVE || !fromAsset || !toAsset) {
+        const nativeTo = assetFor(req.toChain.id)
+        if (req.from.address !== NATIVE || !fromAsset || !nativeTo) {
             throw new Error('THORChain only swaps native coins between Bitcoin, Ethereum, Avalanche, BNB Chain and Base.')
+        }
+        // A chosen token on the destination: THORChain swaps into it when it has a pool for it.
+        const want = req.receiveToken && req.receiveToken.address !== NATIVE ? req.receiveToken : null
+        const toAsset = want ? await poolAssetFor(req.toChain.id, want.address) : nativeTo
+        if (!toAsset) {
+            throw new Error(`THORChain has no ${want?.symbol} pool on ${req.toChain.name}, so it cannot deliver it.`)
         }
         const thorAmount = toThorUnits(req.amount, req.from.decimals)
         const d = await thornodeGet('/thorchain/quote/swap', {
@@ -168,7 +203,8 @@ export const thorchainProvider: BridgeProvider = {
         }
 
         const toChain = req.toChain
-        const dstDecimals = toChain.native.decimals
+        const dstDecimals = want ? want.decimals : toChain.native.decimals
+        const dstSymbol = want ? want.symbol : toChain.native.symbol
         const amountOut = fromThorUnits(BigInt(d.expected_amount_out), dstDecimals)
         const limit = memoLimit(String(d.memo))
         const fees: BridgeFee[] = []
@@ -177,7 +213,7 @@ export const thorchainProvider: BridgeProvider = {
             fees.push({
                 label: 'THORChain swap and outbound fees',
                 amount: fromThorUnits(total, dstDecimals),
-                symbol: toChain.native.symbol,
+                symbol: dstSymbol,
                 decimals: dstDecimals,
                 paidAs: 'deducted',
             })
@@ -201,12 +237,14 @@ export const thorchainProvider: BridgeProvider = {
         return {
             providerId: THORCHAIN_ID,
             routeId: ROUTE,
-            routeName: 'THORChain swap',
+            routeName: want ? `THORChain swap to ${want.symbol}` : 'THORChain swap',
             request: req,
             receive: {
-                asset: { chainId: toChain.id, address: NATIVE, symbol: toChain.native.symbol, decimals: dstDecimals },
+                asset: want
+                    ? { chainId: toChain.id, address: want.address, symbol: want.symbol, decimals: want.decimals, name: want.name }
+                    : { chainId: toChain.id, address: NATIVE, symbol: toChain.native.symbol, decimals: dstDecimals },
                 amount: amountOut,
-                kind: 'native',
+                kind: want ? 'canonical' : 'native',
             },
             minReceive: limit !== null ? fromThorUnits(limit, dstDecimals) : undefined,
             fees,
