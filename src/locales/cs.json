@@ -41,7 +41,7 @@
             "subtitle": "Po každém úspěšném zadání slova stiskněte mezerník.",
             "submit": "Přístup do peněženky",
             "cancel": "Zrušení",
-            "error": "Neplatná klíčová fráze. Fráze musí obsahovat 24 slov oddělovaných jednotlivými mezerami."
+            "error": "Neplatná klíčová fráze. Fráze musí obsahovat 12/24 slov oddělovaných jednotlivými mezerami."
         }
     },
     "wallet": {

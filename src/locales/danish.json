@@ -41,7 +41,7 @@
             "subtitle": "Tryk 'MELLEMRUM' efter hver vellykket ordindtastning.",
             "submit": "Adgang til tegnebogen",
             "cancel": "Annuller",
-            "error": "Ugyldig nøglesætning. Din sætning skal bestå af 24 ord adskilt af et enkelt mellemrum."
+            "error": "Ugyldig nøglesætning. Din sætning skal bestå af 12/24 ord adskilt af et enkelt mellemrum."
         }
     },
     "wallet": {

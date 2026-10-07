@@ -41,7 +41,7 @@
             "subtitle": "Da \"ESPACIO\" después de introducir cada palabra exitosa.",
             "submit": "Acceder Wallet",
             "cancel": "Cancelar",
-            "error": "Frase clave inválida. Tu frase debe ser de 24 palabras separadas por un único espacio."
+            "error": "Frase clave inválida. Tu frase debe ser de 12/24 palabras separadas por un único espacio."
         }
     },
     "wallet": {

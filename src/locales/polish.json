@@ -41,7 +41,7 @@
             "subtitle": "Naciśnij SPACJĘ po każdym prawidłowa wpisaniu słowa.",
             "submit": "Dostęp do portfela",
             "cancel": "Anulować",
-            "error": "Nieprawidłowe kluczowa fraza. Twoje kluczowa fraza musi składać się z 24 słów oddzielonych jedną spacją."
+            "error": "Nieprawidłowe kluczowa fraza. Twoje kluczowa fraza musi składać się z 12/24 słów oddzielonych jedną spacją."
         }
     },
     "wallet": {

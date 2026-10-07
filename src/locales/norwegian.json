@@ -41,7 +41,7 @@
             "subtitle": "Trykk på ‘MELLOMROM’ etter hver vellykkede innleggelse av ord.",
             "submit": "Få tilgang til lommebok",
             "cancel": "Avbryt",
-            "error": "Ugyldig nøkkelfrase. Frasen din må være 24 ord separert av et enkelt mellomrom."
+            "error": "Ugyldig nøkkelfrase. Frasen din må være 12/24 ord separert av et enkelt mellomrom."
         }
     },
     "wallet": {

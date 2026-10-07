@@ -52,7 +52,7 @@
             "subtitle": "Her başarılı kelime girişinden sonra BOŞLUK tuşuna basın.",
             "submit": "Cüzdanı Aç",
             "cancel": "İptal Et",
-            "error": "Geçersiz anahtar cümle. Tek bir boşlukla ayrılmış 24 kelime girmelisiniz."
+            "error": "Geçersiz anahtar cümle. Tek bir boşlukla ayrılmış 12/24 kelime girmelisiniz."
         }
     },
     "wallet": {

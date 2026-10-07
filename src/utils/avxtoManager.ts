@@ -31,8 +31,11 @@ export function buildReadRequest(password: string): AvxtoManagerReadRequest {
     return { jsonrpc: '2.0', id: 1, method: 'read', params: { password } }
 }
 
+/** Word counts of a BIP-39 phrase. 12 and 24 are the common ones. */
+export const MNEMONIC_WORD_COUNTS = [12, 15, 18, 21, 24]
+
 /**
- * Pulls a validated 24-word mnemonic out of a parsed JSON-RPC response body,
+ * Pulls a validated mnemonic (12 to 24 words) out of a parsed JSON-RPC response body,
  * or throws an `Error` whose message is safe to show the user directly.
  *
  * Accepts the mnemonic at `result.mnemonic` (the standard JSON-RPC 2.0
@@ -55,15 +58,16 @@ export function extractMnemonic(body: any): string {
     }
 
     const words = mnemonic.split(/\s+/).filter(Boolean)
-    if (words.length !== 24) {
-        throw new Error('The phrase returned by AVXTO Manager is not a 24-word mnemonic.')
+    if (!MNEMONIC_WORD_COUNTS.includes(words.length)) {
+        throw new Error('The phrase returned by AVXTO Manager is not a 12 or 24-word mnemonic.')
     }
 
-    if (!bip39.validateMnemonic(mnemonic)) {
+    const phrase = words.join(' ')
+    if (!bip39.validateMnemonic(phrase)) {
         throw new Error(
             'The phrase returned by AVXTO Manager is not a valid mnemonic. Make sure it is all lowercase.'
         )
     }
 
-    return mnemonic
+    return phrase
 }

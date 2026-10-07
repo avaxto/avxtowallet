@@ -41,7 +41,7 @@
             "subtitle": "Apasă butonul „SPAȚIU” după fiecare cuvânt introdus cu succes.",
             "submit": "Accesează Portofelul",
             "cancel": "Anulează",
-            "error": "Fraza cheie nevalidă. Fraza dvs. trebuie să fie de 24 de cuvinte separate printr-un singur spațiu."
+            "error": "Fraza cheie nevalidă. Fraza dvs. trebuie să fie de 12/24 de cuvinte separate printr-un singur spațiu."
         }
     },
     "wallet": {

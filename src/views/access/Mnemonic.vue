@@ -4,7 +4,7 @@
             <header>
                 <h1>{{ $t('access.mnemonic.title') }}</h1>
             </header>
-            <p>Your mnemonic phrase is 24 words seperated by an empty space.</p>
+            <p>Your mnemonic phrase is 12 or 24 words separated by spaces.</p>
             <input
                 type="password"
                 ref="mnemonic_in"
@@ -55,7 +55,7 @@
             <!--
               An alternative to pasting the phrase above: fetch it from a
               self-hosted AVXTO Manager instance instead. Same downstream
-              path either way — once we have a 24-word phrase, it's validated
+              path either way — once we have a valid phrase, it's validated
               and handed to mainStore.accessWallet() exactly like the manual
               form's own `access()` does.
             -->
@@ -123,7 +123,7 @@ import { useI18n } from 'vue-i18n'
 
 import * as bip39 from 'bip39'
 import MnemonicPasswordInput from '@/components/misc/MnemonicPasswordInput.vue'
-import { buildReadRequest, extractMnemonic } from '@/utils/avxtoManager'
+import { buildReadRequest, extractMnemonic, MNEMONIC_WORD_COUNTS } from '@/utils/avxtoManager'
 
 const WALLET_LOADING_TIMEOUT = 500
 
@@ -169,15 +169,16 @@ export default defineComponent({
             managerPassword.value = ''
         })
 
+        // Words separated by any run of whitespace (a pasted phrase often
+        // carries double spaces or line breaks), rejoined with single spaces.
         const getMnemonic = () => {
             if (!mnemonic_in.value) return ''
-            const inputVal = mnemonic_in.value.value
-            return inputVal.trim()
+            return mnemonic_in.value.value.trim().split(/\s+/).filter(Boolean).join(' ')
         }
 
         const getWordCount = () => {
-            const phrase = getMnemonic() || ''
-            return phrase.trim().split(' ').length
+            const phrase = getMnemonic()
+            return phrase ? phrase.split(' ').length : 0
         }
 
         const errCheck = () => {
@@ -189,8 +190,9 @@ export default defineComponent({
 
             let words = phrase.split(' ')
 
-            // not a valid key phrase
-            if (words.length !== 24) {
+            // Every BIP-39 length, as on the multi-platform unlock: 12 and 24 are
+            // the common ones; 15, 18 and 21 are valid phrases too.
+            if (!MNEMONIC_WORD_COUNTS.includes(words.length)) {
                 err.value = `${t('access.mnemonic.error')}`
                 return false
             }

@@ -59,7 +59,7 @@
             "subtitle": "Hit ‘SPACE’ after every successful word entry.",
             "submit": "Access Wallet",
             "cancel": "Cancel",
-            "error": "Invalid key phrase. Your phrase must be 24 words separated by a single space."
+            "error": "Invalid key phrase. Your phrase must be 12 or 24 words separated by spaces."
         },
         "accounts_found": "Accounts found on your device",
         "but_connect_wallet": "Connect Wallet",

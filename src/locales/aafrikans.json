@@ -41,7 +41,7 @@
             "subtitle": "Druk 'SPACE' na elke suksesvolle woordvoeging.",
             "submit": "Kry Toegang tot Beursie",
             "cancel": "Kanselleer",
-            "error": "Ongeldige sleutelfrase. U frase moet 24 woorde wees wat deur een spasie geskei is."
+            "error": "Ongeldige sleutelfrase. U frase moet 12/24 woorde wees wat deur een spasie geskei is."
         }
     },
     "wallet": {

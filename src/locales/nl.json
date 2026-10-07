@@ -41,7 +41,7 @@
             "subtitle": "Druk na elk ingevoerd woord op \"SPATIE\".",
             "submit": "Portemonnee openen",
             "cancel": "Annuleren",
-            "error": "Ongeldige sleutelzin. Uw zin moet uit ten minste 24 woorden gescheiden door een spatie bestaan."
+            "error": "Ongeldige sleutelzin. Uw zin moet uit 12/24 woorden gescheiden door een spatie bestaan."
         }
     },
     "wallet": {

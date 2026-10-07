@@ -65,9 +65,17 @@ describe('extractMnemonic', () => {
         expect(() => extractMnemonic(null)).toThrow(/did not include a mnemonic/i)
     })
 
-    it('rejects a phrase that is not 24 words', () => {
-        const short = bip39.generateMnemonic(128) // 12 words
-        expect(() => extractMnemonic({ mnemonic: short })).toThrow(/24-word mnemonic/)
+    it('accepts every BIP-39 length, 12 words included, single-spaced', () => {
+        for (const bits of [128, 160, 192, 224, 256]) {
+            const phrase = bip39.generateMnemonic(bits)
+            expect(extractMnemonic({ mnemonic: phrase.split(' ').join('  \n ') })).toBe(phrase)
+        }
+    })
+
+    it('rejects a phrase of any other length', () => {
+        const words = bip39.generateMnemonic(128).split(' ')
+        expect(() => extractMnemonic({ mnemonic: words.slice(0, 11).join(' ') })).toThrow(/12 or 24-word mnemonic/)
+        expect(() => extractMnemonic({ mnemonic: words.concat(['abandon']).join(' ') })).toThrow(/12 or 24-word mnemonic/)
     })
 
     it('rejects a 24-word phrase that fails the checksum', () => {

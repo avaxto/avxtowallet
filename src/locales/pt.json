@@ -41,7 +41,7 @@
             "subtitle": "Pressione 'ESPAÇO' após cada entrada de palavra bem-sucedida.",
             "submit": "Acessar Wallet",
             "cancel": "Cancelar",
-            "error": "Frase-chave inválida. Sua frase deve ter 24 palavras separadas por um único espaço."
+            "error": "Frase-chave inválida. Sua frase deve ter 12/24 palavras separadas por um único espaço."
         }
     },
     "wallet": {

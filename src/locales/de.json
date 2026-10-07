@@ -41,7 +41,7 @@
             "subtitle": "Drücke die 'LEERTASTE' nach jeder erfolgreichen Eingabe.",
             "submit": "Auf Wallet zugreifen",
             "cancel": "Abbrechen",
-            "error": "Ungültige Schlüsselphrase. Deine Schlüsselphrase, muss aus 24 einzelnen Wörtern bestehen."
+            "error": "Ungültige Schlüsselphrase. Deine Schlüsselphrase, muss aus 12/24 einzelnen Wörtern bestehen."
         }
     },
     "wallet": {

@@ -41,7 +41,7 @@
             "subtitle": "Paina 'VÄLILYÖNTI' jokaisen oikean sanan jälkeen.",
             "submit": "Tarkastele Lompakkoa",
             "cancel": "Peruuta",
-            "error": "Väärä avainlauseke. Lausekkeen tulee olla 24 sanaa pitkä ja erotettu yhdellä välilyönnillä."
+            "error": "Väärä avainlauseke. Lausekkeen tulee olla 12/24 sanaa pitkä ja erotettu yhdellä välilyönnillä."
         }
     },
     "wallet": {

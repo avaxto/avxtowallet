@@ -41,7 +41,7 @@
             "subtitle": "Minden sikeres szóbejegyzés után nyomja meg a „SPACE” gombot.",
             "submit": "Hozzáférés pénztárcád",
             "cancel": "Megszünteti",
-            "error": "Érvénytelen kulcsmondat. A kifejezésnek 24 szóból kell állnia, egyetlen szóközzel elválasztva."
+            "error": "Érvénytelen kulcsmondat. A kifejezésnek 12/24 szóból kell állnia, egyetlen szóközzel elválasztva."
         }
     },
     "wallet": {

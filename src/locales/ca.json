@@ -41,7 +41,7 @@
             "subtitle": "Prem \"ESPAI\" després de entrar cada paraula correcte.",
             "submit": "Accedeix a la cartera",
             "cancel": "Cancel·lar",
-            "error": "Frase clau no vàlida. La teva frase ha de tenir 24 paraules separades per un sol espai."
+            "error": "Frase clau no vàlida. La teva frase ha de tenir 12/24 paraules separades per un sol espai."
         }
     },
     "wallet": {

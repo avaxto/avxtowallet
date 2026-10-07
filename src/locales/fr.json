@@ -41,7 +41,7 @@
             "subtitle": "Appuyez sur 'ESPACE' après avoir écrit chaque mot.",
             "submit": "Accéder au portefeuille",
             "cancel": "Annuler",
-            "error": "Phrase de sécurité invalide. Votre liste doit comporter 24 mots séparés par un espace."
+            "error": "Phrase de sécurité invalide. Votre liste doit comporter 12/24 mots séparés par un espace."
         }
     },
     "wallet": {
