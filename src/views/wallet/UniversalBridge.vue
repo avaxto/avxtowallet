@@ -150,6 +150,14 @@
             </div>
         </section>
 
+        <!-- The official Avalanche Bridge stands in for Wormhole on WETH.e → Ethereum. -->
+        <section v-if="usesAvalancheBridge" class="notice" role="note">
+            <strong>Using the Avalanche Bridge.</strong>
+            WETH.e goes back to Ethereum through the official Avalanche Bridge instead of Wormhole (which would
+            deliver a Wormhole-wrapped copy). You receive <strong>WETH</strong> on Ethereum at your own address, minus
+            the bridge fee (currently about $20). Unwrapping it to ETH is an optional extra step once it arrives.
+        </section>
+
         <!-- Routes -->
         <section class="routes">
             <p v-if="noProviders" class="muted center">{{ noProvidersReason }}</p>
@@ -288,6 +296,23 @@
                     >
                         Claim on {{ chainName(t.toChainId) }}
                     </v-btn>
+                    <v-btn
+                        v-if="followUpLabel(t)"
+                        class="button_secondary"
+                        depressed
+                        x-small
+                        :loading="claimingId === t.id"
+                        :disabled="claimingId !== '' || isBlocked"
+                        @click="gatedAction(() => followUp(t))"
+                    >
+                        {{ followUpLabel(t) }}
+                    </v-btn>
+                    <a
+                        v-if="t.data && t.data.unwrapTxHash"
+                        :href="txLink(t.toChainId, String(t.data.unwrapTxHash))"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                    >Unwrap ↗</a>
                     <button v-if="!pending(t)" type="button" class="link_btn muted" @click="forget(t)">Remove</button>
                 </div>
                 <p v-if="claimErrors[t.id]" class="form_error">{{ claimErrors[t.id] }}</p>
@@ -313,7 +338,8 @@ import {
     type HeldToken,
     type TokenSuggestion,
 } from '@/bridge/tokens'
-import { runTransfer, runClaim, refreshTransfer, isPending } from '@/bridge/run'
+import { runTransfer, runClaim, runFollowUp, refreshTransfer, isPending } from '@/bridge/run'
+import { AVALANCHE_BRIDGE_ID, avalancheBridgeTrackerUrl } from '@/bridge/avalancheBridge/provider'
 import { wormholescanUrl } from '@/bridge/wormhole/provider'
 import { thorchainTrackerUrl, THORCHAIN_ID } from '@/bridge/thorchain/provider'
 import { NATIVE, type BridgeAsset, type BridgeChain, type BridgeQuote, type BridgeTransfer, type ReceiveKind } from '@/bridge/types'
@@ -557,6 +583,9 @@ export default defineComponent({
         const quoteKey = (q: BridgeQuote) => `${q.providerId}|${q.routeId}`
         const selectedQuote = computed(() => quotes.value.find((q) => quoteKey(q) === selectedKey.value) ?? null)
 
+        const usesAvalancheBridge = computed(
+            () => !!fromAsset.value && !!toChain.value && providersFor(fromAsset.value, toChain.value).some((p) => p.id === AVALANCHE_BRIDGE_ID)
+        )
         const noProviders = computed(() => {
             if (!fromAsset.value || !toChain.value) return false
             return providersFor(fromAsset.value, toChain.value).length === 0
@@ -751,6 +780,22 @@ export default defineComponent({
                 refreshingAll.value = false
             }
         }
+        const followUpLabel = (t: BridgeTransfer) => {
+            const f = getProvider(t.providerId)?.followUp
+            return f && f.available(t) ? f.label : ''
+        }
+        const followUp = async (t: BridgeTransfer) => {
+            claimingId.value = t.id
+            claimErrors.value = Object.assign({}, claimErrors.value, { [t.id]: '' })
+            try {
+                syncLast(await runFollowUp(t))
+            } catch (e) {
+                if (e instanceof SessionAuthCancelled) return
+                claimErrors.value = Object.assign({}, claimErrors.value, { [t.id]: errorToString(e) })
+            } finally {
+                claimingId.value = ''
+            }
+        }
         const claim = async (t: BridgeTransfer) => {
             claimingId.value = t.id
             claimErrors.value = Object.assign({}, claimErrors.value, { [t.id]: '' })
@@ -803,8 +848,20 @@ export default defineComponent({
         const minOf = (q: BridgeQuote) => q.minReceive ?? BigInt(0)
         const chainName = (id: string) => getBridgeChain(id)?.name ?? id
         const txLink = (chainId: string, hash: string) => getBridgeChain(chainId)?.txUrl(hash) ?? ''
-        const trackerUrl = (t: BridgeTransfer) => (t.providerId === THORCHAIN_ID ? thorchainTrackerUrl(t) : wormholescanUrl(t))
-        const trackerName = (t: BridgeTransfer) => (t.providerId === THORCHAIN_ID ? 'RuneScan' : 'Wormholescan')
+        const trackerUrl = (t: BridgeTransfer) =>
+            t.providerId === THORCHAIN_ID
+                ? thorchainTrackerUrl(t)
+                : t.providerId === AVALANCHE_BRIDGE_ID
+                ? avalancheBridgeTrackerUrl(t)
+                : wormholescanUrl(t)
+        const trackerName = (t: BridgeTransfer) =>
+            t.providerId === THORCHAIN_ID
+                ? 'RuneScan'
+                : t.providerId === AVALANCHE_BRIDGE_ID
+                ? t.destTxHash
+                    ? 'Etherscan'
+                    : 'Snowtrace'
+                : 'Wormholescan'
         const statusLabel = (t: BridgeTransfer) =>
             ({
                 in_transit: 'In transit',
@@ -902,6 +959,9 @@ export default defineComponent({
             txLink,
             trackerUrl,
             trackerName,
+            usesAvalancheBridge,
+            followUpLabel,
+            followUp,
             statusLabel,
             when,
         }
@@ -1040,6 +1100,16 @@ export default defineComponent({
     font-weight: 600;
     color: var(--secondary-color);
     padding: 4px 6px;
+}
+
+.notice {
+    margin: 14px 0 0;
+    padding: 12px 14px;
+    border-radius: 10px;
+    border: 1px solid var(--secondary-color);
+    background: var(--bg-light);
+    font-size: 13px;
+    line-height: 1.5;
 }
 
 .combo {

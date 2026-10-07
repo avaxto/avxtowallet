@@ -172,6 +172,18 @@ export interface BridgeProvider {
     refresh(transfer: BridgeTransfer): Promise<BridgeTransfer>
     /** Finishes a `ready_to_claim` transfer on the destination chain. */
     claim?(transfer: BridgeTransfer, signers: BridgeSigners, onProgress?: BridgeProgress): Promise<BridgeTransfer>
+    /**
+     * Providers this one replaces for every pair it supports — e.g. the
+     * official Avalanche Bridge takes WETH.e back to Ethereum instead of
+     * Wormhole, which would deliver a Wormhole-wrapped copy.
+     */
+    supersedes?: string[]
+    /** An optional step after delivery (e.g. unwrapping WETH to ETH), offered in the transfer history. */
+    followUp?: {
+        label: string
+        available(transfer: BridgeTransfer): boolean
+        run(transfer: BridgeTransfer, signers: BridgeSigners, onProgress?: BridgeProgress): Promise<BridgeTransfer>
+    }
 }
 
 /** A transfer record from a quote and its source transaction. */

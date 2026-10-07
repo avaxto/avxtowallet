@@ -65,6 +65,19 @@ export async function runClaim(transfer: BridgeTransfer, onProgress?: BridgeProg
     return updated
 }
 
+/** Runs a provider's optional after-delivery step (e.g. unwrap WETH to ETH) and records it. */
+export async function runFollowUp(transfer: BridgeTransfer, onProgress?: BridgeProgress): Promise<BridgeTransfer> {
+    assertOnline()
+    const provider = getProvider(transfer.providerId)
+    const dst = getBridgeChain(transfer.toChainId)
+    if (!provider?.followUp || !dst || !provider.followUp.available(transfer)) throw new Error('Nothing to do for this transfer.')
+    const updated = await authorizeBatch(authSubjectFor(dst), `${provider.followUp.label} on ${dst.name}`, () =>
+        provider.followUp!.run(transfer, walletSigners, onProgress)
+    )
+    saveTransfer(updated)
+    return updated
+}
+
 /** Re-reads a transfer's status and saves it. */
 export async function refreshTransfer(transfer: BridgeTransfer): Promise<BridgeTransfer> {
     const provider = getProvider(transfer.providerId)

@@ -17,8 +17,9 @@ import { ref } from 'vue'
 import type { BridgeAsset, BridgeChain, BridgeProvider, BridgeQuote, BridgeQuoteRequest } from './types'
 import { wormholeProvider } from './wormhole/provider'
 import { thorchainProvider } from './thorchain/provider'
+import { avalancheBridgeProvider } from './avalancheBridge/provider'
 
-const PROVIDERS: BridgeProvider[] = [wormholeProvider, thorchainProvider]
+const PROVIDERS: BridgeProvider[] = [avalancheBridgeProvider, wormholeProvider, thorchainProvider]
 
 const DISABLED_KEY = 'bridge_disabled_providers'
 
@@ -60,7 +61,10 @@ export function setProviderEnabled(id: string, enabled: boolean): void {
 /** Enabled providers that can move `from` to `toChain`. */
 export function providersFor(from: BridgeAsset, toChain: BridgeChain): BridgeProvider[] {
     if (from.chainId === toChain.id) return []
-    return PROVIDERS.filter((p) => isProviderEnabled(p.id) && p.supports(from, toChain))
+    const serving = PROVIDERS.filter((p) => isProviderEnabled(p.id) && p.supports(from, toChain))
+    // A provider that supersedes another for this pair takes its place (only while it is enabled).
+    const replaced = new Set(serving.flatMap((p) => p.supersedes ?? []))
+    return serving.filter((p) => !replaced.has(p.id))
 }
 
 export interface QuoteResults {

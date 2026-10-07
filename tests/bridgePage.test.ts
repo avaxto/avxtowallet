@@ -49,6 +49,7 @@ jest.mock('@/bridge/tokens', () => ({
             ? [
                   { chainId: chain.id, address: 'native', symbol: 'AVAX', name: 'Avalanche', decimals: 18, balance: BigInt('10000000000000000000'), verified: true },
                   Object.assign({}, USDC_AVAX, { balance: BigInt(250_000_000), verified: true }),
+                  { chainId: chain.id, address: '0x49D5c2BdFfac6CE2BFdB6640F4F80f226bc10bAB', symbol: 'WETH.e', name: 'Wrapped Ether', decimals: 18, balance: BigInt('131700000000000000'), verified: true },
               ]
             : [{ chainId: chain.id, address: 'native', symbol: chain.native.symbol, name: chain.native.name, decimals: chain.native.decimals, balance: BigInt(0), verified: true }],
     suggestReceiveTokens: (...a: any[]) => suggest(...a),
@@ -71,6 +72,7 @@ jest.mock('@/composables/useBaseAssetGate', () => ({
 
 import { wormholeProvider } from '@/bridge/wormhole/provider'
 import { thorchainProvider } from '@/bridge/thorchain/provider'
+import { avalancheBridgeProvider } from '@/bridge/avalancheBridge/provider'
 import { bridgeTransfers, removeTransfer } from '@/bridge/history'
 import { runTransfer } from '@/bridge/run'
 import UniversalBridge from '@/views/wallet/UniversalBridge.vue'
@@ -297,6 +299,33 @@ describe('the Bridge page', () => {
         expect(cards[0].text()).toContain('✓ Delivers USDC')
         expect(cards[0].classes()).toContain('selected')
         expect(cards[1].text()).toContain('Delivers WAVAX, not USDC')
+        w.unmount()
+    })
+
+    it('uses the Avalanche Bridge, not Wormhole, for WETH.e to Ethereum — and says so', async () => {
+        const abQuote = jest.spyOn(avalancheBridgeProvider, 'quote').mockImplementation(async (req) =>
+            Object.assign(quoteFor(req, 'avalanche-bridge'), {
+                routeName: 'Avalanche Bridge',
+                receive: { asset: { chainId: 'evm:1', address: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2', symbol: 'WETH', decimals: 18 }, amount: BigInt('123547636279832587'), kind: 'canonical' },
+                needsClaim: false,
+            })
+        )
+        const w = mount(UniversalBridge, { global: { stubs } })
+        await flushPromises()
+        expect(w.text()).not.toContain('Using the Avalanche Bridge')
+        await w.find('#bridge-from-token').setValue('0x49D5c2BdFfac6CE2BFdB6640F4F80f226bc10bAB')
+        await flushPromises()
+        expect(w.find('.notice').text()).toContain('Using the Avalanche Bridge')
+        expect(w.find('.notice').text()).toContain('You receive WETH on Ethereum at your own address')
+        await w.find('.amount_input').setValue('0.1317')
+        await settle()
+        expect(abQuote).toHaveBeenCalledTimes(1)
+        expect(whQuote).not.toHaveBeenCalled()
+        expect(w.text()).toContain('You receive 0.123547 WETH')
+        // Another destination goes back to Wormhole, and the notice goes away.
+        await w.find('#bridge-to-chain').setValue('evm:8453')
+        await flushPromises()
+        expect(w.find('.notice').exists()).toBe(false)
         w.unmount()
     })
 
