@@ -16,9 +16,10 @@
         <div class="content">
             <h1>Bitcoin Recovery Phrase</h1>
             <p class="sub">
-                Enter your 12 or 24 word BIP-39 phrase. The wallet checks Native SegWit, Nested
-                SegWit, Legacy and Taproot addresses — plus the address Core Extension / Core App
-                use for this same phrase — and opens whichever holds funds.
+                Enter your 12 or 24 word BIP-39 phrase, or a seed created by Electrum. The wallet
+                checks Native SegWit, Nested SegWit, Legacy and Taproot addresses — plus the address
+                Core Extension / Core App use for this same phrase, and Electrum's addresses — and
+                opens whichever holds funds.
             </p>
 
             <form @submit.prevent="access" autocomplete="off">

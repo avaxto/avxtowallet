@@ -48,8 +48,12 @@ import {
     WatchAddressBitcoinWallet,
     WatchBitcoinWallet,
     WifBitcoinWallet,
+    ELECTRUM_SEED_PATH_PREFIX,
+    type ExtraAccount,
     type ExtraCandidate,
 } from './wallet'
+import { ELECTRUM_ACCOUNTS, electrumSeedFromPhrase, electrumSeedType, type ElectrumSeedType } from '@/bitcoin/electrumSeed'
+import { ELECTRUM_ACCOUNT_PATH, ELECTRUM_BIP39_ACCOUNTS } from '@/bitcoin/altSchemes'
 
 const NETWORK_STORAGE_KEY = 'bitcoin_active_network'
 const DEFAULT_NETWORK_ID = 'mainnet'
@@ -191,20 +195,95 @@ export const useBitcoinStore = defineStore('bitcoin', () => {
      * See keys.ts#CORE_WALLET_PATH for why Core's derivation is not just
      * "another address type."
      */
+    /** A public account node at `path` below `root` ('m' is the root itself). */
+    const neuteredAt = (root: ReturnType<typeof bip32.fromSeed>, path: string) => {
+        if (path === 'm') return root.neutered()
+        const signing = root.derivePath(path)
+        const node = signing.neutered()
+        destroyNode(signing)
+        return node
+    }
+
+    /**
+     * Opens a phrase in Electrum's own seed format (see bitcoin/electrumSeed.ts):
+     * Electrum's seed derivation and its account layout for the seed type, and
+     * nothing else — the BIP-39 conventions do not apply to such a phrase.
+     */
+    const openElectrumSeed = async (
+        mnemonic: string,
+        type: 'standard' | 'segwit',
+        sessionPassword: string,
+        options: AccessOptions
+    ): Promise<void> => {
+        const seed = electrumSeedFromPhrase(mnemonic)
+        try {
+            const net = network.value
+            const spec = ELECTRUM_ACCOUNTS[type]
+            const root = bip32.fromSeed(seed, net.params)
+            let accountNode
+            try {
+                accountNode = neuteredAt(root, spec.accountPath)
+            } finally {
+                destroyNode(root)
+            }
+            // vaultWith consumes and wipes `seed`.
+            const vault = await vaultWith('seed', seed, sessionPassword)
+            setWallet(
+                new HdBitcoinWallet({
+                    network: net,
+                    addressType: spec.addressType,
+                    accountNode,
+                    vault,
+                    accountPath: spec.accountPath,
+                    schemeLabel: spec.label,
+                    electrumSeedType: type,
+                })
+            )
+            void refreshFeeRates()
+            if (options.navigate !== false) router.push('/wallet')
+        } catch (e) {
+            wipe(seed)
+            throw e
+        }
+    }
+
     const accessWithMnemonic = async (
         mnemonic: string,
         sessionPassword: string,
         options: AccessOptions = {}
     ): Promise<void> => {
         const phrase = mnemonic.trim().replace(/\s+/g, ' ').toLowerCase()
-        if (!bip39.validateMnemonic(phrase)) {
-            throw new Error(
-                'That is not a valid BIP-39 recovery phrase. Check the word list and order.'
-            )
+        const isBip39 = bip39.validateMnemonic(phrase)
+        // Electrum's own format (what Electrum generates for a new wallet) is
+        // not BIP-39 — it has no checksum word, so it usually fails the check
+        // above. A phrase can also pass both; then both are scanned.
+        const electrumType: ElectrumSeedType | null = electrumSeedType(mnemonic)
+        const spendableElectrum = electrumType === 'standard' || electrumType === 'segwit' ? electrumType : null
+
+        if (!isBip39) {
+            if (electrumType === '2fa' || electrumType === '2fa_segwit') {
+                throw new Error(
+                    'This is an Electrum two-factor (TrustedCoin) seed. Those wallets are 2-of-3 multisig ' +
+                        "with TrustedCoin's key, so they cannot be opened from the phrase alone."
+                )
+            }
+            if (!spendableElectrum) {
+                throw new Error(
+                    'That is not a valid BIP-39 recovery phrase or Electrum seed. Check the word list and order.'
+                )
+            }
+            isConnecting.value = true
+            try {
+                return await openElectrumSeed(mnemonic, spendableElectrum, sessionPassword, options)
+            } finally {
+                isConnecting.value = false
+            }
         }
 
         isConnecting.value = true
         const seed = new Uint8Array(await bip39.mnemonicToSeed(phrase))
+        // Only for a phrase valid in BOTH formats: its Electrum-format seed, kept beside the BIP-39 one.
+        let electrumSeed: Uint8Array | null = spendableElectrum ? electrumSeedFromPhrase(mnemonic) : null
 
         try {
             const net = network.value
@@ -253,9 +332,17 @@ export const useBitcoinStore = defineStore('bitcoin', () => {
             // `ExtraCandidate` in ./wallet.ts.
             const extraRoot = bip32.fromSeed(seed, net.params)
             const extraCandidates: ExtraCandidate[] = []
+            const extraAccounts: ExtraAccount[] = []
             try {
+                // Electrum's BIP-39 "non-standard" layout, all three script
+                // types, scanned as whole accounts (see altSchemes.ts).
+                const electrumAccount = neuteredAt(extraRoot, ELECTRUM_ACCOUNT_PATH)
+                for (const e of ELECTRUM_BIP39_ACCOUNTS) {
+                    extraAccounts.push({ scheme: e.scheme, pathPrefix: ELECTRUM_ACCOUNT_PATH, addressType: e.addressType, node: electrumAccount })
+                }
                 for (const spec of knownCandidates(net)) {
                     if (spec.id === chosen) continue // already the primary account above
+                    if (spec.scannedAsAccount) continue // covered by extraAccounts
                     const signing = extraRoot.derivePath(spec.path)
                     const node = signing.neutered()
                     destroyNode(signing)
@@ -270,8 +357,30 @@ export const useBitcoinStore = defineStore('bitcoin', () => {
                 destroyNode(extraRoot)
             }
 
-            // vaultWith consumes and wipes `seed`.
-            const vault = await vaultWith('seed', seed, sessionPassword)
+            // The same phrase read as an Electrum-format seed, when it is one.
+            if (electrumSeed && spendableElectrum) {
+                const spec = ELECTRUM_ACCOUNTS[spendableElectrum]
+                const eroot = bip32.fromSeed(electrumSeed, net.params)
+                try {
+                    extraAccounts.push({
+                        scheme: spec.label,
+                        pathPrefix: ELECTRUM_SEED_PATH_PREFIX + spec.accountPath,
+                        addressType: spec.addressType,
+                        node: neuteredAt(eroot, spec.accountPath),
+                    })
+                } finally {
+                    destroyNode(eroot)
+                }
+            }
+
+            // vaultWith consumes and wipes `seed` (and the Electrum seed, when there is one).
+            const vault = await vaultWith(
+                'seed',
+                seed,
+                sessionPassword,
+                electrumSeed ? { name: 'electrumSeed', plaintext: electrumSeed } : undefined
+            )
+            electrumSeed = null
 
             setWallet(
                 new HdBitcoinWallet({
@@ -281,12 +390,14 @@ export const useBitcoinStore = defineStore('bitcoin', () => {
                     vault,
                     singleAddress,
                     extraCandidates,
+                    extraAccounts,
                 })
             )
             void refreshFeeRates()
             if (options.navigate !== false) router.push('/wallet')
         } catch (e) {
             wipe(seed)
+            if (electrumSeed) wipe(electrumSeed)
             throw e
         } finally {
             isConnecting.value = false

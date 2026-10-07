@@ -14,7 +14,8 @@ import { wipe } from '@/js/security/memory'
  *   - Stop an attacker who can run code while an operation is authorized.
  */
 
-export type SecretName = 'mnemonic' | 'seed' | 'pk'
+/** `electrumSeed`: a Bitcoin phrase's Electrum-format seed, held beside its BIP-39 'seed' when the phrase is valid in both. */
+export type SecretName = 'mnemonic' | 'seed' | 'pk' | 'electrumSeed'
 
 interface VaultBlob {
     iv: Uint8Array

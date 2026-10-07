@@ -29,11 +29,10 @@
  *                 type the way BIP-44/49/84 are.
  *
  *                 This is distinct from Electrum's own NATIVE (non-BIP-39)
- *                 12-word seed format, which this app cannot reach at all —
- *                 that format uses a different wordlist checksum and a
- *                 different seed-derivation algorithm entirely, so a phrase
- *                 in that format would not even pass this app's
- *                 `bip39.validateMnemonic` check to be imported.
+ *                 seed format — the phrase Electrum generates for a new
+ *                 wallet — which uses a version hash instead of a checksum
+ *                 word and a different seed derivation. That format is
+ *                 handled separately, in electrumSeed.ts.
  *
  *   Bitcoin Core  Its pre-descriptor ("legacy") HD wallet — still what many
  *                 older Core-created wallets use — derives at
@@ -51,6 +50,7 @@
  *                 "legacy" wallets today.
  */
 import type { BtcChain } from './keys'
+import type { BtcAddressType } from './networks'
 
 /** Electrum's "Non-standard" BIP-39 account root. */
 export const ELECTRUM_ACCOUNT_PATH = "m/0'"
@@ -58,6 +58,17 @@ export const ELECTRUM_ACCOUNT_PATH = "m/0'"
 export function electrumPath(chain: BtcChain, index = 0): string {
     return `${ELECTRUM_ACCOUNT_PATH}/${chain === 'receive' ? 0 : 1}/${index}`
 }
+
+/**
+ * The three script types Electrum offers on that one BIP-39 path. Scanned as
+ * full accounts (receive and change, to the gap limit) like the wallet's own
+ * primary account — see `ExtraAccount` in platforms/bitcoin/wallet.ts.
+ */
+export const ELECTRUM_BIP39_ACCOUNTS: { scheme: string; addressType: BtcAddressType }[] = [
+    { scheme: 'Electrum — Legacy', addressType: 'p2pkh' },
+    { scheme: 'Electrum — Nested SegWit', addressType: 'p2sh-p2wpkh' },
+    { scheme: 'Electrum — Native SegWit', addressType: 'p2wpkh' },
+]
 
 /** Bitcoin Core's pre-descriptor ("legacy") HD wallet account root. */
 export const BITCOIN_CORE_LEGACY_ACCOUNT_PATH = "m/0'"

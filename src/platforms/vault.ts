@@ -17,7 +17,7 @@
  */
 import { markRaw } from 'vue'
 
-import { SessionVault } from '@/js/security/SessionVault'
+import { SessionVault, type SecretName } from '@/js/security/SessionVault'
 import { AuthHandle, AuthScope } from '@/js/security/session'
 import { wipe } from '@/js/security/memory'
 
@@ -38,7 +38,9 @@ import { wipe } from '@/js/security/memory'
 export async function vaultWith(
     secretName: 'seed' | 'pk',
     plaintext: Uint8Array,
-    password: string
+    password: string,
+    /** A second secret stored under the same password (consumed and wiped too). */
+    extra?: { name: SecretName; plaintext: Uint8Array }
 ): Promise<SessionVault> {
     const vault = markRaw(new SessionVault())
     let stored = false
@@ -51,6 +53,7 @@ export async function vaultWith(
         const auth = new AuthHandle(AuthScope.SINGLE, vault, key)
         try {
             await vault.put(auth, secretName, plaintext)
+            if (extra) await vault.put(auth, extra.name, extra.plaintext)
             stored = true
             return vault
         } finally {
@@ -59,6 +62,9 @@ export async function vaultWith(
     } finally {
         // vault.put already wiped it on the success path; wiping twice is
         // harmless, but skipping it when put never ran is not.
-        if (!stored) wipe(plaintext)
+        if (!stored) {
+            wipe(plaintext)
+            if (extra) wipe(extra.plaintext)
+        }
     }
 }

@@ -28,7 +28,7 @@ import {
     type BtcCandidateId,
 } from './networks'
 import { addressPath, CORE_WALLET_PATH } from './keys'
-import { electrumPath, bitcoinCoreLegacyPath } from './altSchemes'
+import { electrumPath, bitcoinCoreLegacyPath, ELECTRUM_BIP39_ACCOUNTS } from './altSchemes'
 
 export interface CandidateSpec {
     /**
@@ -37,14 +37,21 @@ export interface CandidateSpec {
      * `pickAddressType`). Used to exclude whichever ONE of those a wallet
      * already tracks as its primary account, so it is not redundantly
      * double-counted as an "extra" address too. The other 5 entries here
-     * (Electrum x2, Bitcoin Core legacy x3) never overlap with a primary
-     * scheme and so never need excluding.
+     * (Electrum x3, Bitcoin Core legacy x3) never overlap with a primary
+     * scheme and so never need excluding. (Electrum's rows are scanned as
+     * whole accounts instead — see `scannedAsAccount`.)
      */
     id?: BtcCandidateId
     /** Human label, e.g. "Standard (BIP-84)" or "Electrum — Native SegWit". */
     scheme: string
     path: string
     addressType: BtcAddressType
+    /**
+     * Scanned by the wallet as a full account (every receive and change
+     * address), so it is not ALSO tracked as a single extra address — see
+     * `ELECTRUM_BIP39_ACCOUNTS`.
+     */
+    scannedAsAccount?: boolean
 }
 
 export function knownCandidates(network: BitcoinNetwork): CandidateSpec[] {
@@ -66,10 +73,12 @@ export function knownCandidates(network: BitcoinNetwork): CandidateSpec[] {
         addressType: 'p2wpkh',
     })
 
-    // Same path, different encodings — see altSchemes.ts.
+    // Same path, different encodings — see altSchemes.ts. Shown here at
+    // receive index 0; the wallet scans these as whole accounts instead.
     const electrumReceive = electrumPath('receive')
-    specs.push({ scheme: 'Electrum — Legacy', path: electrumReceive, addressType: 'p2pkh' })
-    specs.push({ scheme: 'Electrum — Native SegWit', path: electrumReceive, addressType: 'p2wpkh' })
+    for (const e of ELECTRUM_BIP39_ACCOUNTS) {
+        specs.push({ scheme: e.scheme, path: electrumReceive, addressType: e.addressType, scannedAsAccount: true })
+    }
 
     const coreLegacyReceive = bitcoinCoreLegacyPath('receive')
     specs.push({

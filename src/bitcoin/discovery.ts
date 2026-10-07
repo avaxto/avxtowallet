@@ -109,19 +109,26 @@ export async function mapLimited<T, R>(
     return results
 }
 
-/** Derives one address from an account-level node. */
+/**
+ * Derives one address from an account-level node. The recorded path is the
+ * standard BIP-44-family one, unless `pathPrefix` names the account's own root
+ * (Electrum's `m/0'`, an Electrum seed's `m`…), in which case it is
+ * `<pathPrefix>/<chain>/<index>` — the path signing will re-derive.
+ */
 function deriveAt(
     accountNode: BIP32Interface,
     type: BtcAddressType,
     network: BitcoinNetwork,
     chain: BtcChain,
     index: number,
-    account: number
+    account: number,
+    pathPrefix?: string
 ): { address: string; path: string } {
-    const node = accountNode.derive(chain === 'receive' ? 0 : 1).derive(index)
+    const c = chain === 'receive' ? 0 : 1
+    const node = accountNode.derive(c).derive(index)
     return {
         address: addressFromPublicKey(node.publicKey, type, network),
-        path: addressPath(type, network, account, chain, index),
+        path: pathPrefix ? `${pathPrefix}/${c}/${index}` : addressPath(type, network, account, chain, index),
     }
 }
 
@@ -140,7 +147,8 @@ async function scanChain(
     type: BtcAddressType,
     network: BitcoinNetwork,
     chain: BtcChain,
-    account: number
+    account: number,
+    pathPrefix?: string
 ): Promise<ScannedAddress[]> {
     const seen = new Map<number, ScannedAddress>()
     let lastUsedIndex = -1
@@ -156,7 +164,7 @@ async function scanChain(
         for (let i = checkedUpTo + 1; i <= needUpTo; i++) indices.push(i)
 
         const derived = indices.map((index) =>
-            deriveAt(accountNode, type, network, chain, index, account)
+            deriveAt(accountNode, type, network, chain, index, account, pathPrefix)
         )
         const stats = await mapLimited(derived, CONCURRENCY, (d) =>
             getAddressStats(d.address, network)
@@ -194,11 +202,12 @@ export async function scanAccount(
     accountNode: BIP32Interface,
     type: BtcAddressType,
     network: BitcoinNetwork,
-    account = 0
+    account = 0,
+    pathPrefix?: string
 ): Promise<AccountScan> {
     const [receive, change] = await Promise.all([
-        scanChain(accountNode, type, network, 'receive', account),
-        scanChain(accountNode, type, network, 'change', account),
+        scanChain(accountNode, type, network, 'receive', account, pathPrefix),
+        scanChain(accountNode, type, network, 'change', account, pathPrefix),
     ])
 
     const addresses = [...receive, ...change]
@@ -213,9 +222,27 @@ export async function scanAccount(
         // every one checked was used — fall back to the next index along.
         nextReceiveAddress:
             firstUnused?.address ??
-            deriveAt(accountNode, type, network, 'receive', receive.length, account).address,
+            deriveAt(accountNode, type, network, 'receive', receive.length, account, pathPrefix).address,
         hasHistory: addresses.some((a) => a.used),
     }
+}
+
+/**
+ * Whether an account has ever been used, from its first few receive addresses
+ * and its first change address — a handful of requests instead of the 40+ a
+ * gap-limit scan costs. Wallets hand out receive address 0 first, so a used
+ * account shows up here. Used to decide which EXTRA accounts (Electrum
+ * layouts) are worth a full scan on each refresh.
+ */
+export async function accountHasHistory(
+    accountNode: BIP32Interface,
+    type: BtcAddressType,
+    network: BitcoinNetwork,
+    depth = TYPE_PROBE_DEPTH
+): Promise<boolean> {
+    const nodes = Array.from({ length: depth }, (_, i) => accountNode.derive(0).derive(i)).concat([accountNode.derive(1).derive(0)])
+    const stats = await mapLimited(nodes, CONCURRENCY, (n) => getAddressStats(addressFromPublicKey(n.publicKey, type, network), network))
+    return stats.some((st) => st.chain_stats.tx_count + st.mempool_stats.tx_count > 0)
 }
 
 export interface TypeProbe {

@@ -52,7 +52,9 @@ import {
     CORE_WALLET_PATH,
 } from '@/bitcoin/keys'
 import { knownCandidates } from '@/bitcoin/candidates'
+import { ELECTRUM_ACCOUNTS, electrumSeedPath } from '@/bitcoin/electrumSeed'
 import {
+    accountHasHistory,
     collectUtxos,
     mapLimited,
     scanAccount,
@@ -100,6 +102,40 @@ export interface ExtraCandidate {
     path: string
     addressType: BtcAddressType
     node: BIP32Interface
+}
+
+/**
+ * Marks a UTXO path whose key comes from the phrase's ELECTRUM-format seed
+ * rather than the wallet's own (BIP-39) seed — only for a phrase that is
+ * valid in both formats. Electrum's segwit layout (m/0'/0/i) is the same
+ * path string as Electrum's BIP-39 "non-standard" layout, from a different
+ * seed, so the path alone cannot say which seed signs; the prefix does.
+ */
+export const ELECTRUM_SEED_PATH_PREFIX = 'electrum-seed:'
+
+/**
+ * A whole additional account an `HdBitcoinWallet` scans alongside its primary
+ * one — receive and change chains, to the gap limit — rather than a single
+ * address like `ExtraCandidate`. Used for Electrum's layouts, where a wallet
+ * hands out many addresses under one account root. Probed cheaply first
+ * (`accountHasHistory`) and fully scanned only once found in use.
+ */
+export interface ExtraAccount {
+    scheme: string
+    /** The account root as signing re-derives it; addresses are `<pathPrefix>/<chain>/<index>`. */
+    pathPrefix: string
+    addressType: BtcAddressType
+    /** Neutered (public-key-only) account node. */
+    node: BIP32Interface
+}
+
+/** Optional shape of an HD wallet's primary account and its extra accounts. */
+export interface HdAccountOptions {
+    /** The primary account's root, when it is not a BIP-44-family path (an Electrum seed's `m` or `m/0'`). */
+    accountPath?: string
+    /** Label for the primary scheme, when the address type alone does not say it (e.g. "Electrum seed — Legacy"). */
+    schemeLabel?: string
+    extraAccounts?: ExtraAccount[]
 }
 
 export interface SendRequest {
@@ -163,6 +199,11 @@ export abstract class BitcoinWallet implements PlatformWallet {
     /** Result of the most recent chain scan. Null until `refresh()` runs. */
     protected scan: AccountScan | null = null
     protected utxos: SelectableUtxo[] = []
+    /**
+     * Bumped by every broadcast. A refresh that started before a send must
+     * not land after it, or it would bring back the coins just spent.
+     */
+    protected scanGeneration = 0
 
     protected constructor(network: BitcoinNetwork, addressType: BtcAddressType) {
         this.network = network
@@ -310,9 +351,11 @@ export abstract class BitcoinWallet implements PlatformWallet {
         assertFeeSane(built.feeSats, selection.feeSats)
 
         const txid = await broadcastTx(built.hex, this.network)
-        // The scan is stale the moment a transaction is accepted.
+        // The scan is stale the moment a transaction is accepted — and so is
+        // any refresh already in flight (see `scanGeneration`).
         this.scan = null
         this.utxos = []
+        this.scanGeneration++
         return txid
     }
 
@@ -351,18 +394,29 @@ abstract class HdScanningWallet extends BitcoinWallet {
      *  them from (watch-only). */
     protected readonly extraCandidates: ExtraCandidate[]
 
+    /** See `ExtraAccount` above. */
+    protected readonly extraAccounts: ExtraAccount[]
+    /** Extra accounts found in use, so later refreshes skip the probe and scan them directly. */
+    private readonly usedExtraAccounts = new Set<ExtraAccount>()
+    protected readonly accountPath?: string
+    private readonly schemeLabel?: string
+
     protected constructor(
         network: BitcoinNetwork,
         addressType: BtcAddressType,
         accountNode: BIP32Interface,
         protected readonly account: number,
         singleAddress = false,
-        extraCandidates: ExtraCandidate[] = []
+        extraCandidates: ExtraCandidate[] = [],
+        options: HdAccountOptions = {}
     ) {
         super(network, addressType)
         this.accountNode = accountNode
         this.singleAddress = singleAddress
         this.extraCandidates = extraCandidates
+        this.extraAccounts = options.extraAccounts ?? []
+        this.accountPath = options.accountPath
+        this.schemeLabel = options.schemeLabel
     }
 
     getPrimaryAddress(): string {
@@ -399,21 +453,57 @@ abstract class HdScanningWallet extends BitcoinWallet {
         return addressFromPublicKey(node.publicKey, this.addressType, this.network)
     }
 
+    /**
+     * Builds the whole snapshot — primary account plus every extra — in local
+     * variables, and swaps it in only at the end. Refreshes can overlap
+     * (opening the wallet starts one, the page may start another); merging
+     * into shared state as they went let two of them add the same extra
+     * addresses twice, doubling the balance and listing the same coin twice
+     * as spendable. Now each refresh is a complete, consistent snapshot and
+     * the last to finish wins.
+     */
     async refresh(): Promise<void> {
+        const generation = this.scanGeneration
+        let scan: AccountScan
+        let utxos: SelectableUtxo[]
         if (this.singleAddress) {
-            await this.refreshSingleAddress()
+            ;({ scan, utxos } = await this.scanSingleAddress())
         } else {
-            this.scan = await scanAccount(
-                this.accountNode,
-                this.addressType,
-                this.network,
-                this.account
-            )
-            this.utxos = await collectUtxos(this.scan, this.network)
+            scan = await scanAccount(this.accountNode, this.addressType, this.network, this.account, this.accountPath)
+            utxos = await collectUtxos(scan, this.network)
         }
 
         if (this.extraCandidates.length > 0) {
-            await this.mergeExtraCandidates()
+            await this.mergeExtraCandidates(scan, utxos)
+        }
+        if (this.extraAccounts.length > 0) {
+            await this.mergeExtraAccounts(scan, utxos)
+        }
+        // A send happened meanwhile: this snapshot predates it.
+        if (generation !== this.scanGeneration) return
+        this.scan = scan
+        this.utxos = utxos
+    }
+
+    /**
+     * Folds in every Electrum-layout account this phrase has actually used —
+     * all of its receive and change addresses, not just address 0 — so a
+     * balance spread across an Electrum wallet's many addresses is counted
+     * and spendable. Like `mergeExtraCandidates`, purely additive and needs
+     * no vault access.
+     */
+    private async mergeExtraAccounts(scan: AccountScan, utxosOut: SelectableUtxo[]): Promise<void> {
+        for (const account of this.extraAccounts) {
+            if (!this.usedExtraAccounts.has(account)) {
+                if (!(await accountHasHistory(account.node, account.addressType, this.network))) continue
+                this.usedExtraAccounts.add(account)
+            }
+            const extra = await scanAccount(account.node, account.addressType, this.network, 0, account.pathPrefix)
+            const utxos = await collectUtxos(extra, this.network)
+            for (const a of extra.addresses) scan.addresses.push(Object.assign({}, a, { scheme: account.scheme }))
+            scan.balanceSats += extra.balanceSats
+            if (extra.hasHistory) scan.hasHistory = true
+            utxosOut.push(...utxos)
         }
     }
 
@@ -430,7 +520,7 @@ abstract class HdScanningWallet extends BitcoinWallet {
      * neutered public key, precomputed at import time), so a plain balance
      * refresh still never prompts for the session password.
      */
-    private async mergeExtraCandidates(): Promise<void> {
+    private async mergeExtraCandidates(scan: AccountScan, utxosOut: SelectableUtxo[]): Promise<void> {
         const results = await mapLimited(
             this.extraCandidates,
             EXTRA_CANDIDATE_CONCURRENCY,
@@ -443,9 +533,6 @@ abstract class HdScanningWallet extends BitcoinWallet {
                 return { candidate: c, address, stats, utxos }
             }
         )
-
-        const scan = this.scan
-        if (!scan) return // the primary scan above always sets this first
 
         for (const { candidate, address, stats, utxos } of results) {
             const funded = stats.chain_stats.funded_txo_sum + stats.mempool_stats.funded_txo_sum
@@ -467,7 +554,7 @@ abstract class HdScanningWallet extends BitcoinWallet {
             if (used) scan.hasHistory = true
 
             for (const u of utxos) {
-                this.utxos.push({
+                utxosOut.push({
                     txid: u.txid,
                     vout: u.vout,
                     value: u.value,
@@ -481,7 +568,7 @@ abstract class HdScanningWallet extends BitcoinWallet {
     }
 
     /**
-     * Balance/UTXO fetch for the single-address (Core-compatible) case —
+     * Balance/UTXO snapshot for the single-address (Core-compatible) case —
      * one address, no gap-limit scan needed. Mirrors
      * `WifBitcoinWallet.refresh()`; the `path` recorded on the scanned
      * address and its UTXOs is `CORE_WALLET_PATH` itself, which is what lets
@@ -489,7 +576,7 @@ abstract class HdScanningWallet extends BitcoinWallet {
      * — `root.derivePath(utxo.path)` already does the right thing when `path`
      * IS the exact path to re-derive.
      */
-    private async refreshSingleAddress(): Promise<void> {
+    private async scanSingleAddress(): Promise<{ scan: AccountScan; utxos: SelectableUtxo[] }> {
         const address = this.getReceiveAddress()
         const [stats, utxos] = await Promise.all([
             getAddressStats(address, this.network),
@@ -500,7 +587,7 @@ abstract class HdScanningWallet extends BitcoinWallet {
         const spent = stats.chain_stats.spent_txo_sum + stats.mempool_stats.spent_txo_sum
         const used = stats.chain_stats.tx_count + stats.mempool_stats.tx_count > 0
 
-        this.scan = {
+        const scan: AccountScan = {
             type: this.addressType,
             addresses: [
                 {
@@ -518,15 +605,18 @@ abstract class HdScanningWallet extends BitcoinWallet {
             hasHistory: used,
         }
 
-        this.utxos = utxos.map((u) => ({
-            txid: u.txid,
-            vout: u.vout,
-            value: u.value,
-            address,
-            addressType: this.addressType,
-            path: CORE_WALLET_PATH,
-            confirmed: u.status.confirmed,
-        }))
+        return {
+            scan,
+            utxos: utxos.map((u) => ({
+                txid: u.txid,
+                vout: u.vout,
+                value: u.value,
+                address,
+                addressType: this.addressType,
+                path: CORE_WALLET_PATH,
+                confirmed: u.status.confirmed,
+            })),
+        }
     }
 
     /**
@@ -537,6 +627,7 @@ abstract class HdScanningWallet extends BitcoinWallet {
      * candidate exists. See CORE_CANDIDATE_INFO in networks.ts.
      */
     get addressTypeLabel(): string {
+        if (this.schemeLabel) return this.schemeLabel
         return this.singleAddress ? CORE_CANDIDATE_INFO.label : super.addressTypeLabel
     }
 }
@@ -565,6 +656,17 @@ export class HdBitcoinWallet extends HdScanningWallet {
         singleAddress?: boolean
         /** Every other known scheme's address, for balance + spending — see `ExtraCandidate`. */
         extraCandidates?: ExtraCandidate[]
+        /** Whole extra accounts (Electrum layouts) — see `ExtraAccount`. */
+        extraAccounts?: ExtraAccount[]
+        /** Set when the primary account is an Electrum-format seed's: its root path and label. */
+        accountPath?: string
+        schemeLabel?: string
+        /**
+         * What the vault's 'seed' is: a BIP-39 seed (the default), or an
+         * Electrum-format seed of the given type — which changes what the
+         * derive page can show (see `deriveKnownSchemes`).
+         */
+        electrumSeedType?: 'standard' | 'segwit'
     }) {
         super(
             opts.network,
@@ -572,10 +674,15 @@ export class HdBitcoinWallet extends HdScanningWallet {
             opts.accountNode,
             opts.account ?? 0,
             opts.singleAddress ?? false,
-            opts.extraCandidates ?? []
+            opts.extraCandidates ?? [],
+            { accountPath: opts.accountPath, schemeLabel: opts.schemeLabel, extraAccounts: opts.extraAccounts }
         )
         this.vault = opts.vault
+        this.electrumSeedType = opts.electrumSeedType
     }
+
+    /** Set when this wallet was opened from an Electrum-format seed (not BIP-39). */
+    readonly electrumSeedType?: 'standard' | 'segwit'
 
     /**
      * Derives the address this same seed produces under every well-known
@@ -617,12 +724,20 @@ export class HdBitcoinWallet extends HdScanningWallet {
             }
 
             try {
-                // The same list `extraCandidates` (below) was built from at
-                // import time — one definition, so the derive page and the
-                // wallet's own balance scanning can never silently disagree
-                // about what "every known address" means.
-                for (const spec of knownCandidates(this.network)) {
-                    addRow(spec.scheme, spec.path, spec.addressType)
+                if (this.electrumSeedType) {
+                    // An Electrum-format seed: the BIP-39 conventions do not
+                    // apply to it, only Electrum's own layout does.
+                    const spec = ELECTRUM_ACCOUNTS[this.electrumSeedType]
+                    addRow(`${spec.label} (receive)`, electrumSeedPath(spec, 0, 0), spec.addressType)
+                    addRow(`${spec.label} (change)`, electrumSeedPath(spec, 1, 0), spec.addressType)
+                } else {
+                    // The same list `extraCandidates` (below) was built from at
+                    // import time — one definition, so the derive page and the
+                    // wallet's own balance scanning can never silently disagree
+                    // about what "every known address" means.
+                    for (const spec of knownCandidates(this.network)) {
+                        addRow(spec.scheme, spec.path, spec.addressType)
+                    }
                 }
 
                 const trimmedCustom = customPath?.trim()
@@ -633,6 +748,22 @@ export class HdBitcoinWallet extends HdScanningWallet {
                         }
                     } catch (e: any) {
                         customPathError = e?.message ?? String(e)
+                    }
+                }
+
+                // A phrase that is ALSO a valid Electrum-format seed: its
+                // Electrum addresses come from the second seed in the vault.
+                const electrumAccount = this.extraAccounts.find((a) => a.pathPrefix.startsWith(ELECTRUM_SEED_PATH_PREFIX))
+                if (electrumAccount && this.vault.has('electrumSeed')) {
+                    const prefix = electrumAccount.pathPrefix.slice(ELECTRUM_SEED_PATH_PREFIX.length)
+                    for (const [chain, label] of [[0, 'receive'], [1, 'change']] as const) {
+                        const node = electrumAccount.node.derive(chain).derive(0)
+                        rows.push({
+                            scheme: `${electrumAccount.scheme} (${label})`,
+                            path: `${prefix}/${chain}/0`,
+                            addressType: electrumAccount.addressType,
+                            address: addressFromPublicKey(node.publicKey, electrumAccount.addressType, this.network),
+                        })
                     }
                 }
 
@@ -659,12 +790,33 @@ export class HdBitcoinWallet extends HdScanningWallet {
         return this.vault.withSecret(auth, 'seed', async (seed) => {
             const root = bip32.fromSeed(seed, this.network.params)
             const derived: BIP32Interface[] = []
+            // Coins at the phrase's Electrum-format addresses (a phrase valid
+            // in both formats) are keyed by the second seed.
+            const withElectrumRoot = <T>(fn: (eroot: BIP32Interface | null) => Promise<T>): Promise<T> =>
+                this.vault.has('electrumSeed')
+                    ? this.vault.withSecret(auth, 'electrumSeed', async (es) => {
+                          const eroot = bip32.fromSeed(es, this.network.params)
+                          try {
+                              return await fn(eroot)
+                          } finally {
+                              destroyNode(eroot)
+                          }
+                      })
+                    : fn(null)
             try {
-                return await this.finishSend(req, changeAddress, (path) => {
-                    const node = root.derivePath(path)
-                    derived.push(node)
-                    return node as unknown as TxSigner
-                })
+                return await withElectrumRoot((eroot) =>
+                    this.finishSend(req, changeAddress, (path) => {
+                        let node: BIP32Interface
+                        if (path.startsWith(ELECTRUM_SEED_PATH_PREFIX)) {
+                            if (!eroot) throw new Error('This coin belongs to an Electrum seed this wallet does not hold.')
+                            node = eroot.derivePath(path.slice(ELECTRUM_SEED_PATH_PREFIX.length))
+                        } else {
+                            node = root.derivePath(path)
+                        }
+                        derived.push(node)
+                        return node as unknown as TxSigner
+                    })
+                )
             } finally {
                 for (const node of derived) destroyNode(node)
                 destroyNode(root)

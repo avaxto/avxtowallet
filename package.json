@@ -37,6 +37,7 @@
     "@ledgerhq/hw-transport-webusb": "5.51.1",
     "@metamask/eth-sig-util": "^8.2.0",
     "@noble/curves": "^1.4.2",
+    "@noble/hashes": "1.8.0",
     "@obsidiansystems/hw-app-avalanche": "^0.2.2",
     "@openzeppelin/contracts": "4.9.2",
     "@solana/web3.js": "^1.98.0",
