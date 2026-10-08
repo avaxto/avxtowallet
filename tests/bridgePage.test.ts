@@ -317,15 +317,42 @@ describe('the Bridge page', () => {
         await flushPromises()
         expect(w.find('.notice').text()).toContain('Using the Avalanche Bridge')
         expect(w.find('.notice').text()).toContain('You receive WETH on Ethereum at your own address')
+        expect(w.find('.notice').text()).toContain('Unwrapping WETH to ETH is an optional extra step')
         await w.find('.amount_input').setValue('0.1317')
         await settle()
         expect(abQuote).toHaveBeenCalledTimes(1)
         expect(whQuote).not.toHaveBeenCalled()
         expect(w.text()).toContain('You receive 0.123547 WETH')
+        expect(w.find('.using').text()).toContain('Bridge in use: Avalanche Bridge')
+        expect(bridgeButton(w).text()).toBe('Bridge WETH.e to Ethereum with Avalanche Bridge')
         // Another destination goes back to Wormhole, and the notice goes away.
         await w.find('#bridge-to-chain').setValue('evm:8453')
         await flushPromises()
         expect(w.find('.notice').exists()).toBe(false)
+        w.unmount()
+    })
+
+    it('warns on Wormhole routes to check the destination token, and shows its contract', async () => {
+        const w = mount(UniversalBridge, { global: { stubs } })
+        await flushPromises()
+        await w.find('.amount_input').setValue('1')
+        await settle()
+        const card = w.findAll('.route').find((c) => c.text().includes('Wormhole Token Bridge'))!
+        expect(card.find('.dest_token').text()).toContain('WAVAX on Ethereum: 0xwavax')
+        expect(card.find('.wormhole_warn').text()).toMatch(/only works when AVAX has an equivalent on Ethereum/)
+        expect(card.find('.wormhole_warn').text()).toMatch(/bridging them back again/)
+        expect(w.find('.using').text()).toContain('Bridge in use: Wormhole')
+        // Not an Avalanche Bridge token between Avalanche and Ethereum: said so.
+        expect(w.text()).toContain('it does not carry AVAX')
+        w.unmount()
+    })
+
+    it('says Bitcoin goes through THORChain for now', async () => {
+        const w = mount(UniversalBridge, { global: { stubs } })
+        await flushPromises()
+        await w.find('#bridge-to-chain').setValue('bitcoin:mainnet')
+        await flushPromises()
+        expect(w.text()).toContain('Bitcoin transfers use THORChain')
         w.unmount()
     })
 

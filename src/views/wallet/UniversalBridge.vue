@@ -150,12 +150,23 @@
             </div>
         </section>
 
-        <!-- The official Avalanche Bridge stands in for Wormhole on WETH.e → Ethereum. -->
+        <!-- Which bridge, and why, for Avalanche ↔ Ethereum and Bitcoin. -->
         <section v-if="usesAvalancheBridge" class="notice" role="note">
             <strong>Using the Avalanche Bridge.</strong>
-            WETH.e goes back to Ethereum through the official Avalanche Bridge instead of Wormhole (which would
-            deliver a Wormhole-wrapped copy). You receive <strong>WETH</strong> on Ethereum at your own address, minus
-            the bridge fee (currently about $20). Unwrapping it to ETH is an optional extra step once it arrives.
+            Between Avalanche and Ethereum, tokens the official Avalanche Bridge carries always go through it, instead of
+            Wormhole or THORChain. You receive <strong>{{ avalancheBridgeReceives }}</strong> at your own address, minus the
+            bridge's fee.
+            <template v-if="avalancheBridgeOffboardWeth"> Unwrapping WETH to ETH is an optional extra step once it arrives.</template>
+        </section>
+        <section v-else-if="ethereumNotCarried" class="notice" role="note">
+            <strong>Not an Avalanche Bridge token.</strong>
+            Between Avalanche and Ethereum the Avalanche Bridge is used whenever it carries the token; it does not carry
+            {{ fromAssetSymbol }}, so the route below uses another bridge.
+        </section>
+        <section v-if="bitcoinPair" class="notice" role="note">
+            <strong>Bitcoin.</strong>
+            The Avalanche Bridge's Bitcoin route (BTC ↔ BTC.b) is not available in this wallet yet, so Bitcoin transfers use
+            THORChain, a native-to-native swap.
         </section>
 
         <!-- Routes -->
@@ -163,13 +174,17 @@
             <p v-if="noProviders" class="muted center">{{ noProvidersReason }}</p>
             <p v-else-if="quoting" class="muted center">Finding routes…</p>
             <template v-else>
-                <button
+                <div
                     v-for="q in sortedQuotes"
                     :key="quoteKey(q)"
-                    type="button"
+                    role="button"
+                    tabindex="0"
                     class="route"
                     :class="{ selected: quoteKey(q) === selectedKey }"
+                    :aria-pressed="quoteKey(q) === selectedKey"
                     @click="selectedKey = quoteKey(q)"
+                    @keydown.enter.prevent="selectedKey = quoteKey(q)"
+                    @keydown.space.prevent="selectedKey = quoteKey(q)"
                 >
                     <div class="route_head">
                         <span class="route_name">{{ q.routeName }}</span>
@@ -178,6 +193,10 @@
                     <div class="route_receive">
                         You receive <strong>{{ fmt(q.receive.amount, q.receive.asset.decimals) }} {{ q.receive.asset.symbol }}</strong>
                         <span class="kind" :class="q.receive.kind">{{ kindLabel(q.receive.kind) }}</span>
+                    </div>
+                    <div v-if="q.receive.asset.address !== 'native'" class="dest_token">
+                        {{ q.receive.asset.symbol }} on {{ q.request.toChain.name }}:
+                        <a :href="tokenLink(q.receive.asset)" target="_blank" rel="noopener noreferrer" class="mono">{{ q.receive.asset.address }}</a>
                     </div>
                     <div v-if="receiveToken" class="match" :class="{ ok: routeMatches(q) }">
                         {{ routeMatches(q) ? `✓ Delivers ${receiveToken.symbol}` : `Delivers ${q.receive.asset.symbol}, not ${receiveToken.symbol}` }}
@@ -194,10 +213,15 @@
                     <p v-if="q.needsClaim" class="claim_note">
                         Finish with a claim on {{ q.request.toChain.name }} — keep some {{ q.request.toChain.native.symbol }} there for gas.
                     </p>
+                    <p v-if="q.providerId === 'wormhole'" class="wormhole_warn">
+                        ⚠ Wormhole only works when {{ q.request.from.symbol }} has an equivalent on {{ q.request.toChain.name }}.
+                        Check that <strong>{{ q.receive.asset.symbol }}</strong> at the contract address above is the token you
+                        expect before bridging — if it isn't, getting your funds back means bridging them back again.
+                    </p>
                     <ul v-if="q.warnings.length" class="warnings">
                         <li v-for="(w, i) in q.warnings" :key="i">{{ w }}</li>
                     </ul>
-                </button>
+                </div>
                 <p v-if="receiveToken && quotes.length && !quotes.some(routeMatches)" class="route_error">
                     No route delivers {{ receiveToken.symbol }} for this pair. The routes above deliver something else — or
                     clear the receive token.
@@ -210,6 +234,10 @@
 
         <!-- Signer + action -->
         <section class="action">
+            <p v-if="selectedProviderName" class="using">
+                Bridge in use: <strong>{{ selectedProviderName }}</strong>
+                <span v-if="selectedRouteName && selectedRouteName !== selectedProviderName" class="muted">— {{ selectedRouteName }}</span>
+            </p>
             <p v-if="offlineOn" class="error_msg">
                 Offline signing is on. Bridging needs every transaction broadcast — turn it off to bridge.
             </p>
@@ -339,7 +367,8 @@ import {
     type TokenSuggestion,
 } from '@/bridge/tokens'
 import { runTransfer, runClaim, runFollowUp, refreshTransfer, isPending } from '@/bridge/run'
-import { AVALANCHE_BRIDGE_ID, avalancheBridgeTrackerUrl } from '@/bridge/avalancheBridge/provider'
+import { AVALANCHE_BRIDGE_ID, avalancheBridgeTrackerUrl, bridgeTokenFor, WETH_ETHEREUM } from '@/bridge/avalancheBridge/provider'
+import { explorerAddressUrl, getEvmNetworkByChainId } from '@/evm/networkRegistry'
 import { wormholescanUrl } from '@/bridge/wormhole/provider'
 import { thorchainTrackerUrl, THORCHAIN_ID } from '@/bridge/thorchain/provider'
 import { NATIVE, type BridgeAsset, type BridgeChain, type BridgeQuote, type BridgeTransfer, type ReceiveKind } from '@/bridge/types'
@@ -586,6 +615,29 @@ export default defineComponent({
         const usesAvalancheBridge = computed(
             () => !!fromAsset.value && !!toChain.value && providersFor(fromAsset.value, toChain.value).some((p) => p.id === AVALANCHE_BRIDGE_ID)
         )
+        const avalancheBridgeReceives = computed(() => {
+            const a = fromAsset.value
+            const t = a ? bridgeTokenFor(a.chainId, a.address === NATIVE ? WETH_ETHEREUM : a.address) : undefined
+            if (!t) return ''
+            return toChain.value?.id === 'evm:43114' ? `${t.symbol}.e on Avalanche` : `${t.symbol} on Ethereum`
+        })
+        const avalancheBridgeOffboardWeth = computed(() => avalancheBridgeReceives.value === 'WETH on Ethereum')
+        const isEthAvalanchePair = computed(() => {
+            const ids = [fromChain.value?.id, toChain.value?.id]
+            return ids.includes('evm:1') && ids.includes('evm:43114')
+        })
+        const ethereumNotCarried = computed(() => isEthAvalanchePair.value && !usesAvalancheBridge.value)
+        const bitcoinPair = computed(() => fromChain.value?.kind === 'bitcoin' || toChain.value?.kind === 'bitcoin')
+        const fromAssetSymbol = computed(() => fromAsset.value?.symbol ?? '')
+        const selectedProviderName = computed(() => (selectedQuote.value ? getProvider(selectedQuote.value.providerId)?.name ?? '' : ''))
+        const selectedRouteName = computed(() => selectedQuote.value?.routeName ?? '')
+        const tokenLink = (a: BridgeAsset) => {
+            const c = getBridgeChain(a.chainId)
+            const n = c?.evmChainId ? getEvmNetworkByChainId(c.evmChainId) : undefined
+            if (n) return explorerAddressUrl(n, a.address)
+            if (c?.kind === 'solana') return `https://solscan.io/token/${a.address}${c.isTestnet ? '?cluster=devnet' : ''}`
+            return ''
+        }
         const noProviders = computed(() => {
             if (!fromAsset.value || !toChain.value) return false
             return providersFor(fromAsset.value, toChain.value).length === 0
@@ -713,7 +765,7 @@ export default defineComponent({
             if (insufficient.value) return `Insufficient ${fromAsset.value?.symbol ?? ''}`
             const q = selectedQuote.value
             if (!q) return 'Bridge'
-            return `Bridge ${q.request.from.symbol} to ${q.request.toChain.name}`
+            return `Bridge ${q.request.from.symbol} to ${q.request.toChain.name} with ${getProvider(q.providerId)?.name ?? q.providerId}`
         })
 
         const bridge = async () => {
@@ -858,7 +910,7 @@ export default defineComponent({
             t.providerId === THORCHAIN_ID
                 ? 'RuneScan'
                 : t.providerId === AVALANCHE_BRIDGE_ID
-                ? t.destTxHash
+                ? avalancheBridgeTrackerUrl(t).includes('etherscan')
                     ? 'Etherscan'
                     : 'Snowtrace'
                 : 'Wormholescan'
@@ -960,6 +1012,14 @@ export default defineComponent({
             trackerUrl,
             trackerName,
             usesAvalancheBridge,
+            avalancheBridgeReceives,
+            avalancheBridgeOffboardWeth,
+            ethereumNotCarried,
+            bitcoinPair,
+            fromAssetSymbol,
+            selectedProviderName,
+            selectedRouteName,
+            tokenLink,
             followUpLabel,
             followUp,
             statusLabel,
@@ -1102,6 +1162,29 @@ export default defineComponent({
     padding: 4px 6px;
 }
 
+.dest_token {
+    font-size: 12px;
+    margin-top: 4px;
+    word-break: break-all;
+}
+
+.wormhole_warn {
+    font-size: 12px;
+    margin-top: 6px !important;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--warning, #d08700);
+    color: var(--primary-color);
+}
+
+.using {
+    font-size: 14px;
+}
+
+.notice + .notice {
+    margin-top: 8px;
+}
+
 .notice {
     margin: 14px 0 0;
     padding: 12px 14px;
@@ -1221,6 +1304,7 @@ export default defineComponent({
 }
 
 .route {
+    cursor: pointer;
     text-align: left;
     width: 100%;
     background: var(--bg-light);

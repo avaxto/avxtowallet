@@ -571,7 +571,7 @@ export default defineComponent({
         // ── Bridge providers ──
         const bridgeProviders = listProviders()
         const bridgeProviderNotes: Record<string, string> = {
-            'avalanche-bridge': 'The official Avalanche Bridge: WETH.e on Avalanche back to Ethereum (used instead of Wormhole for that pair).',
+            'avalanche-bridge': 'The official Avalanche Bridge: its 25 Ethereum tokens between Ethereum and Avalanche, both ways (used instead of Wormhole and THORChain wherever it carries the token).',
             wormhole: 'Tokens and native coins between EVM chains and Solana; AVXTO through its NTT deployment.',
             thorchain: 'Native BTC to and from ETH, AVAX, BNB and Base ETH. Mainnet only.',
         }
