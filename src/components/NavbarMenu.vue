@@ -103,6 +103,9 @@
                 <v-list-item v-if="isBitcoin" to="/wallet/btcderive">
                     <v-list-item-title>Bitcoin Derived Addresses</v-list-item-title>
                 </v-list-item>
+                <v-list-item v-if="isBitcoin" to="/wallet/btcswap">
+                    <v-list-item-title>Bitcoin Swaps (BTC ↔ AVAX)</v-list-item-title>
+                </v-list-item>
             </v-list>
         </v-menu>
         <v-menu offset-y>
@@ -157,6 +160,9 @@
             <v-list>
                 <v-list-item to="/wallet/restake">
                     <v-list-item-title>Restake AVAX</v-list-item-title>
+                </v-list-item>
+                <v-list-item to="/wallet/btcswap">
+                    <v-list-item-title>Bitcoin Swaps (AVAX ↔ BTC)</v-list-item-title>
                 </v-list-item>
                 <v-list-item to="/wallet/earn/rewards">
                     <v-list-item-title>Estimated Rewards</v-list-item-title>

@@ -135,7 +135,7 @@ describe('routing', () => {
         expect(providersFor(nativeUsdc, chain('evm:1')).map((p) => p.id)).toEqual(['wormhole'])
         // Other destinations, and Bitcoin, are untouched.
         expect(providersFor(WETH_E_ASSET, chain('evm:8453')).map((p) => p.id)).toEqual(['wormhole'])
-        expect(providersFor(nativeAsset(chain('bitcoin:mainnet')), chain('evm:43114')).map((p) => p.id)).toEqual(['thorchain'])
+        expect(providersFor(nativeAsset(chain('bitcoin:mainnet')), chain('evm:1')).map((p) => p.id)).toEqual(['thorchain'])
     })
 
     it('falls back to the other bridges if it is switched off in Settings', () => {

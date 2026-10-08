@@ -5,12 +5,7 @@
 
 */
 /**
- * Everything phar.gg's AutoVault page reads, gathered from the same places —
- * reconstructed from HARs of that page (tmp/phar/autovault-web.har) and of the
- * Core extension serving it (autovault-ext.har). The HARs were exported
- * without response bodies, so the calls below are the ones the page makes;
- * their shapes were confirmed against live responses.
- *
+ * 
  *  1. The contracts, all verified on Routescan, read through a C-Chain
  *     connection of our own (so the page works on any tab):
  *       - AutoVault — the viewer's shares, pending rewards and payout token;

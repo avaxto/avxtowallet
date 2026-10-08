@@ -99,6 +99,11 @@ abstract class BaseEvmSigner implements EvmSigner {
         return estimateGasWith(this.reader(), this.address, req, fallbackGasLimit)
     }
 
+    /** EIP-191 (`personal_sign`) by this account — the wallet's own message signing. */
+    signPersonalMessage(message: string): Promise<string> {
+        return this.wallet.signMessage(message)
+    }
+
     waitForReceipt(txHash: string): Promise<EvmTxReceipt> {
         return waitForReceiptWith(this.reader(), txHash)
     }

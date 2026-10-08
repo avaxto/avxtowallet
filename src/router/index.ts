@@ -64,6 +64,7 @@ import PharDashboard from '@/views/wallet/PharDashboard.vue'
 import PharSwap from '@/views/wallet/PharSwap.vue'
 import UniversalBridge from '@/views/wallet/UniversalBridge.vue'
 import Scripting from '@/views/wallet/Scripting.vue'
+import BitcoinSwaps from '@/views/wallet/BitcoinSwaps.vue'
 import Config from '@/views/wallet/Config.vue'
 import WalletReadonly from '@/views/WalletReadonly.vue'
 import InsufficientBalance from '@/views/InsufficientBalance.vue'
@@ -375,6 +376,10 @@ const routes: RouteRecordRaw[] = [
             {
                 path: 'scripts',
                 component: Scripting,
+            },
+            {
+                path: 'btcswap',
+                component: BitcoinSwaps,
             },
             {
                 path: 'arenatrade/sniper',

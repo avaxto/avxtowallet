@@ -1,4 +1,5 @@
 import { ava, avm, bintools, cChain, pChain } from '@/AVA'
+import { personalSign } from '@metamask/eth-sig-util'
 import { ITransaction } from '@/components/wallet/transfer/types'
 import { digestMessage } from '@/helpers/helper'
 import { WalletNameType } from '@/js/wallets/types'
@@ -337,6 +338,18 @@ class SingletonWallet extends AbstractWallet implements AvaWalletCore {
                 return tx.sign(keyBuff)
             } finally {
                 keyBuff.fill(0)
+            }
+        })
+    }
+
+    /** EIP-191 (`personal_sign`) signature over `message` with this key, as a C-Chain account. Requires authorization. */
+    async signEvmMessage(message: string): Promise<string> {
+        return this.withPrivateKey((_pkStr, pkBytes) => {
+            const key = Buffer.from(pkBytes)
+            try {
+                return personalSign({ privateKey: key, data: '0x' + Buffer.from(message, 'utf8').toString('hex') })
+            } finally {
+                key.fill(0)
             }
         })
     }

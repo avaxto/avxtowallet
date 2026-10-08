@@ -5,8 +5,7 @@
 
 */
 /**
- * PHAR Swap. WAVAX → AVAX must be the exact unwrap phar.gg sent (captured in
- * tmp/phar/swap/unwrap-wavax-avax-ext.har: withdraw(23.264… WAVAX) to the WAVAX
+ * PHAR Swap. WAVAX → AVAX must be the exact unwrap phar.gg sent to the WAVAX
  * contract, no value); other pairs go through Kyber's router, limited to
  * Pharaoh's pools on request, with an exact-amount approval and nothing ever
  * sent to an unknown router.

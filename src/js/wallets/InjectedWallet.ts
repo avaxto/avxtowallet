@@ -778,6 +778,11 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
         )
     }
 
+    /** EIP-191 (`personal_sign`) on C-Chain — for an extension, the same as `signMessage`. */
+    async signEvmMessage(message: string): Promise<string> {
+        return this.signMessage(message)
+    }
+
     async signMessage(msgStr: string): Promise<string> {
         const fromAddr = ('0x' + this.ethAddress) as `0x${string}`
         const signature = await this.walletClient.signMessage({

@@ -163,10 +163,16 @@
             Between Avalanche and Ethereum the Avalanche Bridge is used whenever it carries the token; it does not carry
             {{ fromAssetSymbol }}, so the route below uses another bridge.
         </section>
-        <section v-if="bitcoinPair" class="notice" role="note">
+        <section v-if="usesLombard" class="notice" role="note">
+            <strong>Using the Avalanche Bridge for Bitcoin.</strong>
+            BTC ↔ BTC.b between the Bitcoin network and Avalanche always goes through the Avalanche Bridge (run by
+            Lombard). To go straight between AVAX and BTC, use
+            <router-link to="/wallet/btcswap">Bitcoin Swaps → Quick swap</router-link>.
+        </section>
+        <section v-else-if="bitcoinPair" class="notice" role="note">
             <strong>Bitcoin.</strong>
-            The Avalanche Bridge's Bitcoin route (BTC ↔ BTC.b) is not available in this wallet yet, so Bitcoin transfers use
-            THORChain, a native-to-native swap.
+            The Avalanche Bridge for Bitcoin carries BTC ↔ BTC.b only; this pair uses another route. For AVAX ↔ BTC, see
+            <router-link to="/wallet/btcswap">Bitcoin Swaps → Quick swap</router-link>.
         </section>
 
         <!-- Routes -->
@@ -368,6 +374,7 @@ import {
 } from '@/bridge/tokens'
 import { runTransfer, runClaim, runFollowUp, refreshTransfer, isPending } from '@/bridge/run'
 import { AVALANCHE_BRIDGE_ID, avalancheBridgeTrackerUrl, bridgeTokenFor, WETH_ETHEREUM } from '@/bridge/avalancheBridge/provider'
+import { LOMBARD_ID, lombardTrackerUrl } from '@/bridge/lombard/provider'
 import { explorerAddressUrl, getEvmNetworkByChainId } from '@/evm/networkRegistry'
 import { wormholescanUrl } from '@/bridge/wormhole/provider'
 import { thorchainTrackerUrl, THORCHAIN_ID } from '@/bridge/thorchain/provider'
@@ -628,6 +635,9 @@ export default defineComponent({
         })
         const ethereumNotCarried = computed(() => isEthAvalanchePair.value && !usesAvalancheBridge.value)
         const bitcoinPair = computed(() => fromChain.value?.kind === 'bitcoin' || toChain.value?.kind === 'bitcoin')
+        const usesLombard = computed(
+            () => !!fromAsset.value && !!toChain.value && providersFor(fromAsset.value, toChain.value).some((p) => p.id === LOMBARD_ID)
+        )
         const fromAssetSymbol = computed(() => fromAsset.value?.symbol ?? '')
         const selectedProviderName = computed(() => (selectedQuote.value ? getProvider(selectedQuote.value.providerId)?.name ?? '' : ''))
         const selectedRouteName = computed(() => selectedQuote.value?.routeName ?? '')
@@ -903,12 +913,18 @@ export default defineComponent({
         const trackerUrl = (t: BridgeTransfer) =>
             t.providerId === THORCHAIN_ID
                 ? thorchainTrackerUrl(t)
+                : t.providerId === LOMBARD_ID
+                ? lombardTrackerUrl(t)
                 : t.providerId === AVALANCHE_BRIDGE_ID
                 ? avalancheBridgeTrackerUrl(t)
                 : wormholescanUrl(t)
         const trackerName = (t: BridgeTransfer) =>
             t.providerId === THORCHAIN_ID
                 ? 'RuneScan'
+                : t.providerId === LOMBARD_ID
+                ? lombardTrackerUrl(t).includes('mempool')
+                    ? 'mempool.space'
+                    : 'Snowtrace'
                 : t.providerId === AVALANCHE_BRIDGE_ID
                 ? avalancheBridgeTrackerUrl(t).includes('etherscan')
                     ? 'Etherscan'
@@ -1016,6 +1032,7 @@ export default defineComponent({
             avalancheBridgeOffboardWeth,
             ethereumNotCarried,
             bitcoinPair,
+            usesLombard,
             fromAssetSymbol,
             selectedProviderName,
             selectedRouteName,

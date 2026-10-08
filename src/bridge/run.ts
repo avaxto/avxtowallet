@@ -44,9 +44,14 @@ export async function runTransfer(quote: BridgeQuote, onProgress?: BridgeProgres
     const provider = getProvider(quote.providerId)
     const src = getBridgeChain(quote.request.from.chainId)
     if (!provider || !src) throw new Error('This route is no longer available.')
+    let ready = quote
+    if (provider.prepare && provider.prepare.needed(quote)) {
+        const prep = provider.prepare
+        ready = await authorizeBatch(authSubjectFor(prep.chain(quote)), prep.reason, () => prep.run(quote, walletSigners))
+    }
     const reason = `Bridge ${quote.request.from.symbol} from ${src.name} to ${quote.request.toChain.name}`
     const transfer = await authorizeBatch(authSubjectFor(src), reason, () =>
-        provider.execute(quote, walletSigners, onProgress)
+        provider.execute(ready, walletSigners, onProgress)
     )
     saveTransfer(transfer)
     return transfer

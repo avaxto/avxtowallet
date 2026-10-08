@@ -5,9 +5,7 @@
 
 */
 /**
- * Swapping on the Pharaoh exchange, rebuilt from HARs of phar.gg's trade page
- * and the Core extension serving it (tmp/phar/swap/unwrap-wavax-avax-*.har).
- *
+ * Swapping on the Pharaoh exchange
  * Two kinds of swap, exactly as phar.gg does them:
  *
  *  - WAVAX ↔ AVAX is not a market trade at all. phar.gg asked its aggregators

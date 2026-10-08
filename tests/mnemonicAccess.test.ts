@@ -70,8 +70,12 @@ describe('/access/mnemonic', () => {
         expect(w.find('.err').text()).toBe('access.mnemonic.error')
         w.unmount()
 
+        // Swap the first word until the checksum really fails (1 in 16 swaps still passes it).
         const bad = words.slice()
-        bad[0] = bad[0] === 'abandon' ? 'zebra' : 'abandon'
+        for (const candidate of bip39.wordlists.english) {
+            bad[0] = candidate
+            if (!bip39.validateMnemonic(bad.join(' '))) break
+        }
         w = await submit(bad.join(' '))
         expect(w.find('.err').text()).toMatch(/Invalid mnemonic phrase/)
         w.unmount()

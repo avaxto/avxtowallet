@@ -5,8 +5,7 @@
 
 */
 /**
- * Claiming Pharaoh AutoVault rewards: the transaction must be exactly the one
- * phar.gg sends (captured in 2claim-rewards-ext.har: to the vault, no value,
+ * Claiming Pharaoh AutoVault rewards to the vault, no value,
  * data 0x4e71d92d = claim()), simulated before signing, and refused when there
  * is nothing to claim or the wallet is on another chain. Then the PHAR
  * Dashboard page around it.

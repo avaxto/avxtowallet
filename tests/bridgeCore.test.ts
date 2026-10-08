@@ -110,7 +110,9 @@ describe('registry', () => {
         const btc = nativeAsset(chain('bitcoin:mainnet'))
         expect(providersFor(avax, chain('evm:1')).map((p) => p.id)).toEqual(['wormhole', 'thorchain'])
         expect(providersFor(avax, chain('solana:mainnet-beta')).map((p) => p.id)).toEqual(['wormhole'])
-        expect(providersFor(btc, chain('evm:43114')).map((p) => p.id)).toEqual(['thorchain'])
+        // Bitcoin ↔ Avalanche always goes through the Avalanche Bridge for Bitcoin (Lombard), not THORChain.
+        expect(providersFor(btc, chain('evm:43114')).map((p) => p.id)).toEqual(['avalanche-bridge-btc'])
+        expect(providersFor(btc, chain('evm:1')).map((p) => p.id)).toEqual(['thorchain'])
         expect(providersFor(btc, chain('solana:mainnet-beta'))).toEqual([])
         expect(providersFor(avax, chain('evm:11155111'))).toEqual([]) // mainnet ↔ testnet
         expect(providersFor(avax, chain('evm:43114'))).toEqual([])

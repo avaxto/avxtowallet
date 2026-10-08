@@ -127,6 +127,12 @@ export class AvalancheEvmSigner implements EvmSigner {
         return waitForReceiptWith(web3, txHash)
     }
 
+    async signPersonalMessage(message: string): Promise<string> {
+        const w = (this.wallet as unknown) as { signEvmMessage?: (m: string) => Promise<string> }
+        if (!w.signEvmMessage) throw new Error('This wallet cannot sign messages on C-Chain (Ledger is not supported for this).')
+        return w.signEvmMessage(message)
+    }
+
     /**
      * Only the injected wallet can drift: the extension owns which chain it is
      * on and the user can change it mid-flow. The local signing path folds the

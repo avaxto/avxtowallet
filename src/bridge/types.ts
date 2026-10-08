@@ -178,6 +178,19 @@ export interface BridgeProvider {
      * Wormhole, which would deliver a Wormhole-wrapped copy.
      */
     supersedes?: string[]
+    /**
+     * A step that must be signed by ANOTHER wallet before `execute` (the
+     * session holds one wallet's authorization at a time), e.g. the C-Chain
+     * signature that creates a Lombard deposit address before the Bitcoin
+     * wallet sends. Returns the quote to execute.
+     */
+    prepare?: {
+        /** Whether this quote needs the step at all. */
+        needed(quote: BridgeQuote): boolean
+        chain(quote: BridgeQuote): BridgeChain
+        reason: string
+        run(quote: BridgeQuote, signers: BridgeSigners): Promise<BridgeQuote>
+    }
     /** An optional step after delivery (e.g. unwrapping WETH to ETH), offered in the transfer history. */
     followUp?: {
         label: string

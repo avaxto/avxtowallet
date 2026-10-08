@@ -166,6 +166,13 @@ export interface EvmSigner {
      * there is nothing to drift.
      */
     assertOnChain(): Promise<void>
+
+    /**
+     * EIP-191 (`personal_sign`) signature over `message` by this signer's
+     * account. Absent, or throwing, where the wallet cannot sign messages
+     * (e.g. Ledger on C-Chain). Requires an open authorization for vault-backed wallets.
+     */
+    signPersonalMessage?(message: string): Promise<string>
 }
 
 /** Wei as the 0x-hex string `eth_sendTransaction` expects. */

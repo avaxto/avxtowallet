@@ -1,5 +1,6 @@
 // A simple wrapper thar combines avalanche.js, bip39 and HDWallet
 
+import { personalSign } from '@metamask/eth-sig-util'
 import {
     KeyPair as AVMKeyPair,
     KeyChain as AVMKeyChain,
@@ -759,6 +760,20 @@ export default class MnemonicWallet extends AbstractHdWallet implements IAvaHdWa
 
     async signEvm(tx: Transaction) {
         return this.withEvmPrivateKey((privateKey) => tx.sign(privateKey))
+    }
+
+    /**
+     * EIP-191 (`personal_sign`) signature over `message` with the C-Chain key —
+     * what dapps verify with ecrecover (e.g. Lombard's BTC.b deposit address).
+     * Requires an open authorization, like every other signature here.
+     */
+    async signEvmMessage(message: string): Promise<string> {
+        return this.withEvmPrivateKey((privateKey) =>
+            personalSign({
+                privateKey,
+                data: '0x' + Array.from(new TextEncoder().encode(message), (b) => b.toString(16).padStart(2, '0')).join(''),
+            })
+        )
     }
 
     async signHashByExternalIndex(index: number, hash: BufferAvalanche) {

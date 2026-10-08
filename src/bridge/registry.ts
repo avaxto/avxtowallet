@@ -18,8 +18,9 @@ import type { BridgeAsset, BridgeChain, BridgeProvider, BridgeQuote, BridgeQuote
 import { wormholeProvider } from './wormhole/provider'
 import { thorchainProvider } from './thorchain/provider'
 import { avalancheBridgeProvider } from './avalancheBridge/provider'
+import { lombardProvider } from './lombard/provider'
 
-const PROVIDERS: BridgeProvider[] = [avalancheBridgeProvider, wormholeProvider, thorchainProvider]
+const PROVIDERS: BridgeProvider[] = [avalancheBridgeProvider, lombardProvider, wormholeProvider, thorchainProvider]
 
 const DISABLED_KEY = 'bridge_disabled_providers'
 

@@ -94,6 +94,7 @@ function quoteFor(req: BridgeQuoteRequest, providerId = 'wormhole'): BridgeQuote
 
 const stubs = {
     fa: true,
+    'router-link': { template: '<a><slot /></a>' },
     RegistryCheck: true,
     'v-btn': {
         props: ['disabled', 'loading'],
@@ -347,12 +348,21 @@ describe('the Bridge page', () => {
         w.unmount()
     })
 
-    it('says Bitcoin goes through THORChain for now', async () => {
+    it('uses the Avalanche Bridge for Bitcoin for BTC → BTC.b, and points AVAX ↔ BTC to Quick swap', async () => {
         const w = mount(UniversalBridge, { global: { stubs } })
+        await flushPromises()
+        await w.find('#bridge-from-chain').setValue('bitcoin:mainnet')
+        await flushPromises()
+        await w.find('#bridge-to-chain').setValue('evm:43114')
+        await flushPromises()
+        expect(w.text()).toContain('Using the Avalanche Bridge for Bitcoin')
+        // AVAX → Bitcoin is not a bridge pair: the page says where to go instead.
+        await w.find('#bridge-from-chain').setValue('evm:43114')
         await flushPromises()
         await w.find('#bridge-to-chain').setValue('bitcoin:mainnet')
         await flushPromises()
-        expect(w.text()).toContain('Bitcoin transfers use THORChain')
+        expect(w.text()).toContain('carries BTC ↔ BTC.b only')
+        expect(w.text()).toContain('Bitcoin Swaps → Quick swap')
         w.unmount()
     })
 
