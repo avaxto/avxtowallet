@@ -123,7 +123,7 @@ import { useI18n } from 'vue-i18n'
 
 import * as bip39 from 'bip39'
 import MnemonicPasswordInput from '@/components/misc/MnemonicPasswordInput.vue'
-import { buildReadRequest, extractMnemonic, MNEMONIC_WORD_COUNTS } from '@/utils/avxtoManager'
+import { fetchMnemonicFromManager, MNEMONIC_WORD_COUNTS } from '@/utils/avxtoManager'
 
 const WALLET_LOADING_TIMEOUT = 500
 
@@ -261,59 +261,9 @@ export default defineComponent({
          */
         const accessViaManager = async () => {
             managerErr.value = ''
-
-            const url = managerUrl.value.trim()
-            if (!url) {
-                managerErr.value = 'Enter the AVXTO Manager JSON-RPC URL.'
-                return
-            }
-            if (!managerPassword.value) {
-                managerErr.value = 'Enter the session password.'
-                return
-            }
-
             managerLoading.value = true
             try {
-                let response: Response
-                try {
-                    response = await fetch(url, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(buildReadRequest(managerPassword.value)),
-                    })
-                } catch {
-                    // A failed `fetch()` is indistinguishable from here
-                    // whether the server is actually unreachable or the
-                    // browser blocked reading its response over CORS — the
-                    // browser deliberately hides that distinction from JS.
-                    // The latter is by far the more common cause for a
-                    // self-hosted endpoint: it must send
-                    // `Access-Control-Allow-Origin` (matching this page's
-                    // origin, or `*`) on both the POST response and the
-                    // OPTIONS preflight, which most simple JSON-RPC servers
-                    // don't do without being told to. No setting on this end
-                    // can substitute for that — CORS is the server's grant to
-                    // make, not this page's to take.
-                    throw new Error(
-                        'Could not reach the AVXTO Manager endpoint, or it refused this page ' +
-                            "(check the browser console for a CORS error). The server must send " +
-                            "'Access-Control-Allow-Origin' for this page's origin, or '*', on " +
-                            'both the POST response and the OPTIONS preflight.'
-                    )
-                }
-
-                if (!response.ok) {
-                    throw new Error(`AVXTO Manager returned an error (HTTP ${response.status}).`)
-                }
-
-                let body: any
-                try {
-                    body = await response.json()
-                } catch {
-                    throw new Error('AVXTO Manager did not return valid JSON.')
-                }
-
-                const mnemonic = extractMnemonic(body)
+                const mnemonic = await fetchMnemonicFromManager(managerUrl.value, managerPassword.value)
                 await mainStore.accessWallet(mnemonic, managerPassword.value)
             } catch (e: any) {
                 managerErr.value = e?.message || 'Failed to access wallet via AVXTO Manager.'

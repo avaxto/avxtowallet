@@ -71,3 +71,42 @@ export function extractMnemonic(body: any): string {
 
     return phrase
 }
+
+/**
+ * Reads the mnemonic from a user-run AVXTO Manager JSON-RPC endpoint: posts
+ * the `read` request with `password`, then validates what comes back with
+ * `extractMnemonic`. Throws errors whose messages are safe to show.
+ */
+export async function fetchMnemonicFromManager(url: string, password: string): Promise<string> {
+    const endpoint = url.trim()
+    if (!endpoint) throw new Error('Enter the AVXTO Manager JSON-RPC URL.')
+    if (!password) throw new Error('Enter the session password.')
+    let response: Response
+    try {
+        response = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(buildReadRequest(password)),
+        })
+    } catch {
+        // A failed `fetch()` looks the same whether the server is down or the
+        // browser blocked reading its response over CORS — the browser hides
+        // the difference. For a self-hosted endpoint it is usually CORS: it
+        // must send `Access-Control-Allow-Origin` (this page's origin, or `*`)
+        // on both the POST response and the OPTIONS preflight.
+        throw new Error(
+            'Could not reach the AVXTO Manager endpoint, or it refused this page ' +
+                "(check the browser console for a CORS error). The server must send " +
+                "'Access-Control-Allow-Origin' for this page's origin, or '*', on " +
+                'both the POST response and the OPTIONS preflight.'
+        )
+    }
+    if (!response.ok) throw new Error(`AVXTO Manager returned an error (HTTP ${response.status}).`)
+    let body: any
+    try {
+        body = await response.json()
+    } catch {
+        throw new Error('AVXTO Manager did not return valid JSON.')
+    }
+    return extractMnemonic(body)
+}

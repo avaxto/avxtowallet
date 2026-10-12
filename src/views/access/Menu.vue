@@ -58,6 +58,14 @@
                 <span class="multi_title">Open every platform with one phrase</span>
                 <span class="multi_sub">{{ multiPlatformNames }} — one recovery phrase</span>
             </router-link>
+            <!--
+              The phrase fetched from the user's own AVXTO Manager endpoint
+              instead of typed — opens the same platforms the phrase box does.
+            -->
+            <router-link v-if="unlockablePlatforms.length" :to="managerTo" class="multi_option manager_option">
+                <span class="multi_title"><fa icon="server"></fa> Access using AVXTO Manager</span>
+                <span class="multi_sub">Fetch your recovery phrase from your own AVXTO Manager endpoint</span>
+            </router-link>
 
             <PlatformSelect></PlatformSelect>
             <!--
@@ -228,6 +236,7 @@ export default defineComponent({
         const multiUnlockTo = computed(() =>
             isAddingSession.value ? '/access/multi?add=1' : '/access/multi'
         )
+        const managerTo = computed(() => (isAddingSession.value ? '/access/manager?add=1' : '/access/manager'))
 
         /**
          * Whether this platform can be accessed by a locally-held key, which is
@@ -404,6 +413,8 @@ export default defineComponent({
             isAddingSession,
             canUnlockMultiple,
             multiPlatformNames,
+            managerTo,
+            unlockablePlatforms,
             multiUnlockTo,
             hasLocalKeyAccess,
             methodLabel,

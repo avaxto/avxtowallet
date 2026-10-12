@@ -54,6 +54,7 @@ import BitcoinWatch from '@/views/access/bitcoin/Watch.vue'
 // Cross-platform, so it lives under neither namespace: one phrase, a session on
 // every platform that can be opened from one. See the view's own header.
 import MultiPlatformAccess from '@/views/access/MultiPlatform.vue'
+import ManagerAccess from '@/views/access/ManagerAccess.vue'
 import Addresses from '@/views/wallet/Addresses.vue'
 import AddressesDerive from '@/views/wallet/AddressesDerive.vue'
 import Broadcast from '@/views/wallet/Broadcast.vue'
@@ -209,6 +210,10 @@ const routes: RouteRecordRaw[] = [
             {
                 path: 'multi',
                 component: MultiPlatformAccess,
+            },
+            {
+                path: 'manager',
+                component: ManagerAccess,
             },
         ],
         component: Access,
