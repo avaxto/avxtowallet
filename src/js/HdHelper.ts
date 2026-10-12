@@ -6,7 +6,7 @@ import {
 
 import { UTXOSet as PlatformUTXOSet } from '@/avalanche/apis/platformvm'
 import { getPreferredHRP } from '@/avalanche/utils'
-import { ava, avm, bintools, pChain } from '@/AVA'
+import { ava, bintools } from '@/AVA'
 import HDKey from 'hdkey'
 import { Buffer } from '@/avalanche'
 import {
@@ -20,9 +20,13 @@ import { AvaNetwork } from '@/js/AvaNetwork'
 import { ChainAlias } from './wallets/types'
 import { avmGetAllUTXOs, platformGetAllUTXOs } from '@/helpers/utxo_helper'
 import { listChainsForAddresses } from '@/js/Glacier/listChainsForAddresses'
+import { GLACIER_MAX_ADDRESSES, NODE_MAX_UTXO_ADDRESSES } from '@/helpers/apiLimits'
 
 const INDEX_RANGE: number = 20 // a gap of at least 20 indexes is needed to claim an index unused
-const SCAN_SIZE: number = 100 // the total number of utxos to look at initially to calculate last index
+// Addresses per node lookup: as many as the node accepts in one call (see
+// helpers/apiLimits), so a wallet with many used addresses is scanned in few
+// requests instead of being rate-limited for flooding the endpoint.
+const SCAN_SIZE: number = NODE_MAX_UTXO_ADDRESSES
 const SCAN_RANGE: number = SCAN_SIZE - INDEX_RANGE // How many items are actually scanned
 
 // Default for the fast initial-scan heuristic (see fastScanCheck()). If this
@@ -196,10 +200,10 @@ class HdHelper {
         try {
             const addrs = this.getAllDerivedAddresses(SCAN_SIZE - 1, 0)
 
-            const utxoSet =
-                this.chainId === 'X'
-                    ? (await avm.getUTXOs(addrs)).utxos
-                    : (await pChain.getUTXOs(addrs)).utxos
+            // Every UTXO of these addresses (paginated past the node's 1024 per
+            // page): an address whose UTXOs fell on a later page must not read
+            // as unused.
+            const utxoSet = this.chainId === 'X' ? await avmGetAllUTXOs(addrs) : await platformGetAllUTXOs(addrs)
 
             let emptyCount = 0
             for (let i = addrs.length - 1; i >= 0; i--) {
@@ -262,8 +266,11 @@ class HdHelper {
             console.error('HD Index not found yet.')
         }
 
-        const LOT_SIZE = 300
-        const MAX_EMPTY_LOTS = 2
+        // One node call per lot, as large as the node accepts. A whole empty lot
+        // of 1024 addresses is far past the 20-address gap rule, so one is
+        // enough to stop.
+        const LOT_SIZE = NODE_MAX_UTXO_ADDRESSES
+        const MAX_EMPTY_LOTS = 1
 
         let result: AVMUTXOSet | PlatformUTXOSet =
             this.chainId === 'X' ? new AVMUTXOSet() : new PlatformUTXOSet()
@@ -392,41 +399,31 @@ class HdHelper {
     }
 
     // Scans the address space of this hd path and finds the last used index using the
-    // explorer API.
+    // explorer API (Glacier: "has this address been used on any chain").
+    //
+    // Glacier takes at most GLACIER_MAX_ADDRESSES (64) addresses per call, so
+    // this walks the addresses one full batch at a time and stops as soon as
+    // INDEX_RANGE consecutive unused addresses are seen — usually after one or
+    // two calls — instead of firing a 512-address round as eight parallel
+    // requests, which is what got IPs rate-limited.
     async findAvailableIndexExplorer(startIndex = 0): Promise<number> {
-        // The number of addresses to process and request from the explorer at a time
-        const upTo = 512
-
-        const addrs = this.getAllDerivedAddresses(startIndex + upTo, startIndex)
-        const addrChainsGlacier = await listChainsForAddresses(addrs)
-        const seenAddrs = addrChainsGlacier.map((addrData) => addrData.address)
-
-        for (let i = 0; i < addrs.length - INDEX_RANGE; i++) {
-            let gapSize: number = 0
-
-            for (let n = 0; n < INDEX_RANGE; n++) {
-                const scanIndex = i + n
-                const scanAddr = addrs[scanIndex]
-
-                const rawAddr = scanAddr.split('-')[1]
-
-                const isSeen = seenAddrs.includes(rawAddr)
-                if (!isSeen) {
-                    // If doesn't exist on any chain
-                    gapSize++
+        let gapStart = -1
+        let gapSize = 0
+        for (let batchStart = startIndex; ; batchStart += GLACIER_MAX_ADDRESSES) {
+            const addrs = this.getAllDerivedAddresses(batchStart + GLACIER_MAX_ADDRESSES - 1, batchStart)
+            const seen = new Set((await listChainsForAddresses(addrs)).map((a) => a.address))
+            for (let k = 0; k < addrs.length; k++) {
+                const rawAddr = addrs[k].split('-')[1]
+                if (seen.has(rawAddr)) {
+                    gapSize = 0
+                    gapStart = -1
                 } else {
-                    i = i + n
-                    break
+                    if (gapSize === 0) gapStart = batchStart + k
+                    gapSize++
+                    if (gapSize === INDEX_RANGE) return gapStart
                 }
             }
-
-            // If the gap is reached return the index
-            if (gapSize === INDEX_RANGE) {
-                return startIndex + i
-            }
         }
-
-        return await this.findAvailableIndexExplorer(startIndex + (upTo - INDEX_RANGE))
     }
 
     // Uses the node to find last used HD index
@@ -440,13 +437,8 @@ class HdHelper {
             addrs.push(address)
         }
 
-        let utxoSet
-
-        if (this.chainId === 'X') {
-            utxoSet = (await avm.getUTXOs(addrs)).utxos
-        } else {
-            utxoSet = (await pChain.getUTXOs(addrs)).utxos
-        }
+        // One call for SCAN_SIZE (1024) addresses, paginated over their UTXOs.
+        const utxoSet = this.chainId === 'X' ? await avmGetAllUTXOs(addrs) : await platformGetAllUTXOs(addrs)
 
         // Scan UTXOs of these indexes and try to find a gap of INDEX_RANGE
         const gapStart = this.findGapStart(addrs, utxoSet)
@@ -561,8 +553,10 @@ class HdHelper {
 
         const chainId = this.chainId
 
-        // No need for PlatformKeypair because addressToString uses chainID to decode
-        const keypair = new AVMKeyPair(hrp, chainId)
+        // No need for PlatformKeypair because addressToString uses chainID to decode.
+        // (No KeyPair instance either: its constructor generates a fresh random
+        // key, which cost far more than the derivation itself — seconds for a
+        // 1024-address scan — and was thrown away.)
         const addrBuf = AVMKeyPair.addressFromPublicKey(pkBuff)
         const addr = bintools.addressToString(hrp, chainId, addrBuf)
 

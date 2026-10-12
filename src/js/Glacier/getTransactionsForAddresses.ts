@@ -1,3 +1,4 @@
+import { GLACIER_MAX_ADDRESSES } from '@/helpers/apiLimits'
 import { GetTransactionsParams, TransactionType } from '@/js/Glacier/models'
 import { splitToParts } from '@/js/Glacier/utils'
 import { filterDuplicateGlacierTxs } from './filterDuplicateGlacierTxs'
@@ -10,7 +11,7 @@ import Glacier from './Glacier'
  * @param limit Max number of transactions to fetch. If undefined will fetch all.
  */
 export async function getTransactionsForAddresses(config: GetTransactionsParams, limit?: number) {
-    const addressLimit = 64 // Max number of addresses glacier accepts
+    const addressLimit = GLACIER_MAX_ADDRESSES // Max number of addresses glacier accepts (sequential below)
     const addrParts = splitToParts<string>(config.addresses, addressLimit)
 
     async function fetchAll(

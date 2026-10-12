@@ -2,7 +2,7 @@ import { ava } from '@/AVA'
 import { isMainnetNetworkID } from '@/utils/network-utils'
 import { isTestnetNetworkID } from '@/utils/network-utils'
 import { ListStakingParams } from '@/js/Glacier/models'
-import { splitToParts } from '@/js/Glacier/utils'
+import { mapGlacierBatches } from '@/js/Glacier/utils'
 import { filterDuplicateGlacierTxs } from './filterDuplicateGlacierTxs'
 import Glacier from './Glacier'
 import { Network, PChainId, PChainTransaction, SortOrder } from '@avalabs/glacier-sdk'
@@ -17,8 +17,6 @@ export async function listStakingForAddresses(addrs: string[]) {
     // Cannot use glacier for other networks
     if (!isMainnetNetworkID(netID) && !isTestnetNetworkID(netID)) return []
 
-    const addressLimit = 64
-    const addrParts = splitToParts<string>(addrs, addressLimit)
 
     async function fetchAll(config: ListStakingParams): Promise<PChainTransaction[]> {
         // const res = await GlacierService.listStaking(config)
@@ -37,17 +35,18 @@ export async function listStakingForAddresses(addrs: string[]) {
         return res.transactions ?? []
     }
 
-    const promises = addrParts.map((addrs) => {
-        return fetchAll({
-            addresses: addrs,
-            pageSize: 100,
-            sortOrder: SortOrder.DESC,
-            blockchainId: PChainId.P_CHAIN,
-            network,
-        })
-    })
-
-    const results = (await Promise.all(promises)).flat()
+    // 64 addresses per call (Glacier's maximum), two calls at a time.
+    const results = (
+        await mapGlacierBatches(addrs, (batch) =>
+            fetchAll({
+                addresses: batch,
+                pageSize: 100,
+                sortOrder: SortOrder.DESC,
+                blockchainId: PChainId.P_CHAIN,
+                network,
+            })
+        )
+    ).flat()
 
     return filterDuplicateGlacierTxs(results) as PChainTransaction[]
 }

@@ -1,7 +1,7 @@
 import { GetBalancesParams } from '@/js/Glacier/models'
 import Glacier from '@/js/Glacier/Glacier'
 import { BN } from '@/avalanche'
-import { splitToParts } from '@/js/Glacier/utils'
+import { mapGlacierBatches } from '@/js/Glacier/utils'
 import {
     ListPChainBalancesResponse,
     ListXChainBalancesResponse,
@@ -9,19 +9,10 @@ import {
 } from '@avalabs/glacier-sdk'
 
 export async function getBalancesForAddresses(config: GetBalancesParams) {
-    // Max number of addresses glacier accepts
-    const addressLimit = 64
-    const addressBuckets = splitToParts<string>(config.addresses, addressLimit)
-
-    const promises = addressBuckets.map((bucketAddrs) => {
-        return Glacier.primaryNetwork.getBalancesByAddresses({
-            ...config,
-            addresses: bucketAddrs.join(','),
-        })
-        // return GlacierService.getBalances({ ...config, addresses: bucketAddrs })
-    })
-
-    const res = await Promise.all(promises)
+    // 64 addresses per call (Glacier's maximum), two calls at a time.
+    const res = await mapGlacierBatches(config.addresses, (bucketAddrs) =>
+        Glacier.primaryNetwork.getBalancesByAddresses({ ...config, addresses: bucketAddrs.join(',') })
+    )
 
     const unlockedUnstaked = new BN(0)
     const lockedUnstaked = new BN(0)
