@@ -490,6 +490,29 @@ textarea {
     --bg-wallet-light: #242729;
 
     --warning: #d49534;
+
+    // Tells the browser the page is dark, so everything it draws itself —
+    // native <select> popups, scrollbars, date pickers, autofill — uses its
+    // dark palette instead of light-theme defaults on our dark surfaces.
+    color-scheme: dark;
+}
+
+// Browser-default placeholder text is a dark grey meant for white fields; on
+// var(--bg-light) inputs it was unreadable (e.g. the bridge's "Receive token"
+// hint). Every input/textarea that doesn't style its own placeholder gets this.
+input::placeholder,
+textarea::placeholder {
+    color: var(--primary-color-light);
+    opacity: 0.8;
+}
+
+// Native <select> options are painted with the select's own (light) text
+// colour but, on Windows/Linux, on the OS's white popup — give them the
+// app's surface so they stay legible everywhere.
+select option,
+select optgroup {
+    background-color: var(--bg-light);
+    color: var(--primary-color);
 }
 
 p.err {

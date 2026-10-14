@@ -1236,6 +1236,7 @@ export default defineComponent({
     margin: 0;
     padding: 4px;
     background: var(--bg-light);
+    color: var(--primary-color);
     border: 1px solid var(--secondary-color);
     border-radius: 8px;
 
