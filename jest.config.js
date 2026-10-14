@@ -31,7 +31,14 @@ module.exports = {
     // typecheck, is enough to exhaust memory and lock the machine up. Capped
     // low rather than left to auto-detect from CPU count, which has no idea
     // how little RAM backs those cores.
+    //
+    // Budget: tests may use at most 20-30% of the machine — 2 of 8 cores and
+    // ~2.4GB. `yarn test` caps each process's heap at 896MB
+    // (scripts/run-limited.sh), so parent + 2 workers stays near that.
     maxWorkers: 2,
+    // ts-jest workers grow with every suite they compile; recycle one once it
+    // holds more than this after a suite, instead of letting it creep into swap.
+    workerIdleMemoryLimit: '600MB',
     moduleFileExtensions: ['js', 'mjs', 'cjs', 'ts', 'json', 'vue'],
     transform: {
         '^.+\\.vue$': '@vue/vue3-jest',

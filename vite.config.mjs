@@ -16,6 +16,18 @@ try {
 }
 process.env.VITE_APP_VERSION = appVersion
 
+// Same-origin paths for third-party files whose hosts don't send CORS headers
+// to this app. Mirrored in static.json for the production host.
+// - Avalanche Bridge settings: CORS is allowlisted to core.app only
+//   (see src/bridge/avalancheBridge/provider.ts, SETTINGS_PROXY_PATH).
+const corsProxies = {
+  '/proxy/avalanche-bridge': {
+    target: 'https://avawarden-prod.s3.amazonaws.com',
+    changeOrigin: true,
+    rewrite: (path) => path.replace(/^\/proxy\/avalanche-bridge/, ''),
+  },
+}
+
 export default defineConfig({
   plugins: [
     // Precompiles locale JSON into message resources at build time, instead
@@ -64,7 +76,13 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     sourcemap: false,
+    // The gzip-size report compresses every chunk again after the build, only
+    // to print sizes; skipping it saves memory and time (see CLAUDE.md limits).
+    reportCompressedSize: false,
     rollupOptions: {
+      // Rollup's default (1000 files open/transformed at once) spikes memory on
+      // this 8 GB machine; a couple in flight is barely slower.
+      maxParallelFileOps: 2,
       output: {
         manualChunks: {
           vendor: ['vue', 'vue-router', 'pinia', 'vuetify'],
@@ -96,10 +114,12 @@ export default defineConfig({
     // },
     
     host: true, // Allow external connections
+    proxy: corsProxies,
   },
   preview: {
     port: 5000,
     https: false,
+    proxy: corsProxies,
   },
   optimizeDeps: {
     include: [

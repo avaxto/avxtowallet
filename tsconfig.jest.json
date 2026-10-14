@@ -15,12 +15,19 @@
     // `noUnusedLocals`/`noUnusedParameters` are off: a test that sets a
     // variable purely to assert a side effect is legitimate, and the repo has
     // ~100 pre-existing violations of these in src/ regardless.
+    //
+    // `isolatedModules` makes ts-jest transpile each file on its own instead of
+    // type-checking the whole program it imports (the Wormhole SDK alone pushed
+    // one suite past a 1.1GB heap). Type errors were warnings here anyway; type
+    // checking is `yarn typecheck`'s job. Vite compiles file by file with
+    // esbuild already, so nothing here relies on cross-file type information.
     "extends": "./tsconfig.json",
     "compilerOptions": {
         "module": "commonjs",
         "types": ["jest", "node"],
         "noUnusedLocals": false,
-        "noUnusedParameters": false
+        "noUnusedParameters": false,
+        "isolatedModules": true
     },
     "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.vue", "tests/**/*.ts"]
 }

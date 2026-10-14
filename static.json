@@ -1,6 +1,11 @@
 {
   "root": "dist",
   "clean_urls": true,
+  "proxies": {
+    "/proxy/avalanche-bridge/": {
+      "origin": "https://avawarden-prod.s3.amazonaws.com/"
+    }
+  },
   "routes": {
     "/**": "index.html"
   }

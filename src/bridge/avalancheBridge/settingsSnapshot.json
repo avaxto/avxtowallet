@@ -1,0 +1,445 @@
+{
+  "snapshotAt": "2026-10-14T16:53:02.643Z",
+  "critical": {
+    "operationMode": "normal",
+    "disableFrontend": false,
+    "walletAddresses": {
+      "avalanche": "0xeb1bb70123b2f43419d070d7fde5618971cc2f8f",
+      "ethereum": "0x8eb8a3b98659cce290402893d0123abb75e3ab28"
+    },
+    "addressBlocklist": [],
+    "assets": {
+      "1INCH": {
+        "nativeContractAddress": "0x111111111117dc0aa78b770fa6a738034120c302",
+        "wrappedContractAddress": "0xd501281565bf7789224523144fe5d98e8b28f267",
+        "denomination": 18
+      },
+      "AAVE": {
+        "nativeContractAddress": "0x7fc66500c84a76ad7e9c93437bfc5ac33e2ddae9",
+        "wrappedContractAddress": "0x63a72806098bd3d9520cc43356dd78afe5d386d9",
+        "denomination": 18
+      },
+      "ALPHA": {
+        "nativeContractAddress": "0xa1faa113cbe53436df28ff0aee54275c13b40975",
+        "wrappedContractAddress": "0x2147efff675e4a4ee1c2f918d181cdbd7a8e208f",
+        "denomination": 18
+      },
+      "BAT": {
+        "nativeContractAddress": "0x0d8775f648430679a709e98d2b0cb6250d2887ef",
+        "wrappedContractAddress": "0x98443b96ea4b0858fdf3219cd13e98c7a4690588",
+        "denomination": 18
+      },
+      "BUSD": {
+        "nativeContractAddress": "0x4fabb145d64652a948d72533023f6e7a623c7c53",
+        "wrappedContractAddress": "0x19860ccb0a68fd4213ab9d8266f7bbf05a8dde98",
+        "denomination": 18
+      },
+      "COMP": {
+        "nativeContractAddress": "0xc00e94cb662c3520282e6f5717214004a7f26888",
+        "wrappedContractAddress": "0xc3048e19e76cb9a3aa9d77d8c03c29fc906e2437",
+        "denomination": 18
+      },
+      "CRV": {
+        "nativeContractAddress": "0xd533a949740bb3306d119cc777fa900ba034cd52",
+        "wrappedContractAddress": "0x249848beca43ac405b8102ec90dd5f22ca513c06",
+        "denomination": 18
+      },
+      "DAI": {
+        "nativeContractAddress": "0x6b175474e89094c44da98b954eedeac495271d0f",
+        "wrappedContractAddress": "0xd586e7f844cea2f87f50152665bcbc2c279d8d70",
+        "denomination": 18
+      },
+      "GRT": {
+        "nativeContractAddress": "0xc944e90c64b2c07662a292be6244bdf05cda44a7",
+        "wrappedContractAddress": "0x8a0cac13c7da965a312f08ea4229c37869e85cb9",
+        "denomination": 18
+      },
+      "INFRA": {
+        "nativeContractAddress": "0x013062189dc3dcc99e9cee714c513033b8d99e3c",
+        "wrappedContractAddress": "0xa4fb4f0ff2431262d236778495145ecbc975c38b",
+        "denomination": 18
+      },
+      "LINK": {
+        "nativeContractAddress": "0x514910771af9ca656af840dff83e8264ecf986ca",
+        "wrappedContractAddress": "0x5947bb275c521040051d82396192181b413227a3",
+        "denomination": 18
+      },
+      "MKR": {
+        "nativeContractAddress": "0x9f8f72aa9304c8b593d555f12ef6589cc3a579a2",
+        "wrappedContractAddress": "0x88128fd4b259552a9a1d457f435a6527aab72d42",
+        "denomination": 18
+      },
+      "SHIB": {
+        "nativeContractAddress": "0x95ad61b0a150d79219dcf64e1e6cc01f0b64c4ce",
+        "wrappedContractAddress": "0x02d980a0d7af3fb7cf7df8cb35d9edbcf355f665",
+        "denomination": 18
+      },
+      "SNX": {
+        "nativeContractAddress": "0xc011a73ee8576fb46f5e1c5751ca3b9fe0af2a6f",
+        "wrappedContractAddress": "0xbec243c995409e6520d7c41e404da5deba4b209b",
+        "denomination": 18
+      },
+      "SUSHI": {
+        "nativeContractAddress": "0x6b3595068778dd592e39a122f4f5a5cf09c90fe2",
+        "wrappedContractAddress": "0x37b608519f91f70f2eeb0e5ed9af4061722e4f76",
+        "denomination": 18
+      },
+      "SWAP": {
+        "nativeContractAddress": "0xcc4304a31d09258b0029ea7fe63d032f52e44efe",
+        "wrappedContractAddress": "0xc7b5d72c836e718cda8888eaf03707faef675079",
+        "denomination": 18
+      },
+      "UMA": {
+        "nativeContractAddress": "0x04fa0d235c4abf4bcf4787af4cf447de572ef828",
+        "wrappedContractAddress": "0x3bd2b1c7ed8d396dbb98ded3aebb41350a5b2339",
+        "denomination": 18
+      },
+      "UNI": {
+        "nativeContractAddress": "0x1f9840a85d5af5bf1d1762f925bdaddc4201f984",
+        "wrappedContractAddress": "0x8ebaf22b6f053dffeaf46f4dd9efa95d89ba8580",
+        "denomination": 18
+      },
+      "USDC": {
+        "nativeContractAddress": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+        "wrappedContractAddress": "0xa7d7079b0fead91f3e65f86e8915cb59c1a4c664",
+        "denomination": 6
+      },
+      "USDT": {
+        "nativeContractAddress": "0xdac17f958d2ee523a2206206994597c13d831ec7",
+        "wrappedContractAddress": "0xc7198437980c041c805a1edcba50c1ce5db95118",
+        "denomination": 6
+      },
+      "WBTC": {
+        "nativeContractAddress": "0x2260fac5e5542a773aa44fbcfedf7c193bc2c599",
+        "wrappedContractAddress": "0x50b7545627a5162f82a992c33b87adc75187b218",
+        "denomination": 8
+      },
+      "WETH": {
+        "nativeContractAddress": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+        "wrappedContractAddress": "0x49d5c2bdffac6ce2bfdb6640f4f80f226bc10bab",
+        "denomination": 18
+      },
+      "WOO": {
+        "nativeContractAddress": "0x4691937a7508860f876c9c0a2a617e7d9e945d4b",
+        "wrappedContractAddress": "0xabc9547b534519ff73921b1fba6e672b5f58d083",
+        "denomination": 18
+      },
+      "YFI": {
+        "nativeContractAddress": "0x0bc529c00c6401aef6d220be8c6ea1667f6ad93e",
+        "wrappedContractAddress": "0x9eaac1b23d935365bd7b542fe22ceee2922f52dc",
+        "denomination": 18
+      },
+      "ZRX": {
+        "nativeContractAddress": "0xe41d2489571d322189246dafa5ebde1f4699f498",
+        "wrappedContractAddress": "0x596fa47043f99a4e0f122243b841e55375cde0d2",
+        "denomination": 18
+      }
+    }
+  },
+  "nonCritical": {
+    "wrapFeeApproximation": {
+      "1INCH": {
+        "minimumFeeAmount": "31937426205261546015",
+        "maximumFeeAmount": "2661452183771795501243",
+        "feePercentage": 25,
+        "feePercentageDecimals": 3
+      },
+      "AAVE": {
+        "minimumFeeAmount": "19206063300657783",
+        "maximumFeeAmount": "1600505275054815190",
+        "feePercentage": 25,
+        "feePercentageDecimals": 3
+      },
+      "ALPHA": {
+        "minimumFeeAmount": "4389740168079313243959",
+        "maximumFeeAmount": "365811680673276103663217",
+        "feePercentage": 25,
+        "feePercentageDecimals": 3
+      },
+      "BAT": {
+        "minimumFeeAmount": "17328843503088657328",
+        "maximumFeeAmount": "1444070291924054777276",
+        "feePercentage": 25,
+        "feePercentageDecimals": 3
+      },
+      "BUSD": {
+        "minimumFeeAmount": "3195304801721516045",
+        "maximumFeeAmount": "266275400143459670389",
+        "feePercentage": 25,
+        "feePercentageDecimals": 3
+      },
+      "COMP": {
+        "minimumFeeAmount": "131571315907630796",
+        "maximumFeeAmount": "10964276325635899643",
+        "feePercentage": 25,
+        "feePercentageDecimals": 3
+      },
+      "CRV": {
+        "minimumFeeAmount": "9190077232488081116",
+        "maximumFeeAmount": "765839769374006759621",
+        "feePercentage": 25,
+        "feePercentageDecimals": 3
+      },
+      "DAI": {
+        "minimumFeeAmount": "2980294936940982208",
+        "maximumFeeAmount": "248357911411748517269",
+        "feePercentage": 25,
+        "feePercentageDecimals": 3
+      },
+      "GRT": {
+        "minimumFeeAmount": "118424234371000827949",
+        "maximumFeeAmount": "9868686197583402329003",
+        "feePercentage": 25,
+        "feePercentageDecimals": 3
+      },
+      "INFRA": {
+        "minimumFeeAmount": "0",
+        "maximumFeeAmount": "0",
+        "feePercentage": 1,
+        "feePercentageDecimals": 0
+      },
+      "LINK": {
+        "minimumFeeAmount": "239068221923246561",
+        "maximumFeeAmount": "19922351826937213379",
+        "feePercentage": 25,
+        "feePercentageDecimals": 3
+      },
+      "MKR": {
+        "minimumFeeAmount": "1845190378165515",
+        "maximumFeeAmount": "153765864847126191",
+        "feePercentage": 25,
+        "feePercentageDecimals": 3
+      },
+      "SHIB": {
+        "minimumFeeAmount": "594037483697036359774228",
+        "maximumFeeAmount": "49503123641419696647852272",
+        "feePercentage": 25,
+        "feePercentageDecimals": 3
+      },
+      "SNX": {
+        "minimumFeeAmount": "12969375617804116915",
+        "maximumFeeAmount": "1080781301483676409552",
+        "feePercentage": 25,
+        "feePercentageDecimals": 3
+      },
+      "SUSHI": {
+        "minimumFeeAmount": "12931004321626219263",
+        "maximumFeeAmount": "1077583693468851605168",
+        "feePercentage": 25,
+        "feePercentageDecimals": 3
+      },
+      "SWAP": {
+        "minimumFeeAmount": "68284847059011539351",
+        "maximumFeeAmount": "5690403921584294945873",
+        "feePercentage": 25,
+        "feePercentageDecimals": 3
+      },
+      "UMA": {
+        "minimumFeeAmount": "7779286373811441192",
+        "maximumFeeAmount": "648273864484286765986",
+        "feePercentage": 25,
+        "feePercentageDecimals": 3
+      },
+      "UNI": {
+        "minimumFeeAmount": "415808511267511900",
+        "maximumFeeAmount": "34650709272292658305",
+        "feePercentage": 25,
+        "feePercentageDecimals": 3
+      },
+      "USDC": {
+        "minimumFeeAmount": "2984183",
+        "maximumFeeAmount": "248681905",
+        "feePercentage": 25,
+        "feePercentageDecimals": 3
+      },
+      "USDT": {
+        "minimumFeeAmount": "2985021",
+        "maximumFeeAmount": "248751742",
+        "feePercentage": 25,
+        "feePercentageDecimals": 3
+      },
+      "WBTC": {
+        "minimumFeeAmount": "3692",
+        "maximumFeeAmount": "3692",
+        "feePercentage": 1,
+        "feePercentageDecimals": 1
+      },
+      "WETH": {
+        "minimumFeeAmount": "1229127247062208",
+        "maximumFeeAmount": "1229127247062208",
+        "feePercentage": 1,
+        "feePercentageDecimals": 1
+      },
+      "WOO": {
+        "minimumFeeAmount": "230461358824178349143",
+        "maximumFeeAmount": "19205113235348195761897",
+        "feePercentage": 25,
+        "feePercentageDecimals": 3
+      },
+      "YFI": {
+        "minimumFeeAmount": "1339978071959855",
+        "maximumFeeAmount": "111664839329987857",
+        "feePercentage": 25,
+        "feePercentageDecimals": 3
+      },
+      "ZRX": {
+        "minimumFeeAmount": "36873817411866599988",
+        "maximumFeeAmount": "3072818117655549998953",
+        "feePercentage": 25,
+        "feePercentageDecimals": 3
+      }
+    },
+    "unwrapFeeApproximation": {
+      "1INCH": {
+        "minimumFeeAmount": "137651131856226196037",
+        "maximumFeeAmount": "10655710162122362016949",
+        "feePercentage": 1,
+        "feePercentageDecimals": 1
+      },
+      "AAVE": {
+        "minimumFeeAmount": "99725698189066030",
+        "maximumFeeAmount": "6424922545205695660",
+        "feePercentage": 1,
+        "feePercentageDecimals": 1
+      },
+      "ALPHA": {
+        "minimumFeeAmount": "18919893506988681547264",
+        "maximumFeeAmount": "1464607655527775843224296",
+        "feePercentage": 1,
+        "feePercentageDecimals": 1
+      },
+      "BAT": {
+        "minimumFeeAmount": "75824230004073862849",
+        "maximumFeeAmount": "5782790023687938342640",
+        "feePercentage": 1,
+        "feePercentageDecimals": 1
+      },
+      "BUSD": {
+        "minimumFeeAmount": "14057604021165962405",
+        "maximumFeeAmount": "1066377985388118579779",
+        "feePercentage": 1,
+        "feePercentageDecimals": 1
+      },
+      "COMP": {
+        "minimumFeeAmount": "571782366795594725",
+        "maximumFeeAmount": "43902602405708670111",
+        "feePercentage": 1,
+        "feePercentageDecimals": 1
+      },
+      "CRV": {
+        "minimumFeeAmount": "39609470242461558450",
+        "maximumFeeAmount": "3066208238808536272470",
+        "feePercentage": 1,
+        "feePercentageDecimals": 1
+      },
+      "DAI": {
+        "minimumFeeAmount": "12845148156231861286",
+        "maximumFeeAmount": "994355614055462001531",
+        "feePercentage": 1,
+        "feePercentageDecimals": 1
+      },
+      "GRT": {
+        "minimumFeeAmount": "508999410016404877297",
+        "maximumFeeAmount": "39510047262866010881516",
+        "feePercentage": 1,
+        "feePercentageDecimals": 1
+      },
+      "INFRA": {
+        "minimumFeeAmount": "33890154688374879979",
+        "maximumFeeAmount": "33890154688374879979",
+        "feePercentage": 1,
+        "feePercentageDecimals": 0
+      },
+      "LINK": {
+        "minimumFeeAmount": "1046068876006772894",
+        "maximumFeeAmount": "79779203296062640167",
+        "feePercentage": 1,
+        "feePercentageDecimals": 1
+      },
+      "MKR": {
+        "minimumFeeAmount": "7985821459108374",
+        "maximumFeeAmount": "615668519334951080",
+        "feePercentage": 1,
+        "feePercentageDecimals": 1
+      },
+      "SHIB": {
+        "minimumFeeAmount": "2560316898124068183914396",
+        "maximumFeeAmount": "198196661529014709336226574",
+        "feePercentage": 1,
+        "feePercentageDecimals": 1
+      },
+      "SNX": {
+        "minimumFeeAmount": "59687213705258699905",
+        "maximumFeeAmount": "4330934917168747870451",
+        "feePercentage": 1,
+        "feePercentageDecimals": 1
+      },
+      "SUSHI": {
+        "minimumFeeAmount": "55732962621025483092",
+        "maximumFeeAmount": "4314343719209927026715",
+        "feePercentage": 1,
+        "feePercentageDecimals": 1
+      },
+      "SWAP": {
+        "minimumFeeAmount": "300823321112268379625",
+        "maximumFeeAmount": "22789299619213402005713",
+        "feePercentage": 1,
+        "feePercentageDecimals": 1
+      },
+      "UMA": {
+        "minimumFeeAmount": "37146594762777410338",
+        "maximumFeeAmount": "2599124907204678709512",
+        "feePercentage": 1,
+        "feePercentageDecimals": 1
+      },
+      "UNI": {
+        "minimumFeeAmount": "1807019813294287131",
+        "maximumFeeAmount": "138746622857394872749",
+        "feePercentage": 1,
+        "feePercentageDecimals": 1
+      },
+      "USDC": {
+        "minimumFeeAmount": "13110992",
+        "maximumFeeAmount": "995901877",
+        "feePercentage": 1,
+        "feePercentageDecimals": 1
+      },
+      "USDT": {
+        "minimumFeeAmount": "13079080",
+        "maximumFeeAmount": "996145964",
+        "feePercentage": 1,
+        "feePercentageDecimals": 1
+      },
+      "WBTC": {
+        "minimumFeeAmount": "25823",
+        "maximumFeeAmount": "25823",
+        "feePercentage": 1,
+        "feePercentageDecimals": 1
+      },
+      "WETH": {
+        "minimumFeeAmount": "8575242840789385",
+        "maximumFeeAmount": "8575242840789385",
+        "feePercentage": 1,
+        "feePercentageDecimals": 1
+      },
+      "WOO": {
+        "minimumFeeAmount": "993294409116967862133",
+        "maximumFeeAmount": "76891901915213037513146",
+        "feePercentage": 1,
+        "feePercentageDecimals": 1
+      },
+      "YFI": {
+        "minimumFeeAmount": "5775340100430838",
+        "maximumFeeAmount": "447074785132542848",
+        "feePercentage": 1,
+        "feePercentageDecimals": 1
+      },
+      "ZRX": {
+        "minimumFeeAmount": "159146948455076516467",
+        "maximumFeeAmount": "12302924149429810112326",
+        "feePercentage": 1,
+        "feePercentageDecimals": 1
+      }
+    }
+  }
+}

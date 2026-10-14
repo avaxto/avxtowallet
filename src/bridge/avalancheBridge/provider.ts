@@ -40,6 +40,7 @@ import { getEvmNetworkByChainId } from '@/evm/networkRegistry'
 import { web3For } from '@/evm/providers'
 import { isOfflineTxId } from '@/stores/offlineSigning'
 import { getBridgeChain } from '../chains'
+import settingsSnapshot from './settingsSnapshot.json'
 import {
     NATIVE,
     newTransfer,
@@ -98,7 +99,16 @@ export const WETH_ETHEREUM = '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2'
 /** `unwrap`'s chain argument for Ethereum (what real offboarding transfers pass). */
 const ETHEREUM_BRIDGE_CHAIN = 0
 
+/**
+ * The settings hosts only answer CORS for https://core.app, so a browser on
+ * any other origin is refused. The same-origin proxy path comes first (Vite's
+ * dev server and static.json both forward it to the S3 copy); on a host that
+ * doesn't proxy it, the SPA fallback returns index.html, parseSettings rejects
+ * it, and the direct URLs are tried before the bundled snapshot.
+ */
+export const SETTINGS_PROXY_PATH = '/proxy/avalanche-bridge/bridge_settings.json'
 export const SETTINGS_URLS = [
+    SETTINGS_PROXY_PATH,
     'https://avawarden-prod.s3.amazonaws.com/bridge_settings.json',
     'https://assets.warden-mainnet.avalanche.protofire.io/bridge_settings.json',
     'https://warden-avax-storage.s3.amazonaws.com/bridge_settings.json',
@@ -149,6 +159,12 @@ export interface BridgeSettingsView {
     /** Whether `token` is listed with these exact addresses. */
     listed(token: BridgeToken): boolean
     fee(token: BridgeToken, direction: Direction, amount: bigint): bigint
+    /**
+     * Set when the live settings were unreachable and the bundled snapshot is
+     * in use: the ISO time it was taken. Its pause flag, blocklist and fees
+     * may be stale, and its Ethereum wallet must never receive a deposit.
+     */
+    snapshotAt?: string
 }
 
 function feeConfig(raw: any): FeeConfig | null {
@@ -189,7 +205,8 @@ export function parseSettings(raw: any): BridgeSettingsView {
 
 let settingsCache: { at: number; view: BridgeSettingsView } | null = null
 
-export async function loadSettings(): Promise<BridgeSettingsView> {
+/** The live settings, or throws when no mirror is reachable. */
+export async function loadLiveSettings(): Promise<BridgeSettingsView> {
     if (settingsCache && Date.now() - settingsCache.at < SETTINGS_TTL_MS) return settingsCache.view
     let lastError: unknown
     for (const url of SETTINGS_URLS) {
@@ -203,6 +220,15 @@ export async function loadSettings(): Promise<BridgeSettingsView> {
         }
     }
     throw lastError instanceof Error ? lastError : new Error('The Avalanche Bridge settings could not be loaded.')
+}
+
+/** The live settings, falling back to the bundled snapshot (scripts/snapshot-avalanche-bridge-settings.cjs). */
+export async function loadSettings(): Promise<BridgeSettingsView> {
+    try {
+        return await loadLiveSettings()
+    } catch {
+        return Object.assign(parseSettings(settingsSnapshot), { snapshotAt: settingsSnapshot.snapshotAt })
+    }
 }
 
 /** Test seam. */
@@ -261,6 +287,13 @@ export const avalancheBridgeProvider: BridgeProvider = {
         if (!route) throw new Error('The Avalanche Bridge does not carry this token between these chains.')
         const { token, direction } = route
         const settings = await loadSettings()
+        const fromSnapshot = !!settings.snapshotAt
+        if (fromSnapshot && direction === 'onboard') {
+            throw new Error(
+                'The Avalanche Bridge only shares its live settings with core.app, and this site could not load them. ' +
+                    'Ethereum → Avalanche sends your tokens to the bridge’s wallet, which must come from the live settings — use core.app/bridge for this direction.'
+            )
+        }
         if (!settings.operational) throw new Error('The Avalanche Bridge is paused right now. Try again later.')
         if (!settings.listed(token)) throw new Error(`The Avalanche Bridge no longer lists ${token.symbol} at the expected addresses.`)
         if (!/^0x[0-9a-fA-F]{40}$/.test(settings.ethereumWallet)) throw new Error('The Avalanche Bridge settings have no Ethereum wallet.')
@@ -271,6 +304,13 @@ export const avalancheBridgeProvider: BridgeProvider = {
         const fee = settings.fee(token, direction, req.amount)
         const out = req.amount - fee
         const unit = (v: bigint) => `${Number(v) / 10 ** token.decimals}`
+        // A saved fee is priced at snapshot time and drifts with the token's price: keep a 2× margin.
+        if (fromSnapshot && req.amount <= fee * BigInt(2)) {
+            throw Object.assign(
+                new Error(`The Avalanche Bridge fee is about ${unit(fee)} ${token.symbol}, but its live fee couldn’t be checked — send more than ${unit(fee * BigInt(2))} ${token.symbol}.`),
+                { code: 'below_min' }
+            )
+        }
         if (out <= BigInt(0)) {
             throw Object.assign(new Error(`The Avalanche Bridge fee is about ${unit(fee)} ${token.symbol} — send more than that.`), { code: 'below_min' })
         }
@@ -294,6 +334,12 @@ export const avalancheBridgeProvider: BridgeProvider = {
             )
         }
         warnings.push('The fee is the bridge’s estimate; the exact fee is set when the bridge processes the transfer.')
+        if (fromSnapshot) {
+            warnings.push(
+                `The bridge’s live settings couldn’t be loaded here (it only shares them with core.app), so this uses a saved copy from ${settings.snapshotAt!.slice(0, 10)}: ` +
+                    'the fee may differ and a pause couldn’t be checked. A paused bridge pays out once it resumes.'
+            )
+        }
         const data: QuoteData = { symbol: token.symbol, direction, wrapFirst: route.wrapFirst, ethereumWallet: settings.ethereumWallet }
         return {
             providerId: AVALANCHE_BRIDGE_ID,
@@ -327,8 +373,8 @@ export const avalancheBridgeProvider: BridgeProvider = {
             return newTransfer(quote, hash, { direction: 'offboard', symbol: token.symbol, ethereumWallet: data.ethereumWallet, sentAt: Date.now() })
         }
 
-        // Onboarding: the deposit goes to the bridge wallet from the LIVE settings, re-read now.
-        const settings = await loadSettings()
+        // Onboarding: the deposit goes to the bridge wallet from the LIVE settings, re-read now — never the snapshot.
+        const settings = await loadLiveSettings()
         if (settings.ethereumWallet.toLowerCase() !== data.ethereumWallet.toLowerCase()) {
             throw new Error('The Avalanche Bridge wallet changed since this quote. Get a new quote.')
         }

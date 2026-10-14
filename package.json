@@ -4,18 +4,21 @@
   "version": "0.1.4",
   "scripts": {
     "setup": "yarn install && yarn allow-scripts",
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview",
-    "serve": "vite",
+    "dev": "NODE_OPTIONS=--max-old-space-size=2048 GOMAXPROCS=2 UV_THREADPOOL_SIZE=2 vite",
+    "build": "scripts/run-limited.sh 3584 vite build",
+    "preview": "NODE_OPTIONS=--max-old-space-size=1024 GOMAXPROCS=2 vite preview",
+    "serve": "NODE_OPTIONS=--max-old-space-size=2048 GOMAXPROCS=2 UV_THREADPOOL_SIZE=2 vite",
     "cypress": "cypress run",
     "format": "prettier '**/*.{js,ts,vue,json}' --write",
     "compile:contracts": "node scripts/compile-contracts.cjs",
     "lint": "eslint src --ext .vue,.js,.ts",
     "start": "node server/index.js",
-    "test": "jest --verbose ./tests",
-    "test:debug": "node --inspect-brk node_modules/.bin/jest ./tests --runInBand",
-    "test:watch": "jest --verbose --watch ./tests"
+    "test": "scripts/run-limited.sh 896 jest --verbose ./tests",
+    "test:file": "scripts/run-limited.sh 896 jest",
+    "test:safe": "sh scripts/heavy.sh jest ./tests",
+    "test:debug": "scripts/run-limited.sh 896 node --inspect-brk node_modules/.bin/jest ./tests --runInBand",
+    "test:watch": "AVXTO_NO_LOCK=1 scripts/run-limited.sh 896 jest --verbose --watch ./tests",
+    "typecheck": "scripts/run-limited.sh 2048 tsc --noEmit -p tsconfig.typecheck.json"
   },
   "dependencies": {
     "@avalabs/glacier-sdk": "2.8.0-alpha.108",

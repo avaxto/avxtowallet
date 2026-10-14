@@ -200,6 +200,46 @@ describe('settings and quotes', () => {
         await avalancheBridgeProvider.quote(req(WETH_E_ASSET, 'evm:1', '131700000000000000'))
         expect(http.get.mock.calls[0][0]).not.toBe(http.get.mock.calls[1][0])
     })
+
+    it('asks the same-origin proxy first (the hosts only allow core.app)', async () => {
+        http.get.mockResolvedValue({ data: settings() })
+        await avalancheBridgeProvider.quote(req(WETH_E_ASSET, 'evm:1', '131700000000000000'))
+        expect(http.get.mock.calls[0][0]).toBe('/proxy/avalanche-bridge/bridge_settings.json')
+    })
+
+    it('skips a proxy path that answers with the SPA page instead of JSON', async () => {
+        http.get.mockResolvedValueOnce({ data: '<!doctype html><html></html>' }).mockResolvedValueOnce({ data: settings() })
+        const q = await avalancheBridgeProvider.quote(req(WETH_E_ASSET, 'evm:1', '131700000000000000'))
+        expect(q.warnings.join(' ')).not.toMatch(/saved copy/)
+    })
+
+    describe('when every mirror is blocked', () => {
+        beforeEach(() => http.get.mockRejectedValue(new Error('Network Error')))
+
+        it('quotes Avalanche → Ethereum from the bundled snapshot, and says so', async () => {
+            const q = await avalancheBridgeProvider.quote(req(WETH_E_ASSET, 'evm:1', '500000000000000000'))
+            expect(q.receive.asset).toMatchObject({ address: WETH_ETHEREUM, symbol: 'WETH' })
+            expect(q.warnings.join(' ')).toMatch(/saved copy from \d{4}-\d{2}-\d{2}/)
+        })
+
+        it('keeps a 2× margin over the saved fee', async () => {
+            await expect(avalancheBridgeProvider.quote(req(WETH_E_ASSET, 'evm:1', '9000000000000000'))).rejects.toThrow(/live fee couldn’t be checked/)
+        })
+
+        it('refuses Ethereum → Avalanche: the deposit wallet must be live', async () => {
+            await expect(avalancheBridgeProvider.quote(req(USDC_ETH_ASSET, 'evm:43114', '10000000000'))).rejects.toThrow(/core\.app\/bridge/)
+        })
+
+        it('never deposits to the snapshot wallet, even with a quote made earlier from live settings', async () => {
+            http.get.mockResolvedValue({ data: settings() })
+            const q = await avalancheBridgeProvider.quote(req(USDC_ETH_ASSET, 'evm:43114', '10000000000'))
+            __resetAvalancheBridgeSettings()
+            http.get.mockRejectedValue(new Error('Network Error'))
+            const { signer, sent } = fakeSigner(1)
+            await expect(avalancheBridgeProvider.execute(q, { evm: () => signer, solana: () => null, bitcoin: () => null })).rejects.toThrow('Network Error')
+            expect(sent).toEqual([])
+        })
+    })
 })
 
 describe('Avalanche → Ethereum', () => {
