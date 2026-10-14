@@ -75,6 +75,7 @@
 
                 <p v-if="selected.length > 1" class="note">This password will authorize signing on every platform you open here.</p>
                 <p v-if="error" class="err">{{ error }}</p>
+                <p v-if="notice" class="notice">{{ notice }}</p>
                 <v-btn class="ava_button button_primary" depressed :loading="isLoading" :disabled="!canSubmit" @click="unlock">
                     {{ isLoading ? 'Opening…' : submitLabel }}
                 </v-btn>
@@ -102,7 +103,7 @@ import { useRoute, useRouter } from 'vue-router'
 
 import { useActivePlatformStore } from '@/platforms'
 import type { MnemonicUnlockResult, PlatformId } from '@/platforms'
-import { fetchMnemonicFromManager } from '@/utils/avxtoManager'
+import { fetchMnemonicFromManager, isBip39Phrase } from '@/utils/avxtoManager'
 
 export default defineComponent({
     name: 'ManagerAccess',
@@ -116,6 +117,7 @@ export default defineComponent({
         const pw_in = ref<HTMLInputElement | null>(null)
         const isLoading = ref(false)
         const error = ref('')
+        const notice = ref('')
         const results = ref<MnemonicUnlockResult[]>([])
 
         const isAddingSession = computed(() => route.query.add !== undefined)
@@ -146,11 +148,23 @@ export default defineComponent({
         const unlock = async () => {
             if (!canSubmit.value) return
             error.value = ''
+            notice.value = ''
             results.value = []
             isLoading.value = true
             try {
                 let mnemonic = await fetchMnemonicFromManager(managerUrl.value, password.value)
-                const settled = await platformStore.unlockWithMnemonic(mnemonic, password.value, selected.value)
+                // An Electrum-format seed is not BIP-39: only Bitcoin can derive from it.
+                let platforms = selected.value
+                if (!isBip39Phrase(mnemonic)) {
+                    platforms = platforms.filter((p) => p === 'bitcoin')
+                    if (!platforms.length) {
+                        throw new Error(
+                            'This is an Electrum-format seed, which only the Bitcoin platform can open. Tick Bitcoin and try again.'
+                        )
+                    }
+                    notice.value = 'This is an Electrum-format seed, so only Bitcoin was opened.'
+                }
+                const settled = await platformStore.unlockWithMnemonic(mnemonic, password.value, platforms)
                 mnemonic = ''
                 results.value = settled
                 const failed = settled.filter((r) => r.status === 'failed')
@@ -177,6 +191,7 @@ export default defineComponent({
             pw_in,
             isLoading,
             error,
+            notice,
             choices,
             selected,
             canSubmit,
@@ -302,6 +317,12 @@ h1 {
         font-size: 11px;
         color: var(--primary-color-light);
     }
+}
+
+.notice {
+    font-size: 12px;
+    color: var(--secondary-color);
+    margin: 10px 0;
 }
 
 .note {

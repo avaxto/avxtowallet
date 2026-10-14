@@ -10,7 +10,7 @@
  * usable mnemonic. See views/access/Mnemonic.vue for the form that uses this.
  */
 import * as bip39 from 'bip39'
-import { buildReadRequest, extractMnemonic } from '@/utils/avxtoManager'
+import { buildReadRequest, extractMnemonic, isBip39Phrase } from '@/utils/avxtoManager'
 
 // A real, valid 24-word mnemonic — generated fresh, not a well-known test
 // vector, so this file cannot be mistaken for holding a funded phrase.
@@ -70,6 +70,17 @@ describe('extractMnemonic', () => {
             const phrase = bip39.generateMnemonic(bits)
             expect(extractMnemonic({ mnemonic: phrase.split(' ').join('  \n ') })).toBe(phrase)
         }
+    })
+
+    it('accepts an Electrum-format seed, which is not BIP-39 (only Bitcoin can open it)', () => {
+        const electrum = 'cycle rocket west magnet parrot shuffle foot correct salt library feed song'
+        expect(isBip39Phrase(electrum)).toBe(false)
+        expect(extractMnemonic({ result: { mnemonic: `  ${electrum.split(' ').join('  ')} ` } })).toBe(electrum)
+        expect(isBip39Phrase(bip39.generateMnemonic(128))).toBe(true)
+    })
+
+    it('still refuses phrases that are neither BIP-39 nor an Electrum seed', () => {
+        expect(() => extractMnemonic({ mnemonic: 'cycle rocket west magnet parrot shuffle foot correct salt library feed feed' })).toThrow(/not a valid mnemonic/)
     })
 
     it('rejects a phrase of any other length', () => {

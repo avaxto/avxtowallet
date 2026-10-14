@@ -18,6 +18,7 @@
  * from the views that call it.
  */
 import * as bip39 from 'bip39'
+import { electrumSeedType } from '@/bitcoin/electrumSeed'
 
 export interface AvxtoManagerReadRequest {
     jsonrpc: '2.0'
@@ -29,6 +30,11 @@ export interface AvxtoManagerReadRequest {
 /** The JSON-RPC request body — a plain object, not yet serialized. */
 export function buildReadRequest(password: string): AvxtoManagerReadRequest {
     return { jsonrpc: '2.0', id: 1, method: 'read', params: { password } }
+}
+
+/** Whether `phrase` is a valid BIP-39 mnemonic (as opposed to an Electrum-format seed). */
+export function isBip39Phrase(phrase: string): boolean {
+    return bip39.validateMnemonic(phrase.trim().split(/\s+/).join(' '))
 }
 
 /** Word counts of a BIP-39 phrase. 12 and 24 are the common ones. */
@@ -58,6 +64,12 @@ export function extractMnemonic(body: any): string {
     }
 
     const words = mnemonic.split(/\s+/).filter(Boolean)
+    // Electrum's own seed format (what Electrum generates for a new wallet) is
+    // not BIP-39 — no checksum word, any 12–13 words — so it cannot pass the
+    // BIP-39 checks below. Only the Bitcoin platform can open it; callers use
+    // `isBip39Phrase` to tell. Two-factor seeds are not spendable from a phrase.
+    const electrum = electrumSeedType(mnemonic)
+    if (electrum === 'standard' || electrum === 'segwit') return words.join(' ')
     if (!MNEMONIC_WORD_COUNTS.includes(words.length)) {
         throw new Error('The phrase returned by AVXTO Manager is not a 12 or 24-word mnemonic.')
     }

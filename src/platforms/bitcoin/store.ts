@@ -39,7 +39,7 @@ import {
     parseAccountXpub,
     parsePrivateKeyInput,
 } from '@/bitcoin/keys'
-import { pickAddressType, probeAddressTypes } from '@/bitcoin/discovery'
+import { accountHasHistory, pickAddressType, probeAddressTypes } from '@/bitcoin/discovery'
 import { getFeeEstimates } from '@/bitcoin/esplora'
 import { knownCandidates } from '@/bitcoin/candidates'
 import {
@@ -302,6 +302,28 @@ export const useBitcoinStore = defineStore('bitcoin', () => {
                 coreAddress,
                 net
             )
+            // A phrase valid in BOTH formats whose only activity is on the
+            // ELECTRUM side is an Electrum wallet — Electrum itself reads such a
+            // phrase as its own seed first. Open it as one, so its receive and
+            // change addresses are the ones shown, instead of as an empty
+            // BIP-39 wallet with the Electrum account tucked away as a side account.
+            if (electrumSeed && spendableElectrum && probes.every((p) => !p.hasHistory && p.balanceSats === 0)) {
+                const spec = ELECTRUM_ACCOUNTS[spendableElectrum]
+                const eroot = bip32.fromSeed(electrumSeed, net.params)
+                let used = false
+                try {
+                    const node = neuteredAt(eroot, spec.accountPath)
+                    used = await accountHasHistory(node, spec.addressType, net).catch(() => false)
+                } finally {
+                    destroyNode(eroot)
+                }
+                if (used) {
+                    wipe(seed)
+                    wipe(electrumSeed)
+                    electrumSeed = null
+                    return await openElectrumSeed(mnemonic, spendableElectrum, sessionPassword, options)
+                }
+            }
             const chosen = pickAddressType(probes, DEFAULT_ADDRESS_TYPE)
 
             let accountNode

@@ -114,6 +114,30 @@ describe('the /access/manager page', () => {
         w.unmount()
     })
 
+    it('opens an Electrum-format seed on Bitcoin only, and says so', async () => {
+        managerReplies({ result: { mnemonic: 'cycle rocket west magnet parrot shuffle foot correct salt library feed song' } })
+        store.unlockWithMnemonic.mockResolvedValue([{ platformId: 'bitcoin', status: 'failed', error: 'x' }])
+        const w = mount(ManagerAccess, { global: { stubs } })
+        await fill(w)
+        await w.find('button.v_btn').trigger('click')
+        await flushPromises()
+        expect(store.unlockWithMnemonic.mock.calls[0][2]).toEqual(['bitcoin'])
+        expect(w.find('.notice').text()).toContain('Electrum-format seed, so only Bitcoin was opened')
+        w.unmount()
+    })
+
+    it('tells you to tick Bitcoin when an Electrum seed is fetched but Bitcoin is not selected', async () => {
+        managerReplies({ result: { mnemonic: 'cycle rocket west magnet parrot shuffle foot correct salt library feed song' } })
+        const w = mount(ManagerAccess, { global: { stubs } })
+        await w.findAll('.platform_row input')[1].setValue(false) // untick Bitcoin
+        await fill(w)
+        await w.find('button.v_btn').trigger('click')
+        await flushPromises()
+        expect(w.find('.err').text()).toContain('Tick Bitcoin')
+        expect(store.unlockWithMnemonic).not.toHaveBeenCalled()
+        w.unmount()
+    })
+
     it('shows the endpoint’s error and opens nothing', async () => {
         managerReplies({ error: { message: 'wrong password' } })
         const w = mount(ManagerAccess, { global: { stubs } })

@@ -123,7 +123,7 @@ import { useI18n } from 'vue-i18n'
 
 import * as bip39 from 'bip39'
 import MnemonicPasswordInput from '@/components/misc/MnemonicPasswordInput.vue'
-import { fetchMnemonicFromManager, MNEMONIC_WORD_COUNTS } from '@/utils/avxtoManager'
+import { fetchMnemonicFromManager, isBip39Phrase, MNEMONIC_WORD_COUNTS } from '@/utils/avxtoManager'
 
 const WALLET_LOADING_TIMEOUT = 500
 
@@ -264,6 +264,11 @@ export default defineComponent({
             managerLoading.value = true
             try {
                 const mnemonic = await fetchMnemonicFromManager(managerUrl.value, managerPassword.value)
+                if (!isBip39Phrase(mnemonic)) {
+                    throw new Error(
+                        'This is an Electrum-format seed, which Avalanche cannot use. Open it from Access using AVXTO Manager (the top option on the Access page) to use it on Bitcoin.'
+                    )
+                }
                 await mainStore.accessWallet(mnemonic, managerPassword.value)
             } catch (e: any) {
                 managerErr.value = e?.message || 'Failed to access wallet via AVXTO Manager.'

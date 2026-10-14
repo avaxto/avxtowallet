@@ -248,7 +248,7 @@ describe('a BIP-39 phrase used in Electrum', () => {
 })
 
 describe('a phrase valid as BIP-39 AND as an Electrum seed', () => {
-    it('also scans its Electrum-format addresses, and signs those coins with the Electrum-format seed', async () => {
+    it('with activity on BOTH sides keeps the BIP-39 wallet and also scans its Electrum addresses, signing those coins with the Electrum-format seed', async () => {
         const phrase = bip39PhraseThatIsAlsoElectrum('segwit')
         expect(bip39.validateMnemonic(phrase)).toBe(true)
 
@@ -259,18 +259,45 @@ describe('a phrase valid as BIP-39 AND as an Electrum seed', () => {
         const bip39Root = bip32.fromSeed(Buffer.from(await bip39.mnemonicToSeed(phrase)))
         expect(addressFromPublicKey(bip39Root.derivePath("m/0'/0/1").publicKey, 'p2wpkh', mainnet)).not.toBe(eAddress)
         funded.set(eAddress, 70_000)
+        // The BIP-39 side is in use too (its BIP-84 address 0), so BIP-39 stays the wallet.
+        funded.set(addressFromPublicKey(bip39Root.derivePath("m/84'/0'/0'/0/0").publicKey, 'p2wpkh', mainnet), 10_000)
 
         const w = await open(phrase)
+        expect(w.electrumSeedType).toBeUndefined()
         expect((w as any).vault.has('electrumSeed')).toBe(true)
         await w.refresh()
-        expect(w.balanceSats).toBe(70_000)
+        expect(w.balanceSats).toBe(80_000)
         const row = w.getScannedAddresses().find((a) => a.address === eAddress)
         expect(row).toMatchObject({ scheme: 'Electrum seed — Native SegWit', path: `${ELECTRUM_SEED_PATH_PREFIX}m/0'/0/1` })
 
-        await authorized(w, () => w.send({ to: DESTINATION, amountSats: 20_000, feeRate: 2 }))
-        expect(witnessPubkeys(broadcasts[0])).toEqual([Buffer.from(eNode.publicKey).toString('hex')])
+        await authorized(w, () => w.send({ to: DESTINATION, amountSats: 75_000, feeRate: 2 }))
+        const used = witnessPubkeys(broadcasts[0])
+        expect(used).toContain(Buffer.from(eNode.publicKey).toString('hex'))
 
         const res = await authorized(w, () => w.deriveKnownSchemes())
         expect(res.rows.find((r) => r.scheme === 'Electrum seed — Native SegWit (receive)')?.path).toBe("m/0'/0/0")
+    })
+
+    it('with activity ONLY on the Electrum side opens as an Electrum wallet — its own addresses are the ones shown', async () => {
+        const phrase = bip39PhraseThatIsAlsoElectrum('standard')
+        expect(bip39.validateMnemonic(phrase)).toBe(true)
+        const eroot = bip32.fromSeed(Buffer.from(electrumSeedFromPhrase(phrase)))
+        const eNode = eroot.derivePath('m/0/3')
+        funded.set(addressFromPublicKey(eNode.publicKey, 'p2pkh', mainnet), 40_000)
+
+        const w = await open(phrase)
+        expect(w.electrumSeedType).toBe('standard')
+        expect(w.addressTypeLabel).toBe('Electrum seed — Legacy')
+        expect(w.getReceiveAddress()).toBe(addressFromPublicKey(eroot.derivePath('m/0/0').publicKey, 'p2pkh', mainnet))
+        await w.refresh()
+        expect(w.balanceSats).toBe(40_000)
+        expect(w.getScannedAddresses().find((a) => a.balanceSats > 0)).toMatchObject({ chain: 'receive', index: 3, path: 'm/0/3' })
+    })
+
+    it('with no activity anywhere stays the default BIP-39 wallet', async () => {
+        const phrase = bip39PhraseThatIsAlsoElectrum('standard')
+        const w = await open(phrase)
+        expect(w.electrumSeedType).toBeUndefined()
+        expect(w.getReceiveAddress().startsWith('bc1q')).toBe(true)
     })
 })
