@@ -1,51 +1,54 @@
 // Vue 3 compatible i18n setup
 import en from '../locales/en.json'
-import fr from '../locales/fr.json'
-import tr from '../locales/tr.json'
-import it from '../locales/it.json'
-import es from '../locales/es.json'
-import de from '../locales/de.json'
-import kr from '../locales/kr.json'
-import ru from '../locales/ru.json'
-import zh_hant from '../locales/zh_hant.json'
-import zh_hans from '../locales/zh_hans.json'
-import pt from '../locales/pt.json'
-import vn from '../locales/vn.json'
-import nl from '../locales/nl.json'
-import uk from '../locales/uk.json'
-import ca from '../locales/ca.json'
-import cs from '../locales/cs.json'
-import af from '../locales/aafrikans.json'
-import ar from '../locales/arabic.json'
-import da from '../locales/danish.json'
-import fi from '../locales/finnish.json'
-import el from '../locales/greek.json'
-import he from '../locales/hebrew.json'
-import hu from '../locales/hungarian.json'
-import nb from '../locales/norwegian.json'
-import pl from '../locales/polish.json'
-import ro from '../locales/romanian.json'
-import sr from '../locales/serbian.json'
-import sv from '../locales/swedish.json'
-import th from '../locales/thai.json'
-import ja from '../locales/japanese.json'
+
+// Only English ships with the app; every other language is its own small
+// chunk, loaded when it is picked (or restored at startup). These are the
+// languages the picker has always offered; the other JSON files in
+// src/locales were imported here but never offered.
+const loaders = {
+    fr: () => import('../locales/fr.json'),
+    tr: () => import('../locales/tr.json'),
+    it: () => import('../locales/it.json'),
+    es: () => import('../locales/es.json'),
+    de: () => import('../locales/de.json'),
+    kr: () => import('../locales/kr.json'),
+    ru: () => import('../locales/ru.json'),
+    zh_hant: () => import('../locales/zh_hant.json'),
+    zh_hans: () => import('../locales/zh_hans.json'),
+    pt: () => import('../locales/pt.json'),
+    vn: () => import('../locales/vn.json'),
+    nl: () => import('../locales/nl.json'),
+    uk: () => import('../locales/uk.json'),
+    ca: () => import('../locales/ca.json'),
+}
+
+/** Every language the picker offers, English first. */
+export const LOCALE_CODES = ['en', ...Object.keys(loaders)]
+
+/** Loads `code`'s messages into `i18n` if needed, then switches to it. Unknown codes are ignored. */
+export async function setLocale(i18n, code) {
+    if (code !== 'en') {
+        const load = loaders[code]
+        if (!load) return
+        if (!i18n.global.availableLocales.includes(code)) {
+            const mod = await load()
+            i18n.global.setLocaleMessage(code, mod.default ?? mod)
+        }
+    }
+    i18n.global.locale.value = code
+}
+
+/** Re-applies the language saved by the picker, if any. */
+export function restoreSavedLocale(i18n) {
+    let saved = null
+    try {
+        saved = localStorage.getItem('lang')
+    } catch {}
+    if (saved && saved !== 'en') setLocale(i18n, saved).catch(() => {})
+}
 
 const messages = {
     en,
-    fr,
-    tr,
-    it,
-    es,
-    de,
-    kr,
-    ru,
-    zh_hant,
-    zh_hans,
-    pt,
-    vn,
-    nl,
-    uk,
-    ca,
 }
 
 // Export just the messages for Vue 3 createI18n

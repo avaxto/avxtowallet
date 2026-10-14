@@ -4,6 +4,7 @@ import { resolve } from 'path'
 import { nodePolyfills } from 'vite-plugin-node-polyfills'
 import wasm from "vite-plugin-wasm";
 import topLevelAwait from "vite-plugin-top-level-await";
+import dedupePackages from "./scripts/vite-dedupe-packages.mjs";
 import VueI18nPlugin from '@intlify/unplugin-vue-i18n/vite'
 import { execSync } from 'child_process'
 
@@ -30,6 +31,9 @@ const corsProxies = {
 
 export default defineConfig({
   plugins: [
+    // Bundle each identical npm package once instead of once per installed
+    // copy (about 5 MB of duplicates, and their share of build memory).
+    dedupePackages(),
     // Precompiles locale JSON into message resources at build time, instead
     // of vue-i18n's default of JIT-compiling each message with
     // `new Function(...)` the first time it's used at runtime. That runtime

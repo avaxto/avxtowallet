@@ -10,6 +10,8 @@
 <script lang="ts">
 import { defineComponent, ref, computed, watch, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
+//@ts-ignore
+import { LOCALE_CODES, setLocale } from '@/plugins/i18n.js'
 
 //@ts-ignore
 import langMap from '@/locales/lang_map'
@@ -43,15 +45,21 @@ export default defineComponent({
         
     },
     setup() {
-        const { locale: i18nLocale, messages } = useI18n()
+        const composer = useI18n({ useScope: 'global' })
+        const i18nLocale = composer.locale
         const locale = ref('en')
 
         onMounted(() => {
             locale.value = i18nLocale.value
         })
+        // A saved language finishes loading after mount: follow it.
+        watch(i18nLocale, (val: string) => {
+            locale.value = val
+        })
 
+        // Other languages load on demand (see plugins/i18n.js).
         watch(locale, (val: string) => {
-            i18nLocale.value = val
+            setLocale({ global: composer }, val)
             localStorage.setItem('lang', val)
         })
 
@@ -68,7 +76,7 @@ export default defineComponent({
         const items = computed((): LanguageItem[] => {
             let res = []
 
-            for (var langCode in messages.value) {
+            for (const langCode of LOCALE_CODES as string[]) {
                 let data = langMap[langCode]
 
                 res.push({

@@ -2,7 +2,7 @@
 //@ts-ignore
 import AppAvax from '@obsidiansystems/hw-app-avalanche'
 //@ts-ignore
-import Eth from '@ledgerhq/hw-app-eth'
+import type Eth from '@ledgerhq/hw-app-eth'
 
 import { Transaction } from '@ethereumjs/tx'
 
@@ -123,7 +123,9 @@ class LedgerWallet extends AbstractHdWallet implements AvaWalletCore {
         hd.publicKey = xpub.pubKey
         hd.chainCode = xpub.chainCode
 
-        const eth = new Eth(t as any, 'w0w')
+        // Loaded on demand: the Ethereum app pulls in Ledger's ~1 MB token database.
+        const { default: EthApp } = await import('@ledgerhq/hw-app-eth')
+        const eth = new EthApp(t as any, 'w0w')
         const ethRes = await eth.getAddress(LEDGER_ETH_ACCOUNT_PATH, false, true)
         const hdEth = new HDKey()
         // @ts-ignore

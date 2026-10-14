@@ -6,7 +6,7 @@ import { createI18n } from 'vue-i18n'
 import { createBootstrap, BContainer, BRow, BCol } from 'bootstrap-vue-next'
 import vuetify from './plugins/vuetify'
 // @ts-ignore
-import i18nMessages from './plugins/i18n.js'
+import i18nMessages, { restoreSavedLocale } from './plugins/i18n.js'
 // @ts-ignore
 import {AVAX_TOOLBOX_VERSION} from './avxto/AVXTOConf'
 import 'bootstrap/dist/css/bootstrap.css'
@@ -53,6 +53,7 @@ const i18n = createI18n({
     messages: i18nMessages
 })
 app.use(i18n)
+restoreSavedLocale(i18n)
 
 // Restore the previously selected platform (defaults to Avalanche).
 useActivePlatformStore().initPlatform()

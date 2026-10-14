@@ -18,7 +18,7 @@
 import { defineComponent, ref, onMounted } from 'vue'
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
 import { faSpinner, faTimes } from '@fortawesome/free-solid-svg-icons'
-import { BrowserQRCodeReader } from '@zxing/library'
+import type { BrowserQRCodeReader } from '@zxing/library'
 import { useNotificationsStore } from '@/stores'
 
 const QrReader = defineComponent({
@@ -42,7 +42,16 @@ const QrReader = defineComponent({
         const fa_spinner = faSpinner
         const fa_times = faTimes
 
-        const start = () => {
+        // The scanner library is ~1.2 MB, so it loads on the first tap, not with the page.
+        const loadScanner = async (): Promise<BrowserQRCodeReader> => {
+            if (!scanner.value) {
+                const { BrowserQRCodeReader } = await import('@zxing/library')
+                scanner.value = new BrowserQRCodeReader()
+            }
+            return scanner.value as BrowserQRCodeReader
+        }
+
+        const start = async () => {
             if (props.disabled) return
 
             if (!camera.value) {
@@ -55,15 +64,14 @@ const QrReader = defineComponent({
             }
 
             isActive.value = true
-            
-            if (scanner.value && preview.value) {
-                scanner.value
-                    .decodeFromInputVideoDevice(camera.value.deviceId, preview.value)
-                    .then(onscan)
-                    .catch((err) => {
-                        console.error('QR Scanner error:', err)
-                        stop()
-                    })
+
+            try {
+                const reader = await loadScanner()
+                if (!isActive.value || !preview.value) return
+                onscan(await reader.decodeFromInputVideoDevice(camera.value.deviceId, preview.value))
+            } catch (err) {
+                console.error('QR Scanner error:', err)
+                stop()
             }
         }
 
@@ -79,21 +87,18 @@ const QrReader = defineComponent({
             isActive.value = false
         }
 
+        // Same as the scanner's listVideoInputDevices(), without loading the scanner.
         onMounted(() => {
-            const codeReader = new BrowserQRCodeReader()
-            
-            codeReader
-                .listVideoInputDevices()
-                .then((videoInputDevices) => {
-                    if (videoInputDevices.length > 0) {
-                        camera.value = videoInputDevices[0]
-                    }
+            if (!navigator.mediaDevices?.enumerateDevices) return
+            navigator.mediaDevices
+                .enumerateDevices()
+                .then((devices) => {
+                    const video = devices.filter((d) => d.kind === 'videoinput')
+                    if (video.length > 0) camera.value = video[0]
                 })
                 .catch((err) => {
                     console.error('Failed to list video devices:', err)
                 })
-
-            scanner.value = codeReader
         })
 
         return {

@@ -23,8 +23,6 @@ import TransportU2F from '@ledgerhq/hw-transport-u2f'
 import TransportWebUSB from '@ledgerhq/hw-transport-webusb'
 // @ts-ignore
 import TransportWebHID from '@ledgerhq/hw-transport-webhid'
-// @ts-ignore
-import Eth from '@ledgerhq/hw-app-eth'
 import Transport from '@ledgerhq/hw-transport'
 
 import Spinner from '@/components/misc/Spinner.vue'

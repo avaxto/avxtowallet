@@ -1,5 +1,4 @@
 //@ts-ignore
-import Eth from '@ledgerhq/hw-app-eth';
 import EthereumjsCommon from '@ethereumjs/common';
 import { bnToRlp, rlp, BN as EthBN } from 'ethereumjs-util';
 import { ETH_ACCOUNT_PATH, LEDGER_EXCHANGE_TIMEOUT } from '@/avalanche-wallet-sdk/Wallet/constants';
@@ -109,7 +108,7 @@ export class LedgerWallet extends PublicMnemonicWallet {
      * @param transport
      */
     static async getExtendedPublicKeyEthAccount(transport: Transport): Promise<string> {
-        const ethApp = getAppEth(transport);
+        const ethApp = await getAppEth(transport);
         let ethRes = await ethApp.getAddress(ETH_ACCOUNT_PATH, false, true);
         let hdEth = new HDKey();
 
@@ -172,7 +171,7 @@ export class LedgerWallet extends PublicMnemonicWallet {
             Buffer.from([]),
         ]);
 
-        const ethApp = getAppEth(LedgerWallet.transport);
+        const ethApp = await getAppEth(LedgerWallet.transport);
         const signature = await ethApp.signTransaction(
             getAccountPathEVM(this.accountIndex),
             rawUnsignedTx.toString('hex')

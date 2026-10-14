@@ -1,4 +1,4 @@
-import Eth from '@ledgerhq/hw-app-eth';
+import type Eth from '@ledgerhq/hw-app-eth';
 import Transport from '@ledgerhq/hw-transport';
 import { LedgerProviderType, ObsidianProvider, ZondaxProvider } from '@/avalanche-wallet-sdk/Wallet/Ledger/provider';
 import { ZONDAX_VERSION } from '@/avalanche-wallet-sdk/Wallet/Ledger/provider/constants';
@@ -31,9 +31,11 @@ export function getAppAvax(transport: Transport, provider: LedgerProviderType): 
     return provider === 'obsidian' ? ObsidianProvider.getApp(transport) : ZondaxProvider.getApp(transport);
 }
 
-export function getAppEth(transport: Transport): Eth {
+/** Loaded on demand: the Ethereum app pulls in Ledger's ~1 MB token database. */
+export async function getAppEth(transport: Transport): Promise<Eth> {
+    const { default: EthApp } = await import('@ledgerhq/hw-app-eth');
     //@ts-ignore
-    return new Eth(transport, 'w0w');
+    return new EthApp(transport, 'w0w');
 }
 
 export async function getLedgerProvider(transport: Transport) {
