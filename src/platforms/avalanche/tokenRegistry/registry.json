@@ -39,12 +39,12 @@
         "websiteUrl": "https://www.avax.network"
     },
     {
-        "contractAddress": "0xf20d962a6c8f70c731bd838a3a388D7d48fA6e15",
+        "contractAddress": "0x49D5c2BdFfac6CE2BFdB6640F4F80f226bc10bAB",
         "chainId": 43114,
-        "name": "Ether",
-        "description": "Bridged representation of Ethereum's native ETH on the Avalanche C-Chain.",
-        "symbol": "ETH",
-        "websiteUrl": "https://ethereum.org"
+        "name": "Wrapped Ether",
+        "description": "Ether bridged to the Avalanche C-Chain through the Avalanche Bridge (WETH.e).",
+        "symbol": "WETH.e",
+        "websiteUrl": "https://core.app/bridge"
     },
     {
         "contractAddress": "0xde3A24028580884448a5397872046a019649b084",

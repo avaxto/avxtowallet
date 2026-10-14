@@ -35,6 +35,14 @@ describe('USDC registry entry', () => {
     })
 })
 
+describe('WETH.e registry entry', () => {
+    const WETH_E = '0x49D5c2BdFfac6CE2BFdB6640F4F80f226bc10bAB'
+    it('recognises Avalanche Bridge WETH.e on C-Chain mainnet', () => {
+        expect(findRegistryEntry(WETH_E.toLowerCase(), 43114)?.symbol).toBe('WETH.e')
+        expect(isRegistryToken(WETH_E, 43113)).toBe(false)
+    })
+})
+
 describe('verifiedFirst', () => {
     it('lifts verified items above the rest, keeping each group in its incoming order', () => {
         const list = ['a1', 'b1', 'a2', 'b2', 'a3']
