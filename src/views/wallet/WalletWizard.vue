@@ -1493,7 +1493,7 @@ h2 {
     font-size: 13px;
     align-items: center;
     // Data rows had no color of their own, so their text fell back to
-    // whatever the browser/ambient cascade supplied — bootstrap's own
+    // whatever the ambient cascade supplied — at the time Bootstrap's
     // `body { color: var(--bs-body-color) }` (near-black), not this app's
     // light --primary-color. Set explicitly rather than relying on
     // inheritance, same as .header already does below.
@@ -1682,7 +1682,7 @@ h2 {
     align-items: center;
     border-bottom: 1px solid var(--bg);
     // Same issue as .asset_row above: no color of its own meant t_asset/
-    // t_amount fell back to bootstrap's dark body color instead of this
+    // t_amount fell back to Bootstrap's dark body color (since removed) instead of this
     // app's light --primary-color.
     color: var(--primary-color);
 

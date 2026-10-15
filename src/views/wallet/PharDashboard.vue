@@ -13,8 +13,8 @@
   pays all of it. See js/PharAutoVault.ts. The full vault statistics live on
   the AutoVault Dashboard.
 
-  Panels are named `phar_panel`, not `card`: Bootstrap's `.card` forces
-  near-black text.
+  Panels are named `phar_panel`, not `card`: the shared `.card` (styles/base.scss) brings
+  its own layout and border. (It used to be Bootstrap's `.card`, which forced near-black text.)
 -->
 <template>
     <div class="phar_rewards">

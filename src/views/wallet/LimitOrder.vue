@@ -12,8 +12,8 @@
   js/ArenaSwap quote / approve / execute path, the same leave guards), and
   gated the same way: arming asks the Moats-burn requirement.
 
-  Panels are `lo_panel`, not `card`: Bootstrap's `.card` forces near-black
-  text on this dark theme.
+  Panels are `lo_panel`, not `card`: the shared `.card` (styles/base.scss) brings
+  its own layout and border. (It used to be Bootstrap's `.card`, which forced near-black text.)
 -->
 <template>
     <div class="limit_page">

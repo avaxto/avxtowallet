@@ -3,14 +3,13 @@ import App from './App.vue'
 import router from './router'
 import { pinia } from './stores'
 import { createI18n } from 'vue-i18n'
-import { createBootstrap, BContainer, BRow, BCol } from 'bootstrap-vue-next'
 import vuetify from './plugins/vuetify'
 // @ts-ignore
 import i18nMessages, { restoreSavedLocale } from './plugins/i18n.js'
 // @ts-ignore
 import {AVAX_TOOLBOX_VERSION} from './avxto/AVXTOConf'
-import 'bootstrap/dist/css/bootstrap.css'
-import 'bootstrap-vue-next/dist/bootstrap-vue-next.css'
+// Base element styles; after Vuetify's reset (imported by plugins/vuetify) on purpose.
+import './styles/base.scss'
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
 import { createUnhead } from '@unhead/vue'
 // @ts-ignore
@@ -28,11 +27,7 @@ const app = createApp(App)
 app.use(router)
 app.use(pinia)
 app.use(vuetify)
-app.use(createBootstrap({ components: true, directives: true }))
 app.component('fa', FontAwesomeIcon)
-app.component('b-container', BContainer)
-app.component('b-row', BRow)
-app.component('b-col', BCol)
 app.config.globalProperties.$productionTip = false
 
 

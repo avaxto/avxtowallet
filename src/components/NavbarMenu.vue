@@ -416,7 +416,7 @@ export default defineComponent({
 @use '../light_theme';
 
 // Link rows render as <a class="v-list-item"> (see the note atop the
-// template). Bootstrap styles every <a> as an underlined link-coloured one,
+// template). The base styles (styles/base.scss) make every <a> an underlined link-coloured one,
 // and Vuetify tints the row for the current route; neither is how these menus
 // have ever looked, so both are put back to a plain item.
 :deep(a.v-list-item) {

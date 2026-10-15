@@ -1,8 +1,8 @@
 <template>
     <div class="home">
-        <b-container>
-            <b-row>
-                <b-col>
+        <v-container fluid class="py-0">
+            <v-row class="my-0">
+                <v-col class="py-0">
                     <div class="home_wrapper">
                         <div class="home_topbar">
                             <AvxtoMenu></AvxtoMenu>
@@ -51,9 +51,9 @@
                         </div>
                         <ToS class="tos" style="align-self: left; margin: 30px !important"></ToS>
                     </div>
-                </b-col>
-            </b-row>
-        </b-container>
+                </v-col>
+            </v-row>
+        </v-container>
         <CookieConsent></CookieConsent>
     </div>
 </template>
@@ -106,13 +106,11 @@ export default defineComponent({
     margin-left: 0px;
 }
 
-// Bootstrap's .container caps out at a max-width per breakpoint (540px up
-// to 1320px) — override it so the container spans the full page width
-// instead of sitting in a narrower, centered box.
-:deep(.container) {
-    width: 100%;
-    max-width: 100%;
+// The container is `fluid` (full page width, no per-breakpoint cap); side
+// padding only, with the extra room on the left.
+.v-container {
     padding-left: 28px;
+    padding-right: 12px;
 }
 
 .home {
@@ -225,7 +223,7 @@ img {
 
 @include main.mobile-device {
     // Even side margins on phones (the desktop rule only pads the left).
-    :deep(.container) {
+    .v-container {
         padding-left: 16px;
         padding-right: 16px;
     }

@@ -1,8 +1,8 @@
 <template>
     <div class="access_view">
-        <b-container>
-            <b-row align-h="center">
-                <b-col md="12" lg="10">
+        <v-container class="px-3 py-0">
+            <v-row justify="center" class="my-0">
+                <v-col md="12" lg="10" class="py-0">
                     
                     <router-view v-slot="{ Component }">
                         <transition>
@@ -10,9 +10,9 @@
                         </transition>
                     </router-view>
                     
-                </b-col>
-            </b-row>
-        </b-container>
+                </v-col>
+            </v-row>
+        </v-container>
     </div>
 </template>
 <script lang="ts">

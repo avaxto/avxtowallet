@@ -490,15 +490,10 @@ export default defineComponent({
 }
 
 .imports_table {
-    // Named to NOT be plain "table" — bootstrap's `.table` component
-    // targets any element 3 DOM levels below it with
-    // `.table > :not(caption) > * > *`, forcing
-    // `background-color: var(--bs-table-bg)` (--bs-body-bg, white) and
-    // `color: var(--bs-table-color)` (--bs-body-color, near-black) onto
-    // whatever div/span happened to land at that depth — which is how the
-    // "tx id" cell here ended up white-on-white-text-on-white. This is a
-    // plain div grid, not a real <table>, so there's no reason to also
-    // wear bootstrap's `.table` class and fight its cascade.
+    // Named to NOT be plain "table": when the app still loaded Bootstrap, its
+    // `.table` component recoloured cells three levels down (white background,
+    // near-black text), which is how the "tx id" cell here once ended up
+    // unreadable. Bootstrap is gone; the distinct name stays as a precaution.
     display: flex;
     flex-direction: column;
     border-radius: 4px;

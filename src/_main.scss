@@ -1,29 +1,3 @@
-//@import 'node_modules/bootstrap/scss/bootstrap';
-//@import 'node_modules/bootstrap-vue/src/index.scss';
-
-//@import "node_modules/bootstrap/scss/variables.scss";
-//@import "node_modules/bootstrap/scss/mixins.scss";
-//@import "node_modules/bootstrap/scss/reboot";
-
-//@import "node_modules/bootstrap/scss/bootstrap-reboot.scss";
-
-// Suppress Bootstrap deprecation warnings for legacy Sass API
-// Bootstrap 5 still uses @import internally which causes warnings
-// This will be fixed when Bootstrap updates to use @use/@forward
-@use 'sass:meta';
-
-// Import Bootstrap Grid with suppressed warnings
-@use 'bootstrap/scss/bootstrap-grid' with (
-    $enable-grid-classes: true,
-    $enable-cssgrid: true
-);
-
-//@import "node_modules/bootstrap/scss/grid";
-
-//@import "node_modules/bootstrap-vue/src/variables";
-//@import "node_modules/bootstrap-vue/src/mixins";
-//@import "node_modules/bootstrap-vue/src/";
-
 $mobile_width: 900px;
 $width_s: 1300px;
 $width_m: 1500px;
@@ -78,13 +52,9 @@ html {
 }
 
 body {
-    // !important: bootstrap-vue-next's reboot CSS defines its own
-    // `body { color: var(--bs-body-color); background-color: var(--bs-body-bg) }`
-    // (light-theme values, #212529 on #fff) that loads after this rule in the
-    // bundle — same specificity, so without !important it silently wins and
-    // any element that falls back to inherited body color (rather than
-    // setting its own) renders dark text on our dark background instead of
-    // light — e.g. the token-picker rows below, which relied on inheritance.
+    // The app's base text and surface colours; anything without its own
+    // colour inherits these. !important so no third-party base stylesheet
+    // can put light-theme text back (Bootstrap's did, until it was removed).
     background-color: var(--bg) !important;
     color: var(--primary-color) !important;
 }
@@ -178,11 +148,8 @@ input[type='number']{
 
 label {
     margin-bottom: initial !important;
-    // Bootstrap's own `label { display: inline-block; }` rule (reboot.scss)
-    // never sets a color, so any <label> without its own explicit color
-    // falls back to plain inheritance — the same "dark on dark" trap as
-    // headings/body, just without a competing bootstrap rule to beat. No
-    // !important needed here: this is a low-specificity element selector,
+    // An explicit colour, so a <label> never depends on what it happens to
+    // inherit. No !important needed: this is a low-specificity element selector,
     // so any component's own more specific label rule (scoped rules compile
     // with a data-v attribute, or the Vuetify overrides below) still wins.
     color: var(--primary-color);
@@ -320,10 +287,8 @@ $secondary-color-light: $pink-light;
 $secondary-color-extra-light: $pink-extra-light;
 $background-color: $gray;
 
-// !important: bootstrap's reboot compiles h1-h6 into one rule via
-// `@extend %heading` setting `color: var(--bs-heading-color)` — same
-// specificity as these, but it loads later in the bundle, so without
-// !important it silently wins (same class of bug as the `body` fix above).
+// Headings always use the app's text colour. !important for the same reason
+// as `body` above: no base stylesheet gets to recolour them.
 h1, h2, h3, h4, h5, h6 {
     color: var(--primary-color) !important;
 }
@@ -506,32 +471,6 @@ textarea {
     // native <select> popups, scrollbars, date pickers, autofill — uses its
     // dark palette instead of light-theme defaults on our dark surfaces.
     color-scheme: dark;
-}
-
-// Bootstrap's own palette, mapped onto the app's. index.html sets
-// data-bs-theme="dark", so Bootstrap uses its dark tokens; this then pins them
-// to the colours above. Without it, Bootstrap's light-theme defaults
-// (#212529 text on white) leaked into any element sharing a Bootstrap class
-// name — `.card`, `.table`, `.badge`, `.list-group`, `.dropdown-menu`,
-// `.modal-content`, form controls — and rendered dark text on the app's dark
-// surfaces. `html[data-bs-theme=dark]` outranks Bootstrap's own `:root` and
-// `[data-bs-theme=dark]` blocks whatever order the bundle puts them in.
-html[data-bs-theme='dark'] {
-    --bs-body-color: var(--primary-color);
-    --bs-body-color-rgb: 229, 229, 229;
-    --bs-body-bg: var(--bg);
-    --bs-body-bg-rgb: var(--bg-1);
-    --bs-emphasis-color: #fff;
-    --bs-secondary-color: var(--primary-color-light);
-    --bs-secondary-color-rgb: 174, 180, 185;
-    --bs-tertiary-color: rgba(174, 180, 185, 0.75);
-    --bs-secondary-bg: var(--bg-light);
-    --bs-secondary-bg-rgb: var(--bg-light-1);
-    --bs-tertiary-bg: var(--bg-light);
-    --bs-tertiary-bg-rgb: var(--bg-light-1);
-    --bs-heading-color: var(--primary-color);
-    --bs-border-color: rgba(255, 255, 255, 0.12);
-    --bs-border-color-translucent: rgba(255, 255, 255, 0.12);
 }
 
 // Browser-default placeholder text is a dark grey meant for white fields; on

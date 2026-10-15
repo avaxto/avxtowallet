@@ -12,8 +12,8 @@
   own. "Your position" needs an EVM address, so it appears whenever there is an
   EVM signer, whichever chain it is on.
 
-  Panels are named `phar_panel`, not `card`: Bootstrap's `.card` forces
-  near-black text.
+  Panels are named `phar_panel`, not `card`: the shared `.card` (styles/base.scss) brings
+  its own layout and border. (It used to be Bootstrap's `.card`, which forced near-black text.)
 -->
 <template>
     <div class="phar_dash">

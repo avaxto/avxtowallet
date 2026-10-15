@@ -577,9 +577,8 @@ export default defineComponent({
     border-radius: 12px;
     padding: 24px;
     margin-bottom: 20px;
-    // Bootstrap's own `.card` sets `color: var(--bs-body-color)` (#212529),
-    // so without this every figure inside inherits near-black on the dark
-    // card. The scoped selector outranks Bootstrap's bare class.
+    // Explicit text colour for every figure inside the card, rather than
+    // relying on what `.card` (styles/base.scss) or an ancestor provides.
     color: var(--primary-color);
 
     h2 {

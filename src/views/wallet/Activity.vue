@@ -589,6 +589,7 @@ export default defineComponent({
 }
 
 .pagination {
+    list-style: none;
     display: flex;
     flex-direction: row;
     align-items: center;

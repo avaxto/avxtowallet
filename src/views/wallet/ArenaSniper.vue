@@ -11,8 +11,8 @@
   Works on any tab: it reads C-Chain through its own connection and needs no
   wallet at all.
 
-  Panels are `sniper_panel`, not `card`: Bootstrap's `.card` forces
-  near-black text on this dark theme.
+  Panels are `sniper_panel`, not `card`: the shared `.card` (styles/base.scss) brings its own
+  layout and border. (It used to be Bootstrap's `.card`, which forced near-black text.)
 -->
 <template>
     <div class="sniper_page">

@@ -12,7 +12,7 @@
                 <h4>{{ $t('top.title2') }}</h4>
                 <span
                     v-if="walletTypeLabel"
-                    class="wallet_type_badge badge badge-info"
+                    class="wallet_type_badge"
                     :title="walletTypeTitle || undefined"
                 >
                     {{ walletTypeLabel }}
@@ -756,6 +756,11 @@ h4 {
     margin-left: 8px;
     flex-shrink: 0;
     white-space: nowrap;
+    display: inline-block;
+    font-weight: 700;
+    line-height: 1;
+    text-align: center;
+    vertical-align: baseline;
 }
 
 .breakdown_toggle {

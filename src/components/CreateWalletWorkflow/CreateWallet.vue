@@ -1,8 +1,8 @@
 <template>
     <div class="create_wallet">
-        <b-container>
-            <b-row>
-                <b-col>
+        <v-container class="px-3 py-0">
+            <v-row class="my-0">
+                <v-col class="py-0">
                     <transition name="fade" mode="out-in">
                         <!-- PHASE 1 -->
                         <div v-if="!keyPhrase" class="stage_1">
@@ -112,9 +112,9 @@
                             </div>
                         </div>
                     </transition>
-                </b-col>
-            </b-row>
-        </b-container>
+                </v-col>
+            </v-row>
+        </v-container>
         <div></div>
     </div>
 </template>

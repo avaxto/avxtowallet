@@ -898,8 +898,8 @@ export default defineComponent({
 
     .tx_row {
         border-top: 1px solid var(--bg);
-        // No color of its own meant addr_cell/amount_cell fell back to
-        // bootstrap's dark body color instead of this app's light
+        // No color of its own once meant addr_cell/amount_cell fell back to
+        // Bootstrap's dark body color (since removed) instead of this app's light
         // --primary-color — same bug as .asset_row/.transfer_row in
         // WalletWizard.vue and .token_list_name in TokenListPicker.vue.
         color: var(--primary-color);

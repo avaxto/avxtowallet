@@ -13,8 +13,8 @@
   own. The "Your position" panels need an EVM address, so they appear
   whenever there is an EVM signer, whichever chain it is on.
 
-  Panels are named `moat_panel`, not `card`: Bootstrap's `.card` forces
-  near-black text (the bug the burn page had).
+  Panels are named `moat_panel`, not `card`: the shared `.card` (styles/base.scss) brings
+  its own layout and border. (It used to be Bootstrap's `.card`, which forced near-black text.)
 -->
 <template>
     <div class="moats_dash">

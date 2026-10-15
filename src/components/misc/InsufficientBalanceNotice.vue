@@ -51,12 +51,12 @@
             to unlock the full wallet.
         </p>
 
-        <div v-if="burnAddress" class="alert alert-warning" role="alert">
+        <v-alert v-if="burnAddress" class="alert" type="warning" variant="tonal" density="compact">
             Burn from this same wallet — connect it on moats.app. Only burns from this address
             count:
             <br />
             <code>{{ burnAddress }}</code>
-        </div>
+        </v-alert>
 
         <p class="buy_note">
             Need {{ thrSymbol }} to burn?

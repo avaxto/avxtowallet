@@ -69,7 +69,7 @@
             </div>
         </div>
 
-        <div v-if="degraded.length" class="degraded alert alert-warning">
+        <v-alert v-if="degraded.length" class="degraded" type="warning" variant="tonal" density="compact">
             <p>
                 Could not read
                 {{ degraded.length }}
@@ -91,7 +91,7 @@
                 @saved="onKeySaved"
                 @close="showKeyForm = false"
             ></EtherscanKeyForm>
-        </div>
+        </v-alert>
     </div>
 </template>
 

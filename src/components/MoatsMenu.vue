@@ -66,7 +66,7 @@ export default defineComponent({
 @use '../main';
 
 // Links sit on the whole row (see the note atop NavbarMenu.vue), which renders
-// as <a class="v-list-item">: undo Bootstrap's link colour/underline and
+// as <a class="v-list-item">: undo the base link colour/underline (styles/base.scss) and
 // Vuetify's current-route tint, as NavbarMenu does.
 :deep(a.v-list-item) {
     color: var(--primary-color) !important;

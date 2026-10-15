@@ -14,9 +14,9 @@
             <p class="send_col">{{ $t('portfolio.send') }}</p>
             <p class="balance_col balance_header">{{ $t('portfolio.balance') }}</p>
         </div>
-        <div v-show="networkStatus !== 'connected'" class="empty alert alert-danger">
+        <v-alert v-show="networkStatus !== 'connected'" class="empty" type="error" variant="tonal" density="compact">
             <p>Network is unstable. Some assets may not show.</p>
-        </div>
+        </v-alert>
         <div style="flex-grow: 1">
             <div class="sdk_section_header">Popular Assets</div>
             <div v-if="walletBalances.length === 0 && erc20Balances.length === 0 && sdkAssetsFiltered.length === 0 && !sdkLoading" class="empty">
