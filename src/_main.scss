@@ -336,11 +336,22 @@ h1, h2, h3, h4, h5, h6 {
         opacity: 0.7;
     }
 
-    &[disabled] {
-        background-color: var(--primary-color) !important;
+    // Muted but readable: grey text on the dark surface (~6.5:1). It used to
+    // be light grey on the light button face (1.7:1), faded further by opacity.
+    &[disabled],
+    &.v-btn--disabled {
+        background-color: var(--bg-light) !important;
         color: var(--primary-color-light) !important;
-        opacity: 0.7;
+        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12) !important;
+        opacity: 1 !important;
         cursor: not-allowed !important;
+
+        // Vuetify dims a disabled button's content and overlay on its own.
+        .v-btn__content,
+        .v-btn__overlay {
+            opacity: 1 !important;
+            color: inherit !important;
+        }
     }
 }
 .button_secondary {
@@ -495,6 +506,32 @@ textarea {
     // native <select> popups, scrollbars, date pickers, autofill — uses its
     // dark palette instead of light-theme defaults on our dark surfaces.
     color-scheme: dark;
+}
+
+// Bootstrap's own palette, mapped onto the app's. index.html sets
+// data-bs-theme="dark", so Bootstrap uses its dark tokens; this then pins them
+// to the colours above. Without it, Bootstrap's light-theme defaults
+// (#212529 text on white) leaked into any element sharing a Bootstrap class
+// name — `.card`, `.table`, `.badge`, `.list-group`, `.dropdown-menu`,
+// `.modal-content`, form controls — and rendered dark text on the app's dark
+// surfaces. `html[data-bs-theme=dark]` outranks Bootstrap's own `:root` and
+// `[data-bs-theme=dark]` blocks whatever order the bundle puts them in.
+html[data-bs-theme='dark'] {
+    --bs-body-color: var(--primary-color);
+    --bs-body-color-rgb: 229, 229, 229;
+    --bs-body-bg: var(--bg);
+    --bs-body-bg-rgb: var(--bg-1);
+    --bs-emphasis-color: #fff;
+    --bs-secondary-color: var(--primary-color-light);
+    --bs-secondary-color-rgb: 174, 180, 185;
+    --bs-tertiary-color: rgba(174, 180, 185, 0.75);
+    --bs-secondary-bg: var(--bg-light);
+    --bs-secondary-bg-rgb: var(--bg-light-1);
+    --bs-tertiary-bg: var(--bg-light);
+    --bs-tertiary-bg-rgb: var(--bg-light-1);
+    --bs-heading-color: var(--primary-color);
+    --bs-border-color: rgba(255, 255, 255, 0.12);
+    --bs-border-color-translucent: rgba(255, 255, 255, 0.12);
 }
 
 // Browser-default placeholder text is a dark grey meant for white fields; on

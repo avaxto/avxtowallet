@@ -14,8 +14,8 @@
     <div class="utxo" :class="{ highlight }">
         <div class="utxo_head">
             <span class="amount">{{ formatAmount(utxo.asset.amount, utxo.asset.denomination) }} {{ utxo.asset.symbol || utxo.asset.name }}</span>
-            <span class="badge">{{ utxo.utxoType }}</span>
-            <span v-if="spentLabel" class="badge" :class="spentClass">{{ spentLabel }}</span>
+            <span class="xbadge">{{ utxo.utxoType }}</span>
+            <span v-if="spentLabel" class="xbadge" :class="spentClass">{{ spentLabel }}</span>
         </div>
         <dl class="fields">
             <dt>UTXO ID</dt>

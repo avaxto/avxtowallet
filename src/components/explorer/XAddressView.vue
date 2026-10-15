@@ -11,7 +11,7 @@
 -->
 <template>
     <div class="addr_view">
-        <div class="card">
+        <div class="xcard">
             <h3>Address</h3>
             <dl class="fields">
                 <dt>Address</dt>
@@ -30,7 +30,7 @@
             </dl>
         </div>
 
-        <div class="card">
+        <div class="xcard">
             <h3>Balances</h3>
             <p v-if="balancesError" class="err">{{ balancesError }}</p>
             <p v-else-if="!balances" class="small">Loading…</p>
@@ -71,7 +71,7 @@
             </div>
         </div>
 
-        <div v-if="heldAssetIds.length" class="card">
+        <div v-if="heldAssetIds.length" class="xcard">
             <h3>Assets held <span class="count">{{ heldAssetIds.length }}</span></h3>
             <div v-for="id in heldAssetIds" :key="id" class="asset">
                 <dl v-if="assets[id]" class="fields">
@@ -95,7 +95,7 @@
             </div>
         </div>
 
-        <div class="card">
+        <div class="xcard">
             <h3>Transactions <span class="count">{{ txs.length }}{{ txToken ? '+' : '' }}</span></h3>
             <p v-if="txError" class="err">{{ txError }}</p>
             <div class="table_wrap">
@@ -137,7 +137,7 @@
             <button v-if="txToken && !txLoading" type="button" class="more_btn" @click="loadTxs">Load more transactions</button>
         </div>
 
-        <div class="card">
+        <div class="xcard">
             <h3>
                 UTXOs <span class="count">{{ utxos.length }}{{ utxoToken ? '+' : '' }}</span>
                 <label class="toggle small"><input v-model="includeSpent" type="checkbox" /> include spent</label>

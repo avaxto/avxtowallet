@@ -10,11 +10,11 @@
 -->
 <template>
     <div class="tx_view">
-        <div class="card">
+        <div class="xcard">
             <h3>
                 Transaction
-                <span class="badge">{{ tx.txType }}</span>
-                <span class="badge in">Accepted</span>
+                <span class="xbadge">{{ tx.txType }}</span>
+                <span class="xbadge in">Accepted</span>
             </h3>
             <dl class="fields">
                 <dt>Transaction ID</dt>
@@ -84,7 +84,7 @@
             </dl>
         </div>
 
-        <div v-if="tx.blockHash || (tx.vertices && tx.vertices.length)" class="card">
+        <div v-if="tx.blockHash || (tx.vertices && tx.vertices.length)" class="xcard">
             <h3>{{ tx.blockHash ? 'Block' : 'Vertex' }}</h3>
             <p v-if="containerError" class="err">{{ containerError }}</p>
             <p v-else-if="!block && !vertex" class="small">Loading…</p>
@@ -148,7 +148,7 @@
             </details>
         </div>
 
-        <div class="card">
+        <div class="xcard">
             <h3>Assets <span class="count">{{ assetIds.length }}</span></h3>
             <div v-for="id in assetIds" :key="id" class="asset">
                 <template v-if="assets[id]">
@@ -176,18 +176,18 @@
             </div>
         </div>
 
-        <div class="card">
+        <div class="xcard">
             <h3>Inputs <span class="count">{{ tx.consumedUtxos.length }} UTXO{{ tx.consumedUtxos.length === 1 ? '' : 's' }} spent</span></h3>
             <XUtxoCard v-for="u in tx.consumedUtxos" :key="u.utxoId" :utxo="u" :address="address" @open="$emit('open', $event)" />
             <p v-if="!tx.consumedUtxos.length" class="small">No inputs (e.g. an import, whose inputs come from another chain's atomic memory).</p>
         </div>
 
-        <div class="card">
+        <div class="xcard">
             <h3>Outputs <span class="count">{{ tx.emittedUtxos.length }} UTXO{{ tx.emittedUtxos.length === 1 ? '' : 's' }} created</span></h3>
             <XUtxoCard v-for="u in tx.emittedUtxos" :key="u.utxoId" :utxo="u" :address="address" show-state @open="$emit('open', $event)" />
         </div>
 
-        <details class="raw card">
+        <details class="raw xcard">
             <summary>Raw transaction JSON (everything Glacier returned)</summary>
             <pre>{{ JSON.stringify(tx, null, 2) }}</pre>
         </details>
