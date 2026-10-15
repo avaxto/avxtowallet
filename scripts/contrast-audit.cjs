@@ -19,7 +19,9 @@
  * Signs in with a freshly generated, throwaway private key (never a real
  * wallet), and answers the Moats burn check inside this headless browser only,
  * so premium-gated pages render their results. Nothing is signed or sent.
- * Env: AUDIT_BASE (default http://localhost:5000), CHROME (path to Chrome).
+ * Env: AUDIT_BASE (default http://localhost:5000), CHROME (path to Chrome),
+ * AUDIT_ACTION (JavaScript run in each page before measuring, to open UI
+ * that only appears after a click, e.g. a tab or a toggle).
  */
 const { spawn } = require('child_process')
 const crypto = require('crypto')
@@ -63,7 +65,10 @@ const AUDIT = `(() => {
     if (r.width === 0 || r.height === 0 || s.visibility === 'hidden' || s.display === 'none' || Number(s.opacity) === 0) continue
     let hidden = false; for (let e = el; e; e = e.parentElement) { const st = getComputedStyle(e); if (st.display === 'none' || Number(st.opacity) === 0 || st.visibility === 'hidden') { hidden = true; break } } if (hidden) continue
     const bg = bgOf(el); if (!bg) continue
-    const fg = over(parse(isField && !el.value ? (getComputedStyle(el, '::placeholder').color || s.color) : s.color), bg)
+    // Faded ancestors (opacity < 1) fade the text into what is behind it.
+    let fade = 1; for (let e = el; e; e = e.parentElement) fade *= Number(getComputedStyle(e).opacity)
+    const raw = parse(isField && !el.value ? (getComputedStyle(el, '::placeholder').color || s.color) : s.color)
+    const fg = over([raw[0], raw[1], raw[2], raw[3] * fade], bg)
     const L1 = lum(fg), L2 = lum(bg); const ratio = (Math.max(L1,L2)+0.05)/(Math.min(L1,L2)+0.05)
     if (ratio < 3) {
       const cls = (el.getAttribute('class') || '').split(/\\s+/).filter(c => c && !c.startsWith('data-v')).slice(0,4).join('.')
@@ -151,6 +156,10 @@ const AUDIT = `(() => {
             else {
                 await evaluate(`(() => { const app = document.querySelector('#app').__vue_app__; app.config.globalProperties.$router.push(${JSON.stringify(p)}); })()`)
                 await sleep(p.includes('xexplorer') ? 9000 : 3500)
+            }
+            if (process.env.AUDIT_ACTION) {
+                await evaluate(`(async () => { ${process.env.AUDIT_ACTION} })()`)
+                await sleep(2500)
             }
             const where = await evaluate('location.pathname + location.search')
             const issues = (await evaluate(AUDIT)) || []

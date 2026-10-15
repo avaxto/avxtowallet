@@ -57,6 +57,7 @@ import * as TxHelper from '@/avalanche-wallet-sdk/helpers/tx_helper'
 import * as UtxoHelper from '@/avalanche-wallet-sdk/helpers/utxo_helper'
 import { buildUnsignedTransaction } from '@/js/TxHelper'
 import { delegatePermissionlessViaProvider } from '@/js/permissionlessDelegate'
+import { signAndIssuePViaProvider, type PSendPreview } from '@/js/pChainSend'
 import { sortUTxoSetP } from '@/helpers/sortUTXOs'
 import { defineChain } from 'viem'
 
@@ -610,20 +611,22 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
     async buildUnsignedTransaction(
         orders: (ITransaction | UTXO)[],
         addr: string,
-        memo?: BufferAvalanche
+        memo?: BufferAvalanche,
+        only?: AVMUTXOSet
     ) {
         const changeAddress = this.getChangeAddressAvm()
         const derivedAddresses: string[] = this.getDerivedAddresses()
-        const utxoset = this.getUTXOSet()
+        const utxoset = only ?? this.getUTXOSet()
         return buildUnsignedTransaction(orders, addr, derivedAddresses, utxoset, changeAddress, memo)
     }
 
     async issueBatchTx(
         orders: (ITransaction | AVMUTXO)[],
         addr: string,
-        memo: BufferAvalanche | undefined
+        memo: BufferAvalanche | undefined,
+        only?: AVMUTXOSet
     ): Promise<string> {
-        const unsignedTx = await this.buildUnsignedTransaction(orders, addr, memo)
+        const unsignedTx = await this.buildUnsignedTransaction(orders, addr, memo, only)
 
         // Populate SigIdx sources (required before calling getSigIdxs)
         unsignedTx.toBuffer()
@@ -1361,6 +1364,24 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
             },
             this.provider
         )
+    }
+
+    /**
+     * Core signs for the account's primary address only, so a P-Chain send
+     * spends from (and returns change to) that one address, and its preview
+     * is built with the account's real public key.
+     */
+    async pSendSource(): Promise<{ fromAddresses: string[]; changeAddress: string; publicKey?: string }> {
+        if (!this.platformAddress) {
+            throw new Error('No P-chain address available from the injected wallet. Connect a Core extension account.')
+        }
+        const keys = (await this.provider.request({ method: 'avalanche_getAccountPubKey', params: {} })) as { xp: string }
+        const publicKey = keys.xp.startsWith('0x') ? keys.xp : `0x${keys.xp}`
+        return { fromAddresses: [this.platformAddress], changeAddress: this.platformAddress, publicKey }
+    }
+
+    async issuePSend(preview: PSendPreview): Promise<string> {
+        return signAndIssuePViaProvider(preview, this.provider)
     }
 
     async validate(

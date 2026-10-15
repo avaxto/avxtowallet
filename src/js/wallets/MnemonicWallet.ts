@@ -340,9 +340,10 @@ export default class MnemonicWallet extends AbstractHdWallet implements IAvaHdWa
     async issueBatchTx(
         orders: (ITransaction | AVMUTXO)[],
         addr: string,
-        memo: BufferAvalanche | undefined
+        memo: BufferAvalanche | undefined,
+        only?: AVMUTXOSet
     ): Promise<string> {
-        return await WalletHelper.issueBatchTx(this, orders, addr, memo)
+        return await WalletHelper.issueBatchTx(this, orders, addr, memo, only)
     }
 
     /**

@@ -221,11 +221,12 @@ class SingletonWallet extends AbstractWallet implements AvaWalletCore {
     async buildUnsignedTransaction(
         orders: (ITransaction | UTXO)[],
         addr: string,
-        memo?: BufferAvalanche
+        memo?: BufferAvalanche,
+        only?: AVMUTXOSet
     ) {
         const changeAddress = this.getChangeAddressAvm()
         const derivedAddresses = this.getDerivedAddresses()
-        const utxoset = this.getUTXOSet() as AVMUTXOSet
+        const utxoset = only ?? (this.getUTXOSet() as AVMUTXOSet)
 
         return buildUnsignedTransaction(
             orders,
@@ -240,9 +241,10 @@ class SingletonWallet extends AbstractWallet implements AvaWalletCore {
     async issueBatchTx(
         orders: (ITransaction | AVMUTXO)[],
         addr: string,
-        memo: BufferAvalanche | undefined
+        memo: BufferAvalanche | undefined,
+        only?: AVMUTXOSet
     ): Promise<string> {
-        return await WalletHelper.issueBatchTx(this, orders, addr, memo)
+        return await WalletHelper.issueBatchTx(this, orders, addr, memo, only)
     }
 
     onnetworkchange(): void {

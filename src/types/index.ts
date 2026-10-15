@@ -12,7 +12,7 @@ import Big from 'big.js'
 import { BN, Buffer } from '@/avalanche'
 import AvaAsset from '@/js/AvaAsset'
 import { AvaNftFamily } from '@/js/AvaNftFamily'
-import { UTXO as AVMUTXO } from '@/avalanche/apis/avm/utxos'
+import { UTXO as AVMUTXO, UTXOSet as AVMUTXOSet } from '@/avalanche/apis/avm/utxos'
 import { WalletNameType } from '@/js/wallets/types'
 import { AllKeyFileTypes, AllKeyFileDecryptedTypes } from '@/js/IKeystore'
 import { ITransaction } from '@/components/wallet/transfer/types'
@@ -53,6 +53,8 @@ export interface IssueBatchTxInput {
     toAddress: string
     memo?: Buffer
     orders: (ITransaction | AVMUTXO)[]
+    /** Coin control: spend only from these UTXOs. Omitted = the whole wallet. */
+    utxoset?: AVMUTXOSet
 }
 
 export interface ImportKeyfileInput {

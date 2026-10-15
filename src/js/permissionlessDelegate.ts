@@ -69,7 +69,7 @@ export interface DelegatePermissionlessLocalParams extends DelegatePermissionles
     fromAddresses: string[]
 }
 
-function makeChain() {
+export function makeChain() {
     return defineChain({
         id: activeNetwork.evmChainID,
         name: 'Avalanche',
@@ -125,9 +125,13 @@ export async function delegatePermissionlessViaProvider(
         } as any,
     })
     const { tx } = await prepareTx(buildClient, { ...params, fromAddresses: [params.fromAddress] })
+    return sendPViaProvider(tx, provider)
+}
 
+/** Signs and submits an unsigned P-chain tx through an injected provider (Core). */
+export async function sendPViaProvider(tx: unknown, provider: any): Promise<string> {
     const signClient = createAvalancheWalletClient({
-        chain,
+        chain: makeChain() as any,
         transport: { type: 'custom' as const, provider },
     })
     const result = await signClient.sendXPTransaction({ tx, chainAlias: 'P' } as any)
@@ -190,7 +194,17 @@ export async function delegatePermissionlessLocal(
     })
 
     const { tx } = await prepareTx(client, params)
+    return signLocallyAndIssueP(tx, xpAccounts, 'Delegate stake', 'The stake')
+}
 
+/**
+ * Signs an unsigned P-chain tx with every candidate key (see
+ * delegatePermissionlessLocal for why every one), then issues it — or, with
+ * "sign only" on, captures it for export instead. `what` names the funds in
+ * the error when a signature is missing.
+ */
+export async function signLocallyAndIssueP(tx: any, xpAccounts: unknown[], label: string, what = 'The funds'): Promise<string> {
+    if (xpAccounts.length === 0) throw new Error('No signing key available.')
     for (const xpAccount of xpAccounts) {
         const sigHex: string = await (xpAccount as any).signTransaction(tx.toBytes())
         tx.addSignature(avaxUtils.hexToBuffer(sigHex))
@@ -198,8 +212,8 @@ export async function delegatePermissionlessLocal(
 
     if (!tx.hasAllSignatures()) {
         throw new Error(
-            'Could not produce a signature for every input. The stake may be spread across ' +
-                'more addresses than this wallet has scanned — try again after a balance refresh.'
+            `Could not produce a signature for every input. ${what} may be spread across ` +
+                'more addresses than this wallet can sign for — try again after a balance refresh.'
         )
     }
 
@@ -212,7 +226,7 @@ export async function delegatePermissionlessLocal(
     const offline = useOfflineSigningStore(pinia)
     if (offline.isActive) {
         return offline.capture({
-            label: 'Delegate stake',
+            label,
             family: 'avalanche',
             chain: 'P',
             base64: BufferAvalanche.from(signedBytes).toString('base64'),

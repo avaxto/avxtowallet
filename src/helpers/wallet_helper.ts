@@ -1,6 +1,6 @@
 import { ava, cChain, pChain } from '@/AVA'
 import { UTXOSet as PlatformUTXOSet, UTXO as PlatformUTXO } from '@/avalanche/apis/platformvm/utxos'
-import { UTXO as AVMUTXO } from '@/avalanche/apis/avm/utxos'
+import { UTXO as AVMUTXO, UTXOSet as AVMUTXOSet } from '@/avalanche/apis/avm/utxos'
 import { AvaWalletCore } from '@/js/wallets/types'
 import { InjectedWallet } from '@/js/wallets/InjectedWallet'
 
@@ -85,9 +85,10 @@ class WalletHelper {
         wallet: AvaWalletCore,
         orders: (ITransaction | AVMUTXO)[],
         addr: string,
-        memo: Buffer | undefined
+        memo: Buffer | undefined,
+        only?: AVMUTXOSet
     ): Promise<string> {
-        const unsignedTx = await wallet.buildUnsignedTransaction(orders, addr, memo)
+        const unsignedTx = await wallet.buildUnsignedTransaction(orders, addr, memo, only)
         const tx = await wallet.signX(unsignedTx)
         const txId: string = await issueX(tx)
 

@@ -399,10 +399,15 @@ abstract class AbstractHdWallet extends AbstractWallet {
         // TODO: Handle EVM changes
     }
 
-    async buildUnsignedTransaction(orders: (ITransaction | UTXO)[], addr: string, memo?: Buffer) {
+    async buildUnsignedTransaction(
+        orders: (ITransaction | UTXO)[],
+        addr: string,
+        memo?: Buffer,
+        only?: AVMUTXOSet
+    ) {
         const changeAddress = this.getChangeAddressAvm()
         const derivedAddresses: string[] = this.getDerivedAddresses()
-        const utxoset = this.getUTXOSet()
+        const utxoset = only ?? this.getUTXOSet()
 
         return buildUnsignedTransaction(
             orders,

@@ -3,6 +3,7 @@ import {
     KeyPair as AVMKeyPair,
     UTXOSet,
     UTXO as AVMUTXO,
+    UTXOSet as AVMUTXOSet,
     Tx as AVMTx,
     UnsignedTx as AVMUnsignedTx,
 } from '@/avalanche/apis/avm'
@@ -115,8 +116,17 @@ export interface AvaWalletCore extends IAddressManager {
     importToPlatformChain(sourceChain: ExportChainsP): Promise<string>
     importToXChain(sourceChain: ExportChainsX): Promise<string>
     importToCChain(sourceChain: ExportChainsC, baseFee: BN, utxoSet?: EVMUTXOSet): Promise<string>
-    issueBatchTx(orders: (AVMUTXO | ITransaction)[], addr: string, memo?: Buffer): Promise<string>
-    buildUnsignedTransaction(orders: (AVMUTXO | ITransaction)[], addr: string, memo?: Buffer): Promise<AVMUnsignedTx>
+    /**
+     * `utxoset` (optional) restricts coin selection to these UTXOs — the
+     * transfer page's coin control. Without it, the wallet's whole set.
+     */
+    issueBatchTx(orders: (AVMUTXO | ITransaction)[], addr: string, memo?: Buffer, utxoset?: AVMUTXOSet): Promise<string>
+    buildUnsignedTransaction(
+        orders: (AVMUTXO | ITransaction)[],
+        addr: string,
+        memo?: Buffer,
+        utxoset?: AVMUTXOSet
+    ): Promise<AVMUnsignedTx>
     signMessage(msg: string, address: string): Promise<string>
 }
 

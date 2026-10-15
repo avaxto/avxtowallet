@@ -3,6 +3,7 @@
         <label>{{ $t('transfer.source_chain.title') }}</label>
         <div class="chain_select">
             <button type="button" :active="modelValue === 'X'" @click="set('X')">X</button>
+            <button type="button" :active="modelValue === 'P'" @click="set('P')">P</button>
             <button type="button" :active="modelValue === 'C'" @click="set('C')">C</button>
         </div>
     </div>
@@ -96,7 +97,7 @@ label {
     .chain_select {
         width: 100%;
         display: grid;
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns: 1fr 1fr 1fr;
         column-gap: 14px;
         > button {
             margin: 0;

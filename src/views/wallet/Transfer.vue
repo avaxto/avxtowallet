@@ -18,6 +18,10 @@
             <FormC v-else v-show="formType === 'C'">
                 <ChainInput v-if="hasXChain" v-model="formType" :disabled="isConfirm"></ChainInput>
             </FormC>
+            <!-- P-Chain → P-Chain sends, with coin control (js/pChainSend.ts). -->
+            <FormP v-if="hasXChain && !isSolana && !isBitcoin && formType === 'P'">
+                <ChainInput v-model="formType"></ChainInput>
+            </FormP>
             <div class="new_order_Form" v-if="hasXChain" v-show="formType === 'X'">
                 <div class="batch_toggle_row">
                     <ChainInput
@@ -95,6 +99,13 @@
                                 :disabled="isConfirm"
                             ></textarea>
                         </div>
+                        <CoinControl
+                            v-model="coinPicked"
+                            v-model:enabled="coinEnabled"
+                            :rows="xCoinRows"
+                            :assets="coinAssets"
+                            :disabled="isConfirm"
+                        ></CoinControl>
                         <UtxoPreview :preview="utxoPreview"></UtxoPreview>
                         <div class="fees">
                             <p>
@@ -229,6 +240,7 @@ import { Wallet } from '@/js/wallets/AbstractWallet'
 import { bnToBig } from '@/helpers/helper'
 import * as bip39 from 'bip39'
 import FormC from '@/components/wallet/transfer/FormC.vue'
+import FormP from '@/components/wallet/transfer/FormP.vue'
 import SolanaSendForm from '@/components/wallet/transfer/SolanaSendForm.vue'
 import BitcoinSendForm from '@/components/wallet/transfer/BitcoinSendForm.vue'
 import { ChainIdType } from '@/constants'
@@ -238,6 +250,8 @@ import BatchFormX from '@/components/wallet/transfer/BatchFormX.vue'
 import MultisigFormX from '@/components/wallet/transfer/MultisigFormX.vue'
 import MultisigSpendFormX from '@/components/wallet/transfer/MultisigSpendFormX.vue'
 import UtxoPreview from '@/components/wallet/transfer/UtxoPreview.vue'
+import CoinControl from '@/components/wallet/transfer/CoinControl.vue'
+import { listXCoins, restrictedSet } from '@/js/coinControl'
 import { previewFromTx } from '@/js/utxoPreview'
 import type { UtxoPreview as UtxoPreviewData } from '@/js/utxoPreview'
 import AvaAsset from '../../js/AvaAsset'
@@ -259,6 +273,7 @@ export default defineComponent({
         NftList,
         TxSummary,
         FormC,
+        FormP,
         SolanaSendForm,
         BitcoinSendForm,
         ChainInput,
@@ -266,6 +281,7 @@ export default defineComponent({
         MultisigFormX,
         MultisigSpendFormX,
         UtxoPreview,
+        CoinControl,
     },
     setup() {
         const mainStore = useMainStore()
@@ -358,6 +374,39 @@ export default defineComponent({
         const utxoPreview = ref<UtxoPreviewData | null>(null)
         let previewToken = 0
 
+        /**
+         * Coin control (components/wallet/transfer/CoinControl.vue): when on,
+         * the send may only spend the ticked UTXOs. The builder runs against
+         * a set holding just those (plus the NFTs being sent), so the preview
+         * below and the signed transaction both reflect the choice.
+         */
+        const coinEnabled = ref(false)
+        const coinPicked = ref<string[]>([])
+        const xCoinRows = computed(() => {
+            const w = mainStore.activeWallet as Wallet | null
+            // Re-read whenever the balances refresh: balanceDict is replaced on every UTXO update.
+            void assetsStore.balanceDict
+            if (!w) return []
+            return listXCoins(w.getUTXOSet(), w.getDerivedAddresses())
+        })
+        const coinAssets = computed(() => {
+            const out: Record<string, { symbol: string; denomination: number }> = {}
+            for (const [id, a] of Object.entries(assetsStore.assetsDict)) out[id] = { symbol: a.symbol, denomination: a.denomination }
+            return out
+        })
+        /** The restricted set when coin control is on, else undefined (the whole wallet). */
+        const coinSet = () => {
+            const w = mainStore.activeWallet as Wallet | null
+            if (!w || !coinEnabled.value) return undefined
+            return restrictedSet(w.getUTXOSet(), coinPicked.value, [...nftOrders.value])
+        }
+        // A refresh can spend or replace UTXOs: drop picks that no longer exist.
+        watch(xCoinRows, (rows) => {
+            const live = new Set(rows.filter((r) => r.spendable).map((r) => r.utxoId))
+            const kept = coinPicked.value.filter((id) => live.has(id))
+            if (kept.length !== coinPicked.value.length) coinPicked.value = kept
+        })
+
         const refreshUtxoPreview = async () => {
             const token = ++previewToken
             // Reads the store directly rather than the `wallet` computed,
@@ -376,7 +425,11 @@ export default defineComponent({
                 // half-typed. Using it avoids a preview that flickers in only
                 // once a valid address happens to be present.
                 const destination = addressIn.value.trim() || w.getCurrentAddressAvm()
-                const unsignedTx = await w.buildUnsignedTransaction(activeOrders, destination)
+                if (coinEnabled.value && coinPicked.value.length === 0) {
+                    utxoPreview.value = null
+                    return
+                }
+                const unsignedTx = await w.buildUnsignedTransaction(activeOrders, destination, undefined, coinSet())
 
                 // A slow build for an older set of orders must not overwrite a
                 // newer one's result.
@@ -408,7 +461,7 @@ export default defineComponent({
 
         let previewTimer: ReturnType<typeof setTimeout> | undefined
         watch(
-            [orders, nftOrders, addressIn],
+            [orders, nftOrders, addressIn, coinEnabled, coinPicked],
             () => {
                 clearTimeout(previewTimer)
                 previewTimer = setTimeout(refreshUtxoPreview, 250)
@@ -521,6 +574,8 @@ export default defineComponent({
             nftOrders.value = []
             formOrders.value = []
             formNftOrders.value = []
+            coinPicked.value = []
+            coinEnabled.value = false
         }
 
         const clearForm = () => {
@@ -583,6 +638,7 @@ export default defineComponent({
                 toAddress: formAddress.value,
                 memo: Buffer.from(formMemo.value),
                 orders: sumArray,
+                utxoset: coinSet(),
             }
 
             authorizeSingle(wallet.value, 'Send an X-chain transaction', () =>
@@ -657,6 +713,8 @@ export default defineComponent({
             }
 
             if (orders.value.length === 0 && nftOrders.value.length === 0) return false
+
+            if (coinEnabled.value && coinPicked.value.length === 0) return false
 
             return true
         })
@@ -768,6 +826,10 @@ export default defineComponent({
             spendMultisigMode,
             onSpendMultisigToggle,
             utxoPreview,
+            coinEnabled,
+            coinPicked,
+            xCoinRows,
+            coinAssets,
             multisigMode,
             onBatchToggle,
             onMultisigToggle,

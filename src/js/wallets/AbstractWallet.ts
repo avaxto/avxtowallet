@@ -31,6 +31,7 @@ import { defineChain } from 'viem'
 import { createAvalancheWalletClient } from '@avalanche-sdk/client'
 import { activeNetwork } from '@/avalanche-wallet-sdk/Network/network'
 import { delegatePermissionlessLocal } from '@/js/permissionlessDelegate'
+import { signAndIssuePLocal, type PSendPreview } from '@/js/pChainSend'
 import { issueC, issueP, issueX } from '@/helpers/issueTx'
 import { restoreEvmExportSigners } from '@/js/wallets/evmExportSigners'
 import { sortUTxoSetP } from '@/helpers/sortUTXOs'
@@ -159,15 +160,21 @@ abstract class AbstractWallet implements AvaWalletCore {
         token: Erc20Token
     ): Promise<string>
     abstract estimateGas(to: string, amount: BN, token: Erc20Token): Promise<number>
+    /**
+     * `utxoset` (optional) restricts coin selection to these UTXOs — the
+     * transfer page's coin control. Without it, the wallet's whole set.
+     */
     abstract issueBatchTx(
         orders: (AVMUTXO | ITransaction)[],
         addr: string,
-        memo?: Buffer
+        memo?: Buffer,
+        utxoset?: AVMUTXOSet
     ): Promise<string>
     abstract buildUnsignedTransaction(
         orders: (AVMUTXO | ITransaction)[],
         addr: string,
-        memo?: Buffer
+        memo?: Buffer,
+        utxoset?: AVMUTXOSet
     ): Promise<AVMUnsignedTx>
 
     /**
@@ -697,6 +704,29 @@ abstract class AbstractWallet implements AvaWalletCore {
             { nodeID, amount: amt, end, fromAddresses, changeAddress, rewardAddress },
             xpAccounts
         )
+    }
+
+    /**
+     * Where a P-Chain send (js/pChainSend.ts) spends from: every P address
+     * the wallet has, change back to index 0 (the same choice delegate()
+     * makes). No public key: a local wallet's preview builds with a
+     * placeholder, since every address is passed explicitly.
+     */
+    async pSendSource(): Promise<{ fromAddresses: string[]; changeAddress: string; publicKey?: string }> {
+        return { fromAddresses: this.getAllAddressesP(), changeAddress: this.getIndexZeroAddressPlatform() }
+    }
+
+    /**
+     * Signs and issues a previewed P-Chain send with this wallet's own keys —
+     * the same accounts delegate() signs with (every scanned P address for
+     * mnemonic and private-key wallets; the primary one for Ledger).
+     */
+    async issuePSend(preview: PSendPreview): Promise<string> {
+        const xpAccounts = await this.getXPAccountsForDelegation()
+        if (xpAccounts.length === 0) {
+            throw new Error('This wallet type cannot sign a P-Chain transaction locally.')
+        }
+        return signAndIssuePLocal(preview, xpAccounts)
     }
 }
 export { AbstractWallet }
