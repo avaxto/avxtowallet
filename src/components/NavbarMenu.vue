@@ -100,6 +100,9 @@
                 <v-list-item to="/wallet/soladdr">
                     <v-list-item-title>Decode Solana Address</v-list-item-title>
                 </v-list-item>
+                <v-list-item to="/wallet/xexplorer">
+                    <v-list-item-title>X-Chain Explorer</v-list-item-title>
+                </v-list-item>
                 <v-list-item v-if="isBitcoin" to="/wallet/btcderive">
                     <v-list-item-title>Bitcoin Derived Addresses</v-list-item-title>
                 </v-list-item>

@@ -37,6 +37,7 @@ import Psat from '@/views/wallet/Psat.vue'
 import Log from '@/views/wallet/Log.vue'
 import SolAddr from '@/views/wallet/SolAddr.vue'
 import BitcoinDerive from '@/views/wallet/BitcoinDerive.vue'
+import XExplorer from '@/views/wallet/XExplorer.vue'
 import Account from '@/views/access/Account.vue'
 import { useMainStore } from '@/stores'
 import Export from '@/views/wallet/CrossChain.vue'
@@ -405,6 +406,10 @@ const routes: RouteRecordRaw[] = [
             {
                 path: 'btcderive',
                 component: BitcoinDerive,
+            },
+            {
+                path: 'xexplorer',
+                component: XExplorer,
             },
         ],
         component: Wallet,

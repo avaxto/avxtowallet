@@ -1,0 +1,214 @@
+// Shared look for the X-Chain explorer components (/wallet/xexplorer).
+
+.card {
+    background: var(--bg-light);
+    border-radius: 10px;
+    padding: 16px 18px;
+    margin-bottom: 14px;
+}
+
+h3 {
+    font-size: 15px;
+    font-weight: 600;
+    margin: 0 0 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.count {
+    font-size: 12px;
+    font-weight: normal;
+    color: var(--primary-color-light);
+}
+
+.fields {
+    display: grid;
+    grid-template-columns: minmax(120px, max-content) 1fr;
+    gap: 6px 14px;
+    margin: 0;
+    font-size: 13px;
+
+    dt {
+        color: var(--primary-color-light);
+    }
+
+    dd {
+        margin: 0;
+        min-width: 0;
+        overflow-wrap: anywhere;
+    }
+
+    @media (max-width: 600px) {
+        grid-template-columns: 1fr;
+        gap: 2px;
+
+        dd {
+            margin-bottom: 8px;
+        }
+    }
+}
+
+.mono {
+    font-family: monospace;
+    overflow-wrap: anywhere;
+}
+
+.small {
+    font-size: 12px;
+    color: var(--primary-color-light);
+}
+
+.muted {
+    color: var(--primary-color-light);
+}
+
+.link {
+    color: var(--secondary-color);
+    text-align: left;
+    overflow-wrap: anywhere;
+    padding: 0;
+
+    &:hover {
+        text-decoration: underline;
+    }
+
+    &.me {
+        font-weight: 700;
+    }
+}
+
+.badge {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: normal;
+    padding: 1px 8px;
+    border-radius: 10px;
+    background: var(--bg);
+    color: var(--primary-color-light);
+
+    &.unspent,
+    &.in {
+        color: var(--success);
+    }
+
+    &.spent,
+    &.out {
+        color: var(--primary-color-light);
+    }
+}
+
+.pos {
+    color: var(--success);
+}
+
+.neg {
+    color: var(--error);
+}
+
+.copy {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    vertical-align: middle;
+    margin-left: 4px;
+}
+
+.utxo {
+    border: 1px solid var(--bg);
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin-bottom: 8px;
+
+    &.highlight {
+        border-color: var(--secondary-color);
+    }
+}
+
+.utxo_head {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 8px;
+
+    .amount {
+        font-weight: 600;
+        font-size: 15px;
+    }
+}
+
+.cred {
+    padding: 4px 0;
+
+    & + & {
+        border-top: 1px dashed var(--bg);
+    }
+}
+
+.raw {
+    margin-top: 10px;
+    font-size: 12px;
+
+    summary {
+        cursor: pointer;
+        color: var(--primary-color-light);
+    }
+
+    pre {
+        margin-top: 6px;
+        max-height: 420px;
+        overflow: auto;
+        padding: 10px;
+        background: var(--bg);
+        border-radius: 6px;
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+    }
+}
+
+.more_btn {
+    margin-top: 8px;
+    font-size: 13px;
+    color: var(--secondary-color);
+
+    &:disabled {
+        opacity: 0.5;
+    }
+}
+
+.err {
+    color: var(--error);
+    font-size: 13px;
+}
+
+table.list {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+
+    th {
+        text-align: left;
+        font-weight: normal;
+        color: var(--primary-color-light);
+        padding: 4px 6px;
+        border-bottom: 1px solid var(--bg);
+    }
+
+    td {
+        padding: 6px;
+        border-bottom: 1px solid var(--bg);
+        vertical-align: top;
+        overflow-wrap: anywhere;
+    }
+
+    .num {
+        text-align: right;
+        white-space: nowrap;
+    }
+}
+
+.table_wrap {
+    overflow-x: auto;
+}
