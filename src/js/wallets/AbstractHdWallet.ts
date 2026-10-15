@@ -29,6 +29,7 @@ import { SigIdx } from '@/avalanche/common'
 import { getPreferredHRP } from '@/avalanche/utils'
 import { ChainIdType } from '@/constants'
 import { pinia, useAssetsStore } from '@/stores'
+import type { SpendOptions } from '@/js/wallets/types'
 
 /**
  * The HD indices whose private keys a transaction actually needs in order to
@@ -403,11 +404,11 @@ abstract class AbstractHdWallet extends AbstractWallet {
         orders: (ITransaction | UTXO)[],
         addr: string,
         memo?: Buffer,
-        only?: AVMUTXOSet
+        opts?: SpendOptions
     ) {
-        const changeAddress = this.getChangeAddressAvm()
+        const changeAddress = opts?.changeAddress ?? this.getChangeAddressAvm()
         const derivedAddresses: string[] = this.getDerivedAddresses()
-        const utxoset = only ?? this.getUTXOSet()
+        const utxoset = opts?.utxoset ?? this.getUTXOSet()
 
         return buildUnsignedTransaction(
             orders,

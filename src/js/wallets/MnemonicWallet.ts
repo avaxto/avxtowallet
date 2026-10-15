@@ -63,6 +63,7 @@ import { AuthHandle, AuthScope, requireAuth } from '@/js/security/session'
 import { secretFromString, secretToString, wipe } from '@/js/security/memory'
 import { privateKeyToXPAccount } from '@avalanche-sdk/client/accounts'
 import { AVA_ACCOUNT_PATH, ETH_ACCOUNT_PATH, LEDGER_ETH_ACCOUNT_PATH } from '@/js/wallets/constants'
+import type { SpendOptions } from '@/js/wallets/types'
 
 export { AVA_ACCOUNT_PATH, ETH_ACCOUNT_PATH, LEDGER_ETH_ACCOUNT_PATH }
 
@@ -341,9 +342,9 @@ export default class MnemonicWallet extends AbstractHdWallet implements IAvaHdWa
         orders: (ITransaction | AVMUTXO)[],
         addr: string,
         memo: BufferAvalanche | undefined,
-        only?: AVMUTXOSet
+        opts?: SpendOptions
     ): Promise<string> {
-        return await WalletHelper.issueBatchTx(this, orders, addr, memo, only)
+        return await WalletHelper.issueBatchTx(this, orders, addr, memo, opts)
     }
 
     /**

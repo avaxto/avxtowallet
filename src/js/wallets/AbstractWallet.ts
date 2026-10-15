@@ -48,6 +48,7 @@ import {
 } from '@avalabs/glacier-sdk'
 import { toChecksumAddress } from 'ethereumjs-util'
 import uniqid from 'uniqid'
+import type { SpendOptions } from '@/js/wallets/types'
 
 abstract class AbstractWallet implements AvaWalletCore {
     id: string
@@ -168,13 +169,13 @@ abstract class AbstractWallet implements AvaWalletCore {
         orders: (AVMUTXO | ITransaction)[],
         addr: string,
         memo?: Buffer,
-        utxoset?: AVMUTXOSet
+        opts?: SpendOptions
     ): Promise<string>
     abstract buildUnsignedTransaction(
         orders: (AVMUTXO | ITransaction)[],
         addr: string,
         memo?: Buffer,
-        utxoset?: AVMUTXOSet
+        opts?: SpendOptions
     ): Promise<AVMUnsignedTx>
 
     /**

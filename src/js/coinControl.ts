@@ -34,6 +34,8 @@ export interface CoinRow {
     amount: BN
     /** Owner addresses, chain-prefixed ("X-avax1…", "P-avax1…"). */
     owners: string[]
+    /** The first owner that is this wallet's own address: where "change to the same address" sends it. */
+    ownAddress?: string
     threshold: number
     /** Unix seconds; 0 = no lock. */
     locktime: number
@@ -57,6 +59,11 @@ export function unspendableReason(owners: string[], threshold: number, locktime:
     return undefined
 }
 
+/** The first of `owners` that belongs to the wallet, chain prefix kept. */
+export function firstOwn(owners: string[], ownAddresses: Set<string>): string | undefined {
+    return owners.find((o) => ownAddresses.has(o.replace(/^[XPC]-/, '')))
+}
+
 /**
  * The wallet's fungible X-Chain UTXOs (plain secp256k1 transfer outputs), largest
  * first. NFTs are picked separately on the transfer page and aren't listed.
@@ -78,6 +85,7 @@ export function listXCoins(utxoSet: AVMUTXOSet, ownAddresses: string[], now = Da
             assetId: bintools.cb58Encode(utxo.getAssetID()),
             amount: (out as any).getAmount() as BN,
             owners,
+            ownAddress: firstOwn(owners, own),
             threshold,
             locktime,
             spendable: !reason,

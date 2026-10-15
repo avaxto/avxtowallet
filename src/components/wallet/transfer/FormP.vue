@@ -38,6 +38,7 @@
         <CoinControl
             v-model="picked"
             v-model:enabled="coinEnabled"
+            v-model:sameChange="sameChange"
             :rows="rows"
             :assets="assetMeta"
             :loading="loadingUtxos"
@@ -55,6 +56,7 @@
             </ul>
             <p><span class="label">Fee</span> {{ fmtAvax(preview.fee) }} AVAX</p>
             <p><span class="label">Change back to you</span> {{ fmtAvax(preview.change) }} AVAX</p>
+            <p v-if="changeOverride" class="hint">Change goes to the spent UTXO’s own address: <span class="mono">{{ changeOverride }}</span></p>
         </div>
         <p v-else-if="previewError" class="err">{{ previewError }}</p>
         <p v-else-if="previewing" class="hint">Working out the fee…</p>
@@ -139,6 +141,12 @@ export default defineComponent({
         const utxoError = ref('')
         const coinEnabled = ref(false)
         const picked = ref<string[]>([])
+        /** With exactly one UTXO picked: change back to that UTXO's own address. */
+        const sameChange = ref(false)
+        const changeOverride = computed(() => {
+            if (!coinEnabled.value || !sameChange.value || picked.value.length !== 1) return undefined
+            return rows.value.find((r) => r.utxoId === picked.value[0])?.ownAddress
+        })
         const avaxId = computed(() => assetsStore.AssetAVA?.id ?? '')
         const assetMeta = computed(() => (avaxId.value ? { [avaxId.value]: { symbol: 'AVAX', denomination: 9 } } : {}))
         const spendableTotal = computed(() => rows.value.filter((r) => r.spendable).reduce((s, r) => s.add(r.amount), new BN(0)))
@@ -211,7 +219,7 @@ export default defineComponent({
                 amount,
                 memo: memoIn.value || undefined,
                 fromAddresses: src.fromAddresses,
-                changeAddress: src.changeAddress,
+                changeAddress: changeOverride.value ?? src.changeAddress,
                 utxos: chosen,
                 publicKey: src.publicKey,
             })
@@ -237,7 +245,7 @@ export default defineComponent({
             }
         }
         let timer: ReturnType<typeof setTimeout> | undefined
-        watch([toIn, amountIn, memoIn, coinEnabled, picked], () => {
+        watch([toIn, amountIn, memoIn, coinEnabled, picked, sameChange], () => {
             if (isConfirm.value) return
             clearTimeout(timer)
             timer = setTimeout(refreshPreview, 400)
@@ -308,6 +316,7 @@ export default defineComponent({
             memoIn.value = ''
             picked.value = []
             coinEnabled.value = false
+            sameChange.value = false
             preview.value = null
             txId.value = ''
             err.value = ''
@@ -335,6 +344,8 @@ export default defineComponent({
             utxoError,
             coinEnabled,
             picked,
+            sameChange,
+            changeOverride,
             assetMeta,
             spendableTotal,
             lockedTotal,

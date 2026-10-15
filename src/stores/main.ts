@@ -563,7 +563,7 @@ export const useMainStore = defineStore('main', () => {
         const memo = data.memo
 
         try {
-            const txId: string = await wallet.issueBatchTx(orders, toAddr, memo, data.utxoset)
+            const txId: string = await wallet.issueBatchTx(orders, toAddr, memo, { utxoset: data.utxoset, changeAddress: data.changeAddress })
             return txId
         } catch (e) {
             throw e

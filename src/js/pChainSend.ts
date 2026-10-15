@@ -27,7 +27,7 @@ import { BN } from '@/avalanche'
 import { activeNetwork } from '@/avalanche-wallet-sdk/Network/network'
 import { NODE_MAX_UTXO_ADDRESSES } from '@/helpers/apiLimits'
 import { makeChain, sendPViaProvider, signLocallyAndIssueP } from '@/js/permissionlessDelegate'
-import { unspendableReason, type CoinRow } from '@/js/coinControl'
+import { firstOwn, unspendableReason, type CoinRow } from '@/js/coinControl'
 
 /** Any valid compressed secp256k1 key (the curve generator): only used to satisfy the SDK's account check. */
 const PLACEHOLDER_PUBKEY = '0x0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798'
@@ -86,6 +86,7 @@ export function pCoinRows(utxos: Utxo[], ownAddresses: string[], hrp: string, av
             assetId: info.assetId,
             amount: new BN(info.amount.toString()),
             owners,
+            ownAddress: firstOwn(owners, own),
             threshold: info.threshold,
             locktime: Math.max(locktime, stakeLock),
             spendable: !reason,

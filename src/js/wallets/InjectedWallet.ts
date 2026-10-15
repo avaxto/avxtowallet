@@ -80,6 +80,7 @@ import {
 import { avalanche } from 'viem/chains'
 import { injectedAccountName, injectedWalletName, type InjectedAccountName } from './injectedWalletName'
 import { address } from 'bitcoinjs-lib'
+import type { SpendOptions } from '@/js/wallets/types'
 
 
 /**
@@ -612,11 +613,11 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
         orders: (ITransaction | UTXO)[],
         addr: string,
         memo?: BufferAvalanche,
-        only?: AVMUTXOSet
+        opts?: SpendOptions
     ) {
-        const changeAddress = this.getChangeAddressAvm()
+        const changeAddress = opts?.changeAddress ?? this.getChangeAddressAvm()
         const derivedAddresses: string[] = this.getDerivedAddresses()
-        const utxoset = only ?? this.getUTXOSet()
+        const utxoset = opts?.utxoset ?? this.getUTXOSet()
         return buildUnsignedTransaction(orders, addr, derivedAddresses, utxoset, changeAddress, memo)
     }
 
@@ -624,9 +625,9 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
         orders: (ITransaction | AVMUTXO)[],
         addr: string,
         memo: BufferAvalanche | undefined,
-        only?: AVMUTXOSet
+        opts?: SpendOptions
     ): Promise<string> {
-        const unsignedTx = await this.buildUnsignedTransaction(orders, addr, memo, only)
+        const unsignedTx = await this.buildUnsignedTransaction(orders, addr, memo, opts)
 
         // Populate SigIdx sources (required before calling getSigIdxs)
         unsignedTx.toBuffer()

@@ -58,6 +58,17 @@ interface IAddressManager {
 }
 
 // Every AVA Wallet must implement this.
+/**
+ * Coin control for an X-Chain send (the transfer page). Both optional; omitted,
+ * the wallet chooses as usual.
+ */
+export interface SpendOptions {
+    /** Spend only from these UTXOs. */
+    utxoset?: AVMUTXOSet
+    /** Send the change here instead of the wallet's own change address. */
+    changeAddress?: string
+}
+
 export interface AvaWalletCore extends IAddressManager {
     id: string // a random string assigned as ID to distinguish between wallets
     type: WalletNameType
@@ -116,16 +127,13 @@ export interface AvaWalletCore extends IAddressManager {
     importToPlatformChain(sourceChain: ExportChainsP): Promise<string>
     importToXChain(sourceChain: ExportChainsX): Promise<string>
     importToCChain(sourceChain: ExportChainsC, baseFee: BN, utxoSet?: EVMUTXOSet): Promise<string>
-    /**
-     * `utxoset` (optional) restricts coin selection to these UTXOs — the
-     * transfer page's coin control. Without it, the wallet's whole set.
-     */
-    issueBatchTx(orders: (AVMUTXO | ITransaction)[], addr: string, memo?: Buffer, utxoset?: AVMUTXOSet): Promise<string>
+    /** `opts`: the transfer page's coin control — see SpendOptions. */
+    issueBatchTx(orders: (AVMUTXO | ITransaction)[], addr: string, memo?: Buffer, opts?: SpendOptions): Promise<string>
     buildUnsignedTransaction(
         orders: (AVMUTXO | ITransaction)[],
         addr: string,
         memo?: Buffer,
-        utxoset?: AVMUTXOSet
+        opts?: SpendOptions
     ): Promise<AVMUnsignedTx>
     signMessage(msg: string, address: string): Promise<string>
 }

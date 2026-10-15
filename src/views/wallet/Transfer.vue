@@ -102,6 +102,7 @@
                         <CoinControl
                             v-model="coinPicked"
                             v-model:enabled="coinEnabled"
+                            v-model:sameChange="coinSameChange"
                             :rows="xCoinRows"
                             :assets="coinAssets"
                             :disabled="isConfirm"
@@ -382,6 +383,12 @@ export default defineComponent({
          */
         const coinEnabled = ref(false)
         const coinPicked = ref<string[]>([])
+        /** With exactly one UTXO picked: change back to that UTXO's own address. */
+        const coinSameChange = ref(false)
+        const coinChangeAddress = computed(() => {
+            if (!coinEnabled.value || !coinSameChange.value || coinPicked.value.length !== 1) return undefined
+            return xCoinRows.value.find((r) => r.utxoId === coinPicked.value[0])?.ownAddress
+        })
         const xCoinRows = computed(() => {
             const w = mainStore.activeWallet as Wallet | null
             // Re-read whenever the balances refresh: balanceDict is replaced on every UTXO update.
@@ -429,7 +436,10 @@ export default defineComponent({
                     utxoPreview.value = null
                     return
                 }
-                const unsignedTx = await w.buildUnsignedTransaction(activeOrders, destination, undefined, coinSet())
+                const unsignedTx = await w.buildUnsignedTransaction(activeOrders, destination, undefined, {
+                    utxoset: coinSet(),
+                    changeAddress: coinChangeAddress.value,
+                })
 
                 // A slow build for an older set of orders must not overwrite a
                 // newer one's result.
@@ -461,7 +471,7 @@ export default defineComponent({
 
         let previewTimer: ReturnType<typeof setTimeout> | undefined
         watch(
-            [orders, nftOrders, addressIn, coinEnabled, coinPicked],
+            [orders, nftOrders, addressIn, coinEnabled, coinPicked, coinSameChange],
             () => {
                 clearTimeout(previewTimer)
                 previewTimer = setTimeout(refreshUtxoPreview, 250)
@@ -576,6 +586,7 @@ export default defineComponent({
             formNftOrders.value = []
             coinPicked.value = []
             coinEnabled.value = false
+            coinSameChange.value = false
         }
 
         const clearForm = () => {
@@ -639,6 +650,7 @@ export default defineComponent({
                 memo: Buffer.from(formMemo.value),
                 orders: sumArray,
                 utxoset: coinSet(),
+                changeAddress: coinChangeAddress.value,
             }
 
             authorizeSingle(wallet.value, 'Send an X-chain transaction', () =>
@@ -828,6 +840,7 @@ export default defineComponent({
             utxoPreview,
             coinEnabled,
             coinPicked,
+            coinSameChange,
             xCoinRows,
             coinAssets,
             multisigMode,

@@ -44,8 +44,8 @@ const sendLayer = {
     preparePSend: jest.fn(),
 }
 const rowsP: CoinRow[] = [
-    { utxoId: 'u1', txId: 'tx1', outputIdx: 0, assetId: 'AVAXID', amount: new BN(5_000_000_000), owners: ['P-avax1me'], threshold: 1, locktime: 0, spendable: true },
-    { utxoId: 'u2', txId: 'tx2', outputIdx: 0, assetId: 'AVAXID', amount: new BN(2_000_000_000), owners: ['P-avax1me'], threshold: 1, locktime: 0, spendable: true },
+    { utxoId: 'u1', txId: 'tx1', outputIdx: 0, assetId: 'AVAXID', amount: new BN(5_000_000_000), owners: ['P-avax1me'], ownAddress: 'P-avax1me', threshold: 1, locktime: 0, spendable: true },
+    { utxoId: 'u2', txId: 'tx2', outputIdx: 0, assetId: 'AVAXID', amount: new BN(2_000_000_000), owners: ['P-avax1me2'], ownAddress: 'P-avax1me2', threshold: 1, locktime: 0, spendable: true },
     { utxoId: 'u3', txId: 'tx3', outputIdx: 0, assetId: 'AVAXID', amount: new BN(9_000_000_000), owners: ['P-avax1me'], threshold: 1, locktime: 99, spendable: false, reason: 'stake-locked until …' },
 ]
 jest.mock('@/js/pChainSend', () => ({
@@ -114,6 +114,29 @@ describe('the coin-control picker', () => {
     })
 })
 
+describe('change back to the same address', () => {
+    const mountPicker = (props: Record<string, unknown> = {}) =>
+        mount(CoinControl, { props: { rows: rowsP, modelValue: [], enabled: true, assets: { AVAXID: { symbol: 'AVAX', denomination: 9 } }, ...props }, global: { stubs } })
+
+    it('is offered only when exactly one UTXO is picked, naming its address', async () => {
+        const w = mountPicker({ modelValue: ['u2'] })
+        expect(w.find('.same_change').text()).toContain('P-avax1me2')
+        await w.setProps({ modelValue: ['u1', 'u2'] })
+        expect(w.find('.same_change').exists()).toBe(false)
+        await w.setProps({ modelValue: [] })
+        expect(w.find('.same_change').exists()).toBe(false)
+    })
+
+    it('switches itself off when the selection changes', async () => {
+        const w = mountPicker({ modelValue: ['u2'] })
+        await w.find('.same_change input').setValue(true)
+        expect(w.emitted('update:sameChange')!.at(-1)).toEqual([true])
+        await w.setProps({ sameChange: true }) // the parent applies it
+        await w.setProps({ modelValue: ['u1'] })
+        expect(w.emitted('update:sameChange')!.at(-1)).toEqual([false])
+    })
+})
+
 describe('the P-Chain send form', () => {
     const fill = async (w: any, to = 'P-avax1dest', amount = '1') => {
         await w.find('.qr').setValue(to)
@@ -164,6 +187,22 @@ describe('the P-Chain send form', () => {
         await settle()
         const params = sendLayer.preparePSend.mock.calls.at(-1)![0]
         expect(params.utxos.map((u: any) => u.ID())).toEqual(['u2'])
+        w.unmount()
+    })
+
+    it('sends the change to the picked UTXO’s own address when asked', async () => {
+        sendLayer.preparePSend.mockResolvedValue(preview([{ utxoId: 'u2', amount: 2_000_000_000 }], 1_000_000, 999_000_000))
+        const w = mount(FormP, { global: { stubs } })
+        await flushPromises()
+        await w.find('.switch').setValue(true)
+        await w.findAll('.rows input[type=checkbox]')[1].setValue(true) // u2, owned by P-avax1me2
+        await fill(w)
+        await settle()
+        expect(sendLayer.preparePSend.mock.calls.at(-1)![0].changeAddress).toBe('P-avax1me')
+        await w.find('.same_change input').setValue(true)
+        await settle()
+        expect(sendLayer.preparePSend.mock.calls.at(-1)![0].changeAddress).toBe('P-avax1me2')
+        expect(w.find('.preview').text()).toContain('P-avax1me2')
         w.unmount()
     })
 

@@ -37,6 +37,7 @@ import { markRaw } from 'vue'
 import { SessionVault } from '@/js/security/SessionVault'
 import { AuthHandle, AuthScope, requireAuth } from '@/js/security/session'
 import { destroyKeyPair } from '@/js/security/memory'
+import type { SpendOptions } from '@/js/wallets/types'
 
 class SingletonWallet extends AbstractWallet implements AvaWalletCore {
     chainId: string
@@ -222,11 +223,11 @@ class SingletonWallet extends AbstractWallet implements AvaWalletCore {
         orders: (ITransaction | UTXO)[],
         addr: string,
         memo?: BufferAvalanche,
-        only?: AVMUTXOSet
+        opts?: SpendOptions
     ) {
-        const changeAddress = this.getChangeAddressAvm()
+        const changeAddress = opts?.changeAddress ?? this.getChangeAddressAvm()
         const derivedAddresses = this.getDerivedAddresses()
-        const utxoset = only ?? (this.getUTXOSet() as AVMUTXOSet)
+        const utxoset = opts?.utxoset ?? (this.getUTXOSet() as AVMUTXOSet)
 
         return buildUnsignedTransaction(
             orders,
@@ -242,9 +243,9 @@ class SingletonWallet extends AbstractWallet implements AvaWalletCore {
         orders: (ITransaction | AVMUTXO)[],
         addr: string,
         memo: BufferAvalanche | undefined,
-        only?: AVMUTXOSet
+        opts?: SpendOptions
     ): Promise<string> {
-        return await WalletHelper.issueBatchTx(this, orders, addr, memo, only)
+        return await WalletHelper.issueBatchTx(this, orders, addr, memo, opts)
     }
 
     onnetworkchange(): void {

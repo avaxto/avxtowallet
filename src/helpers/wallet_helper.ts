@@ -1,6 +1,6 @@
 import { ava, cChain, pChain } from '@/AVA'
 import { UTXOSet as PlatformUTXOSet, UTXO as PlatformUTXO } from '@/avalanche/apis/platformvm/utxos'
-import { UTXO as AVMUTXO, UTXOSet as AVMUTXOSet } from '@/avalanche/apis/avm/utxos'
+import { UTXO as AVMUTXO } from '@/avalanche/apis/avm/utxos'
 import { AvaWalletCore } from '@/js/wallets/types'
 import { InjectedWallet } from '@/js/wallets/InjectedWallet'
 
@@ -27,6 +27,7 @@ import ERC721Token from '@/js/ERC721Token'
 import { issueP, issueX } from '@/helpers/issueTx'
 import { sortUTxoSetP } from '@/helpers/sortUTXOs'
 import glacier from '@/js/Glacier/Glacier'
+import type { SpendOptions } from '@/js/wallets/types'
 
 class WalletHelper {
     static async createNftFamily(
@@ -86,9 +87,9 @@ class WalletHelper {
         orders: (ITransaction | AVMUTXO)[],
         addr: string,
         memo: Buffer | undefined,
-        only?: AVMUTXOSet
+        opts?: SpendOptions
     ): Promise<string> {
-        const unsignedTx = await wallet.buildUnsignedTransaction(orders, addr, memo, only)
+        const unsignedTx = await wallet.buildUnsignedTransaction(orders, addr, memo, opts)
         const tx = await wallet.signX(unsignedTx)
         const txId: string = await issueX(tx)
 

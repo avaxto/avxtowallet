@@ -61,6 +61,13 @@
                     <span class="hint">Selected:</span>
                     <span v-for="(amt, assetId) in totals" :key="assetId" class="total">{{ fmtAmount(assetId, amt) }}</span>
                 </div>
+                <label v-if="onlyRow && onlyRow.ownAddress" class="same_change">
+                    <input type="checkbox" :checked="sameChange" :disabled="disabled" @change="onSameChange" />
+                    <span>
+                        Send the change back to the same address
+                        <span class="mono addr">{{ onlyRow.ownAddress }}</span>
+                    </span>
+                </label>
                 <p v-if="!picked.length" class="err">Select at least one UTXO, or turn coin control off.</p>
             </template>
         </div>
@@ -68,7 +75,7 @@
 </template>
 
 <script lang="ts">
-import { computed, defineComponent, type PropType } from 'vue'
+import { computed, defineComponent, watch, type PropType } from 'vue'
 import Big from 'big.js'
 import type { BN } from '@/avalanche'
 import { pickedTotals, type CoinRow } from '@/js/coinControl'
@@ -90,13 +97,27 @@ export default defineComponent({
         error: { type: String, default: '' },
         /** Symbol and decimals per asset id; unknown assets show the raw amount. */
         assets: { type: Object as PropType<Record<string, AssetMeta>>, default: () => ({}) },
+        /**
+         * With exactly one UTXO picked: send the change back to that UTXO's own
+         * address instead of the wallet's change address.
+         */
+        sameChange: { type: Boolean, default: false },
     },
-    emits: ['update:modelValue', 'update:enabled'],
+    emits: ['update:modelValue', 'update:enabled', 'update:sameChange'],
     setup(props, { emit }) {
         const picked = computed(() => props.modelValue.filter((id) => props.rows.some((r) => r.utxoId === id && r.spendable)))
         const pickedSet = computed(() => new Set(picked.value))
         const spendableCount = computed(() => props.rows.filter((r) => r.spendable).length)
         const totals = computed(() => pickedTotals(props.rows, pickedSet.value))
+
+        /** The single picked row, when exactly one is picked. */
+        const onlyRow = computed(() => (picked.value.length === 1 ? props.rows.find((r) => r.utxoId === picked.value[0]) : undefined))
+        // The option belongs to that one UTXO: any other selection switches it off.
+        watch(onlyRow, (row, prev) => {
+            if (props.sameChange && row?.utxoId !== prev?.utxoId) emit('update:sameChange', false)
+        })
+
+        const onSameChange = (e: Event) => emit('update:sameChange', (e.target as HTMLInputElement).checked)
 
         const isPicked = (id: string) => pickedSet.value.has(id)
         const toggle = (id: string) => {
@@ -109,7 +130,10 @@ export default defineComponent({
         // Turning it on starts with nothing ticked, so nothing is spent by surprise.
         const setEnabled = (v: boolean | null) => {
             emit('update:enabled', !!v)
-            if (!v) emit('update:modelValue', [])
+            if (!v) {
+                emit('update:modelValue', [])
+                emit('update:sameChange', false)
+            }
         }
 
         const fmtAmount = (assetId: string, amount: BN) => {
@@ -122,7 +146,7 @@ export default defineComponent({
         const short = (s: string) => (s.length > 14 ? `${s.slice(0, 8)}…${s.slice(-4)}` : s)
         const shortAddr = (s: string) => (s.length > 20 ? `${s.slice(0, 12)}…${s.slice(-6)}` : s)
 
-        return { picked, spendableCount, totals, isPicked, toggle, selectAll, selectNone, setEnabled, fmt, fmtAmount, short, shortAddr }
+        return { picked, onlyRow, onSameChange, spendableCount, totals, isPicked, toggle, selectAll, selectNone, setEnabled, fmt, fmtAmount, short, shortAddr }
     },
 })
 </script>
@@ -236,6 +260,26 @@ export default defineComponent({
 
     .total {
         font-weight: 600;
+    }
+}
+
+.same_change {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin-top: 10px;
+    font-size: 13px;
+    cursor: pointer;
+
+    input {
+        margin-top: 3px;
+    }
+
+    .addr {
+        display: block;
+        font-size: 11px;
+        color: var(--primary-color-light);
+        overflow-wrap: anywhere;
     }
 }
 

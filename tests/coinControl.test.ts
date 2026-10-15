@@ -114,6 +114,35 @@ describe('X-Chain coin control', () => {
         await expect(buildUnsignedTransaction([order], meStr, [meStr], restrictedSet(set, [small.utxoId]), meStr)).rejects.toBeTruthy()
     })
 
+    it('records which owner is the wallet’s own address', () => {
+        const rows = listXCoins(wallet().set, [meStr])
+        expect(rows.find((r) => r.amount.eq(new BN(5_000_000_000)))!.ownAddress).toBe(meStr)
+        // Multisig: the wallet's own owner among several.
+        expect(rows.find((r) => r.amount.eq(new BN(9_000_000_000)))!.ownAddress).toBe(meStr)
+    })
+
+    it('sends the change to the given address instead of the wallet’s change address — with the real builder', async () => {
+        jest.spyOn(avm, 'getAVAXAssetID').mockResolvedValue(AVAX as any)
+        jest.spyOn(avm, 'getTxFee').mockReturnValue(new BN(1_000_000))
+        const walletChange = keychain.makeKey().getAddress()
+        const walletChangeStr = bintools.addressToString('avax', 'X', walletChange)
+        const dest = bintools.addressToString('avax', 'X', keychain.makeKey().getAddress())
+        const { set } = wallet()
+        const five = listXCoins(set, [meStr]).find((r) => r.amount.eq(new BN(5_000_000_000)))!
+        const order = { asset: { id: bintools.cb58Encode(AVAX) }, amount: new BN(1_000_000_000) } as any
+        const changeOwners = async (changeTo: string) => {
+            const tx = await buildUnsignedTransaction([order], dest, [meStr], restrictedSet(set, [five.utxoId]), changeTo)
+            return tx
+                .getTransaction()
+                .getOuts()
+                .map((o) => (o.getOutput() as any).getAddresses().map((a: Buffer) => bintools.addressToString('avax', 'X', a)))
+                .filter((owners: string[]) => !owners.includes(dest))
+                .flat()
+        }
+        expect(await changeOwners(walletChangeStr)).toEqual([walletChangeStr])
+        expect(await changeOwners(five.ownAddress!)).toEqual([meStr])
+    })
+
     it('keeps the NFTs being sent in the restricted set', () => {
         const { set, utxos } = wallet()
         const nft = utxos[4]
@@ -159,6 +188,7 @@ describe('P-Chain coin control', () => {
         expect(rows[2].reason).toMatch(/multisig/)
         expect(rows[3].reason).toBe('not AVAX')
         expect(rows[1].owners).toEqual([me])
+        expect(rows[1].ownAddress).toBe(me)
     })
 
     it('reads the inputs used, the fee and the change off the built transaction', () => {

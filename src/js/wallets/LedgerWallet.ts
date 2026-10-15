@@ -16,7 +16,7 @@ import bippath from 'bip32-path'
 import createHash from 'create-hash'
 import { pinia, useMainStore, useAssetsStore, useLedgerStore } from '@/stores'
 import { importPublic, publicToAddress, bnToRlp, rlp, BN as EthereumBN } from 'ethereumjs-util'
-import { UTXO as AVMUTXO, UTXOSet as AVMUTXOSet } from '@/avalanche/apis/avm/utxos'
+import { UTXO as AVMUTXO } from '@/avalanche/apis/avm/utxos'
 import { AvaWalletCore } from '@/js/wallets/types'
 import { ITransaction } from '@/components/wallet/transfer/types'
 import {
@@ -71,6 +71,7 @@ import {
     LedgerProvider,
 } from '@/avalanche-wallet-sdk'
 import { getTxOutputAddresses } from '@/utils/getAddressFromTx'
+import type { SpendOptions } from '@/js/wallets/types'
 
 
 class LedgerWallet extends AbstractHdWallet implements AvaWalletCore {
@@ -918,9 +919,9 @@ class LedgerWallet extends AbstractHdWallet implements AvaWalletCore {
         orders: (ITransaction | AVMUTXO)[],
         addr: string,
         memo: BufferAvax | undefined,
-        only?: AVMUTXOSet
+        opts?: SpendOptions
     ): Promise<string> {
-        return await WalletHelper.issueBatchTx(this, orders, addr, memo, only)
+        return await WalletHelper.issueBatchTx(this, orders, addr, memo, opts)
     }
 
     async signHashByExternalIndex(index: number, hash: BufferAvax) {

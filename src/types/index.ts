@@ -55,6 +55,8 @@ export interface IssueBatchTxInput {
     orders: (ITransaction | AVMUTXO)[]
     /** Coin control: spend only from these UTXOs. Omitted = the whole wallet. */
     utxoset?: AVMUTXOSet
+    /** Coin control: change goes here instead of the wallet's change address. */
+    changeAddress?: string
 }
 
 export interface ImportKeyfileInput {
