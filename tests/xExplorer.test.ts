@@ -25,6 +25,24 @@ const route = { query: {} as Record<string, string> }
 jest.mock('vue-router', () => ({ useRouter: () => ({ push }), useRoute: () => route }))
 const wallet = { current: null as any }
 jest.mock('@/stores', () => ({ useMainStore: () => ({ get activeWallet() { return wallet.current } }) }))
+/** The Moats burn gate: `allowed` decides; `checks` counts how often a lookup asked. */
+const gate = { allowed: true, checks: 0 }
+jest.mock('@/composables/useBaseAssetGate', () => {
+    const { ref, computed } = require('vue')
+    return {
+        useBaseAssetGate: () => ({
+            isBlocked: ref(false),
+            required: computed(() => ({ toString: () => '1000000' })),
+            symbol: 'AVXTO',
+            gatedAction: async (action: () => unknown) => {
+                gate.checks++
+                if (!gate.allowed) return false
+                await action()
+                return true
+            },
+        }),
+    }
+})
 
 import {
     classifyQuery,
@@ -112,6 +130,8 @@ beforeEach(() => {
     push.mockReset()
     route.query = {}
     wallet.current = null
+    gate.allowed = true
+    gate.checks = 0
 })
 
 describe('the search box', () => {
@@ -172,7 +192,7 @@ describe('finding a transaction', () => {
     })
 })
 
-const stubs = { CopyText: true }
+const stubs = { CopyText: true, 'router-link': { props: ['to'], template: '<a :data-to="to"><slot /></a>' } }
 
 describe('the transaction page', () => {
     it('shows every detail: summary, block, assets, inputs with credentials, outputs, raw JSON', async () => {
@@ -231,6 +251,42 @@ describe('the transaction page', () => {
         const w = mount(XExplorer, { global: { stubs } })
         await flushPromises()
         expect(w.find('.err').text()).toMatch(/Mainnet or Fuji/)
+        w.unmount()
+    })
+})
+
+describe('the Moats burn gate', () => {
+    it('runs no lookup for a wallet that has not burned enough, and says why', async () => {
+        gate.allowed = false
+        glacier({ [`/transactions/${TX}`]: exportTx() })
+        route.query = { q: TX }
+        const w = mount(XExplorer, { global: { stubs } })
+        await flushPromises()
+        expect(gate.checks).toBe(1)
+        expect(http.get).not.toHaveBeenCalled()
+        expect(w.find('.gate_note').text()).toContain('1,000,000 AVXTO burned on Moats')
+        expect(w.find('.gate_note a').attributes('data-to')).toBe('/wallet/moats/burn')
+        expect(w.findComponent({ name: 'XTxView' }).exists()).toBe(false)
+        w.unmount()
+    })
+
+    it('checks every lookup, addresses included, and runs it once the burn is enough', async () => {
+        glacier({ 'addresses:listChainIds': { addresses: [] }, '/balances': { balances: {} }, '/transactions': { transactions: [] }, '/utxos': { utxos: [] } })
+        route.query = { q: `X-${ME}` }
+        const w = mount(XExplorer, { global: { stubs } })
+        await flushPromises()
+        expect(gate.checks).toBe(1)
+        expect(w.findComponent({ name: 'XAddressView' }).exists()).toBe(true)
+        expect(w.find('.gate_note').exists()).toBe(false)
+        w.unmount()
+    })
+
+    it('explains invalid input without a burn check, since nothing is fetched', async () => {
+        route.query = { q: 'hello' }
+        const w = mount(XExplorer, { global: { stubs } })
+        await flushPromises()
+        expect(gate.checks).toBe(0)
+        expect(w.find('.err').exists()).toBe(true)
         w.unmount()
     })
 })

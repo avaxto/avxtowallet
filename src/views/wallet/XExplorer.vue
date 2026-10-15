@@ -8,6 +8,10 @@
   Glacier and show everything it returns (src/explorer/xchain.ts). The query
   lives in the URL (?q=…&net=…), so links inside the results, the browser's
   Back button and shared links all work. Read-only: nothing here signs.
+
+  Premium: every lookup (Search, links in the results, "My X address", a
+  shared ?q= link) goes through the Moats burn gate (useBaseAssetGate). The
+  page itself stays reachable, as everywhere else.
 -->
 <template>
     <div class="xexplorer">
@@ -26,15 +30,19 @@
                 placeholder="X-avax1… address or transaction ID"
                 aria-label="X-Chain address or transaction ID"
             />
-            <button type="submit" class="button_primary search_btn" :disabled="!input.trim()">Search</button>
+            <button type="submit" class="button_primary search_btn" :disabled="!input.trim() || isBlocked">Search</button>
         </form>
         <div class="options">
             <span class="small">Network for transaction IDs:</span>
             <label><input v-model="network" type="radio" value="mainnet" /> Mainnet</label>
             <label><input v-model="network" type="radio" value="fuji" /> Fuji</label>
-            <button v-if="myAddress" type="button" class="link small" @click="open(`X-${myAddress}`)">My X address</button>
+            <button v-if="myAddress" type="button" class="link small" :disabled="isBlocked" @click="open(`X-${myAddress}`)">My X address</button>
         </div>
 
+        <p v-if="gated" class="gate_note">
+            X-Chain Explorer lookups need {{ requiredText }} {{ symbol }} burned on Moats from this wallet.
+            <router-link to="/wallet/moats/burn">Burn {{ symbol }}</router-link>
+        </p>
         <p v-if="error" class="err">{{ error }}</p>
         <p v-if="loading" class="small center">Looking it up…</p>
 
@@ -49,6 +57,7 @@ import { useRoute, useRouter } from 'vue-router'
 import XTxView from '@/components/explorer/XTxView.vue'
 import XAddressView from '@/components/explorer/XAddressView.vue'
 import { classifyQuery, findTransaction, type XNetwork, type XTransaction } from '@/explorer/xchain'
+import { useBaseAssetGate } from '@/composables/useBaseAssetGate'
 import { useMainStore } from '@/stores'
 
 type Result = { kind: 'tx'; tx: XTransaction; network: XNetwork } | { kind: 'address'; address: string; network: XNetwork }
@@ -60,6 +69,10 @@ export default defineComponent({
         const route = useRoute()
         const router = useRouter()
         const mainStore = useMainStore()
+        const { isBlocked, gatedAction, required, symbol } = useBaseAssetGate()
+        /** The last lookup was refused by the burn gate. */
+        const gated = ref(false)
+        const requiredText = computed(() => Number(required.value.toString()).toLocaleString())
 
         const input = ref('')
         const network = ref<XNetwork>(route.query.net === 'fuji' ? 'fuji' : 'mainnet')
@@ -109,6 +122,24 @@ export default defineComponent({
             }
         }
 
+        /**
+         * A lookup is the premium action: it runs only once the burn check
+         * passes. Input that isn't an address or ID is explained without a
+         * check, since nothing would be fetched for it.
+         */
+        const lookup = async (q: string) => {
+            gated.value = false
+            if (classifyQuery(q).kind === 'invalid') return run(q)
+            const allowed = await gatedAction(() => run(q))
+            if (!allowed) {
+                generation++
+                result.value = null
+                error.value = ''
+                loading.value = false
+                gated.value = true
+            }
+        }
+
         /** Navigates, so the search is in the URL and Back returns to the previous result. */
         const open = (q: string) => {
             const current = result.value
@@ -126,16 +157,17 @@ export default defineComponent({
                 if (route.query.net === 'fuji' || route.query.net === 'mainnet') network.value = route.query.net
                 fromAddress.value = typeof route.query.from === 'string' ? route.query.from : ''
                 input.value = q
-                if (q) run(q)
+                if (q) lookup(q)
                 else {
                     result.value = null
                     error.value = ''
+                    gated.value = false
                 }
             },
             { immediate: true }
         )
 
-        return { input, network, result, error, loading, fromAddress, myAddress, open, submit }
+        return { input, network, result, error, loading, fromAddress, myAddress, open, submit, isBlocked, gated, requiredText, symbol }
     },
 })
 </script>
@@ -216,6 +248,20 @@ export default defineComponent({
 
     &:hover {
         text-decoration: underline;
+    }
+}
+
+.gate_note {
+    font-size: 14px;
+    margin-bottom: 12px;
+    padding: 10px 14px;
+    border-radius: 8px;
+    border: 1px solid var(--secondary-color);
+    background: var(--bg-light);
+
+    a {
+        color: var(--secondary-color);
+        margin-left: 4px;
     }
 }
 

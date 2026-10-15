@@ -219,7 +219,8 @@ export function useBaseAssetGate() {
      * three claim buttons, `/wallet/xbridge`'s "Bridge" and "Claim" buttons,
      * `/wallet/scripts`' "Approve and execute" and "Run live",
      * `/wallet/btcswap`'s swap buttons and its "Swap BTC.b to AVAX (step 2)",
-     * and every step button in `/wallet/wizard`.
+     * every lookup on `/wallet/xexplorer` (Search, result links, "My X
+     * address", shared ?q= links), and every step button in `/wallet/wizard`.
      * Never the Moats burn page: burning is how the requirement is met.
      *
      * Runs `action` when the requirement is met; otherwise opens the modal
