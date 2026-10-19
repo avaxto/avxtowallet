@@ -109,7 +109,10 @@ export interface AvaWalletCore extends IAddressManager {
         end: Date,
         delegationFee: number,
         rewardAddress?: string,
-        utxos?: PlatformUTXO[]
+        utxos?: PlatformUTXO[],
+        /** The node's BLS public key and proof of possession (ACP-62), 0x hex. */
+        blsPublicKey?: string,
+        blsSignature?: string
     ): Promise<string>
     delegate(
         nodeID: string,

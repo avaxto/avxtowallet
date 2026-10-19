@@ -22,6 +22,39 @@ export function minDelegationDurationMs(networkId: number): number {
     return networkId === MAINNET_NETWORK_ID ? MIN_DELEGATION_DURATION_MAINNET_MS : MIN_DELEGATION_DURATION_TESTNET_MS
 }
 
+/**
+ * Minimum Primary Network *validator* period since the Helicon upgrade
+ * (mainnet, 2026-09-22): 48 hours on mainnet (2 weeks before), 12 hours on
+ * Fuji (24 before). See build.avax.network → "How to Stake". A validator
+ * staking under the delegation minimum can't receive delegations.
+ */
+export const MIN_VALIDATION_DURATION_MAINNET_MS = HOUR_MS * 48
+export const MIN_VALIDATION_DURATION_TESTNET_MS = HOUR_MS * 12
+
+export function minValidationDurationMs(networkId: number): number {
+    return networkId === MAINNET_NETWORK_ID ? MIN_VALIDATION_DURATION_MAINNET_MS : MIN_VALIDATION_DURATION_TESTNET_MS
+}
+
+/** Longest stake, validator or delegator: one year, counted from acceptance. */
+export const MAX_STAKE_DURATION_MS = DAY_MS * 365
+
+/**
+ * Room for the time between pressing Send and the P-Chain accepting the
+ * transaction. Since Durango a stake's period counts from acceptance, so an
+ * end date picked against "now" must leave this much slack at both limits.
+ */
+export const STAKE_ACCEPTANCE_MARGIN_MS = MINUTE_MS * 15
+
+/** The latest end date the P-Chain will accept for a stake sent now. */
+export function maxStakeEnd(now = Date.now()): number {
+    return now + MAX_STAKE_DURATION_MS - STAKE_ACCEPTANCE_MARGIN_MS
+}
+
+/** The earliest end date that still meets `minDurationMs` once the stake is accepted. */
+export function minStakeEnd(minDurationMs: number, now = Date.now()): number {
+    return now + minDurationMs + STAKE_ACCEPTANCE_MARGIN_MS
+}
+
 /** "14 days", "24 hours" — for messages that state the minimum. */
 export function durationLabel(ms: number): string {
     if (ms % DAY_MS === 0 && ms >= 2 * DAY_MS) return `${ms / DAY_MS} days`

@@ -205,7 +205,7 @@ import {
 } from '@/stores'
 import { BN } from '@/avalanche'
 import { ava, pChain } from '@/AVA'
-import { DAY_MS, MINUTE_MS, durationLabel, minDelegationDurationMs } from '@/constants'
+import { DAY_MS, MINUTE_MS, durationLabel, minDelegationDurationMs, minStakeEnd } from '@/constants'
 import { ValidatorListItem } from '@/types'
 import { bnToBig, calculateStakingReward, errorToString } from '@/helpers/helper'
 import { Wallet } from '@/js/wallets/AbstractWallet'
@@ -359,7 +359,8 @@ export default defineComponent({
                 err.value = 'Choose an end date.'
                 return
             }
-            if (endTime - now < minDelegationDuration.value) {
+            // Counted from acceptance (Durango): leave room for the time until the P-Chain accepts it.
+            if (endTime < minStakeEnd(minDelegationDuration.value, now)) {
                 err.value = `End date must be at least ${minDelegationLabel.value} from now.`
                 return
             }

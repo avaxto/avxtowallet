@@ -56,8 +56,8 @@ import { activeNetwork } from '@/avalanche-wallet-sdk/Network/network'
 import * as TxHelper from '@/avalanche-wallet-sdk/helpers/tx_helper'
 import * as UtxoHelper from '@/avalanche-wallet-sdk/helpers/utxo_helper'
 import { buildUnsignedTransaction } from '@/js/TxHelper'
-import { delegatePermissionlessViaProvider } from '@/js/permissionlessDelegate'
-import { signAndIssuePViaProvider, type PSendPreview } from '@/js/pChainSend'
+import { delegatePermissionlessViaProvider, validatePermissionlessViaProvider } from '@/js/permissionlessDelegate'
+import { sdkUtxosFor, signAndIssuePViaProvider, vendoredUtxoKeys, type PSendPreview } from '@/js/pChainSend'
 import { sortUTxoSetP } from '@/helpers/sortUTXOs'
 import { defineChain } from 'viem'
 
@@ -1341,7 +1341,7 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
         _start: Date,
         end: Date,
         rewardAddress?: string,
-        _utxos?: PlatformUTXO[]
+        utxos?: PlatformUTXO[]
     ): Promise<string> {
         if (!this.platformAddress) {
             throw new Error(
@@ -1362,9 +1362,16 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
                 changeAddress: this.platformAddress,
                 rewardAddress,
                 evmAddress: ('0x' + this.ethAddress) as `0x${string}`,
+                utxos: await this.sdkStakeUtxos(utxos),
             },
             this.provider
         )
+    }
+
+    /** The SDK's objects for UTXOs picked in a staking form; Core can only spend its own address's. */
+    private async sdkStakeUtxos(utxos?: PlatformUTXO[]) {
+        if (!utxos || !utxos.length) return undefined
+        return sdkUtxosFor(vendoredUtxoKeys(utxos), [this.platformAddress])
     }
 
     /**
@@ -1385,16 +1392,44 @@ class InjectedWallet extends AbstractWallet implements AvaWalletCore {
         return signAndIssuePViaProvider(preview, this.provider)
     }
 
+    /**
+     * Adds a Primary Network validator (AddPermissionlessValidatorTx, ACP-62),
+     * built here and signed + submitted by Core — the same path as delegate().
+     * Stakes from, and returns change to, the account's primary P address.
+     */
     async validate(
         nodeID: string,
         amt: BN,
-        start: Date,
+        _start: Date,
         end: Date,
         delegationFee: number,
         rewardAddress?: string,
-        utxos?: PlatformUTXO[]
+        utxos?: PlatformUTXO[],
+        blsPublicKey?: string,
+        blsSignature?: string
     ): Promise<string> {
-        throw new Error('Validation is not supported with injected wallets.')
+        if (!this.platformAddress) {
+            throw new Error('No P-chain address available from the injected wallet. Connect a Core extension account.')
+        }
+        if (!blsPublicKey || !blsSignature) {
+            throw new Error('The node’s BLS public key and proof of possession are required to add a validator (ACP-62).')
+        }
+        return validatePermissionlessViaProvider(
+            {
+                nodeID,
+                amount: amt,
+                end,
+                fromAddress: this.platformAddress,
+                changeAddress: this.platformAddress,
+                rewardAddress: rewardAddress || this.platformAddress,
+                evmAddress: ('0x' + this.ethAddress) as `0x${string}`,
+                delegationFee,
+                blsPublicKey,
+                blsSignature,
+                utxos: await this.sdkStakeUtxos(utxos),
+            },
+            this.provider
+        )
     }
 
     // ---- Cross-chain export override ----

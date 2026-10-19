@@ -56,6 +56,20 @@ export interface DelegatePermissionlessParamsBase {
     end: Date
     changeAddress: string
     rewardAddress: string
+    /**
+     * Optional: stake only these UTXOs (@avalabs/avalanchejs objects — see
+     * pChainSend.sdkUtxosFor). Omitted, the SDK spends what fromAddresses hold.
+     */
+    utxos?: unknown[]
+}
+
+/** An AddPermissionlessValidatorTx's extra fields (ACP-62). */
+export interface ValidatePermissionlessExtra {
+    /** % of delegators' rewards the validator keeps: 2–100, up to 3 decimals. */
+    delegationFee: number
+    /** The node's BLS public key and proof of possession, 0x hex (info.getNodeID → nodePOP). */
+    blsPublicKey: string
+    blsSignature: string
 }
 
 export interface DelegatePermissionlessProviderParams extends DelegatePermissionlessParamsBase {
@@ -78,6 +92,11 @@ export function makeChain() {
     })
 }
 
+// Note on units: despite its name, the SDK's `stakeInAvax` is passed straight
+// through as the transaction's `weight`, which is in nAVAX (checked against
+// @avalanche-sdk/client 0.1.1's builder; later SDK versions rename it
+// `stakeInNanoAvax`). Start times aren't sent: since Durango a stake starts
+// when the P-Chain accepts it (the SDK sets start = 0).
 async function prepareTx(
     buildClient: any,
     params: DelegatePermissionlessParamsBase & { fromAddresses: string[] }
@@ -89,7 +108,74 @@ async function prepareTx(
         rewardAddresses: [params.rewardAddress],
         fromAddresses: params.fromAddresses,
         changeAddresses: [params.changeAddress],
+        ...(params.utxos ? { utxos: params.utxos } : {}),
     })
+}
+
+/** AddPermissionlessValidatorTx on the Primary Network (ACP-62): the only way to add a validator since Durango. */
+async function prepareValidatorTx(
+    buildClient: any,
+    params: DelegatePermissionlessParamsBase & ValidatePermissionlessExtra & { fromAddresses: string[] }
+) {
+    return buildClient.pChain.prepareAddPermissionlessValidatorTxn({
+        nodeId: params.nodeID,
+        stakeInAvax: BigInt(params.amount.toString()),
+        end: BigInt(Math.floor(params.end.getTime() / 1000)),
+        rewardAddresses: [params.rewardAddress],
+        delegatorRewardAddresses: [params.rewardAddress],
+        delegatorRewardPercentage: params.delegationFee,
+        publicKey: params.blsPublicKey,
+        signature: params.blsSignature,
+        fromAddresses: params.fromAddresses,
+        changeAddresses: [params.changeAddress],
+        ...(params.utxos ? { utxos: params.utxos } : {}),
+    })
+}
+
+/** A build client for local signing: the account is only there for the SDK's presence check. */
+function localBuildClient(xpAccount: unknown) {
+    return createAvalancheWalletClient({
+        chain: makeChain() as any,
+        transport: { type: 'http' as const, url: activeNetwork.rpcUrl.c },
+        account: {
+            xpAccount,
+            evmAccount: { address: '0x0000000000000000000000000000000000000000', type: 'json-rpc' },
+        } as any,
+    })
+}
+
+/** A build client carrying an injected provider's real public keys (it can't answer avalanche_getAccountPubKey over HTTP). */
+async function providerBuildClient(provider: any, evmAddress: `0x${string}`) {
+    const pubKeyData = (await provider.request({ method: 'avalanche_getAccountPubKey', params: {} })) as { xp: string; evm: string }
+    return createAvalancheWalletClient({
+        chain: makeChain() as any,
+        transport: { type: 'http' as const, url: activeNetwork.rpcUrl.c },
+        account: {
+            xpAccount: { publicKey: pubKeyData.xp } as any,
+            evmAccount: { address: evmAddress, publicKey: pubKeyData.evm } as any,
+        } as any,
+    })
+}
+
+/** Adds a Primary Network validator, signed with this wallet's own keys (see delegatePermissionlessLocal). */
+export async function validatePermissionlessLocal(
+    params: DelegatePermissionlessLocalParams & ValidatePermissionlessExtra,
+    xpAccounts: unknown[]
+): Promise<string> {
+    if (xpAccounts.length === 0) throw new Error('No signing key available to add a validator.')
+    if (params.fromAddresses.length === 0) throw new Error('No P-chain address available to stake from.')
+    const { tx } = await prepareValidatorTx(localBuildClient(xpAccounts[0]), params)
+    return signLocallyAndIssueP(tx, xpAccounts, 'Add a validator', 'The stake')
+}
+
+/** Adds a Primary Network validator, signed and submitted by an injected provider (Core). */
+export async function validatePermissionlessViaProvider(
+    params: DelegatePermissionlessProviderParams & ValidatePermissionlessExtra,
+    provider: any
+): Promise<string> {
+    const client = await providerBuildClient(provider, params.evmAddress)
+    const { tx } = await prepareValidatorTx(client, { ...params, fromAddresses: [params.fromAddress] })
+    return sendPViaProvider(tx, provider)
 }
 
 /**

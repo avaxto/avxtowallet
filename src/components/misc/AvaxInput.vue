@@ -199,7 +199,8 @@ p {
 }
 .max_but {
     font-size: 13px;
-    opacity: 0.4;
+    // Muted until hovered, but still readable (0.4 was under 3:1).
+    opacity: 0.6;
     &:hover {
         opacity: 1;
     }

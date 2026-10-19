@@ -463,10 +463,8 @@
                 "desc": "You will claim this % of the rewards from the delegators on your node."
             },
             "bls": {
-                "label": "BLS Signature (ACP-62)",
-                "desc": "BLS public key and signature are required for validator registration.",
-                "generate": "Generate BLS Keys",
-                "generate_desc": "Generate BLS keys deterministically from your wallet seed."
+                "label": "Node BLS key (ACP-62)",
+                "desc": "Your node's BLS public key and proof of possession, from info.getNodeID."
             },
             "reward": {
                 "label": "Reward Address",

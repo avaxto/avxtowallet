@@ -30,8 +30,8 @@ import type { Account, Address } from 'viem'
 import { defineChain } from 'viem'
 import { createAvalancheWalletClient } from '@avalanche-sdk/client'
 import { activeNetwork } from '@/avalanche-wallet-sdk/Network/network'
-import { delegatePermissionlessLocal } from '@/js/permissionlessDelegate'
-import { signAndIssuePLocal, type PSendPreview } from '@/js/pChainSend'
+import { delegatePermissionlessLocal, validatePermissionlessLocal } from '@/js/permissionlessDelegate'
+import { sdkUtxosFor, signAndIssuePLocal, vendoredUtxoKeys, type PSendPreview } from '@/js/pChainSend'
 import { issueC, issueP, issueX } from '@/helpers/issueTx'
 import { restoreEvmExportSigners } from '@/js/wallets/evmExportSigners'
 import { sortUTxoSetP } from '@/helpers/sortUTXOs'
@@ -529,21 +529,25 @@ abstract class AbstractWallet implements AvaWalletCore {
     }
 
     /**
-     * Create and issue an AddPermissionlessValidatorTx (ACP-62 compliant)
-     * @param nodeID Node ID to add as a validator
-     * @param amt Stake amount in nAVAX
-     * @param start Stake Start Date
-     * @param end Stake End Date
-     * @param delegationFee
-     * @param rewardAddress Address which will receive the rewards
-     * @param utxos UTXOs to use for the transaction
-     * @param blsPublicKey BLS public key for the validator (48 bytes)
-     * @param blsSignature BLS signature proving possession of the BLS private key
+     * Adds a Primary Network validator: an AddPermissionlessValidatorTx
+     * (ACP-62), the only validator transaction the P-Chain accepts since
+     * Durango. Built with @avalanche-sdk/client (dynamic Etna fees) and signed
+     * like delegate() — see js/permissionlessDelegate.ts.
+     *
+     * @param nodeID the node to validate with
+     * @param amt stake, nAVAX
+     * @param _start ignored: since Durango a validation starts when the P-Chain accepts it
+     * @param end when the stake unlocks (at most a year after acceptance)
+     * @param delegationFee % of delegators' rewards kept, 2–100
+     * @param rewardAddress receives validation rewards and delegation fees (index 0 by default)
+     * @param utxos optional: stake only these UTXOs
+     * @param blsPublicKey the node's BLS public key (info.getNodeID → nodePOP.publicKey)
+     * @param blsSignature its proof of possession (nodePOP.proofOfPossession)
      */
     async validate(
         nodeID: string,
         amt: BN,
-        start: Date,
+        _start: Date,
         end: Date,
         delegationFee: number,
         rewardAddress?: string,
@@ -551,62 +555,31 @@ abstract class AbstractWallet implements AvaWalletCore {
         blsPublicKey?: string,
         blsSignature?: string
     ): Promise<string> {
-        let utxoSet = this.getPlatformUTXOSet()
-
-        // If given custom UTXO set use that
-        if (utxos) {
-            utxoSet = new PlatformUTXOSet()
-            utxoSet.addArray(utxos)
-        }
-
-        // Sort utxos high to low
-        const sortedSet = sortUTxoSetP(utxoSet, false)
-
-        const pAddressStrings = this.getAllAddressesP()
-
-        const stakeAmount = amt
-
-        // If reward address isn't given use index 0 address
-        if (!rewardAddress) {
-            rewardAddress = this.getPlatformRewardAddress()
-        }
-
-        // For change address use first available on the platform chain
-        const changeAddress = this.getChangeAddressPlatform()
-
-        const stakeReturnAddr = this.getCurrentAddressPlatform()
-
-        // Convert dates to unix time
-        const startTime = new BN(Math.round(start.getTime() / 1000))
-        const endTime = new BN(Math.round(end.getTime() / 1000))
-
-        // ACP-62: Use permissionless validator transaction
-        // Requires BLS public key and signature for Primary Network validation
         if (!blsPublicKey || !blsSignature) {
-            throw new Error('BLS public key and signature are required for validator registration (ACP-62)')
+            throw new Error('The node’s BLS public key and proof of possession are required to add a validator (ACP-62).')
         }
-
-        // Note: Update this to use the correct AvalancheJS method when available
-        // For now, this is a placeholder for the new permissionless function
-        const unsignedTx = await pChain.buildAddValidatorTx(
-            sortedSet,
-            [stakeReturnAddr],
-            pAddressStrings, // from
-            [changeAddress], // change
-            nodeID,
-            startTime,
-            endTime,
-            stakeAmount,
-            [rewardAddress],
-            delegationFee
-            // TODO: Add BLS parameters when AvalancheJS supports buildAddPermissionlessValidatorTx
-            // blsPublicKey,
-            // blsSignature,
-            // Primary Network ID
+        const fromAddresses = this.getAllAddressesP()
+        const changeAddress = this.getIndexZeroAddressPlatform()
+        const xpAccounts = await this.getXPAccountsForDelegation()
+        if (xpAccounts.length === 0) {
+            throw new Error('This wallet type cannot sign a validator transaction locally.')
+        }
+        const sdkUtxos = utxos && utxos.length ? await sdkUtxosFor(vendoredUtxoKeys(utxos), fromAddresses) : undefined
+        return validatePermissionlessLocal(
+            {
+                nodeID,
+                amount: amt,
+                end,
+                fromAddresses,
+                changeAddress,
+                rewardAddress: rewardAddress || changeAddress,
+                delegationFee,
+                blsPublicKey,
+                blsSignature,
+                utxos: sdkUtxos,
+            },
+            xpAccounts
         )
-
-        const tx = await this.signP(unsignedTx)
-        return issueP(tx)
     }
 
     /**
@@ -659,14 +632,10 @@ abstract class AbstractWallet implements AvaWalletCore {
      * fork (pChain.buildAddDelegatorTx) only knows the legacy AddDelegatorTx
      * format, which the network no longer has a parser for.
      *
-     * Two params from the old implementation are now unused:
-     *   - `start`: the permissionless format has no start-time field —
-     *     delegation begins as soon as the transaction is accepted.
-     *   - `utxos`: the SDK builder fetches its own UTXOs for `fromAddresses`;
-     *     passing a hand-picked UTXO set (the "advanced" selector in
-     *     AddDelegator.vue) isn't wired through yet.
-     * Both are kept in the signature for interface compatibility with
-     * validate() and existing call sites.
+     * `start` is unused: since Durango a delegation begins when the P-Chain
+     * accepts it (the SDK sends start = 0). It stays in the signature for
+     * existing call sites. `utxos`, when given (the "advanced" selector in
+     * AddDelegator.vue), are the UTXOs staked.
      *
      * fromAddresses is every address the wallet has funds at (getAllAddressesP()
      * — the same set the old AddDelegatorTx-based implementation used), so a
@@ -685,7 +654,7 @@ abstract class AbstractWallet implements AvaWalletCore {
         _start: Date,
         end: Date,
         rewardAddress?: string,
-        _utxos?: PlatformUTXO[]
+        utxos?: PlatformUTXO[]
     ): Promise<string> {
         const fromAddresses = this.getAllAddressesP()
         const changeAddress = this.getIndexZeroAddressPlatform()
@@ -701,8 +670,9 @@ abstract class AbstractWallet implements AvaWalletCore {
             )
         }
 
+        const sdkUtxos = utxos && utxos.length ? await sdkUtxosFor(vendoredUtxoKeys(utxos), fromAddresses) : undefined
         return delegatePermissionlessLocal(
-            { nodeID, amount: amt, end, fromAddresses, changeAddress, rewardAddress },
+            { nodeID, amount: amt, end, fromAddresses, changeAddress, rewardAddress, utxos: sdkUtxos },
             xpAccounts
         )
     }

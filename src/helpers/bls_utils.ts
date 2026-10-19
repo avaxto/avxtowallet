@@ -4,136 +4,94 @@
   Licensed under the BSD 3 Clause License. See LICENSE file in the project root for details.
 
 */
-import { Buffer } from '@/avalanche'
-import crypto from 'crypto'
-
 /**
- * BLS Utilities for ACP-62 Compliance
- * 
- * This module provides utilities for handling BLS keys and signatures
- * required for permissionless staking transactions.
+ * BLS keys for Primary Network validators (ACP-62).
+ *
+ * A validator registers its node's BLS public key and a proof of possession
+ * (PoP) — a BLS signature over that key, made with the node's own BLS secret
+ * key (its `signer.key`). Both come from the node itself, via
+ * `info.getNodeID` (`nodePOP.publicKey`, `nodePOP.proofOfPossession`). The
+ * wallet never makes BLS keys: a key the node doesn't hold is useless to the
+ * validator (an earlier version of this file generated fake ones).
+ *
+ * What the wallet can do is check the pair before spending a stake on it:
+ * `verifyProofOfPossession` runs the same check avalanchego runs (min-pk BLS12-381,
+ * the PoP ciphersuite) — verified against real mainnet validators' registered
+ * keys in tests/blsUtils.test.ts.
  */
+import { bls12_381 as bls } from '@noble/curves/bls12-381'
 
-export interface BlsKeyPair {
-    publicKey: string  // 48-byte hex string
-    privateKey: string // 32-byte hex string
-}
-
-export interface BlsSignature {
-    signature: string  // 96-byte hex string
-    message: string    // The message that was signed
-}
-
-/**
- * Validates a BLS public key format
- * @param publicKey - Hex string of BLS public key
- * @returns true if valid format
- */
-export function validateBlsPublicKey(publicKey: string): boolean {
-    if (!publicKey || typeof publicKey !== 'string') {
-        return false
-    }
-    
-    // Remove 0x prefix if present
-    const cleanKey = publicKey.startsWith('0x') ? publicKey.slice(2) : publicKey
-    
-    // BLS public key should be 48 bytes (96 hex characters)
-    return cleanKey.length === 96 && /^[0-9a-fA-F]+$/.test(cleanKey)
-}
-
-/**
- * Validates a BLS signature format
- * @param signature - Hex string of BLS signature
- * @returns true if valid format
- */
-export function validateBlsSignature(signature: string): boolean {
-    if (!signature || typeof signature !== 'string') {
-        return false
-    }
-    
-    // Remove 0x prefix if present
-    const cleanSig = signature.startsWith('0x') ? signature.slice(2) : signature
-    
-    // BLS signature should be 96 bytes (192 hex characters)
-    return cleanSig.length === 192 && /^[0-9a-fA-F]+$/.test(cleanSig)
-}
-
-/**
- * Converts hex string to Buffer for AvalancheJS
- * @param hexString - Hex string (with or without 0x prefix)
- * @returns Buffer
- */
-export function hexToBuffer(hexString: string): Buffer {
-    const clean = hexString.startsWith('0x') ? hexString.slice(2) : hexString
-    return Buffer.from(clean, 'hex')
-}
-
-/**
- * Generates a proof of possession message for BLS key
- * This is the message that needs to be signed to prove ownership of the BLS private key
- * @param nodeId - Node ID that will use this BLS key
- * @param publicKey - BLS public key
- * @returns message to be signed
- */
-export function generateProofOfPossessionMessage(nodeId: string, publicKey: string): string {
-    // The exact message format should match what AvalancheGo expects
-    // This is a placeholder - the actual implementation will depend on the protocol specification
-    return `${nodeId}:${publicKey}`
-}
-
-/**
- * Placeholder for BLS key generation
- * In production, this should use a proper BLS library like @noble/bls12-381
- * @param seed - Seed for deterministic key generation
- * @returns BLS key pair
- */
-export function generateBlsKeyPair(seed?: string): BlsKeyPair {
-    // WARNING: This is a placeholder implementation
-    // In production, use a proper BLS cryptography library
-    
-    console.warn('generateBlsKeyPair: Using placeholder implementation. Replace with proper BLS library.')
-    
-    // Generate deterministic fake keys for development
-    const fakeSeed = seed || 'default-seed'
-    const hash = crypto.createHash('sha256').update(fakeSeed).digest('hex')
-    
-    return {
-        privateKey: hash, // 32 bytes
-        publicKey: hash + hash.slice(0, 32) // 48 bytes (fake)
-    }
-}
-
-/**
- * Placeholder for BLS signature generation
- * @param privateKey - BLS private key
- * @param message - Message to sign
- * @returns BLS signature
- */
-export function signBlsMessage(privateKey: string, message: string): BlsSignature {
-    // WARNING: This is a placeholder implementation
-    // In production, use a proper BLS cryptography library
-    
-    console.warn('signBlsMessage: Using placeholder implementation. Replace with proper BLS library.')
-    
-    const hash = crypto.createHash('sha256').update(message + privateKey).digest('hex')
-    
-    return {
-        signature: hash + hash + hash, // 96 bytes (fake)
-        message
-    }
-}
-
-/**
- * Helper to get the Primary Network ID for permissionless staking
- */
 export const PRIMARY_NETWORK_ID = '11111111111111111111111111111111LpoYY'
 
-/**
- * Error messages for BLS validation
- */
+/** avalanchego's proof-of-possession domain separation tag (utils/crypto/bls). */
+const POP_DST = 'BLS_POP_BLS12381G2_XMD:SHA-256_SSWU_RO_POP_'
+
 export const BLS_ERRORS = {
-    INVALID_PUBLIC_KEY: 'Invalid BLS public key format. Must be 48 bytes (96 hex characters).',
-    INVALID_SIGNATURE: 'Invalid BLS signature format. Must be 96 bytes (192 hex characters).',
-    MISSING_BLS_DATA: 'BLS public key and signature are required for validator registration (ACP-62).',
-    LIBRARY_NOT_IMPLEMENTED: 'BLS cryptography library not yet implemented. Please provide BLS keys manually.'
+    INVALID_PUBLIC_KEY: 'Invalid BLS public key. It must be 48 bytes (96 hex characters).',
+    INVALID_SIGNATURE: 'Invalid proof of possession. It must be 96 bytes (192 hex characters).',
+    MISSING_BLS_DATA: 'The node’s BLS public key and proof of possession are required to register a validator (ACP-62).',
+    POP_MISMATCH:
+        'The proof of possession does not match the BLS public key. Copy both from the same info.getNodeID response of your node.',
+}
+
+const strip = (h: string) => h.trim().replace(/^0x/i, '')
+const isHex = (h: string, bytes: number) => new RegExp(`^[0-9a-fA-F]{${bytes * 2}}$`).test(strip(h))
+
+/** A 48-byte hex BLS public key (with or without 0x). */
+export function validateBlsPublicKey(publicKey: string): boolean {
+    return isHex(publicKey, 48)
+}
+
+/** A 96-byte hex BLS signature / proof of possession (with or without 0x). */
+export function validateBlsSignature(signature: string): boolean {
+    return isHex(signature, 96)
+}
+
+/** Normalises to 0x-prefixed lowercase hex. */
+export function toHex0x(h: string): string {
+    return '0x' + strip(h).toLowerCase()
+}
+
+const bytes = (h: string) => Uint8Array.from(strip(h).match(/../g)!.map((b) => parseInt(b, 16)))
+
+/**
+ * Whether `proofOfPossession` is a valid PoP for `publicKey` — the check the
+ * P-Chain makes before accepting an AddPermissionlessValidatorTx. False for
+ * malformed input, never throws.
+ */
+export function verifyProofOfPossession(publicKey: string, proofOfPossession: string): boolean {
+    if (!validateBlsPublicKey(publicKey) || !validateBlsSignature(proofOfPossession)) return false
+    try {
+        const pk = bytes(publicKey)
+        return bls.verify(bytes(proofOfPossession), pk, pk, { DST: POP_DST })
+    } catch {
+        return false
+    }
+}
+
+export interface NodeInfo {
+    nodeID: string
+    publicKey: string
+    proofOfPossession: string
+}
+
+/**
+ * Reads what a validator needs out of a pasted `info.getNodeID` response: the
+ * full JSON-RPC reply, just its `result`, or the `nodePOP` object. Returns null
+ * when it isn't one.
+ */
+export function parseNodeInfo(text: string): NodeInfo | null {
+    let j: any
+    try {
+        j = JSON.parse(text.trim())
+    } catch {
+        return null
+    }
+    const r = j?.result ?? j
+    const pop = r?.nodePOP ?? r
+    const nodeID = typeof r?.nodeID === 'string' ? r.nodeID : ''
+    const publicKey = pop?.publicKey
+    const proofOfPossession = pop?.proofOfPossession
+    if (typeof publicKey !== 'string' || typeof proofOfPossession !== 'string') return null
+    return { nodeID, publicKey: toHex0x(publicKey), proofOfPossession: toHex0x(proofOfPossession) }
 }

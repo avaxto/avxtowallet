@@ -18,7 +18,11 @@
                             <p class="desc">
                                 {{ $t('earn.validate.duration.desc') }}
                             </p>
-                            <DateForm @change_end="setEnd"></DateForm>
+                            <DateForm @change_end="setEnd" :min-duration-ms="minValidationDuration"></DateForm>
+                            <p class="desc duration_rules">
+                                At least {{ minValidationLabel }} and at most a year, counted from when the network
+                                accepts the transaction. Rewards need at least 90% uptime over the period.
+                            </p>
                         </div>
                         <div style="margin: 30px 0">
                             <h4>{{ $t('earn.validate.amount.label') }}</h4>
@@ -51,13 +55,24 @@
                             />
                         </div>
                         <div style="margin: 30px 0">
-                            <h4>{{ $t('earn.validate.bls.label') || 'BLS Signature (ACP-62)' }}</h4>
+                            <h4>Node BLS key (ACP-62)</h4>
                             <p class="desc">
-                                {{ $t('earn.validate.bls.desc') || 'BLS public key and signature are required for validator registration.' }}
+                                Every validator registers its node's BLS public key and proof of possession. They
+                                come from your node — the wallet can't make them. On the node, run:
                             </p>
+                            <pre class="node_cmd">curl -s -X POST -H 'content-type:application/json' --data '{"jsonrpc":"2.0","id":1,"method":"info.getNodeID"}' 127.0.0.1:9650/ext/info</pre>
                             <div class="bls_section">
+                                <label>Paste the response here to fill in the fields</label>
+                                <textarea
+                                    v-model="nodeInfoIn"
+                                    class="node_info_in"
+                                    rows="3"
+                                    spellcheck="false"
+                                    placeholder='{"jsonrpc":"2.0","result":{"nodeID":"NodeID-…","nodePOP":{"publicKey":"0x…","proofOfPossession":"0x…"}},"id":1}'
+                                ></textarea>
+                                <p v-if="nodeInfoError" class="err_msg">{{ nodeInfoError }}</p>
                                 <div style="margin: 15px 0">
-                                    <label>BLS Public Key (48 bytes)</label>
+                                    <label>BLS public key (48 bytes)</label>
                                     <input
                                         type="text"
                                         v-model="blsPublicKey"
@@ -68,7 +83,7 @@
                                     <p v-if="blsPublicKeyError" class="err_msg">{{ blsPublicKeyError }}</p>
                                 </div>
                                 <div style="margin: 15px 0">
-                                    <label>BLS Signature (96 bytes)</label>
+                                    <label>Proof of possession (96 bytes)</label>
                                     <input
                                         type="text"
                                         v-model="blsSignature"
@@ -78,19 +93,8 @@
                                     />
                                     <p v-if="blsSignatureError" class="err_msg">{{ blsSignatureError }}</p>
                                 </div>
-                                <div style="margin: 10px 0">
-                                    <button 
-                                        type="button" 
-                                        @click="generateBlsKeys" 
-                                        class="button_secondary"
-                                        style="font-size: 12px; padding: 8px 16px"
-                                    >
-                                        {{ $t('earn.validate.bls.generate') || 'Generate BLS Keys' }}
-                                    </button>
-                                    <p class="desc" style="font-size: 11px; margin-top: 5px">
-                                        {{ $t('earn.validate.bls.generate_desc') || 'Generate BLS keys deterministically from your wallet seed.' }}
-                                    </p>
-                                </div>
+                                <p v-if="popStatus === 'ok'" class="pop_ok"><fa icon="check-circle"></fa> Proof of possession verified for this key.</p>
+                                <p v-else-if="popStatus === 'bad'" class="err_msg">{{ popMismatch }}</p>
                             </div>
                         </div>
                         <div class="reward_in" style="margin: 30px 0" :type="rewardDestination">
@@ -297,19 +301,15 @@ import { Wallet } from '@/js/wallets/AbstractWallet'
 import { sortUTxoSetP } from '@/helpers/sortUTXOs'
 import { selectMaxUtxoForStaking } from '@/helpers/utxoSelection/selectMaxUtxoForStaking'
 import { bnToAvaxP } from '@/avalanche-wallet-sdk'
-import { generateBlsKeyPair, signBlsMessage, generateProofOfPossessionMessage } from '@/helpers/bls_utils'
+import { BLS_ERRORS, parseNodeInfo, toHex0x, validateBlsPublicKey as isBlsPublicKey, validateBlsSignature as isBlsSignature, verifyProofOfPossession } from '@/helpers/bls_utils'
 import { authorizeSingle, SessionAuthCancelled } from '@/js/security/authorize'
 import { useOfflineSigningStore, isOfflineTxId } from '@/stores'
 import SignOnlyToggle from '@/components/misc/SignOnlyToggle.vue'
 import SignedTxExport from '@/components/misc/SignedTxExport.vue'
-import { durationLabel, minDelegationDurationMs } from '@/constants'
+import { durationLabel, maxStakeEnd, MAX_STAKE_DURATION_MS, minDelegationDurationMs, minStakeEnd, minValidationDurationMs } from '@/constants'
 
 const MIN_MS = 60000
-const HOUR_MS = MIN_MS * 60
-const DAY_MS = HOUR_MS * 24
 
-const MIN_STAKE_DURATION = DAY_MS * 14
-const MAX_STAKE_DURATION = DAY_MS * 365
 
 export default defineComponent({
     name: 'add_validator',
@@ -569,14 +569,12 @@ export default defineComponent({
         // BLS key validation and generation methods
         const validateBlsPublicKey = () => {
             blsPublicKeyError.value = ''
-            if (!blsPublicKey.value) {
-                blsPublicKeyError.value = 'BLS public key is required for validator registration.'
+            if (!blsPublicKey.value.trim()) {
+                blsPublicKeyError.value = BLS_ERRORS.MISSING_BLS_DATA
                 return false
             }
-            
-            const clean = blsPublicKey.value.startsWith('0x') ? blsPublicKey.value.slice(2) : blsPublicKey.value
-            if (clean.length !== 96 || !/^[0-9a-fA-F]+$/.test(clean)) {
-                blsPublicKeyError.value = 'Invalid BLS public key format. Must be 48 bytes (96 hex characters).'
+            if (!isBlsPublicKey(blsPublicKey.value)) {
+                blsPublicKeyError.value = BLS_ERRORS.INVALID_PUBLIC_KEY
                 return false
             }
             return true
@@ -584,51 +582,48 @@ export default defineComponent({
 
         const validateBlsSignature = () => {
             blsSignatureError.value = ''
-            if (!blsSignature.value) {
-                blsSignatureError.value = 'BLS signature is required for validator registration.'
+            if (!blsSignature.value.trim()) {
+                blsSignatureError.value = BLS_ERRORS.MISSING_BLS_DATA
                 return false
             }
-            
-            const clean = blsSignature.value.startsWith('0x') ? blsSignature.value.slice(2) : blsSignature.value
-            if (clean.length !== 192 || !/^[0-9a-fA-F]+$/.test(clean)) {
-                blsSignatureError.value = 'Invalid BLS signature format. Must be 96 bytes (192 hex characters).'
+            if (!isBlsSignature(blsSignature.value)) {
+                blsSignatureError.value = BLS_ERRORS.INVALID_SIGNATURE
                 return false
             }
             return true
         }
 
-        const generateBlsKeys = async () => {
-            try {
-                // Generate keys deterministically from wallet
-                const w: Wallet = mainStore.activeWallet
-                const seed = w.getCurrentAddressPlatform() + nodeId.value
-                const keyPair = generateBlsKeyPair(seed)
-                
-                // Generate proof of possession
-                const message = generateProofOfPossessionMessage(nodeId.value, keyPair.publicKey)
-                const signature = signBlsMessage(keyPair.privateKey, message)
-                
-                blsPublicKey.value = '0x' + keyPair.publicKey
-                blsSignature.value = '0x' + signature.signature
-                
-                // Validate the generated keys
-                validateBlsPublicKey()
-                validateBlsSignature()
-                
-                notificationsStore.add({
-                    type: 'info',
-                    title: 'BLS Keys Generated',
-                    message: 'BLS public key and signature have been generated for your validator.'
-                })
-            } catch (error) {
-                console.error('Failed to generate BLS keys:', error)
-                notificationsStore.add({
-                    type: 'error',
-                    title: 'BLS Generation Failed',
-                    message: 'Failed to generate BLS keys. Please enter them manually.'
-                })
+        /**
+         * The P-Chain's own check, run before anything is spent: the proof of
+         * possession must be a valid BLS signature over this public key
+         * (helpers/bls_utils.ts). '' while either field is incomplete.
+         */
+        const popStatus = computed((): '' | 'ok' | 'bad' => {
+            if (!isBlsPublicKey(blsPublicKey.value) || !isBlsSignature(blsSignature.value)) return ''
+            return verifyProofOfPossession(blsPublicKey.value, blsSignature.value) ? 'ok' : 'bad'
+        })
+        const popMismatch = BLS_ERRORS.POP_MISMATCH
+
+        // A pasted info.getNodeID response fills the node ID, key and proof.
+        const nodeInfoIn = ref('')
+        const nodeInfoError = ref('')
+        watch(nodeInfoIn, (text) => {
+            nodeInfoError.value = ''
+            if (!text.trim()) return
+            const info = parseNodeInfo(text)
+            if (!info) {
+                nodeInfoError.value = 'That isn’t an info.getNodeID response (it needs nodePOP.publicKey and nodePOP.proofOfPossession).'
+                return
             }
-        }
+            if (info.nodeID) nodeId.value = info.nodeID
+            blsPublicKey.value = info.publicKey
+            blsSignature.value = info.proofOfPossession
+            validateBlsPublicKey()
+            validateBlsSignature()
+        })
+
+        const minValidationDuration = computed(() => minValidationDurationMs(ava.getNetworkID()))
+        const minValidationLabel = computed(() => durationLabel(minValidationDuration.value))
 
         const updateFormData = () => {
             formNodeId.value = nodeId.value.trim()
@@ -636,8 +631,8 @@ export default defineComponent({
             formEnd.value = new Date(endDate.value)
             formRewardAddr.value = rewardIn.value
             formFee.value = parseFloat(delegationFee.value)
-            formBlsPublicKey.value = blsPublicKey.value.trim()
-            formBlsSignature.value = blsSignature.value.trim()
+            formBlsPublicKey.value = toHex0x(blsPublicKey.value)
+            formBlsSignature.value = toHex0x(blsSignature.value)
         }
 
         const formCheck = (): boolean => {
@@ -651,6 +646,22 @@ export default defineComponent({
 
             if (!validateBlsSignature()) {
                 err.value = blsSignatureError.value
+                return false
+            }
+
+            if (!verifyProofOfPossession(blsPublicKey.value, blsSignature.value)) {
+                err.value = BLS_ERRORS.POP_MISMATCH
+                return false
+            }
+
+            // Staking period, counted from acceptance (Durango): Helicon minimum to a year.
+            const endMs = new Date(endDate.value).getTime()
+            if (!(endMs >= minStakeEnd(minValidationDuration.value) - 60_000)) {
+                err.value = `The staking period must be at least ${minValidationLabel.value}. Pick a later end date.`
+                return false
+            }
+            if (endMs > maxStakeEnd()) {
+                err.value = 'The staking period can be at most one year. Pick an earlier end date.'
                 return false
             }
 
@@ -798,8 +809,8 @@ export default defineComponent({
             const startMs = startDateVal.getTime()
 
             // If End date - start date is greater than max stake duration, adjust start date
-            if (endMs - startMs > MAX_STAKE_DURATION) {
-                startDateVal = new Date(endMs - MAX_STAKE_DURATION)
+            if (endMs - startMs > MAX_STAKE_DURATION_MS) {
+                startDateVal = new Date(endMs - MAX_STAKE_DURATION_MS)
             }
 
             try {
@@ -917,7 +928,12 @@ export default defineComponent({
             rewardSelect,
             validateBlsPublicKey,
             validateBlsSignature,
-            generateBlsKeys,
+            popStatus,
+            popMismatch,
+            nodeInfoIn,
+            nodeInfoError,
+            minValidationDuration,
+            minValidationLabel,
             updateFormData,
             formCheck,
             confirm,
@@ -1037,7 +1053,8 @@ label {
     transition-duration: 0.2s;
     &[type='local'] {
         .reward_addr_in {
-            opacity: 0.3;
+            // Not editable here, but the address shown is where rewards go: keep it readable.
+            opacity: 0.6;
             user-select: none;
             pointer-events: none;
         }
@@ -1066,6 +1083,21 @@ label {
 
 .amount_warning {
     color: var(--warning);
+}
+
+.node_cmd {
+    margin: 8px 0 12px;
+    padding: 8px 10px;
+    border-radius: 4px;
+    background: var(--bg);
+    color: var(--primary-color);
+    font-size: 11px;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.duration_rules {
+    margin-top: 8px;
 }
 
 .bls_section {
@@ -1100,6 +1132,23 @@ label {
         color: var(--error);
         font-size: 12px;
         margin-top: 5px;
+    }
+
+    .node_info_in {
+        width: 100%;
+        padding: 8px;
+        border-radius: 3px;
+        background-color: var(--bg);
+        color: var(--primary-color);
+        font-family: monospace;
+        font-size: 12px;
+        resize: vertical;
+    }
+
+    .pop_ok {
+        color: var(--success);
+        font-size: 13px;
+        margin: 4px 0 0;
     }
 
     .desc {

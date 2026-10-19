@@ -13,15 +13,16 @@
     </div>
 </template>
 <script lang="ts">
-import { DAY_MS, MINUTE_MS } from '../../../constants'
+import { DAY_MS, MINUTE_MS, maxStakeEnd } from '../../../constants'
 import { defineComponent, ref, computed, watch, onMounted } from 'vue'
 
-// Default minimum stake duration (validator flow / no override supplied).
+// Default minimum when no override is supplied: the mainnet delegation minimum.
+// Callers pass the right one (constants.ts: minValidationDurationMs / minDelegationDurationMs).
 const MIN_STAKE_DURATION = DAY_MS * 14
 
 interface Props {
     maxEndDate?: string
-    /** Overrides the default 14-day minimum — e.g. delegation's 48-hour minimum. */
+    /** Overrides the default 14-day minimum — e.g. a validator's 48 hours (Helicon). */
     minDurationMs?: number
     /** ISO end date to start from instead of the 21-day default (clamped to the allowed range). */
     initialEnd?: string
@@ -80,12 +81,13 @@ export default defineComponent({
             return new Date(end).toISOString()
         })
 
+        // A year from *acceptance* at most (Durango: the period starts then), so
+        // measured from now with a margin — not from the notional start above,
+        // which would allow a year and fifteen minutes and be rejected.
         const endDateMax = computed(() => {
-            if (props.maxEndDate) return props.maxEndDate
-            let start = localStart.value
-            let startDate = new Date(start)
-            let end = startDate.getTime() + DAY_MS * 365
-            return new Date(end).toISOString()
+            const cap = maxStakeEnd()
+            const given = props.maxEndDate ? new Date(props.maxEndDate).getTime() : Infinity
+            return new Date(Math.min(cap, given)).toISOString()
         })
 
         const endDateMinLocal = computed(() => isoToLocal(endDateMin.value))

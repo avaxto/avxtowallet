@@ -24,6 +24,7 @@ import { createAvalancheWalletClient } from '@avalanche-sdk/client'
 import { pvm, utils as avaxUtils } from '@avalabs/avalanchejs'
 import type { Utxo } from '@avalabs/avalanchejs'
 import { BN } from '@/avalanche'
+import { bintools } from '@/AVA'
 import { activeNetwork } from '@/avalanche-wallet-sdk/Network/network'
 import { NODE_MAX_UTXO_ADDRESSES } from '@/helpers/apiLimits'
 import { makeChain, sendPViaProvider, signLocallyAndIssueP } from '@/js/permissionlessDelegate'
@@ -56,6 +57,30 @@ export async function fetchPUtxos(addresses: string[]): Promise<Utxo[]> {
             if (r.numFetched < PAGE) break
             startIndex = r.endIndex
         }
+    }
+    return out
+}
+
+/** `{ txId, outputIdx }` of the vendored library's P-Chain UTXOs, for sdkUtxosFor. */
+export function vendoredUtxoKeys(utxos: { getTxID(): any; getOutputIdx(): any }[]): { txId: string; outputIdx: number }[] {
+    return utxos.map((u) => ({ txId: bintools.cb58Encode(u.getTxID()), outputIdx: u.getOutputIdx().readUInt32BE(0) }))
+}
+
+/**
+ * The SDK's UTXO objects for UTXOs picked elsewhere (the staking forms' UTXO
+ * selector holds the vendored library's objects): matched by creating
+ * transaction and output index among what `addresses` hold right now.
+ * Throws if any picked UTXO is gone (spent since the list was loaded), rather
+ * than quietly staking different ones.
+ */
+export async function sdkUtxosFor(picked: { txId: string; outputIdx: number }[], addresses: string[]): Promise<Utxo[]> {
+    const all = await fetchPUtxos(addresses)
+    const byKey = new Map(all.map((u) => [`${u.utxoId.txID.toString()}:${u.utxoId.outputIdx.value()}`, u]))
+    const out: Utxo[] = []
+    for (const p of picked) {
+        const u = byKey.get(`${p.txId}:${p.outputIdx}`)
+        if (!u) throw new Error('Some of the selected UTXOs are no longer available. Refresh your balance and pick again.')
+        out.push(u)
     }
     return out
 }

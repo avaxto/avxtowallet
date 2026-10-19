@@ -238,11 +238,9 @@ import { authorizeSingle, SessionAuthCancelled } from '@/js/security/authorize'
 import { useOfflineSigningStore, isOfflineTxId } from '@/stores'
 import SignOnlyToggle from '@/components/misc/SignOnlyToggle.vue'
 import SignedTxExport from '@/components/misc/SignedTxExport.vue'
-import { durationLabel, minDelegationDurationMs } from '@/constants'
+import { durationLabel, maxStakeEnd, minDelegationDurationMs, minStakeEnd } from '@/constants'
 
 const MIN_MS = 60000
-const HOUR_MS = MIN_MS * 60
-const DAY_MS = HOUR_MS * 24
 
 export default defineComponent({
     name: 'AddDelegator',
@@ -459,25 +457,19 @@ export default defineComponent({
                 return false
             }
 
-            let startTime = new Date(startDate.value).getTime()
             let endTime = new Date(endDate.value).getTime()
-            let now = Date.now()
-            let diffTime = endTime - startTime
 
-            if (startTime <= now) {
-                err.value = t('earn.delegate.errs.start_now') as string
-                return false
-            }
-
-            // The network's own minimum (14 days on mainnet, 24 hours on Fuji —
-            // see constants.ts). Built here rather than from the min_dur
-            // translation, which hard-codes a figure in every locale.
-            if (diffTime < minDelegationDuration.value) {
+            // Since Durango a delegation starts when the P-Chain accepts it, so
+            // the period is measured from now (plus a margin for acceptance),
+            // not from a start date. The network's own minimum: 14 days on
+            // mainnet, 24 hours on Fuji (constants.ts). Built here rather than
+            // from the min_dur translation, which hard-codes a figure.
+            if (endTime < minStakeEnd(minDelegationDuration.value)) {
                 err.value = `The minimum delegation period is ${durationLabel(minDelegationDuration.value)}.`
                 return false
             }
 
-            if (diffTime > DAY_MS * 365) {
+            if (endTime > maxStakeEnd()) {
                 err.value = t('earn.delegate.errs.max_dur') as string
                 return false
             }
@@ -864,7 +856,8 @@ label {
     transition-duration: 0.2s;
     &[type='local'] {
         .reward_addr_in {
-            opacity: 0.3;
+            // Not editable here, but the address shown is where rewards go: keep it readable.
+            opacity: 0.6;
             user-select: none;
             cursor: not-allowed;
             pointer-events: none;
