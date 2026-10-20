@@ -152,6 +152,33 @@ describe('BalanceCard gas coin', () => {
 })
 
 describe('BalanceCard wallet badge', () => {
+    it('shows the wallet’s name from AVXTO Manager when its session was opened that way', async () => {
+        const { mount } = await import('@vue/test-utils')
+        const { useActivePlatformStore } = await import('@/platforms/store')
+        const BalanceCard = (await import('@/components/wallet/TopCards/BalanceCard/BalanceCard.vue'))
+            .default
+
+        const pinia = createPinia()
+        setActivePinia(pinia)
+        installProvider(1)
+        await useEvmStore().connectInjected({ navigate: false })
+        const platformStore = useActivePlatformStore()
+        await platformStore.setActivePlatform('evm')
+        platformStore.setWalletLabel('evm', 'Cold storage')
+
+        const wrapper = mount(BalanceCard, {
+            global: {
+                plugins: [pinia],
+                mocks: { $t: (k: string) => k },
+                stubs: { fa: true, UtxosBreakdownModal: true, Spinner: true },
+            },
+        })
+        const badge = wrapper.find('.wallet_type_badge')
+        expect(badge.text()).toBe('Cold storage')
+        expect(badge.attributes('title')).toBe('Opened with AVXTO Manager · Cold storage')
+        wrapper.unmount()
+    })
+
     it("shows the extension's own name for the EVM tab's injected wallet", async () => {
         const { mount } = await import('@vue/test-utils')
         const { useActivePlatformStore } = await import('@/platforms/store')

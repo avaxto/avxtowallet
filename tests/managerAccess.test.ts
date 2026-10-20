@@ -94,9 +94,34 @@ describe('the /access/manager page', () => {
         await fill(w)
         await w.find('button.v_btn').trigger('click')
         await flushPromises()
-        expect(store.unlockWithMnemonic).toHaveBeenCalledWith(PHRASE, 'session-pw', ['avalanche', 'bitcoin'])
+        expect(store.unlockWithMnemonic).toHaveBeenCalledWith(PHRASE, 'session-pw', ['avalanche', 'bitcoin'], { label: undefined })
         expect(push).toHaveBeenCalledWith('/wallet')
         expect((w.find('#manager-pw').element as HTMLInputElement).value).toBe('')
+        w.unmount()
+    })
+
+    it('names the wallet on every platform it opens, from the Manager’s response', async () => {
+        managerReplies({ result: { mnemonic: PHRASE, name: 'Cold storage' } })
+        store.unlockWithMnemonic.mockResolvedValue([
+            { platformId: 'avalanche', status: 'connected' },
+            { platformId: 'bitcoin', status: 'connected' },
+        ])
+        const w = mount(ManagerAccess, { global: { stubs } })
+        await fill(w)
+        await w.find('button.v_btn').trigger('click')
+        await flushPromises()
+        expect(store.unlockWithMnemonic.mock.calls[0][3]).toEqual({ label: 'Cold storage' })
+        w.unmount()
+    })
+
+    it('names an Electrum-seed wallet too, on Bitcoin', async () => {
+        managerReplies({ result: { mnemonic: 'cycle rocket west magnet parrot shuffle foot correct salt library feed song', name: 'Electrum' } })
+        store.unlockWithMnemonic.mockResolvedValue([{ platformId: 'bitcoin', status: 'connected' }])
+        const w = mount(ManagerAccess, { global: { stubs } })
+        await fill(w)
+        await w.find('button.v_btn').trigger('click')
+        await flushPromises()
+        expect(store.unlockWithMnemonic.mock.calls[0].slice(2)).toEqual([['bitcoin'], { label: 'Electrum' }])
         w.unmount()
     })
 

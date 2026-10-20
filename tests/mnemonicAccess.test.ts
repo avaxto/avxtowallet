@@ -15,6 +15,8 @@ import * as bip39 from 'bip39'
 const accessWallet = jest.fn(async () => {})
 jest.mock('@/stores', () => ({ useMainStore: () => ({ accessWallet }) }))
 jest.mock('vue-i18n', () => ({ useI18n: () => ({ t: (k: string) => k }) }))
+const setWalletLabel = jest.fn()
+jest.mock('@/platforms', () => ({ useActivePlatformStore: () => ({ setWalletLabel }) }))
 
 import Mnemonic from '@/views/access/Mnemonic.vue'
 
@@ -31,7 +33,10 @@ async function submit(phrase: string) {
     return w
 }
 
-beforeEach(() => accessWallet.mockClear())
+beforeEach(() => {
+    accessWallet.mockClear()
+    setWalletLabel.mockClear()
+})
 
 describe('/access/mnemonic', () => {
     it('says 12 or 24 words', () => {
@@ -82,3 +87,31 @@ describe('/access/mnemonic', () => {
         expect(accessWallet).not.toHaveBeenCalled()
     })
 })
+
+describe('the AVXTO Manager panel', () => {
+    const PHRASE = bip39.generateMnemonic(128)
+    const viaManager = async (body: unknown, ok = true) => {
+        global.fetch = jest.fn(async () => ({ ok, status: ok ? 200 : 500, json: async () => body })) as any
+        const w = mount(Mnemonic, { global: { stubs, mocks: { $t: (k: string) => k } } })
+        await w.find('#manager-url').setValue('https://m.example/rpc')
+        await w.find('#manager-pw').setValue('session-pw')
+        await w.find('.manager_proceed').trigger('click')
+        await flushPromises()
+        return w
+    }
+
+    it('names the Avalanche wallet after the Manager’s wallet, once it opens', async () => {
+        const w = await viaManager({ result: { mnemonic: PHRASE, name: 'Cold storage' } })
+        expect(accessWallet).toHaveBeenCalledWith(PHRASE, 'session-pw')
+        expect(setWalletLabel).toHaveBeenCalledWith('avalanche', 'Cold storage')
+        w.unmount()
+    })
+
+    it('names nothing when the wallet did not open', async () => {
+        accessWallet.mockRejectedValueOnce(new Error('nope'))
+        const w = await viaManager({ result: { mnemonic: PHRASE, name: 'Cold storage' } })
+        expect(setWalletLabel).not.toHaveBeenCalled()
+        w.unmount()
+    })
+})
+

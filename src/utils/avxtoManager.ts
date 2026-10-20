@@ -84,12 +84,38 @@ export function extractMnemonic(body: any): string {
     return phrase
 }
 
+/** Longest wallet name kept for display; the badge truncates visually too. */
+export const MAX_WALLET_NAME_LENGTH = 40
+
 /**
- * Reads the mnemonic from a user-run AVXTO Manager JSON-RPC endpoint: posts
- * the `read` request with `password`, then validates what comes back with
- * `extractMnemonic`. Throws errors whose messages are safe to show.
+ * The wallet's name from the same response, when the Manager sends one: at
+ * `result.name` (or `label` / `walletName`), or the same keys at the top level
+ * — as lenient about the envelope as `extractMnemonic`. Trimmed, control
+ * characters removed, whitespace collapsed, capped at MAX_WALLET_NAME_LENGTH.
+ * Undefined when absent or empty: the name is optional.
  */
-export async function fetchMnemonicFromManager(url: string, password: string): Promise<string> {
+export function extractWalletName(body: any): string | undefined {
+    const pick = (o: any) => [o?.name, o?.label, o?.walletName].find((v) => typeof v === 'string' && v.trim())
+    const raw = pick(body?.result) ?? pick(body)
+    if (typeof raw !== 'string') return undefined
+    const clean = raw.replace(/[\u0000-\u001f\u007f-\u009f]/g, ' ').replace(/\s+/g, ' ').trim()
+    if (!clean) return undefined
+    return clean.length > MAX_WALLET_NAME_LENGTH ? clean.slice(0, MAX_WALLET_NAME_LENGTH - 1) + '…' : clean
+}
+
+export interface ManagerWallet {
+    mnemonic: string
+    /** The wallet's name as the Manager reports it, if it does. */
+    name?: string
+}
+
+/**
+ * Reads the wallet from a user-run AVXTO Manager JSON-RPC endpoint: posts the
+ * `read` request with `password`, then validates the mnemonic with
+ * `extractMnemonic` and picks up the wallet's name if one is sent. Throws
+ * errors whose messages are safe to show.
+ */
+export async function fetchFromManager(url: string, password: string): Promise<ManagerWallet> {
     const endpoint = url.trim()
     if (!endpoint) throw new Error('Enter the AVXTO Manager JSON-RPC URL.')
     if (!password) throw new Error('Enter the session password.')
@@ -120,5 +146,10 @@ export async function fetchMnemonicFromManager(url: string, password: string): P
     } catch {
         throw new Error('AVXTO Manager did not return valid JSON.')
     }
-    return extractMnemonic(body)
+    return { mnemonic: extractMnemonic(body), name: extractWalletName(body) }
+}
+
+/** The mnemonic alone; see `fetchFromManager`. */
+export async function fetchMnemonicFromManager(url: string, password: string): Promise<string> {
+    return (await fetchFromManager(url, password)).mnemonic
 }

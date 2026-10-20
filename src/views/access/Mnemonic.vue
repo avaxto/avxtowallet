@@ -119,11 +119,12 @@
 import 'reflect-metadata'
 import { defineComponent, ref, onBeforeUnmount } from 'vue'
 import { useMainStore } from '@/stores'
+import { useActivePlatformStore } from '@/platforms'
 import { useI18n } from 'vue-i18n'
 
 import * as bip39 from 'bip39'
 import MnemonicPasswordInput from '@/components/misc/MnemonicPasswordInput.vue'
-import { fetchMnemonicFromManager, isBip39Phrase, MNEMONIC_WORD_COUNTS } from '@/utils/avxtoManager'
+import { fetchFromManager, isBip39Phrase, MNEMONIC_WORD_COUNTS } from '@/utils/avxtoManager'
 
 const WALLET_LOADING_TIMEOUT = 500
 
@@ -134,6 +135,7 @@ export default defineComponent({
     },
     setup() {
         const mainStore = useMainStore()
+        const platformStore = useActivePlatformStore()
         const { t } = useI18n()
         
         const isLoading = ref<boolean>(false)
@@ -263,13 +265,15 @@ export default defineComponent({
             managerErr.value = ''
             managerLoading.value = true
             try {
-                const mnemonic = await fetchMnemonicFromManager(managerUrl.value, managerPassword.value)
+                const { mnemonic, name } = await fetchFromManager(managerUrl.value, managerPassword.value)
                 if (!isBip39Phrase(mnemonic)) {
                     throw new Error(
                         'This is an Electrum-format seed, which Avalanche cannot use. Open it from Access using AVXTO Manager (the top option on the Access page) to use it on Bitcoin.'
                     )
                 }
                 await mainStore.accessWallet(mnemonic, managerPassword.value)
+                // The Manager's name for this wallet becomes its badge (BalanceCard).
+                platformStore.setWalletLabel('avalanche', name)
             } catch (e: any) {
                 managerErr.value = e?.message || 'Failed to access wallet via AVXTO Manager.'
             } finally {

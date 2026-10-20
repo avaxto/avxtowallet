@@ -103,7 +103,7 @@ import { useRoute, useRouter } from 'vue-router'
 
 import { useActivePlatformStore } from '@/platforms'
 import type { MnemonicUnlockResult, PlatformId } from '@/platforms'
-import { fetchMnemonicFromManager, isBip39Phrase } from '@/utils/avxtoManager'
+import { fetchFromManager, isBip39Phrase } from '@/utils/avxtoManager'
 
 export default defineComponent({
     name: 'ManagerAccess',
@@ -152,7 +152,8 @@ export default defineComponent({
             results.value = []
             isLoading.value = true
             try {
-                let mnemonic = await fetchMnemonicFromManager(managerUrl.value, password.value)
+                const fetched = await fetchFromManager(managerUrl.value, password.value)
+                let mnemonic = fetched.mnemonic
                 // An Electrum-format seed is not BIP-39: only Bitcoin can derive from it.
                 let platforms = selected.value
                 if (!isBip39Phrase(mnemonic)) {
@@ -164,7 +165,8 @@ export default defineComponent({
                     }
                     notice.value = 'This is an Electrum-format seed, so only Bitcoin was opened.'
                 }
-                const settled = await platformStore.unlockWithMnemonic(mnemonic, password.value, platforms)
+                // The Manager's name for this wallet becomes its badge on every platform opened here.
+                const settled = await platformStore.unlockWithMnemonic(mnemonic, password.value, platforms, { label: fetched.name })
                 mnemonic = ''
                 results.value = settled
                 const failed = settled.filter((r) => r.status === 'failed')

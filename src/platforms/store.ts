@@ -5,7 +5,7 @@
 
 */
 import { defineStore } from 'pinia'
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 
 import type {
     Platform,
@@ -115,6 +115,27 @@ export const useActivePlatformStore = defineStore('activePlatform', () => {
     const connectedPlatforms = computed((): Platform[] => {
         void walletEpoch.value
         return listAvailablePlatforms().filter((p) => p.getActiveWallet() != null)
+    })
+
+    /**
+     * A display name per open platform session — today, the wallet's name as
+     * AVXTO Manager reported it at login, shown in the balance card's wallet
+     * badge. In memory only: a page reload (every full exit reloads) clears
+     * it, and a platform that disconnects loses its name (pruned below), so
+     * a later session opened another way never inherits it.
+     */
+    const walletLabels = ref<Partial<Record<PlatformId, string>>>({})
+    const setWalletLabel = (platformId: PlatformId, label: string | undefined) => {
+        const next = { ...walletLabels.value }
+        if (label) next[platformId] = label
+        else delete next[platformId]
+        walletLabels.value = next
+    }
+    const walletLabel = (platformId: PlatformId | undefined): string => (platformId ? walletLabels.value[platformId] ?? '' : '')
+    watch(connectedPlatforms, (list) => {
+        const open = new Set(list.map((p) => p.descriptor.id))
+        const stale = (Object.keys(walletLabels.value) as PlatformId[]).filter((id) => !open.has(id))
+        if (stale.length) stale.forEach((id) => setWalletLabel(id, undefined))
     })
 
     const isPlatformConnected = (id: PlatformId): boolean =>
@@ -492,7 +513,9 @@ export const useActivePlatformStore = defineStore('activePlatform', () => {
     const unlockWithMnemonic = async (
         mnemonic: string,
         sessionPassword: string,
-        ids?: PlatformId[]
+        ids?: PlatformId[],
+        /** `label`: a display name for every platform this pass opens (see `walletLabels`). */
+        opts: { label?: string } = {}
     ): Promise<MnemonicUnlockResult[]> => {
         const wanted = ids ? new Set(ids) : null
         const targets = mnemonicUnlockablePlatforms.value.filter(
@@ -529,6 +552,12 @@ export const useActivePlatformStore = defineStore('activePlatform', () => {
         // their wallet outside Pinia. Bump once here so `connectedPlatforms`
         // below is guaranteed current regardless of how each target stores its.
         notifyWalletChanged()
+
+        // Name only what this pass opened: a skipped platform already had a
+        // session of its own, which keeps its own badge.
+        if (opts.label) {
+            for (const r of settled) if (r.status === 'connected') setWalletLabel(r.platformId, opts.label)
+        }
 
         // Land on something real. The active platform is usually Avalanche at
         // this point (the default, and unconnected), which no longer forces a
@@ -729,5 +758,8 @@ export const useActivePlatformStore = defineStore('activePlatform', () => {
         ensureActiveIsConnected,
         finishDisconnect,
         initPlatform,
+        walletLabels,
+        setWalletLabel,
+        walletLabel,
     }
 })

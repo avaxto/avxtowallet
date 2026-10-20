@@ -10,7 +10,7 @@
  * usable mnemonic. See views/access/Mnemonic.vue for the form that uses this.
  */
 import * as bip39 from 'bip39'
-import { buildReadRequest, extractMnemonic, isBip39Phrase } from '@/utils/avxtoManager'
+import { buildReadRequest, extractMnemonic, extractWalletName, isBip39Phrase, MAX_WALLET_NAME_LENGTH } from '@/utils/avxtoManager'
 
 // A real, valid 24-word mnemonic — generated fresh, not a well-known test
 // vector, so this file cannot be mistaken for holding a funded phrase.
@@ -103,3 +103,27 @@ describe('extractMnemonic', () => {
         expect(() => extractMnemonic({ mnemonic: uppercased })).toThrow(/all lowercase/)
     })
 })
+
+describe('extractWalletName', () => {
+    it('reads the wallet name next to the mnemonic, wrapped or bare', () => {
+        expect(extractWalletName({ result: { mnemonic: 'x', name: 'Cold storage' } })).toBe('Cold storage')
+        expect(extractWalletName({ mnemonic: 'x', name: 'Cold storage' })).toBe('Cold storage')
+        expect(extractWalletName({ result: { label: 'Trading' } })).toBe('Trading')
+        expect(extractWalletName({ result: { walletName: 'Savings' } })).toBe('Savings')
+    })
+
+    it('cleans it up: whitespace collapsed, control characters dropped, length capped', () => {
+        expect(extractWalletName({ result: { name: '  My\n\tMain   Wallet\u0007 ' } })).toBe('My Main Wallet')
+        const long = extractWalletName({ result: { name: 'x'.repeat(100) } })!
+        expect(long).toHaveLength(MAX_WALLET_NAME_LENGTH)
+        expect(long.endsWith('…')).toBe(true)
+    })
+
+    it('is undefined when there is no usable name — the name is optional', () => {
+        expect(extractWalletName({ result: { mnemonic: 'x' } })).toBeUndefined()
+        expect(extractWalletName({ result: { name: '   ' } })).toBeUndefined()
+        expect(extractWalletName({ result: { name: 42 } })).toBeUndefined()
+        expect(extractWalletName(null)).toBeUndefined()
+    })
+})
+

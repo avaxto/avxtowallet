@@ -402,3 +402,40 @@ describe('leaving a platform that cannot share the page', () => {
         expect(reloadedTo).toBe('/')
     })
 })
+
+describe('a wallet name from AVXTO Manager', () => {
+    it('labels every platform the pass opens, and nothing else', async () => {
+        const store = useActivePlatformStore()
+        await store.unlockWithMnemonic(PHRASE, PASSWORD, [SEED_A, SEED_B], { label: 'Cold storage' })
+        expect(store.walletLabel(SEED_A)).toBe('Cold storage')
+        expect(store.walletLabel(SEED_B)).toBe('Cold storage')
+        expect(store.walletLabel(EXTENSION_ONLY)).toBe('')
+    })
+
+    it('leaves a platform that already had a session alone', async () => {
+        const store = useActivePlatformStore()
+        connect(store, SEED_A)
+        await store.unlockWithMnemonic(PHRASE, PASSWORD, [SEED_A, SEED_B], { label: 'Cold storage' })
+        expect(store.walletLabel(SEED_A)).toBe('')
+        expect(store.walletLabel(SEED_B)).toBe('Cold storage')
+    })
+
+    it('forgets the name when that platform logs out, so a later session never inherits it', async () => {
+        const store = useActivePlatformStore()
+        await store.unlockWithMnemonic(PHRASE, PASSWORD, [SEED_A, SEED_B], { label: 'Cold storage' })
+        // Keep the active tab on the other platform so the logout doesn't trigger a reload.
+        await store.setActivePlatform(SEED_B)
+        await store.connectedPlatforms.find((p) => p.descriptor.id === SEED_A)!.logout()
+        await new Promise((r) => setTimeout(r, 0)) // let the store's watcher run
+        expect(store.walletLabel(SEED_A)).toBe('')
+        expect(store.walletLabel(SEED_B)).toBe('Cold storage')
+        connect(store, SEED_A) // reopened some other way
+        expect(store.walletLabel(SEED_A)).toBe('')
+    })
+
+    it('sets nothing when the Manager sent no name', async () => {
+        const store = useActivePlatformStore()
+        await store.unlockWithMnemonic(PHRASE, PASSWORD, [SEED_A])
+        expect(store.walletLabel(SEED_A)).toBe('')
+    })
+})

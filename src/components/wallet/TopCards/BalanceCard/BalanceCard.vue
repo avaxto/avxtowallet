@@ -499,7 +499,16 @@ export default defineComponent({
          * tells us, via js/wallets/injectedWalletName), falling back to the
          * extension's name ("MetaMask", which keeps its labels private).
          */
+        /**
+         * The wallet's name from AVXTO Manager, when this platform's session
+         * was opened through it (platforms/store.ts → walletLabels).
+         */
+        const managerName = computed((): string =>
+            platformStore.activeWallet ? platformStore.walletLabel(platformStore.activePlatform?.descriptor.id) : ''
+        )
+
         const walletTypeLabel = computed((): string => {
+            if (managerName.value) return managerName.value
             const names = injectedNames.value
             if (names) return names.account?.walletName ?? names.extension ?? 'Extension'
             const typeMap: Record<string, string> = {
@@ -513,6 +522,7 @@ export default defineComponent({
 
         /** Hover text: which extension, and the account's name inside it. */
         const walletTypeTitle = computed((): string => {
+            if (managerName.value) return `Opened with AVXTO Manager · ${managerName.value}`
             const names = injectedNames.value
             if (!names) return ''
             const extension = names.extension ?? 'Browser extension'
@@ -748,6 +758,10 @@ h4 {
 }
 
 .wallet_type_badge {
+    // A Manager wallet name can be long: cut it short; the title has it in full.
+    max-width: 160px;
+    overflow: hidden;
+    text-overflow: ellipsis;
     font-size: 11px;
     color: var(--primary-color-light);
     background: var(--bg-light);
