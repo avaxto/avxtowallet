@@ -232,6 +232,7 @@ import { web3 } from '@/evm'
 import { gasFor } from '@/evm/gas'
 import { explorerName, explorerTxUrl, getAvalancheCChainNetwork, type EvmNetwork } from '@/evm/networkRegistry'
 import { encodeMemoToTxData, intrinsicGasForData } from '@/evm/memo'
+import { ContractRejectsTransferError, nativeTransferGasLimit } from '@/evm/nativeGas'
 import { useActivePlatformStore } from '@/platforms'
 import { useEvmStore } from '@/platforms/evm/store'
 import type { EvmPortfolioToken } from '@/stores/evmPortfolio'
@@ -540,21 +541,33 @@ export default defineComponent({
                         formAmount.value,
                         formToken.value
                     )
-                } else {
+                } else if (isGeneralEvm.value || isCollectible.value) {
                     // A memo adds to the intrinsic gas a plain value transfer
                     // needs — computed exactly (not padded) per
-                    // evm/memo.ts's intrinsicGasForData doc. Left at the plain
-                    // 21000 base on the isGeneralEvm path too even though that
+                    // evm/memo.ts's intrinsicGasForData doc. The isGeneralEvm
                     // branch's actual send (EvmWallet.sendNative) ignores this
-                    // value and lets the extension estimate its own: this
-                    // number still drives the confirm screen's displayed fee,
-                    // and showing a number too low to actually cover the memo
-                    // would be misleading even if harmless to the send itself.
+                    // value and estimates its own: this number only drives the
+                    // confirm screen's displayed fee.
                     gasLimit.value = memoTxData.value
                         ? 21000 + intrinsicGasForData(memoTxData.value)
                         : 21000
+                } else {
+                    // Avalanche C-Chain AVAX: this limit is what gets signed,
+                    // so a contract recipient must get its real cost — a flat
+                    // 21000 reverts out of gas (see evm/nativeGas.ts).
+                    gasLimit.value = await nativeTransferGasLimit(
+                        web3,
+                        '0x' + (wallet.value as any).getEvmAddress(),
+                        formAddress.value,
+                        formAmount.value,
+                        memoTxData.value
+                    )
                 }
             } catch (e: any) {
+                if (e instanceof ContractRejectsTransferError) {
+                    err.value = e.message
+                    return
+                }
                 gasLimit.value = 21000
             }
             isConfirm.value = true

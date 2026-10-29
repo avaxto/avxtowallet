@@ -110,6 +110,7 @@ import { useMainStore, useAssetsStore, useCChainSdkAssetsStore } from '@/stores'
 import { v1 as uuidv1 } from 'uuid'
 import { BN } from '@/avalanche'
 import { web3 } from '@/evm'
+import { nativeTransferGasLimit } from '@/evm/nativeGas'
 import { GasHelper } from '@/avalanche-wallet-sdk'
 import { WalletHelper } from '@/helpers/wallet_helper'
 import { QrInput } from '@/vue_components'
@@ -270,6 +271,16 @@ export default defineComponent({
                                     } catch (e) {
                                         gasLimit = 100000
                                     }
+                                } else {
+                                    // A contract recipient needs more than 21000
+                                    // (see evm/nativeGas.ts); one that fails the
+                                    // dry run is reported for this row and skipped.
+                                    gasLimit = await nativeTransferGasLimit(
+                                        web3,
+                                        fromAddr,
+                                        r.address,
+                                        r.amount
+                                    )
                                 }
 
                                 let hash: string
