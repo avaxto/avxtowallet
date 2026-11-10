@@ -21,11 +21,13 @@ jest.mock('axios', () => {
     return { __esModule: true, default: api, ...api }
 })
 const scan = jest.fn()
+const tokenBalances: Record<string, bigint> = {}
 jest.mock('@/stores/evmPortfolio', () => ({ scanNetwork: (...a: any[]) => scan(...a) }))
 jest.mock('@/bridge/assets', () => ({
     ...jest.requireActual('@/bridge/assets'),
     readTokenAsset: async (chain: any, address: string) => ({ chainId: chain.id, address, symbol: 'USDC', name: '', decimals: 6 }),
-    readBalance: async () => BigInt(5),
+    readBalance: async (_c: any, asset: any) =>
+        asset.address === 'native' ? BigInt(5) : tokenBalances[asset.address.toLowerCase()] ?? BigInt(0),
     solanaHeldTokens: async () => [],
 }))
 
@@ -46,6 +48,7 @@ const USDC_ETH = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48'
 beforeEach(() => {
     http.get.mockReset()
     scan.mockReset()
+    for (const k of Object.keys(tokenBalances)) delete tokenBalances[k]
     __resetThorPools()
 })
 
@@ -66,6 +69,29 @@ describe('what can be sent', () => {
             ['AVAX', '3', true],
             ['USDC', '2500000', true],
             ['ZZZ', '7', false],
+        ])
+    })
+
+    it('also lists registry tokens the explorer missed (WETH.e), read on chain', async () => {
+        tokenBalances['0x49d5c2bdffac6ce2bfdb6640f4f80f226bc10bab'] = BigInt(9)
+        scan.mockResolvedValue({ status: 'ok', tokens: [] })
+        const list = await portfolioTokens(chain('evm:43114'), ME)
+        expect(list.map((t) => [t.address.toLowerCase(), t.balance.toString(), t.verified])).toEqual([
+            ['native', '5', true],
+            ['0x49d5c2bdffac6ce2bfdb6640f4f80f226bc10bab', '9', true],
+        ])
+    })
+
+    it('drops one malformed entry rather than the whole list', async () => {
+        tokenBalances['0x49d5c2bdffac6ce2bfdb6640f4f80f226bc10bab'] = BigInt(9)
+        scan.mockResolvedValue({
+            status: 'ok',
+            tokens: [{ isNative: true, address: 'native', symbol: 'AVAX', name: 'Avalanche', decimals: 18, raw: '0.18', balance: Big(0.18) }],
+        })
+        const list = await portfolioTokens(chain('evm:43114'), ME)
+        expect(list.map((t) => [t.address.toLowerCase(), t.balance.toString()])).toEqual([
+            ['native', '5'],
+            ['0x49d5c2bdffac6ce2bfdb6640f4f80f226bc10bab', '9'],
         ])
     })
 

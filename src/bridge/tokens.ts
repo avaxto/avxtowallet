@@ -28,6 +28,7 @@ import { SOLANA_TOKENS } from '@/solana/tokenRegistry'
 import { getSolanaNetworkById } from '@/solana/networks'
 import { connectionFor } from '@/solana/rpc'
 import { isRegistryToken } from '@/helpers/registry_token'
+import { useAssetsStore } from '@/stores'
 import { readBalance, readTokenAsset, solanaHeldTokens, nativeAsset } from './assets'
 import { NATIVE, type BridgeAsset, type BridgeChain } from './types'
 
@@ -79,18 +80,37 @@ export async function portfolioTokens(chain: BridgeChain, owner: string): Promis
         if (chain.kind === 'evm') {
             const network = getEvmNetworkByChainId(chain.evmChainId ?? -1)
             if (!network) return [native]
-            const res = await scanNetwork(owner, network)
-            const tokens = res.tokens.map(
-                (t): HeldToken => ({
+            const res = await scanNetwork(owner, network).catch((e) => {
+                console.warn('[bridge/tokens] token discovery failed:', e)
+                return { tokens: [] as Awaited<ReturnType<typeof scanNetwork>>['tokens'] }
+            })
+            const tokens: HeldToken[] = []
+            for (const t of res.tokens) {
+                let balance: bigint
+                try {
+                    balance = BigInt(t.raw)
+                } catch {
+                    // One malformed entry must not empty the whole list.
+                    console.warn(`[bridge/tokens] unreadable balance ${t.raw} for ${t.symbol}`)
+                    continue
+                }
+                tokens.push({
                     chainId: chain.id,
                     address: t.isNative ? NATIVE : t.address,
                     symbol: t.symbol,
                     name: t.name,
                     decimals: t.decimals,
-                    balance: BigInt(t.raw),
+                    balance,
                     verified: t.isNative || isRegistryToken(t.address, chain.evmChainId),
                 })
-            )
+            }
+            // The explorer's discovery is not the whole portfolio: the portfolio
+            // page also lists the default and custom token lists (WETH.e and
+            // the like), and the explorer can miss, throttle or fail. Read
+            // those on chain too, so every token the portfolio shows is here.
+            const seen = new Set(tokens.map((t) => t.address.toLowerCase()))
+            const extra = knownTokens(chain).filter((t) => !seen.has(t.address.toLowerCase()))
+            tokens.push(...(await readKnownTokens(chain, extra, owner)))
             if (!tokens.some((t) => t.address === NATIVE)) {
                 native.balance = (await readBalance(chain, native, owner)) ?? BigInt(0)
                 tokens.unshift(native)
@@ -114,6 +134,63 @@ export async function portfolioTokens(chain: BridgeChain, owner: string): Promis
         console.warn('[bridge/tokens] portfolio unavailable:', e)
         return [native]
     }
+}
+
+interface KnownToken {
+    address: string
+    symbol?: string
+    name?: string
+    decimals?: number
+}
+
+/** Tokens the wallet tracks on `chain` besides explorer discovery: the registry and the default/custom token lists. */
+function knownTokens(chain: BridgeChain): KnownToken[] {
+    const out = new Map<string, KnownToken>()
+    for (const t of registryTokens(chain)) out.set(t.address.toLowerCase(), { address: t.address })
+    try {
+        const assets = useAssetsStore()
+        for (const t of [...(assets.erc20Tokens || []), ...(assets.erc20TokensCustom || [])]) {
+            const d = t?.data
+            if (!d?.address || Number(d.chainId) !== chain.evmChainId) continue
+            const decimals = parseInt(String(d.decimals))
+            out.set(d.address.toLowerCase(), {
+                address: d.address,
+                symbol: d.symbol,
+                name: d.name,
+                decimals: Number.isInteger(decimals) ? decimals : undefined,
+            })
+        }
+    } catch {
+        // No store (outside the app): the registry alone.
+    }
+    return [...out.values()]
+}
+
+/** Balances of `list` on chain, a few at a time; held ones only, each failure skipped. */
+async function readKnownTokens(chain: BridgeChain, list: KnownToken[], owner: string): Promise<HeldToken[]> {
+    const out: HeldToken[] = []
+    let cursor = 0
+    const worker = async () => {
+        while (cursor < list.length) {
+            const t = list[cursor++]
+            try {
+                const probe: BridgeAsset = { chainId: chain.id, address: t.address, symbol: t.symbol ?? '', name: t.name ?? '', decimals: t.decimals ?? 18 }
+                const balance = (await readBalance(chain, probe, owner)) ?? BigInt(0)
+                if (balance <= BigInt(0)) continue
+                const asset = t.symbol && t.decimals !== undefined ? probe : await readTokenAsset(chain, t.address)
+                out.push({
+                    ...asset,
+                    name: asset.name || t.name || asset.symbol,
+                    balance,
+                    verified: isRegistryToken(t.address, chain.evmChainId),
+                })
+            } catch (e) {
+                console.warn(`[bridge/tokens] balance read failed for ${t.address}:`, e)
+            }
+        }
+    }
+    await Promise.all(Array.from({ length: Math.min(5, list.length) }, worker))
+    return out
 }
 
 function sortHeld(tokens: HeldToken[]): HeldToken[] {

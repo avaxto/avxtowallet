@@ -86,6 +86,8 @@ describe('scanNetwork', () => {
         const native = result.tokens.find((t) => t.isNative)
         expect(native).toBeDefined()
         expect(native!.symbol).toBe(ethereum.native.symbol)
+        // `raw` is base units for the native coin too, like every token's.
+        expect(native!.raw).toBe('1500000000000000000')
     })
 
     it('reports a failed explorer without throwing, and still shows the native balance', async () => {

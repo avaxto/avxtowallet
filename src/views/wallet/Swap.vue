@@ -216,7 +216,7 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, computed, onMounted, onUnmounted } from 'vue'
+import { defineComponent, ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useAssetsStore, useNotificationsStore } from '@/stores'
 import { BN } from '@/avalanche'
 import { bnToBig } from '@/helpers/helper'
@@ -225,7 +225,8 @@ import CopyText from '@/components/misc/CopyText.vue'
 import RegistryCheck from '@/components/misc/RegistryCheck.vue'
 import Spinner from '@/components/misc/Spinner.vue'
 import TokenListPicker from '@/components/misc/TokenListPicker.vue'
-import { useHeldErc20Tokens, HeldToken } from '@/composables/useHeldErc20Tokens'
+import type { HeldToken } from '@/composables/useHeldErc20Tokens'
+import { useSwapSourceTokens } from '@/composables/useSwapSourceTokens'
 import {
     getQuote,
     executeSwap,
@@ -267,13 +268,11 @@ export default defineComponent({
          */
         const signer = computed(() => activeEvmSigner())
 
-        // Source list: ONLY tokens the wallet currently holds (native AVAX +
-        // any ERC20 with a positive balance), merging the assets store
-        // ("Default Assets") with tokens auto-discovered via the
-        // Glacier/chainkit SDK ("All Assets") — same merged list the
-        // transfer page's token picker uses, so neither omits what the
-        // other shows.
-        const { tokens: heldTokens, loading: sdkLoading, refresh: refreshHeldTokens } = useHeldErc20Tokens()
+        // Source list: ONLY tokens the wallet currently holds on the signer's
+        // chain. Avalanche tab: the C-Chain list the transfer picker uses.
+        // EVM tab: the portfolio page's multi-network scan, narrowed to the
+        // selected network (Ethereum, Base, …).
+        const { tokens: heldTokens, loading: sdkLoading, refresh: refreshHeldTokens } = useSwapSourceTokens()
 
         const tokenInAddr = ref('')
         const tokenOutAddr = ref('')
@@ -305,6 +304,15 @@ export default defineComponent({
         }
 
         const quote = ref<SwapQuote | null>(null)
+
+        // The list arrives after mount (and changes with the network): keep
+        // the source on a held token, defaulting to the first one.
+        watch(heldTokens, (list) => {
+            if (list.some((t) => t.address === tokenInAddr.value)) return
+            tokenInAddr.value = list[0]?.address ?? ''
+            quote.value = null
+        })
+
         const isQuoting = ref(false)
         const isApproving = ref(false)
         const isSwapping = ref(false)

@@ -131,7 +131,8 @@ export async function scanNetwork(
                 name: network.native.name,
                 decimals: network.native.decimals,
                 balance: nativeBalance,
-                raw: nativeBalance.toFixed(),
+                // Base units, like every token's `raw` — `nativeBalance` is scaled.
+                raw: nativeBalance.times(Big(10).pow(network.native.decimals)).toFixed(0),
                 isNative: true,
                 network,
             })

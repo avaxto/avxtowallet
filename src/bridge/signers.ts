@@ -18,11 +18,29 @@ import { SolanaWallet } from '@/platforms/solana/wallet'
 import { BitcoinWallet } from '@/platforms/bitcoin/wallet'
 import type { BridgeChain, BridgeSigners } from './types'
 
+/**
+ * The signed-in Avalanche wallet's C-Chain address, or ''. While there is one,
+ * it is the wallet's only EVM identity on the bridge: the one the portfolio
+ * tab shows. A session the EVM tab holds for some other account (an extension,
+ * an earlier phrase) must not slip in as the sender or the signer.
+ */
+function avalancheEvmAddress(): string {
+    const avalanche = useMainStore().avalancheWallet as any
+    const hex = avalanche?.getEvmAddress?.() ?? avalanche?.ethAddress
+    return hex ? (String(hex).startsWith('0x') ? String(hex) : `0x${hex}`) : ''
+}
+
 function evmSigner(chain: BridgeChain): EvmSigner | null {
     // The active tab's signer first (the Avalanche tab's is its C-Chain), then
-    // the EVM tab's even while another tab is in front.
+    // the EVM tab's even while another tab is in front — but only one for the
+    // Avalanche wallet's own address when that wallet is signed in.
+    const own = avalancheEvmAddress().toLowerCase()
     const candidates = [activeEvmSigner(), getPlatform('evm')?.getEvmSigner?.() ?? null]
-    return candidates.find((s) => s && s.network.evmChainId === chain.evmChainId) ?? null
+    return (
+        candidates.find(
+            (s) => s && s.network.evmChainId === chain.evmChainId && (!own || s.address.toLowerCase() === own)
+        ) ?? null
+    )
 }
 
 function solanaWallet(chain: BridgeChain): SolanaWallet | null {
@@ -51,15 +69,12 @@ export function canSignOn(chain: BridgeChain): boolean {
 /**
  * The wallet's own receiving address on `chain`, if a session has one — the
  * default recipient. An EVM address is the same on every EVM chain, so any
- * EVM session (the EVM tab, or the Avalanche wallet's C-Chain key) serves.
+ * EVM session serves — the Avalanche wallet's C-Chain key first, the one the
+ * portfolio shows, and the EVM tab's only when no Avalanche wallet is signed in.
  */
 export function ownAddressOn(chain: BridgeChain): string {
     if (chain.kind === 'evm') {
-        const evm = getPlatform('evm')?.getActiveWallet()?.getPrimaryAddress()
-        if (evm) return evm
-        const avalanche = useMainStore().avalancheWallet as any
-        const hex = avalanche?.getEvmAddress?.() ?? avalanche?.ethAddress
-        return hex ? (String(hex).startsWith('0x') ? String(hex) : `0x${hex}`) : ''
+        return avalancheEvmAddress() || getPlatform('evm')?.getActiveWallet()?.getPrimaryAddress() || ''
     }
     if (chain.kind === 'solana') {
         const w = getPlatform('solana')?.getActiveWallet()
