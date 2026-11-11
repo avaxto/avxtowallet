@@ -208,7 +208,7 @@ h1 {
     font-size: 12px;
     font-weight: bold;
     background-color: var(--secondary-color);
-    color: #fff;
+    color: var(--platform-on-accent, #fff);
     padding: 3px 10px;
     border-radius: 12px;
     letter-spacing: 0.5px;

@@ -1251,12 +1251,12 @@ h2 {
 
     &.active .step_circle {
         background: var(--secondary-color);
-        color: #fff;
+        color: var(--platform-on-accent, #fff);
     }
 
     &.done .step_circle {
         background: var(--secondary-color);
-        color: #fff;
+        color: var(--platform-on-accent, #fff);
         opacity: 0.6;
     }
 }

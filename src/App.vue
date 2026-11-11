@@ -215,7 +215,7 @@ export default {
     font-size: 0.8em;
     padding: 6px 12px;
     background-color: var(--secondary-color);
-    color: #fff;
+    color: var(--platform-on-accent, #fff);
 
     a {
         color: #fff;

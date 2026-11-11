@@ -221,7 +221,7 @@ export default defineComponent({
         position: absolute;
         content: 'TEST';
         background-color: var(--secondary-color);
-        color: #fff;
+        color: var(--platform-on-accent, #fff);
         font-size: 9px;
         font-weight: bold;
         padding: 2px 6px;

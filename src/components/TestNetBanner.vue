@@ -29,7 +29,7 @@ export default defineComponent({
 $h: 24px;
 .network_warning {
     background-color: var(--secondary-color);
-    color: #fff;
+    color: var(--platform-on-accent, #fff);
     font-size: 13px;
     text-align: center;
     position: fixed;

@@ -33,7 +33,14 @@ import type { EvmSigner } from '@/evm/signer'
  * the invariant in `@/evm/signer`.
  */
 export function activeEvmSigner(): EvmSigner | null {
-    return useActivePlatformStore().activePlatform?.getEvmSigner?.() ?? null
+    const store = useActivePlatformStore()
+    // `getEvmSigner()` reads a platform's wallet mirror, which Vue does not
+    // track (the EVM tab's is a module variable). Reading `activeWallet` — kept
+    // reactive by `walletEpoch`, bumped on every wallet rebind — makes any
+    // computed calling this re-run on a network or account switch. Without it
+    // a page kept the signer, and so the chain, it first saw.
+    void store.activeWallet
+    return store.activePlatform?.getEvmSigner?.() ?? null
 }
 
 /** Same, but throws with a message worth showing when there is no signer. */

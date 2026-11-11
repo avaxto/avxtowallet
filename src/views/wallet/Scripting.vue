@@ -728,7 +728,7 @@ export default defineComponent({
 
     &.primary {
         background: var(--secondary-color);
-        color: #fff;
+        color: var(--platform-on-accent, #fff);
     }
 
     &.danger {

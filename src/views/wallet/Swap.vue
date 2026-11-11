@@ -64,6 +64,7 @@
                             <TokenListPicker
                                 :tokens="heldTokens"
                                 :selected-address="tokenInAddr"
+                                :selected-chain-id="signer ? signer.network.evmChainId : null"
                                 :loading="sdkLoading"
                                 @select="selectTokenIn"
                             ></TokenListPicker>
@@ -239,6 +240,7 @@ import {
     SwapQuote,
 } from '@/js/ArenaSwap'
 import { activeEvmSigner } from '@/platforms/evmSigner'
+import { useEvmStore } from '@/platforms/evm/store'
 import { explorerName } from '@/evm/networkRegistry'
 import { authorizeWalletOp, AuthScope, SessionAuthCancelled } from '@/js/security/authorize'
 import {
@@ -290,10 +292,32 @@ export default defineComponent({
             tokenDropdownOpen.value = !tokenDropdownOpen.value
         }
 
-        const selectTokenIn = (t: HeldToken) => {
-            tokenInAddr.value = t.address
+        const evmStore = useEvmStore()
+
+        /** Held tokens on the signer's chain: the ones this swap can spend right now. */
+        const onChainTokens = computed((): HeldToken[] => {
+            const chainId = signer.value?.network.evmChainId
+            return heldTokens.value.filter((t) => !t.network || t.network.evmChainId === chainId)
+        })
+
+        const selectTokenIn = async (t: HeldToken) => {
             tokenDropdownOpen.value = false
             quote.value = null
+            // The EVM tab lists every network's holdings. A swap is same-chain
+            // and signs on the wallet's current network, so move there first.
+            if (t.network && signer.value && t.network.evmChainId !== signer.value.network.evmChainId) {
+                try {
+                    await evmStore.setNetwork(t.network.id)
+                } catch (e: any) {
+                    notifications.add({
+                        type: 'error',
+                        title: 'Network Switch Failed',
+                        message: e?.message || `Could not switch to ${t.network.name}.`,
+                    })
+                    return
+                }
+            }
+            tokenInAddr.value = t.address
         }
 
         const onDocumentClick = (e: MouseEvent) => {
@@ -307,7 +331,7 @@ export default defineComponent({
 
         // The list arrives after mount (and changes with the network): keep
         // the source on a held token, defaulting to the first one.
-        watch(heldTokens, (list) => {
+        watch(onChainTokens, (list) => {
             if (list.some((t) => t.address === tokenInAddr.value)) return
             tokenInAddr.value = list[0]?.address ?? ''
             quote.value = null
@@ -352,7 +376,7 @@ export default defineComponent({
         })
 
         const tokenIn = computed(
-            () => heldTokens.value.find((t) => t.address === tokenInAddr.value) || null
+            () => onChainTokens.value.find((t) => t.address === tokenInAddr.value) || null
         )
 
         const isBusy = computed(() => isQuoting.value || isApproving.value || isSwapping.value)
@@ -626,8 +650,8 @@ export default defineComponent({
 
         onMounted(() => {
             // Default the source to the first held token.
-            if (!tokenInAddr.value && heldTokens.value.length) {
-                tokenInAddr.value = heldTokens.value[0].address
+            if (!tokenInAddr.value && onChainTokens.value.length) {
+                tokenInAddr.value = onChainTokens.value[0].address
             }
             // Default the destination to AVXTO — this app's own token —
             // when the active chain actually has one. `activeEvmSigner()` is
@@ -995,7 +1019,7 @@ export default defineComponent({
     border: none;
     border-radius: 8px;
     background: var(--secondary-color);
-    color: #fff;
+    color: var(--platform-on-accent, #fff);
     font-size: 15px;
     font-weight: 600;
     cursor: pointer;

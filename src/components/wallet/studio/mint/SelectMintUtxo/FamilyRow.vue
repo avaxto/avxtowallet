@@ -188,7 +188,7 @@ export default defineComponent({
 
     &:hover {
         background-color: var(--secondary-color);
-        color: #fff !important;
+        color: var(--platform-on-accent, #fff) !important;
         border-color: transparent;
     }
 }

@@ -1260,7 +1260,7 @@ export default defineComponent({
     border: none;
     border-radius: 8px;
     background: var(--secondary-color);
-    color: #fff;
+    color: var(--platform-on-accent, #fff);
     font-size: 15px;
     font-weight: 600;
     cursor: pointer;

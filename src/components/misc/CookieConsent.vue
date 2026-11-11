@@ -80,7 +80,7 @@ export default defineComponent({
 
 .accept_btn {
     background-color: var(--secondary-color);
-    color: #fff;
+    color: var(--platform-on-accent, #fff);
 }
 
 .reject_btn {

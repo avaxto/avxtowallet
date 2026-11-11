@@ -145,7 +145,7 @@ input {
 
 .selected {
     background-color: var(--secondary-color);
-    color: #fff;
+    color: var(--platform-on-accent, #fff);
     border-radius: 4px;
 }
 </style>

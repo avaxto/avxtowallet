@@ -79,6 +79,11 @@ export default defineComponent({
             type: String,
             default: '',
         },
+        /** With tokens from several networks: the selected token's chain, so one native row is marked, not each. */
+        selectedChainId: {
+            type: Number as PropType<number | null>,
+            default: null,
+        },
         loading: {
             type: Boolean,
             default: false,
@@ -109,7 +114,8 @@ export default defineComponent({
             t.network ? `${t.network.evmChainId}:${t.address.toLowerCase()}` : t.address
 
         const isSelected = (t: HeldToken): boolean => {
-            return !!props.selectedAddress && t.address.toLowerCase() === props.selectedAddress.toLowerCase()
+            if (!props.selectedAddress || t.address.toLowerCase() !== props.selectedAddress.toLowerCase()) return false
+            return props.selectedChainId === null || !t.network || t.network.evmChainId === props.selectedChainId
         }
 
         return { searchQuery, filtered, tokenKey, isSelected }

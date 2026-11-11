@@ -209,7 +209,7 @@ export default defineComponent({
 .warn_row {
     padding: 14px;
     text-align: center;
-    color: #fff;
+    color: var(--platform-on-accent, #fff);
     background-color: var(--secondary-color);
 }
 

@@ -75,7 +75,7 @@ export default defineComponent({
 
 .warning_text {
     background-color: var(--secondary-color);
-    color: #fff;
+    color: var(--platform-on-accent, #fff);
     margin-top: 15px !important;
     padding: 4px 14px;
     border-radius: 3px;

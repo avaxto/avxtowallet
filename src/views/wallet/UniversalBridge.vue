@@ -1084,7 +1084,7 @@ export default defineComponent({
 
         &.on {
             background: var(--secondary-color);
-            color: #fff;
+            color: var(--platform-on-accent, #fff);
         }
     }
 }

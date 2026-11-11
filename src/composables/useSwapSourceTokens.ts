@@ -12,13 +12,13 @@ import { NATIVE_TOKEN_ADDRESS } from '@/js/ArenaSwap'
 import { useHeldErc20Tokens, type HeldToken } from './useHeldErc20Tokens'
 
 /**
- * What the active wallet holds on the chain its EVM signer is on: the tokens a
- * same-chain swap can spend.
+ * What the active wallet holds that a same-chain swap can spend.
  *
  * On the Avalanche tab this is `useHeldErc20Tokens` (C-Chain). On the EVM tab
  * it is the multi-network portfolio — the same store and scan the portfolio
- * page renders — narrowed to the signer's network, with the native coin keyed
- * by `NATIVE_TOKEN_ADDRESS` as the swap code expects.
+ * page renders — across every network, the signer's first, each token carrying
+ * its `network` (the page switches to it on pick). The native coin is keyed by
+ * `NATIVE_TOKEN_ADDRESS` as the swap code expects.
  */
 export function useSwapSourceTokens(): {
     tokens: ComputedRef<HeldToken[]>
@@ -35,8 +35,9 @@ export function useSwapSourceTokens(): {
     const evmTokens = computed((): HeldToken[] => {
         const s = signer.value
         if (!s) return []
+        const here = s.network.evmChainId
         return portfolio.tokens
-            .filter((t) => t.network.evmChainId === s.network.evmChainId && t.balance.gt(0))
+            .filter((t) => t.balance.gt(0))
             .map((t) => ({
                 address: t.isNative ? NATIVE_TOKEN_ADDRESS : t.address,
                 symbol: t.symbol,
@@ -47,14 +48,17 @@ export function useSwapSourceTokens(): {
                 isNative: t.isNative,
                 network: t.network,
             }))
+            // The signer's network first; picking one elsewhere switches to it.
+            .sort((a, b) => Number(b.network.evmChainId === here) - Number(a.network.evmChainId === here))
     })
 
     // The EVM portfolio is scanned on demand; share the portfolio page's scan.
     watch(
-        () => (isEvmTab.value && signer.value ? [signer.value.address, signer.value.network.isTestnet] : null),
+        () => (isEvmTab.value && signer.value ? `${signer.value.address}|${signer.value.network.isTestnet}` : ''),
         (key) => {
             if (!key) return
-            portfolio.ensureLoaded(key[0] as string, key[1] as boolean).catch((e) => {
+            const [address, testnet] = key.split('|')
+            portfolio.ensureLoaded(address, testnet === 'true').catch((e) => {
                 console.warn('[useSwapSourceTokens] portfolio scan failed:', e)
             })
         },

@@ -63,17 +63,22 @@ beforeEach(() => {
 })
 
 describe('swap source tokens', () => {
-    it("on the EVM tab, lists what the portfolio holds on the signer's network only", async () => {
+    it("on the EVM tab, lists every network's holdings, the signer's network first", async () => {
         const { tokens } = mount()
-        expect(tokens.value.map((t) => [t.symbol, t.address, t.isNative])).toEqual([
-            ['ETH', '0x0000000000000000000000000000000000000000', true],
-            ['USDC', '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48', false],
+        const rows = () => tokens.value.map((t) => [t.network!.evmChainId, t.symbol, t.address])
+        expect(rows()).toEqual([
+            [1, 'ETH', '0x0000000000000000000000000000000000000000'],
+            [1, 'USDC', '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48'],
+            [8453, 'ETH', '0x0000000000000000000000000000000000000000'],
+            [8453, 'BASED', '0xbase'],
         ])
         expect(portfolio.ensureLoaded).toHaveBeenCalledWith(ME, false)
 
         signerRef.value = { address: ME, network: net(8453) }
         await nextTick()
-        expect(tokens.value.map((t) => t.symbol)).toEqual(['ETH', 'BASED'])
+        expect(rows().map((r) => r[0])).toEqual([8453, 8453, 1, 1])
+        // A network switch is not a new wallet: no second scan.
+        expect(portfolio.ensureLoaded).toHaveBeenCalledTimes(1)
     })
 
     it('on the Avalanche tab, is the C-Chain held list and scans nothing', () => {
